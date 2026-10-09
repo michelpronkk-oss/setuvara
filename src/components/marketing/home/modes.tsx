@@ -36,7 +36,7 @@ export function Modes() {
                 <Label className="shrink-0">{String(index + 1).padStart(2, "0")} · {mode.label}</Label>
                 <p className="hidden text-[13px] text-ink/60 sm:block lg:text-right">{mode.audience}</p>
               </div>
-              <div className={`flex justify-center overflow-hidden rounded-[2rem] px-4 pt-8 ${stages[mode.slug]}`}><div className="-mb-16"><ModePhone slug={mode.slug} /></div></div>
+              <div className={`flex justify-center rounded-[2rem] px-4 py-7 sm:py-9 ${stages[mode.slug]}`}><div className="relative h-[476px] w-[230px] sm:h-[580px] sm:w-[280px]"><div className="absolute left-0 top-0 origin-top-left scale-[.82] sm:scale-100"><ModePhone slug={mode.slug} /></div></div></div>
             </div>
           ))}
         </div>
