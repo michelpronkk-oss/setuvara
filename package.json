@@ -7,7 +7,7 @@
     "e2e:local": "node scripts/run-local-e2e.mjs",
     "e2e:marketing": "node scripts/e2e-marketing.mjs",
     "email:build-assets": "node scripts/build-email-assets.mjs",
-    "email:test": "deno test --allow-env=NODE_ENV --config supabase/functions/send-email/deno.json supabase/functions/_shared/email.test.tsx",
+    "email:test": "deno test --allow-env=NODE_ENV --allow-read=src/lib/passport --config supabase/functions/send-email/deno.json supabase/functions/_shared/email.test.tsx",
     "email:preview": "deno run --allow-env=NODE_ENV --allow-write=.next/email-previews --config supabase/functions/send-email/deno.json supabase/functions/_shared/preview.tsx",
     "build": "next build",
     "start": "next start",

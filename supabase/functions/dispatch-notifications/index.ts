@@ -88,18 +88,41 @@ function notificationDetails(context: Context) {
     case "connection_recap": {
       const events = context.encounters;
       const eventName = events.find((event) => event.eventName)?.eventName;
+      const city = events.find((event) => event.city)?.city;
       return [
         { label: "count", value: String(events.length) },
         ...(eventName ? [{ label: "event", value: eventName }] : []),
+        ...(city ? [{ label: "city", value: city }] : []),
+        ...(events.length ? [{ label: "dates", value: dateRange(events.map((event) => event.createdAt)) }] : []),
         ...events.slice(0, 5).map((event, index) => ({ label: `person ${index + 1}`, value: event.otherName })),
         ...(events.length > 5 ? [{ label: "more", value: `+${events.length - 5}` }] : []),
       ];
     }
     case "guest_claimed": return context.claimedProfile ? [{ label: "name", value: context.claimedProfile.displayName }, { label: "username", value: `setuvara.com/${context.claimedProfile.username}` }] : undefined;
     case "passport_milestone": return context.milestone ? [{ label: "milestone", value: `${context.milestone.threshold} Connections` }, { label: "unlocked", value: new Date(context.milestone.unlockedAt).toISOString().slice(0, 10) }] : undefined;
-    case "passport_stamp": return context.stamps.map((stamp) => ({ label: "stamp", value: stamp.title }));
+    case "passport_stamp": {
+      const [first] = context.stamps;
+      return [
+        ...context.stamps.map((stamp) => ({ label: "stamp", value: stamp.title })),
+        ...(first?.subtitle ? [{ label: "stamp_subtitle", value: first.subtitle }] : []),
+        ...(first ? [{ label: "stamp_type", value: first.type }, { label: "stamp_date", value: first.earnedAt.slice(0, 10) }] : []),
+      ];
+    }
     default: return undefined;
   }
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "08–09 Oct 2026" style range (en dash) for recap emails; display only.
+function dateRange(values: string[]): string {
+  const dates = values.map((value) => new Date(value)).filter((date) => !Number.isNaN(date.getTime())).sort((a, b) => a.getTime() - b.getTime());
+  if (!dates.length) return "";
+  const fmt = (date: Date, withMonth = true, withYear = true) => `${String(date.getUTCDate()).padStart(2, "0")}${withMonth ? ` ${MONTHS[date.getUTCMonth()]}` : ""}${withYear ? ` ${date.getUTCFullYear()}` : ""}`;
+  const [start, end] = [dates[0], dates[dates.length - 1]];
+  if (start.toISOString().slice(0, 10) === end.toISOString().slice(0, 10)) return fmt(start);
+  if (start.getUTCFullYear() !== end.getUTCFullYear()) return `${fmt(start)}–${fmt(end)}`;
+  if (start.getUTCMonth() !== end.getUTCMonth()) return `${fmt(start, true, false)}–${fmt(end)}`;
+  return `${fmt(start, false, false)}–${fmt(end)}`;
 }
 
 function unsubscribeCategory(template: EmailTemplateKey): string {

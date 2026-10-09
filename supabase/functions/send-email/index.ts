@@ -4,7 +4,7 @@ import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { contentForAuth, renderEmail, type EmailTemplateKey } from "../_shared/email.tsx";
 
 type HookPayload = {
-  user?: { email?: string; new_email?: string };
+  user?: { email?: string; new_email?: string; user_metadata?: { username?: unknown } };
   email_data?: {
     email_action_type?: string;
     token?: string;
@@ -102,11 +102,17 @@ async function send(to: string, content: Parameters<typeof renderEmail>[0]): Pro
   return true;
 }
 
-async function sendAction(to: string, action: string, data: NonNullable<HookPayload["email_data"]>, hash: string, type: string) {
+async function sendAction(to: string, action: string, data: NonNullable<HookPayload["email_data"]>, hash: string, type: string, handle?: string) {
   const url = confirmationUrl(data, hash, type);
   if (!url) return false;
-  const content = contentForAuth({ template: AUTH_TYPES[action].template, url });
+  // Rendering only: the handle shows in the confirm email; contentForAuth re-validates it.
+  const content = contentForAuth({ template: AUTH_TYPES[action].template, url, handle, email: to });
   return send(to, content);
+}
+
+function handleFrom(payload: HookPayload): string | undefined {
+  const value = payload.user?.user_metadata?.username;
+  return typeof value === "string" && /^[a-z0-9_]{3,24}$/.test(value) ? value : undefined;
 }
 
 Deno.serve(async (request: Request) => {
@@ -163,7 +169,7 @@ Deno.serve(async (request: Request) => {
     const authType = AUTH_TYPES[action];
     const email = payload.user?.email;
     if (!authType || !isEmail(email) || !data.token_hash) return response(400, "Unsupported or invalid email event.");
-    return await sendAction(email, action, data, data.token_hash, authType.otpType) ? response(200) : response(502, "Email delivery failed.");
+    return await sendAction(email, action, data, data.token_hash, authType.otpType, handleFrom(payload)) ? response(200) : response(502, "Email delivery failed.");
   } catch {
     return response(502, "Email delivery failed.");
   }

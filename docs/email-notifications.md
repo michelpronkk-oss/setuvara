@@ -39,3 +39,12 @@ Preview-only URLs and names are fixtures. They are not written to application ta
 Owners manage optional email preferences at `/app/settings/notifications`. Security messages stay enabled. Confirmed signups enqueue one welcome email. Registered connection encounters enqueue up to three individual messages per recipient in a rolling hour; further encounters join a single recap scheduled one hour after the first event in that recap. Guest email entry alone produces no email. A guest-claim event can notify only the already-registered Setuvara member whose connection was claimed. Passport milestone and non-milestone stamp events are separately deduplicated.
 
 The only currently dispatched product templates are lifecycle, connection, and Passport notifications. Creator and Business templates are preview fixtures only.
+
+## Visual system
+
+All templates render through `supabase/functions/_shared/email.tsx`: one 600px Paper column (fluid to 360), 48px gutters (22px on phones), a live-text `setuvara` header with the coral mark and a category signal (SECURITY, PRODUCT, CONNECTION, REWARD, SETUVARA), a coral-dash mono eyebrow, a Bricolage headline (54/53, 40/39 on phones), one product object, one 56px CTA (ink for security and product, coral for people, rewards and lifecycle) and a live-text footer.
+
+- The only images are `public/email/setuvara-mark.png` (coral) and the 60° cut corners `cut-paper.png` / `cut-ink.png`, rebuilt from the brand paths with `npm run email:build-assets`. With images blocked the cut falls back to a square corner and every name, place, date, number, stamp, CTA and fallback URL stays live text.
+- Dark mode swaps Paper and Ink, keeps body copy at #D6D3CB, flips objects to Paper and keeps coral unchanged. Outlook desktop gets a square VML button.
+- The email milestone ladder mirrors `src/lib/passport/rewards.ts`; `npm run email:test` fails if they drift, and rejects em dashes in any subject, preview or body.
+- Template changes reach production only after both Edge Functions are redeployed to the verified Setuvara project and `main` is deployed to setuvara.com (which serves `/email/*.png`).
