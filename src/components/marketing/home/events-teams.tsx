@@ -9,12 +9,12 @@ export function Events() {
   return (
     <section aria-labelledby="events-title" className="scroll-mt-16 bg-coral" id="events">
       <Shell className="flex flex-col gap-10 py-16 sm:gap-14 sm:py-28 lg:gap-20 lg:py-36">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
           <div className="flex flex-col gap-5">
             <Label>For events</Label>
-            <Display className="text-[clamp(52px,8vw,132px)] leading-[0.84]"><span id="events-title">Your identity for this moment.</span></Display>
+            <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="events-title">Your identity for this moment.</span></Display>
           </div>
-          <p className="max-w-[30rem] text-[17px] leading-[1.5] sm:text-[19px]">Set it before. Share it in the room. Remember everyone after.</p>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] sm:text-[20px] lg:text-[22px]">Set it before. Share it in the room. Remember everyone after.</p>
         </div>
 
         <ol aria-label="Event Mode before, during and after" className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-1 sm:scroll-px-8 [scrollbar-width:none] sm:-mx-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0" tabIndex={0}>
@@ -99,8 +99,8 @@ export function Teams() {
       <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-16 sm:gap-12 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3"><Label>For teams</Label><LaterTag>In development</LaterTag></div>
-          <Display className="text-[clamp(44px,5.6vw,92px)] leading-[0.9]"><span id="teams-title">Built for people. Ready for teams.</span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-ink/70">Your company’s Business Mode, worn by your people.</p>
+          <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="teams-title">Built for people. Ready for teams.</span></Display>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Your company’s Business Mode, worn by your people.</p>
           <ul className="border-t border-ink/15">
             {teamCapabilities.map((item) => (
               <li className="flex items-center justify-between gap-4 border-b border-ink/15 py-3 text-[15px] sm:py-3.5" key={item}>

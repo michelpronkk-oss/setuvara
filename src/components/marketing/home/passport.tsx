@@ -18,12 +18,12 @@ export function Passport() {
   return (
     <section aria-labelledby="passport-title" className="scroll-mt-16 bg-[#e8e2d4]" id="passport">
       <Shell className="flex flex-col gap-10 py-16 sm:gap-14 sm:py-28 lg:gap-20 lg:py-36">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2 lg:items-end lg:gap-16">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
           <div className="flex flex-col gap-5">
             <Label className="text-[#a43d36]">Passport</Label>
-            <Display className="text-[clamp(44px,6vw,96px)] leading-[0.88]"><span id="passport-title">Every connection leaves a&nbsp;stamp.</span></Display>
+            <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="passport-title">Every connection leaves a&nbsp;stamp.</span></Display>
           </div>
-          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Milestones, events, cities, countries. Private, never a leaderboard.</p>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Milestones, events, cities, countries. Private, never a leaderboard.</p>
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-8">

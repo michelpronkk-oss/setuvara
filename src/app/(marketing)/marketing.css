@@ -91,3 +91,34 @@ html:has(.marketing-root) {
   0%, 35% { background-position: 100% 0; }
   70%, 100% { background-position: 0% 0; }
 }
+
+/* Mobile menu: a wipe down from the header, then a staggered reveal of its links. */
+.mobile-menu {
+  visibility: hidden;
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 560ms cubic-bezier(.7,0,.2,1), visibility 0s linear 560ms;
+}
+
+.mobile-menu.is-open {
+  visibility: visible;
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 620ms cubic-bezier(.7,0,.2,1), visibility 0s;
+}
+
+.mobile-menu-item {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.mobile-menu.is-open .mobile-menu-item {
+  opacity: 1;
+  transform: none;
+  transition: opacity 500ms ease, transform 640ms cubic-bezier(.2,.8,.2,1);
+  transition-delay: calc(180ms + var(--i, 0) * 55ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu, .mobile-menu.is-open { clip-path: none; transition: visibility 0s; }
+  .mobile-menu-item, .mobile-menu.is-open .mobile-menu-item { transform: none; transition: opacity 150ms ease; transition-delay: 0s; }
+}

@@ -16,9 +16,9 @@ export function Modes() {
   return (
     <section aria-labelledby="modes-title" className="scroll-mt-16 bg-white" id="modes">
       <Shell className="flex flex-col gap-8 py-16 sm:gap-12 sm:py-28 lg:gap-16 lg:py-36">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2 lg:items-end lg:gap-16">
-          <Display className="text-[clamp(44px,5.8vw,92px)] leading-[0.9]"><span id="modes-title">Who you are depends on who you’re meeting.</span></Display>
-          <p className="max-w-[32rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Three Modes. One identity. Each shows only what you choose.</p>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
+          <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="modes-title">Who you are depends on who you’re meeting.</span></Display>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Three Modes. One identity. Each shows only what you choose.</p>
         </div>
 
         <div aria-hidden="true" className="flex items-center gap-3 sm:gap-4">

@@ -11,8 +11,8 @@ export function Physical() {
       <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-16 sm:gap-14 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3"><Label className="text-paper/60">Wallet & NFC</Label><LaterTag className="text-coral">Coming later</LaterTag></div>
-          <Display className="text-[clamp(44px,6vw,100px)] leading-[0.88]"><span id="physical-title">Digital by default. <span className="text-coral">Physical when you want it.</span></span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-paper/70">QR, link and share today. Wallet pass and NFC card next. Always the latest you.</p>
+          <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="physical-title">Digital by default. <span className="text-coral">Physical when you want it.</span></span></Display>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-paper/70 sm:text-[20px] lg:text-[22px]">QR, link and share today. Wallet pass and NFC card next. Always the latest you.</p>
         </div>
 
         <div aria-hidden="true" className="relative mx-auto flex min-h-[360px] w-full max-w-[560px] items-center justify-center sm:min-h-[460px]">

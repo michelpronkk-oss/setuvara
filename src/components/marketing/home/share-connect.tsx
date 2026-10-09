@@ -53,8 +53,8 @@ export function Share() {
         <div className="order-1 flex flex-col gap-8 lg:order-2">
           <div className="flex flex-col gap-5">
             <Label className="text-coral">Share</Label>
-            <Display className="text-[clamp(44px,5.6vw,88px)] leading-[0.9]"><span id="share-title">The right version, instantly.</span></Display>
-            <p className="max-w-[32rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Pick a Mode. Share it. They see only that version.</p>
+            <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="share-title">The right version, instantly.</span></Display>
+            <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Pick a Mode. Share it. They see only that version.</p>
           </div>
           <ul className="border-t border-ink/15">
             {channels.map((channel) => (
@@ -77,9 +77,9 @@ export function MeetConnect() {
   return (
     <section aria-labelledby="how-title" className="scroll-mt-16 bg-ink text-paper" id="how">
       <Shell className="flex flex-col gap-10 py-16 sm:gap-14 sm:py-28 lg:gap-20 lg:py-36">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
-          <Display className="text-[clamp(56px,8.4vw,136px)] leading-[0.84]"><span id="how-title">Meet.<br /><span className="text-coral">Connect.</span><br />Remember.</span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-paper/70 sm:text-[19px]">Scan. Tap. Saved with where and when.</p>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
+          <Display className="text-[clamp(52px,6vw,96px)] leading-[0.88]"><span id="how-title">Meet.<br /><span className="text-coral">Connect.</span><br />Remember.</span></Display>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-paper/70 sm:text-[20px] lg:text-[22px]">Scan. Tap. Saved with where and when.</p>
         </div>
 
         <ol className="grid gap-10 lg:grid-cols-3 lg:gap-8">
