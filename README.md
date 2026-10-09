@@ -16,6 +16,7 @@ public profiles.
 
 - Node.js 22 or newer
 - npm
+- Docker Desktop and Supabase CLI for local Auth E2E
 
 ## Getting started
 
@@ -32,6 +33,8 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 - `npm run build` creates a production build.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
+- `npm run e2e:local` runs the local signup, email confirmation, Identity, RLS,
+  routing, and responsive flow in Playwright.
 
 ## Environment
 
@@ -41,29 +44,56 @@ Git. The app uses the publishable key in browser and server-side SSR clients;
 never put a secret or service-role key in this application.
 
 Before using signup or the Identity editor, apply the SQL migrations in
-`supabase/migrations/` to the dedicated Setuvara Supabase project. For email
-confirmation, allow `/auth/callback` on the local and deployed app URLs in the
-Supabase Auth redirect URL settings. Published profiles use the canonical root
-URL `https://setuvara.com/[username]`; the legacy `/u/[username]` path
-permanently redirects there.
+`supabase/migrations/` to the dedicated Setuvara Supabase project. Signup
+confirmation uses `/auth/confirm` and the `token_hash` verification flow.
+Published profiles use the canonical root URL
+`https://setuvara.com/[username]`; the legacy `/u/[username]` path permanently
+redirects there.
 
 The non-product connectivity check is available at
 `/api/health/supabase`. It checks the Supabase Auth health endpoint and does
 not read or write database data.
+
+## Local Auth E2E
+
+Start the Setuvara local Supabase stack from this repository:
+
+```bash
+supabase start --exclude vector
+```
+
+Install Chromium into the ignored repository-local browser cache, then run the
+E2E flow:
+
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = ".playwright-browsers"
+npx playwright install chromium
+npm run e2e:local
+```
+
+The runner checks the Git root and local Supabase URL, builds the app with the
+local publishable key, starts a temporary production server on port 3014, and
+reads confirmation emails from Mailpit. Test accounts use generated
+`example.test` addresses and passwords; the local flow does not use hosted
+users or production keys.
 
 ## Project structure
 
 ```text
 proxy.ts
 supabase/
-└── migrations/
+├── config.toml          # Local Supabase stack and Auth settings
+├── functions/send-email/ # Supabase Auth Send Email Hook
+├── migrations/
     ├── 20261009010000_identity_vertical.sql
     └── 20261009025854_reserve_root_username_routes.sql
+└── templates/           # Local Auth email template
 src/
 └── app/
     ├── app/            # Redirects to the signed-in Identity editor
     ├── app/identity/   # Signed-in Identity editor and actions
-    ├── auth/callback/ # Email confirmation callback
+    ├── auth/callback/ # Legacy OAuth/code callback
+    ├── auth/confirm/  # Email token_hash confirmation
     ├── login/
     ├── signup/
     ├── [username]/   # Published public profile at the root URL

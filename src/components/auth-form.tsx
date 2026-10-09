@@ -58,6 +58,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           return;
         }
 
+        const confirmationUrl = new URL("/auth/confirm", window.location.origin);
+        confirmationUrl.searchParams.set("next", "/app/identity");
+
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -66,7 +69,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               username: normalizedUsername,
               display_name: normalizedDisplayName,
             },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/app/identity`,
+            emailRedirectTo: confirmationUrl.toString(),
           },
         });
 
@@ -182,7 +185,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       <p className="text-center text-sm text-slate-600">
         {isSignup ? "Already have an account? " : "New to Setuvara? "}
         <Link
-          className="font-semibold text-emerald-800 underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center font-semibold text-emerald-800 underline-offset-4 hover:underline"
           href={isSignup ? "/login" : "/signup"}
         >
           {isSignup ? "Sign in" : "Create an identity"}

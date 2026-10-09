@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
-import { addLink, deleteLink, saveIdentity, setPublished, signOut } from "./actions";
+import { addLink, deleteLink, saveIdentity, setLinkVisibility, setPublished, signOut } from "./actions";
 
 type IdentityPageProps = {
   searchParams: Promise<{ error?: string; saved?: string }>;
@@ -23,6 +23,7 @@ const savedMessages: Record<string, string> = {
   identity: "Identity saved.",
   link: "Link added.",
   link_removed: "Link removed.",
+  link_visibility: "Link visibility updated.",
   published: "Your public profile is live.",
   unpublished: "Your public profile is now private.",
 };
@@ -50,7 +51,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
       .order("sort_order"),
     supabase
       .from("profile_links")
-      .select("id, mode_id, title, url, sort_order")
+      .select("id, mode_id, title, url, sort_order, is_visible")
       .eq("profile_id", userId)
       .order("sort_order"),
   ]);
@@ -84,11 +85,11 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
     <main className="min-h-screen px-5 py-10 sm:px-8">
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between gap-4">
-          <Link className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-800" href="/">
+          <Link className="inline-flex min-h-11 items-center text-sm font-semibold uppercase tracking-[0.2em] text-emerald-800" href="/">
             Setuvara
           </Link>
           <form action={signOut}>
-            <button className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white" type="submit">
+            <button className="min-h-11 rounded-full border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-white" type="submit">
               Sign out
             </button>
           </form>
@@ -190,13 +191,27 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
                   {links
                     .filter((link) => link.mode_id === mode.id)
                     .map((link) => (
-                      <li className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2" key={link.id}>
-                        <a className="min-w-0 truncate text-sm font-medium text-emerald-800 underline-offset-4 hover:underline" href={link.url} rel="noreferrer" target="_blank">
+                      <li className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2" key={link.id}>
+                        <a className="min-h-11 min-w-0 flex-1 truncate py-3 text-sm font-medium text-emerald-800 underline-offset-4 hover:underline" href={link.url} rel="noreferrer" target="_blank">
                           {link.title}
                         </a>
+                        <span className={`text-xs font-medium ${link.is_visible ? "text-emerald-800" : "text-slate-500"}`}>
+                          {link.is_visible ? "Visible" : "Hidden"}
+                        </span>
+                        <form action={setLinkVisibility}>
+                          <input name="linkId" type="hidden" value={link.id} />
+                          <input name="isVisible" type="hidden" value={link.is_visible ? "false" : "true"} />
+                          <button
+                            aria-label={`${link.is_visible ? "Hide" : "Show"} ${link.title}`}
+                            className="min-h-11 rounded-lg px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                            type="submit"
+                          >
+                            {link.is_visible ? "Hide" : "Show"}
+                          </button>
+                        </form>
                         <form action={deleteLink}>
                           <input name="linkId" type="hidden" value={link.id} />
-                          <button aria-label={`Remove ${link.title}`} className="text-xs font-semibold text-slate-500 hover:text-rose-700" type="submit">
+                          <button aria-label={`Remove ${link.title}`} className="min-h-11 rounded-lg px-3 text-xs font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-700" type="submit">
                             Remove
                           </button>
                         </form>
@@ -207,7 +222,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
                   <input name="modeId" type="hidden" value={mode.id} />
                   <input
                     aria-label={`${mode.label} link title`}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-emerald-600"
                     maxLength={60}
                     name="title"
                     placeholder="Link title"
@@ -215,13 +230,13 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
                   />
                   <input
                     aria-label={`${mode.label} link URL`}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-emerald-600"
                     name="url"
                     placeholder="https://example.com"
                     required
                     type="url"
                   />
-                  <button className="rounded-lg border border-emerald-800 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50" type="submit">
+                  <button className="min-h-11 rounded-lg border border-emerald-800 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50" type="submit">
                     Add link
                   </button>
                 </form>
@@ -239,13 +254,13 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
                 : "Your profile stays private until you publish it."}
             </p>
             {profile.is_published && (
-              <Link className="mt-3 inline-block font-semibold text-emerald-800 underline underline-offset-4" href={`/${profile.username}`}>
+              <Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-emerald-800 underline underline-offset-4" href={`/${profile.username}`}>
                 View your public profile
               </Link>
             )}
           </div>
           <form action={setPublished}>
-            <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+            <label className="flex min-h-11 items-center gap-3 text-sm font-medium text-slate-700">
               <input
                 className="size-5 accent-emerald-800"
                 defaultChecked={profile.is_published}

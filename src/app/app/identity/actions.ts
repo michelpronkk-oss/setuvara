@@ -144,6 +144,36 @@ export async function deleteLink(formData: FormData) {
   redirect("/app/identity?saved=link_removed");
 }
 
+export async function setLinkVisibility(formData: FormData) {
+  const { supabase, userId } = await getAuthenticatedClient();
+  const linkId = getText(formData, "linkId");
+  const isVisibleValue = formData.get("isVisible");
+
+  if (!uuidPattern.test(linkId) || (isVisibleValue !== "true" && isVisibleValue !== "false")) {
+    identityError("link_failed");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile) identityError("link_failed");
+
+  const { error } = await supabase
+    .from("profile_links")
+    .update({ is_visible: isVisibleValue === "true" })
+    .eq("id", linkId)
+    .eq("profile_id", userId);
+
+  if (error) identityError("link_failed");
+
+  revalidatePath("/app/identity");
+  revalidatePath(`/${profile.username}`);
+  redirect("/app/identity?saved=link_visibility");
+}
+
 export async function setPublished(formData: FormData) {
   const { supabase, userId } = await getAuthenticatedClient();
   const published = formData.get("published") === "on";
