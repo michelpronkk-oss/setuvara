@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
-const usernamePattern = /^[a-z0-9_]{3,24}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function getText(formData: FormData, key: string) {
@@ -31,11 +31,11 @@ function identityError(code: string): never {
 
 export async function saveIdentity(formData: FormData) {
   const { supabase, userId } = await getAuthenticatedClient();
-  const username = getText(formData, "username").toLowerCase();
+  const username = normalizeUsername(getText(formData, "username"));
   const displayName = getText(formData, "displayName");
   const bio = getText(formData, "bio");
 
-  if (!usernamePattern.test(username)) identityError("invalid_username");
+  if (!isAllowedUsername(username)) identityError("invalid_username");
   if (!displayName || displayName.length > 80 || bio.length > 280) {
     identityError("invalid_identity");
   }
@@ -66,8 +66,8 @@ export async function saveIdentity(formData: FormData) {
   if (error) identityError("save_failed");
 
   revalidatePath("/app/identity");
-  revalidatePath(`/u/${currentProfile.username}`);
-  revalidatePath(`/u/${username}`);
+  revalidatePath(`/${currentProfile.username}`);
+  revalidatePath(`/${username}`);
   redirect("/app/identity?saved=identity");
 }
 
@@ -164,7 +164,7 @@ export async function setPublished(formData: FormData) {
   if (error) identityError("publish_failed");
 
   revalidatePath("/app/identity");
-  revalidatePath(`/u/${profile.username}`);
+  revalidatePath(`/${profile.username}`);
   redirect(`/app/identity?saved=${published ? "published" : "unpublished"}`);
 }
 

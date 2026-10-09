@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
 type AuthFormProps = {
   mode: "login" | "signup";
 };
-
-const usernamePattern = /^[a-z0-9_]{3,24}$/;
 
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
@@ -31,10 +30,10 @@ export function AuthForm({ mode }: AuthFormProps) {
       const supabase = createClient();
 
       if (isSignup) {
-        const normalizedUsername = username.trim().toLowerCase();
+        const normalizedUsername = normalizeUsername(username);
         const normalizedDisplayName = displayName.trim();
 
-        if (!usernamePattern.test(normalizedUsername)) {
+        if (!isAllowedUsername(normalizedUsername)) {
           setMessage("Choose a username with 3–24 letters, numbers, or underscores.");
           return;
         }
@@ -135,7 +134,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               />
             </span>
             <span className="block text-xs font-normal text-slate-500">
-              Your public address will be setuvara.com/u/your-username.
+              Your public address will be setuvara.com/your-username.
             </span>
           </label>
         </>

@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.playwright-browsers/
+/supabase/.temp/
 
 # next.js
 /.next/

@@ -40,10 +40,12 @@ Setuvara Supabase project URL and publishable key. `.env.local` is ignored by
 Git. The app uses the publishable key in browser and server-side SSR clients;
 never put a secret or service-role key in this application.
 
-Before using signup or the Identity editor, apply the SQL migration in
+Before using signup or the Identity editor, apply the SQL migrations in
 `supabase/migrations/` to the dedicated Setuvara Supabase project. For email
 confirmation, allow `/auth/callback` on the local and deployed app URLs in the
-Supabase Auth redirect URL settings.
+Supabase Auth redirect URL settings. Published profiles use the canonical root
+URL `https://setuvara.com/[username]`; the legacy `/u/[username]` path
+permanently redirects there.
 
 The non-product connectivity check is available at
 `/api/health/supabase`. It checks the Supabase Auth health endpoint and does
@@ -55,14 +57,17 @@ not read or write database data.
 proxy.ts
 supabase/
 └── migrations/
-    └── 20261009010000_identity_vertical.sql
+    ├── 20261009010000_identity_vertical.sql
+    └── 20261009025854_reserve_root_username_routes.sql
 src/
 └── app/
-    ├── app/identity/  # Signed-in Identity editor and actions
+    ├── app/            # Redirects to the signed-in Identity editor
+    ├── app/identity/   # Signed-in Identity editor and actions
     ├── auth/callback/ # Email confirmation callback
     ├── login/
     ├── signup/
-    ├── u/[username]/ # Published public profile
+    ├── [username]/   # Published public profile at the root URL
+    ├── u/[username]/ # Permanent redirect to the root username URL
     ├── api/health/   # Non-product Supabase connectivity check
     ├── globals.css
     ├── layout.tsx

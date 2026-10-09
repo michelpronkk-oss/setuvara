@@ -239,7 +239,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityPageP
                 : "Your profile stays private until you publish it."}
             </p>
             {profile.is_published && (
-              <Link className="mt-3 inline-block font-semibold text-emerald-800 underline underline-offset-4" href={`/u/${profile.username}`}>
+              <Link className="mt-3 inline-block font-semibold text-emerald-800 underline underline-offset-4" href={`/${profile.username}`}>
                 View your public profile
               </Link>
             )}
