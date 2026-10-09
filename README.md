@@ -34,6 +34,9 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 - `npm run build` creates a production build.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
+- `npm run test:billing` tests the plan registry and subscription access rules.
+- `supabase db lint --local` lints local SQL migrations.
+- `supabase test db` runs local database RLS and privilege checks.
 - `npm run e2e:local` runs local signup, email confirmation, the three-Mode
   editor, media/link permissions, sharing, RLS, routing, and responsive flows
   in Playwright, plus the marketing route/navigation checks.
@@ -47,12 +50,12 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 
 ## Environment
 
-Copy `.env.example` to `.env.local` and replace its placeholders with the
-Setuvara Supabase project URL and publishable key. `.env.local` is ignored by
-Git. The Next.js application uses the publishable key in browser and server-side
-SSR clients and never needs a service-role credential. The notification Edge
-Function uses the server-managed Supabase service-role environment only on the
-server; never expose it to browser code.
+Copy `.env.example` to `.env.local` and set the Setuvara Supabase URL and
+publishable key. `.env.local` is ignored by Git. Browser and SSR clients use
+only the publishable key. A server-only Supabase service-role key is required
+for billing reconciliation and notification delivery; never prefix it with
+`NEXT_PUBLIC_` or expose it to browser code. Billing provider configuration is
+documented in [`docs/billing.md`](docs/billing.md).
 
 Guest Connect uses a random HttpOnly browser session. The database stores only
 its SHA-256 hash; guest email is never returned by the public API. Registered

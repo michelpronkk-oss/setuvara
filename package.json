@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "e2e:local": "node scripts/run-local-e2e.mjs",
+    "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs",
+    "test:billing:integration": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-billing-database.ps1",
+    "smoke:billing:hosted": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-hosted-billing.ps1",
+    "billing:validate-live": "node scripts/validate-live-dodo-products.mjs",
     "e2e:marketing": "node scripts/e2e-marketing.mjs",
     "email:build-assets": "node scripts/build-email-assets.mjs",
     "email:test": "deno test --allow-env=NODE_ENV --allow-read=src/lib/passport --config supabase/functions/send-email/deno.json supabase/functions/_shared/email.test.tsx",
@@ -20,6 +24,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.3",
+    "dodopayments": "2.54.2",
     "next": "16.4.0",
     "qrcode.react": "^4.2.0",
     "react": "19.3.0",
@@ -27,6 +32,7 @@
     "react-easy-crop": "^6.2.4",
     "react-email": "^6.11.1",
     "react-hook-form": "^7.89.0",
+    "server-only": "0.0.1",
     "simple-icons": "16.34.0",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"
