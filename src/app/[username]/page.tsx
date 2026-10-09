@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 
+import { marketingFontClasses } from "@/app/(marketing)/fonts";
+import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
@@ -114,11 +116,11 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
-      <div className="mx-auto w-full max-w-lg">
-        <header className="mb-5 flex items-center justify-between px-1">
-          <Link className="inline-flex min-h-11 items-center text-xs font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
-          {owner && <span className="rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold tracking-wide">YOUR PROFILE</span>}
+    <main className={`${marketingFontClasses} min-h-dvh bg-[#f5f4ef] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10`}>
+      <div className="mx-auto w-full max-w-[440px]">
+        <header className="mb-4 flex items-center justify-between px-2">
+          <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>
+          {owner && <Link className="inline-flex min-h-10 items-center rounded-full bg-[#0d0d0d] px-4 text-xs font-semibold text-[#f5f4ef]" href={`/app/identity?mode=${slug}`}>Edit profile</Link>}
         </header>
         <ProfileRenderer
           profile={identity}
@@ -136,9 +138,11 @@ export default async function PublicProfilePage({ params, searchParams }: Public
             shareBackModes={shareBackModes}
             guestSessionName={guestSessionName}
             alreadyConnected={Boolean(connectedState?.connection_id)}
+            label={slug === "event" && typeof mode.settings.eventName === "string" && mode.settings.eventName.trim() ? `Connect at ${mode.settings.eventName.trim()}` : "Connect"}
+            tone={slug === "personal" ? "accent" : "ink"}
           /> : undefined}
         />
-        <p className="mt-5 text-center text-[10px] font-medium tracking-wide text-black/40">Your identity, your context. Shared with Setuvara.</p>
+        <p className="mt-5 text-center font-label text-[10px] tracking-wide text-black/40">Your identity, your context. Shared with Setuvara.</p>
       </div>
     </main>
   );

@@ -70,7 +70,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       initialMode={requestedMode}
       initialModes={modes}
       initialProfile={profile}
-      initialSection={query.section ?? "profile"}
+      initialSection={query.section ?? "home"}
       unlockedRewards={(passport.rewards ?? []).map((reward) => reward.id)}
       selectedRewards={passport.preferences ?? {}}
       celebrationThreshold={unseenMilestone}
