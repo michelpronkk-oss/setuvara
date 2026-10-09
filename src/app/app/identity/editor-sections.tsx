@@ -114,7 +114,7 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
         <div aria-label="Open full-screen preview" className="relative h-[196px] w-[104px] shrink-0 cursor-pointer overflow-hidden rounded-[18px] bg-[#0D0D0D] p-[3px]" onClick={onPreview} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPreview(); } }} role="button" tabIndex={0}>
           <div aria-hidden="true" className="pointer-events-none h-full overflow-hidden rounded-[15px]">
             <div className="w-[360px] origin-top-left scale-[0.272] [&>article]:rounded-none" inert>
-              <ProfileRenderer mode={mode} profile={profile} selectedRewards={api.selectedRewards} viewerState="owner" />
+              <ProfileRenderer mode={mode} profile={profile} selectedRewards={api.selectedRewards} sound="off" viewerState="owner" />
             </div>
           </div>
         </div>

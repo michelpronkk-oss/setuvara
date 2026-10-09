@@ -5,7 +5,9 @@ import type { ReactNode } from "react";
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { PhotoGlow } from "@/components/profile/photo-glow";
 import { ProfileBlocks } from "@/components/profile/profile-blocks";
+import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MeetMark } from "@/components/marketing/brand";
+import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
 
@@ -23,6 +25,11 @@ type ProfileRendererProps = {
   selectedRewards?: Partial<Record<string, string>>;
   /** Public page on a phone: the Full Bleed photo runs to the screen edges. */
   bleed?: boolean;
+  /**
+   * Soundtrack handling. "preview" (editor previews): never starts on its own and leaves the
+   * visitor's choice alone. "off" (thumbnails): no soundtrack at all.
+   */
+  sound?: "live" | "preview" | "off";
 };
 
 type Tone = { bg: string; ink: string; sub: string; chip: string; line: string; dark: boolean };
@@ -54,9 +61,11 @@ export function profileTone(mode: ProfileMode) {
 
 export function ProfileRenderer(props: ProfileRendererProps) {
   const { mode } = props;
-  if (mode.slug === "event") return <EventProfile {...props} />;
-  if (mode.slug === "business") return <BusinessProfile {...props} />;
-  return <PersonalProfile {...props} />;
+  const profile = mode.slug === "event" ? <EventProfile {...props} /> : mode.slug === "business" ? <BusinessProfile {...props} /> : <PersonalProfile {...props} />;
+  // No soundtrack: the profile renders exactly as it always has, with no sound UI at all.
+  const track = props.sound === "off" ? null : soundtrackBlock(mode);
+  if (!track) return profile;
+  return <SoundtrackProvider block={track} key={`${mode.id}:${track.id}:${String(track.data.url)}`} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
 function PersonalProfile(props: ProfileRendererProps) {
@@ -97,6 +106,7 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
         <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
         <p className="mt-1.5 font-label text-[12px] tracking-[0.04em]" style={{ color: tone.sub }}>@{profile.username}</p>
         {(meta || profile.bio) && <p className="mx-auto mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
+        <SoundtrackCue accent={accent} accentInk={inkOn(accent)} align="center" className="mx-auto mt-4 max-w-[360px]" tone={tone} />
 
         {icons.length > 0 && (
           <ul aria-label="Links" className="mt-5 flex flex-wrap justify-center gap-2.5">
@@ -169,6 +179,7 @@ function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visito
         <h1 className="break-words font-display text-[clamp(2.6rem,11vw,3.4rem)] font-extrabold leading-[0.9] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
         {(meta || profile.bio) && <p className="mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
         {setting(mode, "note") && <p className="mt-3 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
+        <SoundtrackCue accent={accent} accentInk={inkOn(accent)} className="mt-4" tone={tone} />
 
         <OwnerOrVisitorActions accent={accent} accentInk={inkOn(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
         {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
@@ -221,6 +232,7 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
             {setting(mode, "role") && <p className="mt-1.5 text-[13px]" style={{ color: tone.sub }}>{setting(mode, "role")}</p>}
           </div>
         </div>
+        <SoundtrackCue accent={accent} accentInk={inkOn(accent)} className="mt-4" tone={tone} />
         {setting(mode, "hereToMeet") && (
           <div className="mt-5 border-t-2 pt-4" style={{ borderColor: tone.ink }}>
             <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>Here to meet</p>
@@ -288,6 +300,7 @@ function BusinessProfile({ profile, mode, viewerState, previewAsVisitor, visitor
           </dl>
         ) : <p className="mt-3 text-[15px] font-semibold leading-snug">{facts.map(([, value]) => value).join(" · ")}</p>)}
         {setting(mode, "description") && <p className="mt-4 text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "description")}</p>}
+        <SoundtrackCue accent={tone.ink} accentInk={tone.bg} className="mt-4" tone={tone} />
 
         {owner ? (
           <OwnerOrVisitorActions accent={tone.ink} accentInk={tone.bg} editLabel="Edit Business Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner tone={tone} />

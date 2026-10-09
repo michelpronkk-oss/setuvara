@@ -8,6 +8,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
 import { ProfileBlocks } from "@/components/profile/profile-blocks";
+import { SpeakerIcon } from "@/components/profile/soundtrack";
 import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
 import type { BlockKind, ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type LinkPreview } from "@/lib/blocks/media";
@@ -143,13 +144,16 @@ export function ContentSection({ api }: { api: EditorApi }) {
 function BlockRow({ api, block, onEdit }: { api: EditorApi; block: ProfileBlock; onEdit: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const meta = BLOCKS[block.kind];
+  const soundtrack = Boolean(block.is_soundtrack);
   return (
-    <li className={`min-w-0 rounded-[18px] bg-white transition-shadow ${isDragging ? "relative z-10 shadow-[0_24px_50px_-20px_rgba(13,13,13,.45),inset_0_0_0_2px_#0D0D0D]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null), transition }}>
+    <li className={`min-w-0 rounded-[18px] bg-white transition-shadow ${isDragging ? "relative z-10 shadow-[0_24px_50px_-20px_rgba(13,13,13,.45),inset_0_0_0_2px_#0D0D0D]" : soundtrack ? "shadow-[inset_0_0_0_1.5px_#0D0D0D]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null), transition }}>
       <div className="flex min-h-[70px] items-center gap-1.5 py-2 pl-1.5 pr-2 sm:gap-2 sm:pr-3">
         <DragHandle {...attributes} {...listeners} />
-        <BlockIcon className="size-10 rounded-xl bg-[#0D0D0D] text-[#F5F4EF]" path={meta.icon} />
+        {soundtrack
+          ? <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#FF5A4F] text-[#0D0D0D]"><SpeakerIcon className="size-5" on /></span>
+          : <BlockIcon className="size-10 rounded-xl bg-[#0D0D0D] text-[#F5F4EF]" path={meta.icon} />}
         <button className={`min-w-0 flex-1 px-1.5 text-left ${block.is_visible ? "" : "opacity-50"}`} onClick={onEdit} type="button">
-          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{meta.name}</span>{!block.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
+          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{meta.name}</span>{soundtrack && <span className="shrink-0 rounded-full bg-[#0D0D0D] px-2 py-0.5 font-label text-[9px] tracking-[0.1em] text-[#F5F4EF]"><span className="max-sm:hidden">PROFILE </span>SOUNDTRACK</span>}{!block.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
           <span className="block truncate text-[13px] text-black/55">{blockSummary(block)}</span>
         </button>
         <Toggle label={`${block.is_visible ? "Hide" : "Show"} ${meta.name}`} on={block.is_visible} onChange={() => api.toggleBlock(block)} />
@@ -286,6 +290,7 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
   const [touched, setTouched] = useState<Set<string>>(() => new Set(block ? Object.keys(block.data) : []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [soundtrack, setSoundtrack] = useState(Boolean(block?.is_soundtrack));
   const meta = BLOCKS[kind];
   const str = (key: string) => (typeof data[key] === "string" ? String(data[key]) : "");
   const set = (key: string, value: unknown) => { setData((current) => ({ ...current, [key]: value })); setTouched((current) => new Set(current).add(key)); setError(null); };
@@ -301,19 +306,23 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
     const next = { ...data };
     const fill = (key: string, value: string | null | undefined) => { if (value && !touched.has(key) && !String(next[key] ?? "").trim()) next[key] = value; };
     if (kind === "video") { fill("title", preview.title); if (!touched.has("thumbnail") && preview.image) next.thumbnail = preview.image; }
-    if (kind === "music") fill("title", preview.title);
+    if (kind === "music") { fill("title", preview.title); if (!touched.has("image") && preview.image && !next.image) next.image = preview.image; }
     if (kind === "feature") { fill("title", preview.title); fill("description", preview.description); fill("siteName", preview.siteName); if (!touched.has("image") && preview.image && !next.image) next.image = preview.image; }
     return next;
   }, [data, kind, preview, touched]);
 
   const check = validateBlock(kind, kind === "feature" ? { ...merged, url: normalizedUrl } : merged);
+  const music = kind === "music" ? parseMusic(url) : null;
+  const canSoundtrack = Boolean(music?.soundtrack) && (block?.is_visible ?? true);
+  const currentSoundtrack = (api.mode.blocks ?? []).find((item) => item.is_soundtrack && item.id !== block?.id);
   const previewBlock: ProfileBlock | null = check.ok ? { id: "preview", kind, data: check.data, is_visible: true, sort_order: 0 } : null;
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
     if (!check.ok) { setError(check.message); return; }
     setSaving(true);
-    const failure = block ? await api.updateBlock(block, check.data) : await api.addBlock(kind, check.data);
+    const options = kind === "music" ? { soundtrack: soundtrack && canSoundtrack } : {};
+    const failure = block ? await api.updateBlock(block, check.data, options) : await api.addBlock(kind, check.data, options);
     setSaving(false);
     if (failure) setError(failure);
     else onClose();
@@ -339,6 +348,20 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
           <Field hint={loading ? "Looking it up…" : preview?.title ? "Details filled in" : failed || preview ? "Add a title below if you like" : meta.hint} htmlFor="block-url" label="Link">
             <TextInput autoCapitalize="none" autoFocus={!url} id="block-url" inputMode="url" onChange={(event) => set("url", event.target.value)} placeholder={kind === "video" ? "youtube.com/watch?v=… or a TikTok link" : kind === "music" ? "open.spotify.com/…" : "https://"} spellCheck={false} value={str("url")} />
           </Field>
+        )}
+        {kind === "music" && (
+          <div className="rounded-2xl bg-white p-3.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className={`grid size-10 shrink-0 place-items-center rounded-xl transition-colors ${soundtrack && canSoundtrack ? "bg-[#FF5A4F] text-[#0D0D0D]" : "bg-[#F5F4EF] text-black/60"}`}><SpeakerIcon className="size-5" on={soundtrack && canSoundtrack} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold leading-snug" id="soundtrack-label">Use as profile soundtrack</span>
+                <span className="block text-[13px] leading-5 text-black/55">Plays when visitors choose Sound on.</span>
+              </span>
+              <Toggle disabled={!canSoundtrack} label="Use as profile soundtrack" on={soundtrack && canSoundtrack} onChange={setSoundtrack} />
+            </div>
+            {!canSoundtrack && url && <p className="mt-2.5 text-[13px] leading-5 text-black/55">{block && !block.is_visible ? "Show this block to use it as the soundtrack." : music ? "Use a track, album or playlist link to make this the soundtrack." : "Paste a music link first."}</p>}
+            {soundtrack && canSoundtrack && currentSoundtrack && <p className="mt-2.5 text-[13px] leading-5 text-black/55">Replaces “{blockSummary(currentSoundtrack)}” as the {modeMeta[api.slug].name} Mode soundtrack.</p>}
+          </div>
         )}
         {kind === "video" && <>
           <Field hint="Optional" htmlFor="block-title" label="Title"><TextInput id="block-title" maxLength={120} onChange={(event) => set("title", event.target.value)} value={String(merged.title ?? "")} /></Field>

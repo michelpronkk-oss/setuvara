@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { useMediaFocus, useSoundtrack, useSoundtrackHost } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
-import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES } from "@/lib/blocks/media";
+import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type MusicMedia, type VideoMedia } from "@/lib/blocks/media";
+import { createSoundCloudPlayer, createSpotifyPlayer, spotifyUri, watchYouTubeIframe, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
 
 export type BlockTone = { bg: string; ink: string; sub: string; chip: string; line: string; dark: boolean };
 
@@ -24,8 +26,8 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
   const data = block.data;
   const surface = { background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` };
   switch (block.kind) {
-    case "video": return <VideoBlock accent={accent} accentInk={accentInk} data={data} tone={tone} />;
-    case "music": return <MusicBlock data={data} tone={tone} />;
+    case "video": return <VideoBlock accent={accent} accentInk={accentInk} data={data} id={block.id} tone={tone} />;
+    case "music": return <MusicBlock accent={accent} accentInk={accentInk} block={block} tone={tone} />;
     case "feature": return <FeatureBlock data={data} tone={tone} />;
     case "services": {
       const items = (data.items as { name?: string; detail?: string; price?: string }[] | undefined) ?? [];
@@ -67,10 +69,13 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
   }
 }
 
-function VideoBlock({ data, tone, accent, accentInk }: { data: Record<string, unknown>; tone: BlockTone; accent: string; accentInk: string }) {
+function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: Record<string, unknown>; tone: BlockTone; accent: string; accentInk: string }) {
   const [playing, setPlaying] = useState(false);
   const media = parseVideo(str(data.url));
+  const focus = useMediaFocus(`video:${id}`);
   if (!media) return null;
+  const start = () => { focus.claim(); setPlaying(true); };
+  const close = () => { setPlaying(false); focus.release(); };
   const thumbnail = str(data.thumbnail) || media.thumbnail;
   const title = str(data.title);
   const caption = str(data.caption);
@@ -79,9 +84,11 @@ function VideoBlock({ data, tone, accent, accentInk }: { data: Record<string, un
     <figure>
       <div className={`relative overflow-hidden rounded-2xl ${frame}`} style={{ background: tone.dark ? "#1C1C1C" : "#0D0D0D" }}>
         {playing ? (
-          <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowFullScreen className="absolute inset-0 size-full" referrerPolicy="strict-origin-when-cross-origin" src={media.embedUrl} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} />
+          focus.active ? <TrackedVideo media={media} onClose={close} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} videoId={id} /> : (
+            <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowFullScreen className="absolute inset-0 size-full" referrerPolicy="strict-origin-when-cross-origin" src={media.embedUrl} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} />
+          )
         ) : (
-          <button aria-label={`Play ${title || "video"}`} className="group absolute inset-0 size-full" onClick={() => setPlaying(true)} type="button">
+          <button aria-label={`Play ${title || "video"}`} className="group absolute inset-0 size-full" onClick={start} type="button">
             {/* eslint-disable-next-line @next/next/no-img-element -- third-party video thumbnail */}
             {thumbnail && <img alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" referrerPolicy="no-referrer" src={thumbnail} />}
             <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
@@ -100,19 +107,182 @@ function VideoBlock({ data, tone, accent, accentInk }: { data: Record<string, un
   );
 }
 
-function MusicBlock({ data, tone }: { data: Record<string, unknown>; tone: BlockTone }) {
-  const media = parseMusic(str(data.url));
-  if (!media) return null;
+/**
+ * A video that started while the Mode has a soundtrack: it holds the
+ * soundtrack while it plays and hands it back when it pauses, ends or closes.
+ */
+function TrackedVideo({ media, title, videoId, onClose }: { media: VideoMedia; title: string; videoId: string; onClose: () => void }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const focus = useMediaFocus(`video:${videoId}`);
+  const youtube = media.provider === "youtube";
+  const vimeo = media.provider === "vimeo";
+  const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
+  const src = youtube ? `${media.embedUrl}&enablejsapi=1&origin=${encodeURIComponent(origin)}` : vimeo ? `${media.embedUrl}&api=1` : media.embedUrl;
+
+  useEffect(() => {
+    const iframe = ref.current;
+    if (!iframe) return;
+    let player: Player | null = null;
+    let cancelled = false;
+    const on = (event: PlayerEvent) => {
+      if (event === "playing") focus.claim(() => player?.pause());
+      else if (event === "paused" || event === "ended") focus.release();
+    };
+    if (youtube) {
+      watchYouTubeIframe(iframe, (event) => { if (!cancelled) on(event); }).then((ready) => { player = ready; }).catch(() => { /* close button still releases */ });
+      return () => { cancelled = true; };
+    }
+    if (vimeo) {
+      const post = (method: string, value?: string) => iframe.contentWindow?.postMessage(JSON.stringify(value ? { method, value } : { method }), "https://player.vimeo.com");
+      player = { play: () => post("play"), pause: () => post("pause"), restart: () => post("setCurrentTime", "0"), destroy: () => {} };
+      const onLoad = () => ["play", "pause", "finish"].forEach((name) => post("addEventListener", name));
+      const onMessage = (message: MessageEvent) => {
+        if (message.origin !== "https://player.vimeo.com" || message.source !== iframe.contentWindow) return;
+        let data: { event?: string } = {};
+        try { data = typeof message.data === "string" ? JSON.parse(message.data) : message.data; } catch { return; }
+        if (data.event === "ready") onLoad();
+        else if (data.event === "play") on("playing");
+        else if (data.event === "pause") on("paused");
+        else if (data.event === "finish") on("ended");
+      };
+      iframe.addEventListener("load", onLoad);
+      window.addEventListener("message", onMessage);
+      return () => { iframe.removeEventListener("load", onLoad); window.removeEventListener("message", onMessage); };
+    }
+  }, [focus, vimeo, youtube]);
+
   return (
-    <iframe
-      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-      className="w-full overflow-hidden rounded-2xl border-0"
-      height={media.height}
-      loading="lazy"
-      src={media.embedUrl}
-      style={{ colorScheme: "normal", background: tone.chip }}
-      title={str(data.title) || `${MUSIC_PROVIDER_NAMES[media.provider]} player`}
-    />
+    <>
+      <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowFullScreen className="absolute inset-0 size-full" ref={ref} referrerPolicy="strict-origin-when-cross-origin" src={src} title={title} />
+      <button aria-label="Close video" className="absolute right-2.5 top-2.5 z-10 grid size-9 place-items-center rounded-full bg-black/55 text-lg leading-none text-white backdrop-blur-md transition hover:bg-black/75" onClick={onClose} type="button">×</button>
+    </>
+  );
+}
+
+function MusicBlock({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string }) {
+  const soundtrack = useSoundtrack();
+  const setHost = useSoundtrackHost();
+  const url = str(block.data.url);
+  // Stable across renders: tracked players are created once per link.
+  const media = useMemo(() => parseMusic(url), [url]);
+  if (!media) return null;
+  const title = str(block.data.title) || `${MUSIC_PROVIDER_NAMES[media.provider]} player`;
+  const isSoundtrack = soundtrack?.blockId === block.id;
+
+  let player: ReactNode;
+  if (media.provider === "youtube_music") player = <YouTubeMusicCard accent={accent} accentInk={accentInk} block={block} media={media} tone={tone} />;
+  else if (isSoundtrack && soundtrack.hostsEmbed && soundtrack.status !== "unavailable") player = <div className="overflow-hidden rounded-2xl" ref={setHost ?? undefined} style={{ minHeight: media.height, background: tone.chip }} />;
+  else if (soundtrack && !isSoundtrack && (media.provider === "spotify" || media.provider === "soundcloud")) player = <TrackedMusic media={media} title={title} tone={tone} trackId={block.id} />;
+  else player = <MusicFrame media={media} title={title} tone={tone} untracked={soundtrack ? block.id : undefined} />;
+
+  if (!isSoundtrack) return player;
+  return (
+    <section className={`scroll-mt-24 rounded-[20px] transition-shadow duration-500 ${soundtrack.needsDirectTap ? "shadow-[0_0_0_3px_#FF5A4F]" : ""}`} id={`soundtrack-${block.id}`}>
+      <p className="mb-1.5 flex items-center gap-1.5 px-1 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>
+        <span aria-hidden="true" className={`size-1.5 rounded-full ${soundtrack.status === "playing" ? "[animation:sound-breathe_2.4s_ease-in-out_infinite]" : ""}`} style={{ background: soundtrack.status === "playing" ? "#FF5A4F" : tone.sub }} />
+        Profile soundtrack
+      </p>
+      {player}
+    </section>
+  );
+}
+
+/** The provider's own embed, exactly as before. Marked when a soundtrack needs to notice it playing. */
+function MusicFrame({ media, title, tone, untracked }: { media: MusicMedia; title: string; tone: BlockTone; untracked?: string }) {
+  return (
+    <div data-sound-untracked={untracked}>
+      <iframe
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        className="block w-full overflow-hidden rounded-2xl border-0"
+        height={media.height}
+        loading="lazy"
+        src={media.embedUrl}
+        style={{ colorScheme: "normal", background: tone.chip }}
+        title={title}
+      />
+    </div>
+  );
+}
+
+/** Spotify or SoundCloud on a Mode with a soundtrack: same embed, but the soundtrack hears it play. */
+function TrackedMusic({ media, title, tone, trackId }: { media: MusicMedia; title: string; tone: BlockTone; trackId: string }) {
+  const host = useRef<HTMLDivElement>(null);
+  const focus = useMediaFocus(`music:${trackId}`);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const element = host.current;
+    if (!element) return;
+    let player: Player | null = null;
+    let cancelled = false;
+    const on = (event: PlayerEvent) => {
+      if (cancelled) return;
+      if (event === "playing") focus.claim(() => player?.pause());
+      else if (event !== "blocked") focus.release();
+    };
+    const job = media.provider === "spotify" ? createSpotifyPlayer(element, spotifyUri(media.type, media.id), media.height, on) : createSoundCloudPlayer(element, media.embedUrl, media.height, title, on);
+    job.then((ready) => { if (cancelled) ready.destroy(); else player = ready; }).catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; player?.destroy(); element.replaceChildren(); focus.release(); };
+  }, [focus, media, title]);
+
+  if (failed) return <MusicFrame media={media} title={title} tone={tone} untracked={trackId} />;
+  return <div className="overflow-hidden rounded-2xl" ref={host} style={{ minHeight: media.height, background: tone.chip }} />;
+}
+
+/**
+ * YouTube Music reads as a track, not a video: cover, title and one play
+ * button. Click to play like any music block; as a soundtrack, the button
+ * is the soundtrack's own Sound on / off.
+ */
+function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: ProfileBlock; media: MusicMedia; tone: BlockTone; accent: string; accentInk: string }) {
+  const soundtrack = useSoundtrack();
+  const setHost = useSoundtrackHost();
+  const isSoundtrack = soundtrack?.blockId === block.id && soundtrack.status !== "unavailable";
+  const focus = useMediaFocus(`music:${block.id}`);
+  const [open, setOpen] = useState(false);
+  const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
+  const frame = useRef<HTMLIFrameElement>(null);
+  const title = str(block.data.title) || "YouTube Music";
+  const cover = str(block.data.image) || media.artwork;
+  const playing = isSoundtrack ? soundtrack.status === "playing" : open;
+
+  useEffect(() => {
+    const iframe = frame.current;
+    if (!open || !iframe || !focus.active) return;
+    let cancelled = false;
+    let player: Player | null = null;
+    watchYouTubeIframe(iframe, (event) => {
+      if (cancelled) return;
+      if (event === "playing") focus.claim(() => player?.pause());
+      else if (event === "paused") focus.release();
+      else if (event === "ended") { focus.release(); setOpen(false); }
+    }).then((ready) => { player = ready; }).catch(() => { /* Stop still releases */ });
+    return () => { cancelled = true; };
+  }, [focus, open]);
+
+  const toggle = () => {
+    if (isSoundtrack) return soundtrack.on && !soundtrack.waiting ? soundtrack.soundOff() : soundtrack.soundOn();
+    if (open) { setOpen(false); focus.release(); } else { focus.claim(); setOpen(true); }
+  };
+
+  return (
+    <section className="flex items-center gap-3 rounded-2xl p-2.5" data-media style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+      <div className="relative aspect-video w-[118px] shrink-0 overflow-hidden rounded-xl bg-[#0D0D0D]">
+        {/* eslint-disable-next-line @next/next/no-img-element -- YouTube cover art */}
+        {cover && <img alt="" className="absolute inset-0 size-full object-cover" loading="lazy" referrerPolicy="no-referrer" src={cover} />}
+        {isSoundtrack && <div className={`absolute inset-0 transition-opacity duration-500 ${playing || soundtrack.needsDirectTap ? "opacity-100" : "opacity-0"} ${soundtrack.needsDirectTap ? "" : "[&_iframe]:pointer-events-none"}`} ref={setHost ?? undefined} />}
+        {!isSoundtrack && open && <iframe allow="autoplay; encrypted-media" className="pointer-events-none absolute inset-0 size-full" ref={frame} referrerPolicy="strict-origin-when-cross-origin" src={`${media.embedUrl}${focus.active ? `&enablejsapi=1&origin=${encodeURIComponent(origin)}` : ""}`} title={title} />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-label text-[10px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>YouTube Music</p>
+        <p className="mt-0.5 line-clamp-2 text-[14px] font-semibold leading-snug">{title}</p>
+      </div>
+      <button aria-label={playing ? `Pause ${title}` : `Play ${title}`} className="grid size-11 shrink-0 place-items-center rounded-full transition hover:scale-105" onClick={toggle} style={{ background: accent, color: accentInk }} type="button">
+        {playing
+          ? <svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+          : <svg aria-hidden="true" className="ml-0.5 size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5L7 4.5Z" /></svg>}
+      </button>
+    </section>
   );
 }
 

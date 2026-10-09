@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { BlockKind, ModeSlug, ProfileBlock } from "@/components/profile/types";
+import type { BlockKind, ModeSlug, ProfileBlock, ProfileMode } from "@/components/profile/types";
 import { parseMusic, parseVideo } from "./media";
 
 /**
@@ -21,8 +21,9 @@ export const blockSchemas = {
     thumbnail: httpsImage,
   }),
   music: z.object({
-    url: z.string().trim().max(500).refine((value) => Boolean(parseMusic(value)), "Paste a Spotify, Apple Music or SoundCloud link."),
+    url: z.string().trim().max(500).refine((value) => Boolean(parseMusic(value)), "Paste a Spotify, YouTube Music, SoundCloud, Apple Music or Deezer link."),
     title: text(120).optional(),
+    image: httpsImage,
   }),
   feature: z.object({
     url: z.string().trim().max(1000).regex(/^https?:\/\//i, "Paste a full link starting with https://"),
@@ -52,7 +53,7 @@ export type BlockMeta = { kind: BlockKind; name: string; hint: string; icon: str
 
 export const BLOCKS: Record<BlockKind, BlockMeta> = {
   video: { kind: "video", name: "Video", hint: "YouTube, TikTok, Vimeo, Loom, Reels", icon: "M8 5.5v13l10.5-6.5L8 5.5Z" },
-  music: { kind: "music", name: "Music", hint: "Spotify, Apple Music, SoundCloud", icon: "M9 18.5a2.5 2.5 0 1 1-2.5-2.5c.4 0 .8.1 1 .2V5.8l11-2.3v11.9a2.5 2.5 0 1 1-2.5-2.4c.4 0 .7.1 1 .2V7.1L9 8.8v9.7Z" },
+  music: { kind: "music", name: "Music", hint: "Spotify, YouTube Music, SoundCloud, Apple Music", icon: "M9 18.5a2.5 2.5 0 1 1-2.5-2.5c.4 0 .8.1 1 .2V5.8l11-2.3v11.9a2.5 2.5 0 1 1-2.5-2.4c.4 0 .7.1 1 .2V7.1L9 8.8v9.7Z" },
   feature: { kind: "feature", name: "Featured link", hint: "Big card with image, from any link", icon: "M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13Zm2 .5v7h12V6H6Zm0 9v1.5h8V15H6Z" },
   services: { kind: "services", name: "Services", hint: "What you offer, with optional prices", icon: "M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h10v2H4v-2Z" },
   highlights: { kind: "highlights", name: "Highlights", hint: "Up to 3 numbers that prove it", icon: "M5 19V11h3v8H5Zm5.5 0V5h3v14h-3Zm5.5 0v-6h3v6h-3Z" },
@@ -68,12 +69,22 @@ export const MODE_BLOCKS: Record<ModeSlug, BlockKind[]> = {
 
 export const BLOCK_LIMIT = 12;
 
+/**
+ * Loads blocks with their soundtrack status. Before the soundtrack migration
+ * reaches a database the column is missing; blocks then load without it.
+ */
+export async function selectBlocks<T>(columns: string, query: (columns: string) => PromiseLike<{ data: T | null; error: { code?: string } | null }>) {
+  const result = await query(`${columns}, is_soundtrack`);
+  return result.error?.code === "42703" ? query(columns) : result;
+}
+
 export function emptyBlock(kind: BlockKind): Record<string, unknown> {
   switch (kind) {
     case "services": return { heading: "Services", items: [{ name: "", detail: "", price: "" }] };
     case "highlights": return { items: [{ value: "", label: "" }, { value: "", label: "" }] };
     case "testimonial": return { quote: "", author: "", role: "" };
     case "feature": return { url: "", title: "", description: "", image: null, siteName: "", cta: "" };
+    case "music": return { url: "", title: "", image: null };
     default: return { url: "", title: "" };
   }
 }
@@ -101,6 +112,12 @@ export function readableBlocks(rows: unknown[] | null | undefined): ProfileBlock
     if (!block || !(block.kind in blockSchemas)) return [];
     return blockSchemas[block.kind].safeParse(block.data).success ? [block] : [];
   });
+}
+
+/** The block that is this Mode's soundtrack, if it can actually play as one. */
+export function soundtrackBlock(mode: Pick<ProfileMode, "blocks">): ProfileBlock | null {
+  const block = mode.blocks?.find((item) => item.is_soundtrack && item.is_visible && item.kind === "music");
+  return block && parseMusic(typeof block.data.url === "string" ? block.data.url : "")?.soundtrack ? block : null;
 }
 
 export function blockSummary(block: Pick<ProfileBlock, "kind" | "data">): string {
