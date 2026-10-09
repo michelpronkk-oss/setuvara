@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
@@ -26,6 +27,107 @@ let imageSaved = false;
 
 function localUserClient() {
   return createClient(supabaseUrl, publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+function localSql(sql) {
+  const cli = resolve(process.cwd(), "node_modules/supabase/dist/supabase.js");
+  const output = execFileSync(process.execPath, [cli, "db", "query", "--local", "--output-format", "json", sql], { encoding: "utf8" });
+  const jsonStart = output.indexOf("{");
+  assert(jsonStart >= 0, "Local Setuvara SQL query should return JSON");
+  return JSON.parse(output.slice(jsonStart)).rows;
+}
+
+async function validateEmailNotifications(page, ownerAccount, otherAccount, ownerId) {
+  const adminKey = process.env.E2E_LOCAL_SERVICE_KEY;
+  assert(adminKey, "Local service key is required only to inspect and clean local notification jobs");
+  const admin = createClient(supabaseUrl, adminKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  await page.goto(`${appUrl}/app/settings/notifications`);
+  await page.getByRole("heading", { name: "Email preferences" }).waitFor();
+  const productUpdates = page.getByLabel("Product updates");
+  assert.equal(await productUpdates.isChecked(), false, "Product updates must default off");
+  await productUpdates.check();
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("status").filter({ hasText: "Preferences saved." }).waitFor();
+  const ownerAuth = await authenticatedClient(ownerAccount);
+  const savedPreferences = await ownerAuth.client.from("notification_preferences").select("product_updates").eq("user_id", ownerId).single();
+  assert.ifError(savedPreferences.error);
+  assert.equal(savedPreferences.data.product_updates, true, "Owner preference changes should persist");
+
+  const otherAuth = await authenticatedClient(otherAccount);
+  const otherRead = await otherAuth.client.from("notification_preferences").select("user_id").eq("user_id", ownerId);
+  assert.ifError(otherRead.error);
+  assert.equal(otherRead.data.length, 0, "Another account cannot read notification preferences");
+  const otherUpdate = await otherAuth.client.from("notification_preferences").update({ product_updates: true }).eq("user_id", ownerId).select("user_id");
+  assert.ifError(otherUpdate.error);
+  assert.equal(otherUpdate.data.length, 0, "Another account cannot modify notification preferences");
+  await otherAuth.client.auth.signOut();
+
+  await productUpdates.uncheck();
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("status").filter({ hasText: "Preferences saved." }).waitFor();
+  const unsubToken = randomBytes(32).toString("base64url");
+  const unsubHash = createHash("sha256").update(unsubToken).digest("hex");
+  const stored = await admin.rpc("record_email_unsubscribe_token", {
+    p_user_id: ownerId,
+    p_category: "product_updates",
+    p_hash_hex: unsubHash,
+  });
+  assert.ifError(stored.error);
+  assert.equal(stored.data, true, "Server-side unsubscribe token should be stored as a hash");
+  const unsubscribed = await page.request.post(`${appUrl}/api/email/unsubscribe?token=${unsubToken}`, {
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    data: "List-Unsubscribe=One-Click",
+  });
+  assert.equal(unsubscribed.status(), 200, "One-click unsubscribe endpoint should accept an RFC 8058 POST");
+  assert.match(await unsubscribed.text(), /You’re unsubscribed/);
+  const reused = await page.request.post(`${appUrl}/api/email/unsubscribe?token=${unsubToken}`, {
+    headers: { "content-type": "application/x-www-form-urlencoded" }, data: "List-Unsubscribe=One-Click",
+  });
+  assert.equal(reused.status(), 400, "One-click unsubscribe tokens must be single use");
+  const persistedUnsubscribe = await ownerAuth.client.from("notification_preferences").select("product_updates").eq("user_id", ownerId).single();
+  assert.ifError(persistedUnsubscribe.error);
+  assert.equal(persistedUnsubscribe.data.product_updates, false, "Unsubscribe must persist only the scoped email category");
+
+  const queueCounts = localSql(`
+    select template_key, count(*)::integer as count
+    from private.email_deliveries
+    where recipient_user_id = '${ownerId}'::uuid
+    group by template_key
+  `);
+  const counts = Object.fromEntries(queueCounts.map((row) => [row.template_key, Number(row.count)]));
+  for (const key of ["welcome", "new_connection", "connection_recap", "guest_claimed", "passport_milestone", "passport_stamp"]) {
+    assert((counts[key] ?? 0) > 0, `The local notification outbox should include ${key}`);
+  }
+  const emailColumns = localSql(`
+    select count(*)::integer as count
+    from information_schema.columns
+    where table_schema = 'private'
+      and table_name in ('email_deliveries', 'notification_events')
+      and column_name in ('email', 'recipient_email', 'email_address')
+  `);
+  assert.equal(Number(emailColumns[0].count), 0, "The durable outbox must not snapshot a recipient email address");
+  const eventDuplicates = localSql(`select count(*)::integer as count, count(distinct event_key)::integer as unique_count from private.notification_events`);
+  assert.equal(Number(eventDuplicates[0].count), Number(eventDuplicates[0].unique_count), "Notification source events must be idempotent");
+
+  const claimed = await admin.rpc("claim_email_deliveries", { p_limit: 50 });
+  assert.ifError(claimed.error);
+  assert(claimed.data.length > 0, "The local dispatcher claim RPC should lease due outbox rows");
+  const welcome = claimed.data.find((delivery) => delivery.recipient_user_id === ownerId && delivery.template_key === "welcome");
+  assert(welcome, "The verified owner welcome message should be ready for dispatch");
+  const context = await admin.rpc("get_email_delivery_context", { p_delivery_id: welcome.id });
+  assert.ifError(context.error);
+  assert.equal(context.data.recipient.email, ownerAccount.email, "Recipient address should resolve from the current confirmed Auth user at send time");
+  assert.equal(context.data.recipient.confirmed, true);
+  assert.equal(context.data.profile.username, ownerAccount.username);
+
+  for (const delivery of claimed.data) {
+    const suppressed = await admin.rpc("suppress_email_delivery", { p_delivery_id: delivery.id });
+    assert.ifError(suppressed.error);
+    assert.equal(suppressed.data, true, "Local test claims should be safely closed without sending external email");
+  }
+  await ownerAuth.client.auth.signOut();
+  console.log("PASS notification preferences RLS, one-click unsubscribe, deduplicated outbox events, recap grouping, current recipient resolution, and safe local queue claims");
 }
 
 async function waitForConfirmation(email) {
@@ -833,6 +935,7 @@ try {
     await dialog.waitFor();
     await dialog.getByRole("heading", { name: `${threshold} connections.` }).waitFor();
     await dialog.getByRole("button", { name: "Keep going" }).click();
+    await dialog.waitFor({ state: "detached" });
     await page.reload();
   }
   await page.getByRole("dialog").waitFor({ state: "detached" });
@@ -922,6 +1025,8 @@ try {
     await expectNoHorizontalOverflow(page, `Passport ${width}x${height}`);
   }
   console.log("PASS signup/login, editor, preview, Connections list/detail, public profile, and Connect flow at phone/tablet/desktop sizes");
+
+  await validateEmailNotifications(page, owner, other, ownerId);
 
   await ownerBrowser.context.close(); await otherBrowser.context.close(); await anonContext.close();
   console.log("E2E_LOCAL_RESULT=PASS");

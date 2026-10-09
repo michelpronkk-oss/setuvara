@@ -39,13 +39,20 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
   in Playwright, plus the marketing route/navigation checks.
 - `npm run e2e:marketing` runs the marketing route checks against the local app
   at `http://127.0.0.1:3014`.
+- `npm run email:test` renders and checks shared auth and notification templates.
+- `npm run email:preview` writes deterministic, non-dispatching email previews
+  to `.next/email-previews/`.
+- `npm run email:build-assets` regenerates the email mark from the existing
+  Setuvara brand paths.
 
 ## Environment
 
 Copy `.env.example` to `.env.local` and replace its placeholders with the
 Setuvara Supabase project URL and publishable key. `.env.local` is ignored by
-Git. The app uses the publishable key in browser and server-side SSR clients;
-never put a secret or service-role key in this application.
+Git. The Next.js application uses the publishable key in browser and server-side
+SSR clients and never needs a service-role credential. The notification Edge
+Function uses the server-managed Supabase service-role environment only on the
+server; never expose it to browser code.
 
 Guest Connect uses a random HttpOnly browser session. The database stores only
 its SHA-256 hash; guest email is never returned by the public API. Registered
@@ -67,19 +74,22 @@ notes and encounter context.
 
 Supabase Advisor’s callable SECURITY DEFINER notices are expected for the
 token-scoped guest Connect/status/detail functions and the authenticated
-connect/claim functions. Their role grants are explicit and their search paths
-are locked. The existing username-availability function returns only a boolean;
-the existing `rls_auto_enable` event trigger is not an RPC-callable function.
-Advisor also flags indexes as unused while the new network tables have no live
-rows; retain them for the participant, claim, rate-limit, and foreign-key
-queries they cover. Leaked-password protection is an existing Auth setting and
-was not changed by the Connections migration.
+connect/claim functions. The public one-click unsubscribe RPC is also
+intentionally SECURITY DEFINER: it accepts only a single-use category-scoped
+opaque token, exposes a boolean result, and has an empty search path. Role
+grants are explicit and the existing username-availability function returns
+only a boolean. Advisor may flag indexes as unused before production traffic
+reaches their access paths; the notification delivery indexes cover queue
+claiming and recipient history. Leaked-password protection is an existing Auth
+setting and is not changed by the email system.
 
-Before using signup or the Identity editor, apply the SQL migrations in
-`supabase/migrations/` to the dedicated Setuvara Supabase project. The Mode
-migration preserves each existing Social Mode row and its links, renames it
-Personal, and adds Event for existing and new profiles. Signup confirmation
-uses `/auth/confirm` and the `token_hash` verification flow.
+Apply the SQL migrations in `supabase/migrations/` to the dedicated Setuvara
+Supabase project. The Mode migration preserves each existing Social Mode row
+and its links, renames it Personal, and adds Event for existing and new
+profiles. Signup confirmation uses `/auth/confirm` and the `token_hash`
+verification flow. The Auth Send Email Hook sends directly through Resend;
+notification delivery and its hosted scheduler are documented in
+[`docs/email-notifications.md`](docs/email-notifications.md).
 Published profiles use the canonical root URL
 `https://setuvara.com/[username]`; the legacy `/u/[username]` path permanently
 redirects there.
@@ -109,7 +119,9 @@ The runner checks the Git root and local Supabase URL, builds the app with the
 local publishable key, starts a temporary production server on port 3014, and
 reads confirmation emails from Mailpit. Test accounts use generated
 `example.test` addresses and passwords; the local flow does not use hosted
-users or production keys.
+users or production keys. It also verifies notification preference RLS,
+single-use unsubscribe behavior, event idempotency, recap grouping, and
+recipient resolution from the confirmed Auth user at delivery time.
 
 ## Project structure
 
@@ -117,7 +129,10 @@ users or production keys.
 proxy.ts
 supabase/
 ├── config.toml          # Local Supabase stack and Auth settings
-├── functions/send-email/ # Supabase Auth Send Email Hook
+├── functions/
+│   ├── _shared/         # Shared React Email renderer and tests
+│   ├── send-email/      # Supabase Auth Send Email Hook
+│   └── dispatch-notifications/ # Durable outbox worker
 ├── migrations/
 │   ├── 20261009020739_identity_vertical.sql
 │   ├── 20261009025854_reserve_root_username_routes.sql
@@ -128,7 +143,10 @@ supabase/
 │   ├── 20261009134039_connections_fk_indexes.sql
 │   ├── 20261009140904_passport_progression.sql
 │   ├── 20261009140956_passport_policy_indexes.sql
-│   └── 20261009143858_link_provider_types.sql
+│   ├── 20261009143858_link_provider_types.sql
+│   ├── 20261009181057_setuvara_email_notifications.sql
+│   └── 20261009181121_setuvara_email_unsubscribe_user_index.sql
+├── operations/          # Hosted-only Setuvara scheduler setup
 └── templates/           # Local Auth email template
 src/
 ├── app/

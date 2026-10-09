@@ -1,5 +1,10 @@
 {
+  "compilerOptions": { "jsx": "react", "jsxFactory": "React.createElement", "jsxFragmentFactory": "React.Fragment" },
   "imports": {
+    "@types/react": "npm:@types/react@19.3.0",
+    "react": "npm:react@19.3.0",
+    "react/jsx-runtime": "npm:react@19.3.0/jsx-runtime",
+    "react-email": "npm:react-email@6.11.1",
     "standardwebhooks": "https://esm.sh/standardwebhooks@1.0.0"
   }
 }

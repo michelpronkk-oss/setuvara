@@ -6,6 +6,9 @@
     "dev": "next dev",
     "e2e:local": "node scripts/run-local-e2e.mjs",
     "e2e:marketing": "node scripts/e2e-marketing.mjs",
+    "email:build-assets": "node scripts/build-email-assets.mjs",
+    "email:test": "deno test --allow-env=NODE_ENV --config supabase/functions/send-email/deno.json supabase/functions/_shared/email.test.tsx",
+    "email:preview": "deno run --allow-env=NODE_ENV --allow-write=.next/email-previews --config supabase/functions/send-email/deno.json supabase/functions/_shared/preview.tsx",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -22,6 +25,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-easy-crop": "^6.2.4",
+    "react-email": "^6.11.1",
     "react-hook-form": "^7.89.0",
     "simple-icons": "16.34.0",
     "zod": "^4.6.5",
@@ -35,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "playwright": "^1.64.0",
+    "sharp": "^0.35.5",
     "supabase": "2.120.0",
     "tailwindcss": "^4",
     "typescript": "^5"

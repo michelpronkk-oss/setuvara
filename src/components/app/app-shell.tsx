@@ -47,6 +47,7 @@ export function AppShell({ children, displayName, publicProfileUrl, signOut }: {
             <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-black/10 bg-white p-2 shadow-xl">
               {publicProfileUrl && <a className="flex min-h-11 items-center rounded-xl px-3 text-sm font-medium hover:bg-[#f5f4ef]" href={publicProfileUrl} target="_blank" rel="noreferrer">View public profile ↗</a>}
               <Link className="flex min-h-11 items-center rounded-xl px-3 text-sm font-medium hover:bg-[#f5f4ef]" href="/app/identity?mode=personal&section=settings">Mode settings</Link>
+              <Link className="flex min-h-11 items-center rounded-xl px-3 text-sm font-medium hover:bg-[#f5f4ef]" href="/app/settings/notifications">Email preferences</Link>
               <form action={signOut}>
                 <button className="flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-medium text-black/60 hover:bg-[#f5f4ef]" type="submit">Sign out</button>
               </form>
