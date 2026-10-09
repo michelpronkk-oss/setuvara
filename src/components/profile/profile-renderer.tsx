@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { PhotoGlow } from "@/components/profile/photo-glow";
+import { ProfileBlocks } from "@/components/profile/profile-blocks";
 import { MeetMark } from "@/components/marketing/brand";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
@@ -116,6 +117,8 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
           {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
         </div>
 
+        <ProfileBlocks accent={accent} accentInk={inkOn(accent)} blocks={mode.blocks} className="mt-6" tone={tone} />
+
         {rows.length > 0 && (
           <ul className="mt-6 grid gap-2.5 text-left">
             {rows.map((item) => (
@@ -129,7 +132,7 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
             ))}
           </ul>
         )}
-        {links.length === 0 && <div className="text-left"><EmptyLinks tone={tone} text="No links shared in this Mode yet." /></div>}
+        {links.length === 0 && !hasBlocks(mode) && <div className="text-left"><EmptyLinks tone={tone} text="No links shared in this Mode yet." /></div>}
         </div>
       </div>
     </article>
@@ -181,7 +184,8 @@ function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visito
               </li>
             ))}
           </ul>
-        ) : <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
+        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
+        <ProfileBlocks accent={accent} accentInk={inkOn(accent)} blocks={mode.blocks} tone={tone} />
       </div>
     </article>
   );
@@ -239,7 +243,8 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
               </li>
             ))}
           </ul>
-        ) : <EmptyLinks tone={tone} text={eventName ? "No links shared in this Mode yet." : "Event Mode is ready when you are."} />}
+        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={eventName ? "No links shared in this Mode yet." : "Event Mode is ready when you are."} />}
+        <ProfileBlocks accent={accent} accentInk={inkOn(accent)} blocks={mode.blocks} tone={tone} />
       </div>
     </article>
   );
@@ -292,7 +297,10 @@ function BusinessProfile({ profile, mode, viewerState, previewAsVisitor, visitor
             {booking && <a className="inline-flex min-h-12 items-center justify-center rounded-full px-4 text-sm font-semibold" href={booking.url} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }} target="_blank">{booking.link.title.length > 18 ? "Book intro" : booking.link.title}</a>}
           </div>
         )}
+        {!owner && <a className="mt-2 flex min-h-11 items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition hover:opacity-75" download href={`/${profile.username}/contact`} style={{ color: tone.ink }}><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1ZM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2Z" /></svg>Save contact</a>}
         {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
+
+        <ProfileBlocks accent={tone.ink} accentInk={tone.bg} blocks={mode.blocks} tone={tone} />
 
         {(owner ? all : links).length > 0 ? (
           <ul className="mt-7 overflow-hidden rounded-2xl" style={{ background: tone.chip }}>
@@ -305,7 +313,7 @@ function BusinessProfile({ profile, mode, viewerState, previewAsVisitor, visitor
               </li>
             ))}
           </ul>
-        ) : <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
+        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
       </div>
     </article>
   );
@@ -354,6 +362,8 @@ function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode
     </section>
   );
 }
+
+const hasBlocks = (mode: ProfileMode) => Boolean(mode.blocks?.some((block) => block.is_visible));
 
 function EmptyLinks({ tone, text }: { tone: Tone; text: string }) {
   return <p className="mt-8 rounded-2xl px-4 py-4 text-[13px]" style={{ color: tone.sub, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>{text}</p>;

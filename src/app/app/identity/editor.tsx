@@ -6,7 +6,8 @@ import { z } from "zod";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
-import type { ModeAppearance, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { createClient } from "@/lib/supabase/client";
 import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
@@ -15,7 +16,8 @@ import { CelebrationClient } from "../passport/passport-dashboard";
 import { createProviderLink, updateProviderLink } from "./actions";
 import { CropDialog, cropToBlob } from "./editor-crop";
 import { FullPreview, PreviewPane } from "./editor-preview";
-import { AppearanceSection, HomeSection, LinksSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
+import { ContentSection } from "./editor-content";
+import { AppearanceSection, HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
 import { MODE_SLUGS, SECTIONS, SETTING_KEYS, LAYOUTS, type EditableProfile, type EditorApi, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
 import { modeMeta } from "./editor-ui";
 
@@ -380,6 +382,96 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     if (copied) toast(`${copied} link${copied === 1 ? "" : "s"} copied from ${modeMeta[source].name}`);
   }, [addLinkTo, mode, runNow, toast]);
 
+  // ---------- Blocks ----------
+  const setBlocks = useCallback((modeId: string, blocks: ProfileBlock[]) => patchMode(modeId, { blocks }), [patchMode]);
+  const blocksOf = (modeId: string) => modesRef.current.find((item) => item.id === modeId)?.blocks ?? [];
+
+  const insertBlock = useCallback(async (target: ProfileMode, kind: BlockKind, data: Record<string, unknown>, isVisible = true) => {
+    const check = validateBlock(kind, data);
+    if (!check.ok) return { error: check.message, block: null };
+    const existing = modesRef.current.find((item) => item.id === target.id)?.blocks ?? [];
+    if (existing.length >= BLOCK_LIMIT) return { error: `A Mode can hold ${BLOCK_LIMIT} blocks. Remove one first.`, block: null };
+    const sortOrder = existing.reduce((max, block) => Math.max(max, block.sort_order), -1) + 1;
+    const { data: row, error: insertError } = await supabase.from("profile_blocks")
+      .insert({ profile_id: initialProfile.id, mode_id: target.id, kind, data: check.data, sort_order: sortOrder, is_visible: isVisible })
+      .select("id, kind, data, is_visible, sort_order").single();
+    if (insertError || !row) return { error: "That block couldn’t be added. Try again.", block: null };
+    const block = row as ProfileBlock;
+    setBlocks(target.id, [...(modesRef.current.find((item) => item.id === target.id)?.blocks ?? []), block]);
+    return { error: null, block };
+  }, [initialProfile.id, setBlocks, supabase]);
+
+  const addBlock = useCallback(async (kind: BlockKind, data: Record<string, unknown>) => {
+    let message: string | null = null;
+    await runNow(async () => { message = (await insertBlock(mode, kind, data)).error; return null; });
+    if (message) { setStatus("saved"); return message; }
+    toast(`${BLOCKS[kind].name} added to ${modeMeta[mode.slug].name} Mode`);
+    return null;
+  }, [insertBlock, mode, runNow, toast]);
+
+  const updateBlock = useCallback(async (block: ProfileBlock, data: Record<string, unknown>) => {
+    const check = validateBlock(block.kind, data);
+    if (!check.ok) return check.message;
+    const target = mode;
+    let message: string | null = null;
+    await runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_blocks").update({ data: check.data }).eq("id", block.id).eq("profile_id", initialProfile.id);
+      if (updateError) { message = "That block couldn’t be saved. Try again."; return null; }
+      setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, data: check.data } : item));
+      return null;
+    });
+    return message;
+  }, [initialProfile.id, mode, runNow, setBlocks, supabase]);
+
+  const toggleBlock = useCallback((block: ProfileBlock) => {
+    const target = mode;
+    const visible = !block.is_visible;
+    setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, is_visible: visible } : item));
+    void runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_blocks").update({ is_visible: visible }).eq("id", block.id).eq("profile_id", initialProfile.id);
+      if (updateError) { setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, is_visible: !visible } : item)); return "That block couldn’t be updated."; }
+      return null;
+    });
+  }, [initialProfile.id, mode, runNow, setBlocks, supabase]);
+
+  const reorderBlocks = useCallback((ordered: ProfileBlock[]) => {
+    const target = mode;
+    const before = blocksOf(target.id);
+    setBlocks(target.id, ordered.map((block, index) => ({ ...block, sort_order: index })));
+    void runNow(async () => {
+      const results = await Promise.all(ordered.map((block, index) => supabase.from("profile_blocks").update({ sort_order: index }).eq("id", block.id).eq("profile_id", initialProfile.id)));
+      if (results.some((result) => result.error)) { setBlocks(target.id, before); return "The new order couldn’t be saved."; }
+      return null;
+    });
+  }, [initialProfile.id, mode, runNow, setBlocks, supabase]);
+
+  const deleteBlock = useCallback((block: ProfileBlock) => {
+    const target = mode;
+    const index = blocksOf(target.id).findIndex((item) => item.id === block.id);
+    setBlocks(target.id, blocksOf(target.id).filter((item) => item.id !== block.id));
+    void runNow(async () => {
+      const { error: deleteError } = await supabase.from("profile_blocks").delete().eq("id", block.id).eq("profile_id", initialProfile.id);
+      if (deleteError) {
+        const restored = [...blocksOf(target.id)]; restored.splice(index, 0, block); setBlocks(target.id, restored);
+        return "That block couldn’t be deleted.";
+      }
+      return null;
+    }).then((failure) => {
+      if (failure) return;
+      toast(`${BLOCKS[block.kind].name} deleted`, { label: "Undo", run: () => {
+        void runNow(async () => {
+          const result = await insertBlock(target, block.kind, block.data, block.is_visible);
+          if (result.error || !result.block) return result.error ?? "That block couldn’t be restored.";
+          const others = blocksOf(target.id).filter((item) => item.id !== result.block!.id);
+          others.splice(Math.min(index, others.length), 0, result.block);
+          setBlocks(target.id, others.map((item, order) => ({ ...item, sort_order: order })));
+          await Promise.all(others.map((item, order) => supabase.from("profile_blocks").update({ sort_order: order }).eq("id", item.id).eq("profile_id", initialProfile.id)));
+          return null;
+        });
+      } });
+    });
+  }, [initialProfile.id, insertBlock, mode, runNow, setBlocks, supabase, toast]);
+
   // ---------- Photos ----------
   const removeIfUnused = useCallback(async (path: string | null) => {
     if (!path || modesRef.current.some((item) => item.image_path === path)) return;
@@ -470,6 +562,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto,
     updateProfile, updateSetting, updateAppearance, setModeEnabled, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
+    addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks,
     pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
   };
 
@@ -484,7 +577,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     <>
       {section === "home" && <HomeSection api={api} key={slug} />}
       {section === "profile" && <ProfileSection api={api} />}
-      {section === "links" && <LinksSection api={api} key={slug} />}
+      {section === "links" && <ContentSection api={api} key={slug} />}
       {section === "appearance" && <AppearanceSection api={api} />}
       {section === "settings" && <SettingsSection api={api} />}
       {section === "share" && <ShareSection api={api} />}
@@ -509,20 +602,18 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         </div>
       </header>
 
-      {/* Mobile top bar */}
+      {/* Mobile top bar: where you are, which Mode, preview and publish */}
       <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F5F4EF]/92 backdrop-blur-md lg:hidden">
         <div className="flex h-14 items-center gap-2 px-3">
-          {section === "home"
-            ? <Link aria-label="Back to Setuvara home" className="flex min-h-11 items-center gap-1.5 px-1.5" href="/app"><MeetMark className="size-6" /></Link>
-            : <button className="flex min-h-11 min-w-0 items-center gap-1 px-1.5 text-[15px] font-semibold" onClick={() => go("home")} type="button"><span aria-hidden="true" className="text-lg leading-none">‹</span><span className="truncate">{sectionTitle}</span></button>}
-          <MobileModePicker onPick={(next) => go(section, next)} slug={slug} />
-          <div className="ml-auto flex items-center gap-1.5">
-            <button className="inline-flex min-h-10 items-center rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D]" onClick={() => setFullPreview(true)} type="button">Preview</button>
-            {profile.is_published
-              ? <a aria-label="Your Setuvara is live. Open it." className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[13px] font-semibold text-black/70" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
-              : <button className="inline-flex min-h-10 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold" onClick={() => void setPublished(true)} type="button">Publish</button>}
-          </div>
+          <Link aria-label="Back to Setuvara home" className="grid size-10 shrink-0 place-items-center rounded-full" href="/app"><MeetMark className="size-6" /></Link>
+          <p className="min-w-0 flex-1 truncate font-display text-[1.3rem] font-bold tracking-[-0.04em]">{section === "home" ? "Home" : section === "settings" ? "Settings" : sectionTitle}</p>
+          <button aria-label="Mode settings" className={`grid size-10 shrink-0 place-items-center rounded-full ${section === "settings" ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-black/70 hover:bg-black/5"}`} onClick={() => go("settings")} type="button"><svg aria-hidden="true" className="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10.3 2.6a1 1 0 0 1 1-.6h1.4a1 1 0 0 1 1 .6l.6 1.6c.5.2 1 .5 1.4.8l1.7-.3a1 1 0 0 1 1 .5l.7 1.2a1 1 0 0 1-.1 1.1l-1.1 1.3a6.6 6.6 0 0 1 0 1.6l1.1 1.3a1 1 0 0 1 .1 1.1l-.7 1.2a1 1 0 0 1-1 .5l-1.7-.3c-.4.3-.9.6-1.4.8l-.6 1.6a1 1 0 0 1-1 .6h-1.4a1 1 0 0 1-1-.6l-.6-1.6c-.5-.2-1-.5-1.4-.8l-1.7.3a1 1 0 0 1-1-.5l-.7-1.2a1 1 0 0 1 .1-1.1l1.1-1.3a6.6 6.6 0 0 1 0-1.6L4.5 7.5a1 1 0 0 1-.1-1.1l.7-1.2a1 1 0 0 1 1-.5l1.7.3c.4-.3.9-.6 1.4-.8l.6-1.6ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" transform="translate(0 1.5)" /></svg></button>
+          <button aria-label="Preview" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D]" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg>View</button>
+          {profile.is_published
+            ? <a aria-label="Your Setuvara is live. Open it." className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[13px] font-semibold text-black/70" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
+            : <button className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold" onClick={() => void setPublished(true)} type="button">Publish</button>}
         </div>
+        <div className="px-3 pb-2.5"><MobileModeSwitch modes={modes} onPick={(next) => go(section, next)} slug={slug} /></div>
         <MobileSaveLine justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
       </header>
 
@@ -559,8 +650,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
         {/* Content */}
         <main className="min-w-0 lg:min-h-0 lg:overflow-y-auto" id="editor-scroll">
-          <div className={`mx-auto w-full max-w-[720px] px-4 pb-32 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10 xl:px-11 ${section === "home" ? "max-lg:hidden" : ""}`}>{content}</div>
-          {section === "home" && <div className="px-4 pb-28 pt-5 sm:px-6 lg:hidden"><MobileHome api={api} onPreview={() => setFullPreview(true)} /></div>}
+          <div className={`mx-auto w-full max-w-[720px] px-4 pb-36 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10 xl:px-11 ${section === "home" ? "max-lg:hidden" : ""}`}>{content}</div>
+          {section === "home" && <div className="px-4 pb-32 pt-5 sm:px-6 lg:hidden"><MobileHome api={api} onPreview={() => setFullPreview(true)} /></div>}
         </main>
 
         {/* Live preview */}
@@ -568,6 +659,21 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           <PreviewPane api={api} previewState={previewState} setPreviewState={setPreviewState} />
         </aside>
       </div>
+
+      {/* Mobile tab bar: every section one thumb-tap away */}
+      <nav aria-label="Editor sections" className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#F5F4EF]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
+        <div className="mx-auto grid h-16 max-w-md grid-cols-5">
+          {MOBILE_TABS.map((tab) => {
+            const active = section === tab.id;
+            return (
+              <button aria-current={active ? "page" : undefined} className={`flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition ${active ? "text-[#0D0D0D]" : "text-black/45"}`} key={tab.id} onClick={() => go(tab.id)} type="button">
+                <span className={`grid h-7 w-12 place-items-center rounded-full transition ${active ? "bg-[#0D0D0D] text-[#F5F4EF]" : ""}`}><svg aria-hidden="true" className="size-[18px]" fill="currentColor" viewBox="0 0 24 24"><path d={tab.icon} /></svg></span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} />}
       {crop && <CropDialog key={crop.source} busy={busyPhoto} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; fileRef.current?.click(); }} onSave={async (area) => {
@@ -591,7 +697,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       }} ref={fileRef} type="file" />
 
       {toastState && (
-        <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-5 z-[90] flex justify-center px-4 max-lg:bottom-24" key={toastState.id}>
+        <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-5 z-[90] flex justify-center px-4 max-lg:bottom-[calc(140px+env(safe-area-inset-bottom))]" key={toastState.id}>
           <div className="pointer-events-auto flex min-h-12 max-w-md items-center gap-4 rounded-full bg-[#0D0D0D] py-1.5 pl-5 pr-1.5 text-sm font-semibold text-[#F5F4EF] shadow-[0_18px_50px_-18px_rgba(13,13,13,.7)] [animation:toast-in_.22s_ease-out]">
             <span className="py-2">{toastState.text}</span>
             {toastState.action ? <button className="min-h-9 rounded-full bg-[#F5F4EF] px-4 text-[13px] text-[#0D0D0D]" onClick={() => { toastState.action?.run(); setToastState(null); }} type="button">{toastState.action.label}</button> : <span className="w-3" />}
@@ -623,16 +729,28 @@ function ModeTabs({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlu
   );
 }
 
-function MobileModePicker({ slug, onPick }: { slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
-  const meta = modeMeta[slug];
+const MOBILE_TABS: { id: Section; label: string; icon: string }[] = [
+  { id: "home", label: "Home", icon: "M4 10.6 12 4l8 6.6V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1v-8.4Z" },
+  { id: "profile", label: "Profile", icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7.5 8c.4-3.6 3.6-6 7.5-6s7.1 2.4 7.5 6a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1Z" },
+  { id: "links", label: "Content", icon: "M4 5.5A1.5 1.5 0 0 1 5.5 4h5A1.5 1.5 0 0 1 12 5.5v5A1.5 1.5 0 0 1 10.5 12h-5A1.5 1.5 0 0 1 4 10.5v-5Zm10 0A1.5 1.5 0 0 1 15.5 4h3A1.5 1.5 0 0 1 20 5.5v3A1.5 1.5 0 0 1 18.5 10h-3A1.5 1.5 0 0 1 14 8.5v-3ZM4 15.5A1.5 1.5 0 0 1 5.5 14h3a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3Zm8 0a1.5 1.5 0 0 1 1.5-1.5h5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-3Z" },
+  { id: "appearance", label: "Style", icon: "M12 3a9 9 0 0 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2A4.6 4.6 0 0 0 21 10.6C21 6.4 17 3 12 3Zm-5 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" },
+  { id: "share", label: "Share", icon: "M4 4h6v6H4V4Zm2 2v2h2V6H6Zm8-2h6v6h-6V4Zm2 2v2h2V6h-2ZM4 14h6v6H4v-6Zm2 2v2h2v-2H6Zm8-2h2v2h-2v-2Zm2 2h2v2h-2v-2Zm2-2h2v2h-2v-2Zm-4 4h2v2h-2v-2Zm4 0h2v2h-2v-2Z" },
+];
+
+function MobileModeSwitch({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
   return (
-    <label className="relative inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-[13px] font-semibold" style={{ background: meta.bg, color: meta.fg, boxShadow: meta.ring }}>
-      {meta.name}<span aria-hidden="true" className="text-[10px]">▼</span>
-      <span className="sr-only">Mode</span>
-      <select aria-label="Mode" className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onPick(event.target.value as ModeSlug)} value={slug}>
-        {MODE_SLUGS.map((item) => <option key={item} value={item}>{modeMeta[item].name}</option>)}
-      </select>
-    </label>
+    <div aria-label="Mode" className="grid grid-cols-3 gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" role="tablist">
+      {MODE_SLUGS.map((item) => {
+        const on = item === slug;
+        const meta = modeMeta[item];
+        const off = modes.find((entry) => entry.slug === item)?.is_enabled === false;
+        return (
+          <button aria-selected={on} className="flex min-h-10 items-center justify-center gap-1.5 rounded-full px-2 text-[14px] font-semibold transition-colors" key={item} onClick={() => onPick(item)} role="tab" style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.55)", boxShadow: on ? meta.ring : undefined }} type="button">
+            {meta.name}{off && <span className="text-[10px] font-medium opacity-70">Off</span>}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

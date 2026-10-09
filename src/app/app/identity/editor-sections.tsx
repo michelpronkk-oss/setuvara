@@ -1,7 +1,6 @@
 "use client";
 
-import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
@@ -10,7 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type React
 import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
 import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/brand";
-import { BOOKING_PROVIDERS, ProfileRenderer } from "@/components/profile/profile-renderer";
+import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, providerForLink, resolveStoredLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
@@ -41,7 +40,7 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   const contextLine = mode.slug === "personal" ? text(mode, "location") : mode.slug === "event" ? text(mode, "eventName") : text(mode, "company");
   return {
     profile: [profile.display_name || "Add your name", contextLine, mode.image_path ? "photo set" : "no photo yet"].filter(Boolean).join(" · "),
-    links: mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : "No links yet",
+    links: [mode.blocks?.length ? `${mode.blocks.length} block${mode.blocks.length === 1 ? "" : "s"}` : "", mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : ""].filter(Boolean).join(" · ") || "Nothing added yet",
     appearance: `${cap(mode.appearance.theme)} · ${layoutLabel(mode)}`,
     settings: `${mode.is_enabled ? "Mode is live" : "Mode is off"} · ${profile.is_published ? "public" : "draft"}`,
     share: api.publicUrl(mode.slug).replace(/^https?:\/\//, ""),
@@ -111,13 +110,14 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
   return (
     <div>
       <div className="flex gap-4 rounded-[24px] bg-white p-3.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
-        <button aria-label="Open full-screen preview" className="relative h-[196px] w-[104px] shrink-0 overflow-hidden rounded-[18px] bg-[#0D0D0D] p-[3px]" onClick={onPreview} type="button">
+        {/* A div, not a button: the preview inside renders its own (inert) buttons. */}
+        <div aria-label="Open full-screen preview" className="relative h-[196px] w-[104px] shrink-0 cursor-pointer overflow-hidden rounded-[18px] bg-[#0D0D0D] p-[3px]" onClick={onPreview} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPreview(); } }} role="button" tabIndex={0}>
           <div aria-hidden="true" className="pointer-events-none h-full overflow-hidden rounded-[15px]">
             <div className="w-[360px] origin-top-left scale-[0.272] [&>article]:rounded-none" inert>
               <ProfileRenderer mode={mode} profile={profile} selectedRewards={api.selectedRewards} viewerState="owner" />
             </div>
           </div>
-        </button>
+        </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center py-2">
           <h1 className="font-display text-[1.9rem] font-extrabold leading-[0.95] tracking-[-0.05em]">{modeMeta[slug].name} Mode</h1>
           <p className="mt-2 truncate font-label text-[11px] text-black/55">{info.share}</p>
@@ -270,67 +270,7 @@ export function ProfileSection({ api }: { api: EditorApi }) {
 
 // ---------------------------------------------------------------- Links
 
-export function LinksSection({ api }: { api: EditorApi }) {
-  const { mode, slug } = api;
-  const [adding, setAdding] = useState<LinkProvider | "choose" | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
-  const booking = mode.links.find((link) => BOOKING_PROVIDERS.includes(providerForLink(link.link_type).id) && link.is_visible);
-  const dndId = useId();
-  const copySources = MODE_SLUGS.filter((item) => item !== slug && (api.modes.find((entry) => entry.slug === item)?.links.length ?? 0) > 0);
-
-  function onDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const from = mode.links.findIndex((link) => link.id === active.id);
-    const to = mode.links.findIndex((link) => link.id === over.id);
-    if (from < 0 || to < 0) return;
-    api.reorderLinks(arrayMove(mode.links, from, to));
-  }
-
-  return (
-    <div>
-      <SectionHeader description={`Each link belongs to ${modeMeta[slug].name} Mode only. Drag to reorder; visitors see them in this order.`} slug={slug} title="Links & Actions" />
-
-      {slug === "business" && (
-        <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <div className="min-w-0"><p className="text-[15px] font-semibold">Next to Connect, visitors see</p><p className="mt-0.5 truncate text-[13px] text-black/55">{booking ? `${booking.title} · ${resolveStoredLink(providerForLink(booking.link_type).id, booking.url)?.displayValue ?? ""}` : "Nothing yet. A visible booking link becomes a “Book intro” button."}</p></div>
-          {booking ? <span className="inline-flex min-h-10 items-center rounded-full bg-[#0D0D0D] px-4 text-sm font-semibold text-[#F5F4EF]">Book intro</span> : <Pill onClick={() => setAdding(linkProviderById.cal_com)}>Add booking link</Pill>}
-        </Card>
-      )}
-
-      {mode.links.length > 0 ? (
-        <DndContext collisionDetection={closestCenter} id={dndId} onDragEnd={onDragEnd} sensors={sensors}>
-          <SortableContext items={mode.links.map((link) => link.id)} strategy={verticalListSortingStrategy}>
-            <ul className="grid grid-cols-1 gap-2.5">
-              {mode.links.map((link) => <LinkRow api={api} editing={editingId === link.id} key={link.id} link={link} onEdit={(open) => setEditingId(open ? link.id : null)} />)}
-            </ul>
-          </SortableContext>
-        </DndContext>
-      ) : !adding && (
-        <Card className="px-6 py-7">
-          <p className="font-display text-[1.6rem] font-bold leading-tight tracking-[-0.04em]">No links in {modeMeta[slug].name} Mode yet</p>
-          <p className="mt-1.5 text-[15px] text-black/60">{slug === "event" ? `Add what people at ${text(mode, "eventName") || "the event"} should open first.` : slug === "business" ? "Add how clients and partners should reach you." : "Add the places friends can find you."}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Pill onClick={() => setAdding("choose")} variant="ink">+ Add first link</Pill>
-            {copySources.map((item) => <Pill key={item} onClick={() => void api.copyLinksFrom(item)}>Copy from {modeMeta[item].name}</Pill>)}
-          </div>
-        </Card>
-      )}
-
-      <div className="mt-3">
-        {adding
-          ? <AddLinkPanel api={api} initial={adding === "choose" ? null : adding} onClose={() => setAdding(null)} />
-          : mode.links.length > 0 && <>
-            <button className="hidden min-h-14 w-full items-center justify-center rounded-[18px] border-[1.5px] border-dashed border-black/25 text-[15px] font-semibold transition hover:border-black/60 hover:bg-white/60 sm:flex" onClick={() => setAdding("choose")} type="button">+ Add link</button>
-            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-[#F5F4EF] via-[#F5F4EF]/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 sm:hidden"><button className="pointer-events-auto min-h-[52px] w-full rounded-full bg-[#0D0D0D] text-[15px] font-semibold text-[#F5F4EF]" onClick={() => setAdding("choose")} type="button">+ Add link</button></div>
-          </>}
-      </div>
-      {mode.links.length > 0 && <p className="mt-4 pb-24 text-[13px] text-black/50 sm:pb-0">Hidden links stay saved here and never appear on your profile.</p>}
-    </div>
-  );
-}
-
-function DragHandle(props: Record<string, unknown>) {
+export function DragHandle(props: Record<string, unknown>) {
   return (
     <button aria-label="Drag to reorder" className="grid size-10 shrink-0 cursor-grab touch-none place-items-center rounded-xl text-black/35 hover:bg-black/[0.04] hover:text-black/70 active:cursor-grabbing" type="button" {...props}>
       <svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 16 16"><circle cx="5.5" cy="3.5" r="1.4" /><circle cx="10.5" cy="3.5" r="1.4" /><circle cx="5.5" cy="8" r="1.4" /><circle cx="10.5" cy="8" r="1.4" /><circle cx="5.5" cy="12.5" r="1.4" /><circle cx="10.5" cy="12.5" r="1.4" /></svg>
@@ -338,7 +278,7 @@ function DragHandle(props: Record<string, unknown>) {
   );
 }
 
-function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void }) {
+export function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void }) {
   const provider = providerForLink(link.link_type);
   const resolved = resolveStoredLink(provider.id, link.url);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
@@ -402,17 +342,17 @@ function valueLabel(provider: LinkProvider) {
   return provider.inputKind === "email" ? "Email address" : provider.inputKind === "phone" ? "Phone number" : provider.inputKind === "handle" || provider.inputKind === "username" ? "Username or link" : "Destination";
 }
 
-function AddLinkPanel({ api, initial, onClose }: { api: EditorApi; initial: LinkProvider | null; onClose: () => void }) {
+export function AddLinkPanel({ api, initial, initialValue = "", onClose, bare = false }: { api: EditorApi; initial: LinkProvider | null; initialValue?: string; onClose: () => void; bare?: boolean }) {
   const [provider, setProvider] = useState<LinkProvider | null>(initial);
   const [title, setTitle] = useState(initial?.defaultLabel ?? "");
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialValue);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const quick = MODE_LINK_SUGGESTIONS[api.slug].slice(0, 5).map((id) => linkProviderById[id]).filter(Boolean);
   const normalized = provider && value.trim() ? normalizeLinkPayload({ providerId: provider.id, value }) : null;
 
-  useEffect(() => { panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [provider]);
+  useEffect(() => { if (!bare) panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [bare, provider]);
 
   function choose(next: LinkProvider) { setProvider(next); setTitle(next.defaultLabel); setValue(""); setError(null); }
 
@@ -429,11 +369,11 @@ function AddLinkPanel({ api, initial, onClose }: { api: EditorApi; initial: Link
   }
 
   return (
-    <div className="scroll-mb-28 rounded-[22px] bg-white p-5 shadow-[inset_0_0_0_1.5px_#0D0D0D] sm:p-6" ref={panelRef}>
+    <div className={bare ? "" : "scroll-mb-28 rounded-[22px] bg-white p-5 shadow-[inset_0_0_0_1.5px_#0D0D0D] sm:p-6"} ref={panelRef}>
       {!provider ? (
         <>
-          <div className="flex items-center justify-between"><p className="text-[15px] font-semibold">Add link · choose type</p><button aria-label="Close" className="grid size-10 place-items-center rounded-full text-lg hover:bg-black/5" onClick={onClose} type="button">×</button></div>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {!bare && <div className="flex items-center justify-between"><p className="text-[15px] font-semibold">Add link · choose type</p><button aria-label="Close" className="grid size-10 place-items-center rounded-full text-lg hover:bg-black/5" onClick={onClose} type="button">×</button></div>}
+          <div className={`${bare ? "" : "mt-4 "}grid grid-cols-2 gap-2 sm:grid-cols-3`}>
             {quick.map((item) => (
               <button className="flex min-h-[60px] items-center gap-2.5 rounded-2xl bg-[#F5F4EF] px-3 text-left text-sm font-semibold transition hover:bg-[#0D0D0D] hover:text-[#F5F4EF]" key={item.id} onClick={() => choose(item)} type="button">
                 <ProviderMark className="size-8 rounded-lg bg-white text-black" icon={item.icon} label={item.name} /><span className="truncate">{item.name}</span>
@@ -447,7 +387,7 @@ function AddLinkPanel({ api, initial, onClose }: { api: EditorApi; initial: Link
         <form onSubmit={submit}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3"><ProviderMark className="size-10 rounded-xl bg-[#F5F4EF]" icon={provider.icon} label={provider.name} url={normalized?.ok ? normalized.data.url : null} /><div className="min-w-0"><p className="truncate text-[15px] font-semibold">{provider.name}</p><button className="text-[13px] font-semibold text-black/55 underline underline-offset-4" onClick={() => setProvider(null)} type="button">Change type</button></div></div>
-            <button aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full text-lg hover:bg-black/5" onClick={onClose} type="button">×</button>
+            {!bare && <button aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full text-lg hover:bg-black/5" onClick={onClose} type="button">×</button>}
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Field htmlFor="new-link-label" label="Label"><TextInput id="new-link-label" maxLength={60} onChange={(event) => setTitle(event.target.value)} value={title} /></Field>

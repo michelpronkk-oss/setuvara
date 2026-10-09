@@ -1,6 +1,6 @@
 "use client";
 
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import { useEffect, useRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 
 import type { ModeSlug } from "@/components/profile/types";
 
@@ -100,3 +100,41 @@ export function Counter({ value, max }: { value: string; max: number }) {
 }
 
 export const cutCorner = (size: number) => `polygon(0 0,100% 0,100% calc(100% - ${size}px),calc(100% - ${Math.round(size * 0.58)}px) 100%,0 100%)`;
+
+/**
+ * Bottom sheet on phones, centred dialog on larger screens. Escape and the
+ * backdrop close it; page scroll is locked while it is open.
+ */
+export function Sheet({ title, onClose, children, footer, wide = false }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const returnTo = document.activeElement as HTMLElement | null;
+    const first = panelRef.current?.querySelector<HTMLElement>("[autofocus], input, textarea, select, button:not([data-sheet-close])");
+    (first ?? panelRef.current)?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { event.stopPropagation(); closeRef.current(); } };
+    window.addEventListener("keydown", onKey, true);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKey, true); returnTo?.focus?.({ preventScroll: true }); };
+  }, []);
+  return (
+    <div className="fixed inset-0 z-[75] flex items-end justify-center sm:items-center sm:p-6" role="presentation">
+      <button aria-label="Close" className="absolute inset-0 cursor-default bg-[#0D0D0D]/45 backdrop-blur-[2px] [animation:fade-in_.18s_ease-out]" data-sheet-close onClick={onClose} tabIndex={-1} type="button" />
+      <div aria-modal="true" className={`relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] bg-[#F5F4EF] shadow-[0_-20px_60px_-20px_rgba(13,13,13,.5)] [animation:sheet-up_.26s_cubic-bezier(.2,.8,.2,1)] sm:max-h-[86dvh] sm:rounded-[28px] sm:[animation:fade-in_.18s_ease-out] ${wide ? "sm:max-w-[640px]" : "sm:max-w-[560px]"}`} ref={panelRef} role="dialog" tabIndex={-1}>
+        <div aria-hidden="true" className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-black/15 sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-2 pt-3 sm:px-7 sm:pt-6">
+          <h2 className="min-w-0 font-display text-[1.6rem] font-bold leading-tight tracking-[-0.04em]">{title}</h2>
+          <button aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-black/[0.06] text-lg hover:bg-black/10" data-sheet-close onClick={onClose} type="button">×</button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 pt-2 sm:px-7 sm:pb-7">{children}</div>
+        {footer && <div className="shrink-0 border-t border-black/10 bg-[#F5F4EF] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-5">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+export function BlockIcon({ path, className = "size-10 rounded-xl bg-[#F5F4EF]" }: { path: string; className?: string }) {
+  return <span aria-hidden="true" className={`grid shrink-0 place-items-center ${className}`}><svg className="size-[18px]" fill="currentColor" viewBox="0 0 24 24"><path d={path} /></svg></span>;
+}
