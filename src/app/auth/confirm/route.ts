@@ -44,7 +44,12 @@ export async function GET(request: NextRequest) {
     "email_change",
   ]);
 
-  if (!tokenHash || tokenHash.length > 512 || !otpType || !supportedOtpTypes.has(otpType as EmailOtpType)) {
+  // Supabase's default email template links back with a PKCE `code` instead of
+  // a token hash. Accept both so confirmation works with either template.
+  const code = request.nextUrl.searchParams.get("code");
+  const usesCode = !tokenHash && Boolean(code) && (code?.length ?? 0) <= 512;
+
+  if (!usesCode && (!tokenHash || tokenHash.length > 512 || !otpType || !supportedOtpTypes.has(otpType as EmailOtpType))) {
     return confirmationError();
   }
 
@@ -67,10 +72,9 @@ export async function GET(request: NextRequest) {
       },
     },
   });
-  const { data, error } = await supabase.auth.verifyOtp({
-    token_hash: tokenHash,
-    type: otpType as EmailOtpType,
-  });
+  const { data, error } = usesCode
+    ? await supabase.auth.exchangeCodeForSession(code as string)
+    : await supabase.auth.verifyOtp({ token_hash: tokenHash as string, type: otpType as EmailOtpType });
 
   if (error || !data.session) return confirmationError();
 

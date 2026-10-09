@@ -862,6 +862,9 @@ try {
   const confirmationWithoutToken = await anonContext.request.get(`${appUrl}/auth/confirm`, { maxRedirects: 0 });
   assert([307, 308].includes(confirmationWithoutToken.status()));
   assert(confirmationWithoutToken.headers().location?.includes("/login?error=confirmation_failed"));
+  const confirmationWithBadCode = await anonContext.request.get(`${appUrl}/auth/confirm?code=not-a-real-code&next=/app/identity`, { maxRedirects: 0 });
+  assert([307, 308].includes(confirmationWithBadCode.status()), "An invalid PKCE confirmation code should redirect");
+  assert(confirmationWithBadCode.headers().location?.includes("/login?error=confirmation_failed"), "An invalid PKCE confirmation code should show the confirmation error");
   const rootDefault = await anonPage.goto(`${appUrl}/${owner.username}`); assert.equal(rootDefault?.status(), 200);
   const rootPersonal = await anonPage.goto(`${appUrl}/${owner.username}?mode=personal`); assert.equal(rootPersonal?.status(), 200);
   const legacyDefault = await anonContext.request.get(`${appUrl}/u/${owner.username}`, { maxRedirects: 0 }); assert.equal(legacyDefault.status(), 308);
