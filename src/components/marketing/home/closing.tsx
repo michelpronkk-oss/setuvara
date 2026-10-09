@@ -8,14 +8,14 @@ import { Display, Label, LaterTag, Shell } from "./primitives";
 export function Physical() {
   return (
     <section aria-labelledby="physical-title" className="overflow-hidden bg-ink text-paper">
-      <Shell className="grid grid-cols-[minmax(0,1fr)] gap-14 py-20 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
+      <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-16 sm:gap-14 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3"><Label className="text-paper/60">Wallet & NFC</Label><LaterTag className="text-coral">Coming later</LaterTag></div>
           <Display className="text-[clamp(44px,6vw,100px)] leading-[0.88]"><span id="physical-title">Digital by default. <span className="text-coral">Physical when you want it.</span></span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.55] text-paper/70">Today you share by QR, link and your phone’s share sheet. Wallet passes and NFC are designed and on the way. The card will never be your identity — it points to your Setuvara, which stays current every time you change it.</p>
+          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-paper/70">QR, link and share today. Wallet pass and NFC card next — always pointing to the latest you.</p>
         </div>
 
-        <div aria-hidden="true" className="relative mx-auto flex min-h-[420px] w-full max-w-[560px] items-center justify-center sm:min-h-[460px]">
+        <div aria-hidden="true" className="relative mx-auto flex min-h-[360px] w-full max-w-[560px] items-center justify-center sm:min-h-[460px]">
           <div className="reveal absolute left-0 top-4 w-[64%] max-w-[300px] rounded-[1.4rem] bg-[#1c1c1c] p-5 shadow-[0_30px_60px_-30px_rgba(0,0,0,.8)] [clip-path:polygon(0_0,calc(100%-18px)_0,100%_30px,100%_100%,0_100%)] sm:p-6">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2"><MeetMark className="size-6 text-coral" /><Wordmark className="text-[18px]" /></span>
@@ -29,7 +29,7 @@ export function Physical() {
             </div>
           </div>
 
-          <div className="reveal absolute bottom-2 right-0 aspect-[1.586] w-[70%] max-w-[380px] overflow-hidden rounded-[1.25rem] bg-[#141414] shadow-[inset_0_0_0_1px_rgba(245,244,239,.12),0_40px_80px_-30px_rgba(0,0,0,.9)]">
+          <div className="reveal absolute bottom-2 right-0 aspect-[1.586] w-[60%] max-w-[380px] sm:w-[70%] overflow-hidden rounded-[1.25rem] bg-[#141414] shadow-[inset_0_0_0_1px_rgba(245,244,239,.12),0_40px_80px_-30px_rgba(0,0,0,.9)]">
             <MeetMark className="absolute -right-[12%] -top-[18%] w-[72%] text-coral" />
             <div className="absolute left-5 top-5"><LaterTag className="text-paper/60">NFC card</LaterTag></div>
             <Wordmark className="absolute bottom-4 left-5 text-[24px] text-paper" />
@@ -44,8 +44,8 @@ export function Physical() {
 export function FinalCta() {
   return (
     <section aria-labelledby="cta-title" className="relative overflow-hidden bg-coral">
-      <MeetMark className="pointer-events-none absolute -bottom-[12%] -right-[16%] w-[min(66vw,460px)] text-ink lg:-bottom-[16%] lg:-right-[6%] lg:w-[min(44vw,680px)]" />
-      <Shell className="relative flex flex-col gap-8 pb-[min(64vw,440px)] pt-24 sm:pt-32 lg:py-44">
+      <MeetMark className="pointer-events-none absolute -bottom-[12%] -right-[16%] w-[min(50vw,460px)] text-ink lg:-bottom-[16%] lg:-right-[6%] lg:w-[min(44vw,680px)]" />
+      <Shell className="relative flex flex-col gap-8 pb-[min(44vw,440px)] pt-24 sm:pt-32 lg:py-44">
         <Label>Create your Setuvara</Label>
         <Display className="max-w-[12ch] text-[clamp(56px,9vw,152px)] leading-[0.84]"><span id="cta-title">Meet once. Stay connected.</span></Display>
         <p className="max-w-[30rem] font-display text-[22px] font-bold leading-tight tracking-[-0.03em] sm:text-[26px]">One identity. Every version of you.</p>

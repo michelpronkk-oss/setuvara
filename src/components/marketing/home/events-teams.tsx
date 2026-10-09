@@ -5,17 +5,17 @@ import { Display, Label, LaterTag, Shell } from "./primitives";
 export function Events() {
   return (
     <section aria-labelledby="events-title" className="scroll-mt-16 bg-coral" id="events">
-      <Shell className="flex flex-col gap-14 py-20 sm:py-28 lg:gap-20 lg:py-36">
+      <Shell className="flex flex-col gap-10 py-16 sm:gap-14 sm:py-28 lg:gap-20 lg:py-36">
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
           <div className="flex flex-col gap-5">
             <Label>For events</Label>
             <Display className="text-[clamp(52px,8vw,132px)] leading-[0.84]"><span id="events-title">Your identity for this moment.</span></Display>
           </div>
-          <p className="max-w-[30rem] text-[17px] leading-[1.55] sm:text-[19px]">Conferences, festivals, meetups, campus nights. Set up Event Mode before you go, share it in the room, and leave with everyone you met — remembered by event.</p>
+          <p className="max-w-[30rem] text-[17px] leading-[1.5] sm:text-[19px]">Set it before. Share it in the room. Remember everyone after.</p>
         </div>
 
-        <ol className="grid gap-5 lg:grid-cols-3 lg:gap-6">
-          <li className="reveal flex flex-col gap-4">
+        <ol aria-label="Event Mode before, during and after" className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-1 sm:scroll-px-8 [scrollbar-width:none] sm:-mx-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0" tabIndex={0}>
+          <li className="reveal flex w-[84%] max-w-[380px] shrink-0 snap-start flex-col gap-4 lg:w-auto lg:max-w-none">
             <Step index="01" title="Before" line="Set up Event Mode." />
             <div aria-hidden="true" className="flex flex-1 flex-col gap-2.5 rounded-[1.75rem] bg-paper p-5">
               <Field label="Event" value="Slush" />
@@ -24,7 +24,7 @@ export function Events() {
               <Field label="Here to meet" value="Climate founders and grid operators" />
             </div>
           </li>
-          <li className="reveal flex flex-col gap-4">
+          <li className="reveal flex w-[84%] max-w-[380px] shrink-0 snap-start flex-col gap-4 lg:w-auto lg:max-w-none">
             <Step index="02" title="At the event" line="Share the version that fits the room." />
             <div aria-hidden="true" className="flex flex-1 flex-col justify-between gap-6 rounded-[1.75rem] bg-ink p-6 text-paper">
               <div className="flex items-baseline justify-between gap-4">
@@ -38,7 +38,7 @@ export function Events() {
               <span className="flex h-12 items-center justify-center rounded-full bg-coral text-[14px] font-semibold text-ink">Connect</span>
             </div>
           </li>
-          <li className="reveal flex flex-col gap-4">
+          <li className="reveal flex w-[84%] max-w-[380px] shrink-0 snap-start flex-col gap-4 lg:w-auto lg:max-w-none">
             <Step index="03" title="After" line="Everyone from Slush, in one place." />
             <div aria-hidden="true" className="flex flex-1 flex-col rounded-[1.75rem] bg-paper p-5">
               <div className="flex items-center justify-between border-b border-ink/15 pb-3">
@@ -68,7 +68,7 @@ function Step({ index, title, line }: { index: string; title: string; line: stri
         <span className="font-label text-[11px] tracking-[0.14em]">{index}</span>
         <span className="font-display text-[26px] font-bold tracking-[-0.04em]">{title}</span>
       </p>
-      <p className="mt-1 text-[14px]">{line}</p>
+      <p className="mt-1 hidden text-[14px] sm:block">{line}</p>
     </div>
   );
 }
@@ -84,10 +84,9 @@ function Field({ label, value }: { label: string; value: string }) {
 
 const teamCapabilities = [
   "Managed Business Mode templates",
-  "Consistent company identity for every employee",
-  "Employee sharing at events and on the road",
-  "Lead attribution by event and team member",
-  "Team connections, shared where it makes sense",
+  "Company branding for every employee",
+  "Lead attribution by event",
+  "Team connections",
 ];
 
 const team = [
@@ -99,14 +98,14 @@ const team = [
 export function Teams() {
   return (
     <section aria-labelledby="teams-title" className="scroll-mt-16" id="teams">
-      <Shell className="grid grid-cols-[minmax(0,1fr)] gap-12 py-20 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
+      <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-16 sm:gap-12 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3"><Label>For teams</Label><LaterTag>In development</LaterTag></div>
           <Display className="text-[clamp(44px,5.6vw,92px)] leading-[0.9]"><span id="teams-title">Built for people. Ready for teams.</span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.55] text-ink/70">Setuvara starts with each person’s own identity. Teams is the next layer: the company’s Business Mode, worn by the people who actually meet customers.</p>
+          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-ink/70">Your company’s Business Mode, worn by your people.</p>
           <ul className="border-t border-ink/15">
             {teamCapabilities.map((item) => (
-              <li className="flex items-center justify-between gap-4 border-b border-ink/15 py-3.5 text-[15px]" key={item}>
+              <li className="flex items-center justify-between gap-4 border-b border-ink/15 py-3 text-[15px] sm:py-3.5" key={item}>
                 <span>{item}</span>
                 <span className="shrink-0 font-label text-[10px] uppercase tracking-[0.14em] text-ink/45">Planned</span>
               </li>
@@ -137,7 +136,7 @@ export function Teams() {
               </div>
             ))}
           </div>
-          <p className="text-[13px] leading-5 text-ink/55">One template, three people. Each still owns their identity and Personal Mode.</p>
+          <p className="text-[13px] leading-5 text-ink/55">One template. Everyone keeps their own identity.</p>
         </div>
       </Shell>
     </section>

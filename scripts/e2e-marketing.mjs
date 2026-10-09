@@ -35,8 +35,8 @@ try {
   const modeSwitcher = page.getByRole("group", { name: "Aanya’s Modes" });
   await modeSwitcher.getByRole("button", { name: "Business" }).click();
   assert.equal(await modeSwitcher.getByRole("button", { name: "Business" }).getAttribute("aria-pressed"), "true", "Hero Mode switcher should select Business");
-  await page.locator("#hero-claim-mobile").fill("future_name");
-  await page.locator("#hero-claim-mobile").press("Enter");
+  await page.locator("#hero-claim").fill("future_name");
+  await page.locator("#hero-claim").press("Enter");
   await page.waitForURL("**/signup?username=future_name");
   assert.equal(await page.getByLabel("Username").inputValue(), "future_name", "Claim form should prefill the signup username");
   await page.goto(new URL("/", appUrl).toString());

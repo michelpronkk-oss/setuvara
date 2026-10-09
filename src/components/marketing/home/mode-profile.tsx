@@ -18,7 +18,7 @@ export function ModeProfile({ slug, size = "full", linkCount }: { slug: DemoMode
   const links = mode.links.slice(0, linkCount ?? mode.links.length);
 
   return (
-    <article aria-label={`${person.name}, ${mode.label} Mode`} className={`relative flex h-full w-full flex-col overflow-hidden rounded-[1.75rem] ${tone.surface} ${compact ? "p-5" : "p-6 sm:p-7"}`}>
+    <article aria-label={`${person.name}, ${mode.label} Mode`} className={`relative flex h-full w-full flex-col overflow-hidden rounded-[1.75rem] text-left ${tone.surface} ${compact ? "p-5" : "p-6 sm:p-7"}`}>
       <div className="flex items-start justify-between gap-3">
         <Label className={`!text-[10px] !tracking-[0.2em] ${tone.accent}`}>{mode.label}</Label>
         <Label className={`!text-[10px] ${tone.muted}`}>Setuvara</Label>
@@ -26,7 +26,7 @@ export function ModeProfile({ slug, size = "full", linkCount }: { slug: DemoMode
 
       {slug === "event" ? (
         <div className={compact ? "mt-5" : "mt-8"}>
-          <p className={`font-display font-extrabold leading-[0.85] tracking-[-0.06em] ${compact ? "text-[44px]" : "text-[64px]"}`}>Slush</p>
+          <p className={`font-display font-extrabold leading-[0.85] tracking-[-0.06em] ${compact ? "text-[40px] sm:text-[44px]" : "text-[64px]"}`}>Slush</p>
           <p className="mt-2 text-[13px] font-semibold">Helsinki · November</p>
         </div>
       ) : null}
@@ -48,8 +48,10 @@ export function ModeProfile({ slug, size = "full", linkCount }: { slug: DemoMode
         {slug === "event" ? (
           <div className={`border-t-[1.5px] border-ink ${compact ? "mt-4 pt-3" : "mt-5 pt-4"}`}>
             <p className="text-[13px] font-semibold">Partnerships · Lumen Labs</p>
-            <Label className="mt-3 !text-[9px] !tracking-[0.2em]">Here to meet</Label>
-            <p className="mt-1 text-[13px] leading-5">Climate founders and grid operators</p>
+            <div className={compact ? "hidden sm:block" : undefined}>
+              <Label className="mt-3 !text-[9px] !tracking-[0.2em]">Here to meet</Label>
+              <p className="mt-1 text-[13px] leading-5">Climate founders and grid operators</p>
+            </div>
           </div>
         ) : null}
 

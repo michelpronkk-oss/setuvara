@@ -42,18 +42,18 @@ export function HeroModes({ cards, name }: { cards: [ReactNode, ReactNode, React
         ))}
       </div>
 
-      <div className="relative h-[452px] w-full [--fan-x:56px] min-[420px]:[--fan-x:72px] sm:h-[480px] sm:[--fan-x:150px] lg:[--fan-x:118px] xl:[--fan-x:148px]">
+      <div className="relative h-[408px] w-full [--fan-x:46px] min-[420px]:[--fan-x:60px] sm:h-[486px] sm:[--fan-x:170px] lg:[--fan-x:220px]">
         {cards.map((card, index) => {
           const relative = ((index - active + 4) % 3) - 1;
           const front = relative === 0;
           return (
             <div
               aria-hidden={!front}
-              className="mode-panel absolute left-1/2 top-0 h-[440px] w-[min(272px,72vw)] sm:h-[468px] sm:w-[292px]"
+              className="mode-panel absolute left-1/2 top-0 h-[392px] w-[min(250px,64vw)] sm:h-[468px] sm:w-[292px]"
               inert={!front}
               key={labels[index]}
               style={{
-                transform: `translateX(calc(-50% + ${relative} * var(--fan-x))) translateY(${front ? 0 : 18}px) rotate(${relative * 5}deg) scale(${front ? 1 : 0.9})`,
+                transform: `translateX(calc(-50% + ${relative} * var(--fan-x))) translateY(${front ? 0 : 16}px) rotate(${relative * 5}deg) scale(${front ? 1 : 0.88})`,
                 zIndex: front ? 3 : 1,
                 filter: front ? "none" : "saturate(.75)",
                 opacity: front ? 1 : 0.92,

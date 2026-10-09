@@ -27,7 +27,7 @@ function ShareQr({ size, label }: { size: number; label: string }) {
 export function Share() {
   return (
     <section aria-labelledby="share-title" className="scroll-mt-16" id="share">
-      <Shell className="grid grid-cols-[minmax(0,1fr)] gap-12 py-20 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
+      <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-16 sm:gap-12 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
         <div className="order-2 flex justify-center lg:order-1">
           <div className="reveal w-full max-w-[380px] rounded-[2rem] bg-ink p-5 text-paper sm:p-6">
             <div className="flex items-center justify-between">
@@ -40,7 +40,7 @@ export function Share() {
               <span className="rounded-full py-2 text-paper/60">Business</span>
             </div>
             <div className="mt-5 rounded-[1.5rem] bg-paper p-6">
-              <ShareQr label="QR code that opens setuvara.com" size={232} />
+              <span className="sm:hidden"><ShareQr label="QR code that opens setuvara.com" size={176} /></span><span className="hidden sm:block"><ShareQr label="QR code that opens setuvara.com" size={232} /></span>
             </div>
             <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3">
               <span className="truncate font-label text-[12px] text-paper/80">setuvara.com/{person.username}?mode=event</span>
@@ -54,14 +54,14 @@ export function Share() {
           <div className="flex flex-col gap-5">
             <Label className="text-coral">Share</Label>
             <Display className="text-[clamp(44px,5.6vw,88px)] leading-[0.9]"><span id="share-title">The right version, instantly.</span></Display>
-            <p className="max-w-[32rem] text-[17px] leading-[1.55] text-ink/70 sm:text-[19px]">Pick a Mode and share it. Whoever scans, taps or opens your link sees that version of you — nothing more.</p>
+            <p className="max-w-[32rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Pick a Mode. Share it. They see only that version.</p>
           </div>
           <ul className="border-t border-ink/15">
             {channels.map((channel) => (
-              <li className={`flex items-center justify-between gap-4 border-b border-ink/15 py-4 ${channel.live ? "" : "text-ink/55"}`} key={channel.name}>
+              <li className={`flex items-center justify-between gap-4 border-b border-ink/15 py-3 sm:py-4 ${channel.live ? "" : "text-ink/55"}`} key={channel.name}>
                 <span className="min-w-0">
                   <span className="block text-[17px] font-semibold text-current">{channel.name}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-ink/55">{channel.detail}</span>
+                  <span className="mt-0.5 hidden truncate text-[13px] text-ink/55 sm:block">{channel.detail}</span>
                 </span>
                 {channel.live ? <span className="inline-flex shrink-0 items-center gap-1.5 font-label text-[10px] uppercase tracking-[0.14em] text-ink"><span aria-hidden="true" className="size-1.5 rounded-full bg-coral" />Live</span> : <LaterTag className="shrink-0" />}
               </li>
@@ -76,10 +76,10 @@ export function Share() {
 export function MeetConnect() {
   return (
     <section aria-labelledby="how-title" className="scroll-mt-16 bg-ink text-paper" id="how">
-      <Shell className="flex flex-col gap-14 py-20 sm:py-28 lg:gap-20 lg:py-36">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
+      <Shell className="flex flex-col gap-10 py-16 sm:gap-14 sm:py-28 lg:gap-20 lg:py-36">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end">
           <Display className="text-[clamp(56px,8.4vw,136px)] leading-[0.84]"><span id="how-title">Meet.<br /><span className="text-coral">Connect.</span><br />Remember.</span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.55] text-paper/70 sm:text-[19px]">One scan opens the right Mode. One tap connects you. Setuvara keeps the where and when, so neither of you has to type a thing.</p>
+          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-paper/70 sm:text-[19px]">Scan. Tap. Saved — with where and when.</p>
         </div>
 
         <ol className="grid gap-10 lg:grid-cols-3 lg:gap-8">
@@ -122,7 +122,7 @@ export function MeetConnect() {
               <MeetMarkJoin className="size-16" />
               <div>
                 <p className="font-display text-[34px] font-extrabold leading-[0.95] tracking-[-0.045em]">You’re connected.</p>
-                <p className="mt-2 text-[14px] font-medium">Aanya ↔ Lena, remembered for both of you.</p>
+                <p className="mt-2 text-[14px] font-medium">Remembered for both of you.</p>
               </div>
               <dl className="mt-auto grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 border-t-[1.5px] border-ink pt-4 text-[14px]">
                 <dt className="font-label text-[11px] uppercase tracking-[0.12em] leading-5">Event</dt><dd className="font-semibold">Slush</dd>
@@ -135,8 +135,8 @@ export function MeetConnect() {
         </ol>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 border-t border-paper/15 pt-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start lg:gap-16">
-          <p className="font-display text-[clamp(30px,3.6vw,52px)] font-bold leading-[1] tracking-[-0.045em]">The person you meet doesn’t need an account.</p>
-          <p className="text-[16px] leading-[1.6] text-paper/70 sm:text-[17px]">Guests connect with a name and email. When they create their own Setuvara later, the connection is already waiting — and meeting again adds a new encounter instead of a duplicate contact.</p>
+          <p className="font-display text-[clamp(30px,3.6vw,52px)] font-bold leading-[1] tracking-[-0.045em]">They don’t need an&nbsp;account.</p>
+          <p className="text-[16px] leading-[1.5] text-paper/70 sm:text-[17px]">Guests connect with a name and email. If they join later, the connection is already waiting.</p>
         </div>
       </Shell>
     </section>

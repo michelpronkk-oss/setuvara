@@ -14,13 +14,13 @@ const featuredRewards = ["signal_accent", "coral_qr_frame", "thousand_cover"].ma
 export function Passport() {
   return (
     <section aria-labelledby="passport-title" className="scroll-mt-16 bg-[#e8e2d4]" id="passport">
-      <Shell className="flex flex-col gap-14 py-20 sm:py-28 lg:gap-20 lg:py-36">
+      <Shell className="flex flex-col gap-10 py-16 sm:gap-14 sm:py-28 lg:gap-20 lg:py-36">
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2 lg:items-end lg:gap-16">
           <div className="flex flex-col gap-5">
             <Label className="text-[#a43d36]">Passport</Label>
-            <Display className="text-[clamp(44px,6vw,96px)] leading-[0.88]"><span id="passport-title">A record of where you’ve been — and who you met there.</span></Display>
+            <Display className="text-[clamp(44px,6vw,96px)] leading-[0.88]"><span id="passport-title">Every connection leaves a&nbsp;stamp.</span></Display>
           </div>
-          <p className="max-w-[30rem] text-[17px] leading-[1.55] text-ink/70 sm:text-[19px]">Real connections earn milestones and stamps for the events, cities and countries behind them. Not a leaderboard: your Passport is private, and the rewards become part of your identity.</p>
+          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Milestones, events, cities, countries. Private — never a leaderboard.</p>
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-8">
@@ -31,7 +31,7 @@ export function Passport() {
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <Label>Milestones</Label>
-            <p className="text-[13px] text-ink/60">Unique connections, counted once per person.</p>
+            <p className="hidden text-[13px] text-ink/60 sm:block">Unique connections, counted once per person.</p>
           </div>
           <ol aria-label="Milestone ladder" className="-mx-5 flex snap-x gap-px overflow-x-auto bg-ink/15 px-0 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-hidden sm:rounded-[1.5rem] lg:grid-cols-8" tabIndex={0}>
             {MILESTONES.map((milestone) => {
@@ -50,11 +50,11 @@ export function Passport() {
           </ol>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="-mx-5 flex snap-x scroll-px-5 gap-3 overflow-x-auto px-5 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
           {featuredRewards.map((reward) => {
             const unlocked = reward.milestone <= example.count;
             return (
-              <article className="flex flex-col gap-3 rounded-[1.5rem] bg-paper p-5" key={reward.id}>
+              <article className="flex w-[74%] shrink-0 snap-start flex-col gap-3 rounded-[1.5rem] bg-paper p-5 sm:w-auto" key={reward.id}>
                 <div className="flex items-start justify-between gap-3">
                   <Label className="!text-[10px] text-ink/55">{reward.rarity}</Label>
                   <span className={`font-label text-[10px] uppercase tracking-[0.14em] ${unlocked ? "text-ink" : "text-ink/45"}`}>{unlocked ? "Unlocked" : `At ${reward.milestone}`}</span>

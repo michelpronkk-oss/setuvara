@@ -3,18 +3,18 @@ import { ModeProfile } from "./mode-profile";
 import { Display, Label, Shell } from "./primitives";
 
 const facts = [
-  { title: "Its own links", detail: "Pick from 60 providers — social, creator, messaging, work, event, community — or add your own." },
-  { title: "Its own look", detail: "Each Mode carries its own appearance and layout, from quiet editorial to event poster." },
-  { title: "Its own share", detail: "Every Mode has its own link and QR, so the person you meet lands on the right version." },
+  { title: "Own links", detail: "60 providers, or your own." },
+  { title: "Own look", detail: "Its own layout and style." },
+  { title: "Own QR", detail: "Its own link and code." },
 ];
 
 export function Modes() {
   return (
     <section aria-labelledby="modes-title" className="scroll-mt-16 bg-white" id="modes">
-      <Shell className="flex flex-col gap-12 py-20 sm:py-28 lg:gap-16 lg:py-36">
+      <Shell className="flex flex-col gap-8 py-16 sm:gap-12 sm:py-28 lg:gap-16 lg:py-36">
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2 lg:items-end lg:gap-16">
           <Display className="text-[clamp(44px,5.8vw,92px)] leading-[0.9]"><span id="modes-title">Who you are depends on who you’re meeting.</span></Display>
-          <p className="max-w-[32rem] text-[17px] leading-[1.55] text-ink/70 sm:text-[19px]">Modes aren’t separate accounts. They’re three expressions of the same identity — and each one shows only what you choose for that context.</p>
+          <p className="max-w-[32rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Three Modes. One identity. Each shows only what you choose.</p>
         </div>
 
         <div aria-hidden="true" className="flex items-center gap-3 sm:gap-4">
@@ -28,20 +28,20 @@ export function Modes() {
         <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-5 px-5 pb-2 [scrollbar-width:none] sm:-mx-8 sm:scroll-px-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0 lg:gap-6" aria-label="Aanya’s three Modes" role="region" tabIndex={0}>
           {demoModes.map((mode, index) => (
             <div className="reveal flex w-[84%] max-w-[360px] shrink-0 snap-start flex-col gap-4 lg:w-auto lg:max-w-none" key={mode.slug}>
-              <div className="flex min-h-12 flex-col gap-1 border-b border-ink/15 pb-3 lg:flex-row lg:items-baseline lg:justify-between lg:gap-3">
+              <div className="flex flex-col gap-1 border-b border-ink/15 pb-3 sm:min-h-12 lg:flex-row lg:items-baseline lg:justify-between lg:gap-3">
                 <Label className="shrink-0">{String(index + 1).padStart(2, "0")} · {mode.label}</Label>
-                <p className="text-[13px] text-ink/60 lg:text-right">{mode.audience}</p>
+                <p className="hidden text-[13px] text-ink/60 sm:block lg:text-right">{mode.audience}</p>
               </div>
-              <div className="min-h-[540px] flex-1 lg:min-h-[560px]"><ModeProfile slug={mode.slug} /></div>
+              <div className="min-h-[460px] flex-1 lg:min-h-[560px]"><ModeProfile slug={mode.slug} /></div>
             </div>
           ))}
         </div>
 
-        <dl className="grid gap-8 border-t-[1.5px] border-ink pt-8 lg:grid-cols-3 md:gap-6">
+        <dl className="grid grid-cols-3 gap-3 border-t-[1.5px] border-ink pt-6 sm:gap-6 sm:pt-8">
           {facts.map((fact) => (
             <div className="flex flex-col gap-2" key={fact.title}>
-              <dt className="font-display text-[26px] font-bold tracking-[-0.04em]">{fact.title}</dt>
-              <dd className="max-w-[22rem] text-[15px] leading-6 text-ink/65">{fact.detail}</dd>
+              <dt className="font-display text-[19px] font-bold leading-tight tracking-[-0.04em] sm:text-[26px]">{fact.title}</dt>
+              <dd className="max-w-[22rem] text-[13px] leading-5 text-ink/65 sm:text-[15px] sm:leading-6">{fact.detail}</dd>
             </div>
           ))}
         </dl>
