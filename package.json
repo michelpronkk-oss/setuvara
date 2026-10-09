@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "e2e:local": "node scripts/run-local-e2e.mjs",
+    "e2e:marketing": "node scripts/e2e-marketing.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

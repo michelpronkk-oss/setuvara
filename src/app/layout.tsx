@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://setuvara.com"),
   title: "Setuvara",
   description: "A wallet-first digital identity and real-world connection network.",
 };
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body className="bg-slate-50 text-slate-950 antialiased">{children}</body>
+      <body className="bg-[#f5f4ef] text-[#0d0d0d] antialiased">{children}</body>
     </html>
   );
 }

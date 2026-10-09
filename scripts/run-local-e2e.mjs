@@ -77,15 +77,18 @@ try {
   assert.equal(health.status, 200, "Setuvara health endpoint must reach local Supabase");
   assert.deepEqual(await health.json(), { status: "connected" });
 
-  const runner = spawn(process.execPath, ["scripts/e2e-local-auth.mjs"], {
-    cwd: root,
-    env: e2eEnv,
-    stdio: ["ignore", "inherit", "inherit"],
-  });
-  testCode = await new Promise((resolveCode, reject) => {
-    runner.once("error", reject);
-    runner.once("exit", (code) => resolveCode(code ?? 1));
-  });
+  for (const script of ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs"]) {
+    const runner = spawn(process.execPath, [script], {
+      cwd: root,
+      env: e2eEnv,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    testCode = await new Promise((resolveCode, reject) => {
+      runner.once("error", reject);
+      runner.once("exit", (code) => resolveCode(code ?? 1));
+    });
+    if (testCode !== 0) break;
+  }
 } catch (error) {
   console.error(`Local E2E setup failed: ${error instanceof Error ? error.message : "unknown error"}`);
 } finally {

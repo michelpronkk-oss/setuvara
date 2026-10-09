@@ -36,7 +36,9 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 - `npm run lint` runs ESLint.
 - `npm run e2e:local` runs local signup, email confirmation, the three-Mode
   editor, media/link permissions, sharing, RLS, routing, and responsive flows
-  in Playwright.
+  in Playwright, plus the marketing route/navigation checks.
+- `npm run e2e:marketing` runs the marketing route checks against the local app
+  at `http://127.0.0.1:3014`.
 
 ## Environment
 
@@ -130,15 +132,22 @@ supabase/
 └── templates/           # Local Auth email template
 src/
 ├── app/
+│   ├── (marketing)/    # Shared public marketing shell and static pages
 │   ├── app/identity/   # Multi-Mode editor, sharing, and actions
 │   ├── auth/           # Auth callbacks and confirmation
 │   ├── [username]/     # Published profile at the canonical root URL
 │   ├── u/[username]/   # Permanent legacy redirect
 │   └── ...             # Static, app, and health routes
 ├── components/links/   # Provider picker and reusable provider marks
+├── components/marketing/ # Shared marketing navigation, footer, and page primitives
 ├── components/profile/ # Shared profile renderer and normalized types
 ├── components/connections/ # Connect flow, connections list, private memory editor
 └── lib/
     ├── links/          # Central provider registry and canonical normalization
     └── supabase/       # Browser, server, and session clients
 ```
+
+The public marketing foundation uses a shared header, accessible mobile menu,
+footer, route-specific canonical/social metadata, and generated Setuvara social
+image. Its initial routes are `/`, `/pricing`, `/events`, and `/teams`. Profile
+routes remain outside the marketing layout.
