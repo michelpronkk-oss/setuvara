@@ -32,7 +32,7 @@ export function Memory() {
             </div>
             <dl className="grid grid-cols-3 gap-x-3 gap-y-4 border-t-[1.5px] border-ink pt-5">
               <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-coral">You met</dt><dd className="mt-1 text-[14px] font-semibold sm:text-[16px]">TNW Conference</dd></div>
-              <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">Where</dt><dd className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold sm:text-[16px]"><Flag className="h-[12px] w-[18px]" country="NL" />Amsterdam</dd></div>
+              <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">Where</dt><dd className="mt-1 text-[14px] font-semibold sm:text-[16px]">Amsterdam</dd></div>
               <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">Mode</dt><dd className="mt-1 text-[14px] font-semibold sm:text-[16px]">Business</dd></div>
             </dl>
             <div className="rounded-2xl bg-[repeating-linear-gradient(-30deg,#f5f4ef_0_8px,#fff_8px_16px)] px-5 py-4 shadow-[inset_0_0_0_1.5px_#0d0d0d]">
