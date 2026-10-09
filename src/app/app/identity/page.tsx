@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { signOut } from "./actions";
 import { IdentityEditor } from "./editor";
+import type { RewardCategory } from "@/lib/passport/rewards";
 
 type IdentityEditorPageProps = {
   searchParams: Promise<{ mode?: string; section?: string; error?: string; saved?: string }>;
@@ -25,10 +26,11 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
   const guestSessionToken = (await cookies()).get("sv-guest-session")?.value;
   if (guestSessionToken) await supabase.rpc("claim_guest_connections", { p_session_token: guestSessionToken });
 
-  const [profileResult, modesResult, linksResult] = await Promise.all([
+  const [profileResult, modesResult, linksResult, passportResult] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
+    supabase.rpc("get_passport_overview"),
   ]);
 
   if (profileResult.error || modesResult.error || linksResult.error || !profileResult.data || !modesResult.data?.length) {
@@ -59,6 +61,8 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
     };
   }));
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";
+  const passport = (passportResult.data ?? {}) as { rewards?: { id: string }[]; preferences?: Partial<Record<RewardCategory, string>>; milestones?: { threshold: number; seenAt: string | null }[] };
+  const unseenMilestone = passport.milestones?.filter((milestone) => !milestone.seenAt).at(-1)?.threshold ?? null;
 
   return (
     <IdentityEditor
@@ -67,6 +71,9 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       initialModes={modes}
       initialProfile={profile}
       initialSection={query.section ?? "profile"}
+      unlockedRewards={(passport.rewards ?? []).map((reward) => reward.id)}
+      selectedRewards={passport.preferences ?? {}}
+      celebrationThreshold={unseenMilestone}
       publicOrigin={publicOrigin}
       saved={query.saved}
       signOut={signOut}

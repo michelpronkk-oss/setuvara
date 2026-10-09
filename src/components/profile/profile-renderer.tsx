@@ -14,6 +14,7 @@ type ProfileRendererProps = {
   guestClaimHref?: string;
   onShare?: () => void;
   onEditMode?: () => void;
+  selectedRewards?: Partial<Record<string, string>>;
 };
 
 const modeEyebrow: Record<ModeSlug, string> = {
@@ -33,6 +34,7 @@ export function ProfileRenderer({
   guestClaimHref,
   onShare,
   onEditMode,
+  selectedRewards = {},
 }: ProfileRendererProps) {
   const owner = viewerState === "owner" && !previewAsVisitor;
   const dark = mode.appearance.theme === "dark";
@@ -42,10 +44,13 @@ export function ProfileRenderer({
   const secondary = dark ? "text-white/65" : "text-[#0d0d0d]/60";
   const isPoster = layout === "event-poster" || layout === "full-bleed";
   const isStructured = layout === "structured" || layout === "conference-card";
-  const accentStyle = { backgroundColor: mode.appearance.accent };
+  const accentColor = selectedRewards.accent === "signal_accent" ? "#FF5A4F" : mode.appearance.accent;
+  const accentStyle = { backgroundColor: accentColor };
+  const signature = selectedRewards.profile_mark === "signal_50_mark" ? "SIGNAL 50" : selectedRewards.profile_mark === "thousand_mark" ? "THOUSAND MET" : null;
+  const treatmentClass = selectedRewards.profile_treatment === "editorial_profile" || selectedRewards.profile_treatment === "century_profile" ? "shadow-[inset_0_0_0_1px_rgba(255,90,79,.38)]" : selectedRewards.profile_treatment === "connector_treatment" ? "border-[#ff5a4f]/45" : "";
 
   return (
-    <article className={`relative isolate w-full overflow-hidden rounded-[2rem] border border-black/10 ${background} ${isPoster ? "min-h-[540px]" : "min-h-[480px]"}`}>
+    <article className={`relative isolate w-full overflow-hidden rounded-[2rem] border border-black/10 ${background} ${isPoster ? "min-h-[540px]" : "min-h-[480px]"} ${treatmentClass}`}>
       {mode.image_url && isPoster && (
         <div className="absolute inset-0 -z-10">
           {/* Supabase signed URLs are short-lived and use the private media bucket. */}
@@ -56,9 +61,11 @@ export function ProfileRenderer({
 
       <div className={`flex min-h-[inherit] flex-col p-6 sm:p-8 ${isStructured ? "justify-start" : "justify-between"}`}>
         <div className="flex items-start justify-between gap-3">
-          <span className="text-[10px] font-bold tracking-[0.22em]" style={{ color: mode.appearance.accent }}>{modeEyebrow[mode.slug]}</span>
+          <span className="text-[10px] font-bold tracking-[0.22em]" style={{ color: accentColor }}>{modeEyebrow[mode.slug]}</span>
           <span className={`text-[10px] font-semibold tracking-[0.16em] ${secondary}`}>SETUVARA</span>
         </div>
+
+        {signature && <p className="mt-5 inline-flex self-start rounded-full border border-current/15 px-3 py-1 text-[9px] font-bold tracking-[0.16em]" aria-label={`Earned identity mark: ${signature}`}>{signature}</p>}
 
         <div className={`${isStructured ? "mt-10" : "mt-20"} ${layout === "portrait-editorial" || layout === "editorial-business" ? "max-w-[18rem]" : "max-w-full"}`}>
           {mode.image_url && !isPoster && (
@@ -149,8 +156,13 @@ function ModeDetails({ mode, secondary }: { mode: ProfileMode; secondary: string
     <div className="mt-5 space-y-1">
       {mode.settings.role && <p className="text-base font-semibold">{String(mode.settings.role)}</p>}
       {mode.settings.company && <p className={`text-sm ${secondary}`}>{String(mode.settings.company)}</p>}
-      {mode.settings.city && <p className={`text-sm ${secondary}`}>{String(mode.settings.city)}</p>}
+          {mode.settings.city && <p className={`text-sm ${secondary}`}>{[String(mode.settings.city), mode.settings.countryCode ? countryName(String(mode.settings.countryCode)) : ""].filter(Boolean).join(" · ")}</p>}
       {mode.settings.description && <p className={`mt-4 max-w-sm text-sm leading-6 ${secondary}`}>{String(mode.settings.description)}</p>}
     </div>
   );
+}
+
+function countryName(code: string) {
+  try { return new Intl.DisplayNames(["en"], { type: "region" }).of(code.toUpperCase()) ?? code.toUpperCase(); }
+  catch { return code.toUpperCase(); }
 }

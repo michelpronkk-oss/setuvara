@@ -110,7 +110,7 @@ export default async function ConnectionsPage() {
   return (
     <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl">
-        <header className="flex items-center justify-between gap-4"><Link className="text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link><nav aria-label="Setuvara app" className="flex gap-2"><Link className="inline-flex min-h-11 items-center rounded-full px-4 text-xs font-semibold" href="/app/identity">Identity</Link><span aria-current="page" className="inline-flex min-h-11 items-center rounded-full bg-black/5 px-4 text-xs font-semibold">Connections</span></nav></header>
+        <header className="flex items-center justify-between gap-4"><Link className="text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link><nav aria-label="Setuvara app" className="flex flex-wrap gap-1"><Link className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold" href="/app/identity">Identity</Link><span aria-current="page" className="inline-flex min-h-11 items-center rounded-full bg-black/5 px-3 text-xs font-semibold">Connections</span><Link className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold" href="/app/passport">Passport</Link></nav></header>
         <section className="mt-12"><p className="text-[10px] font-bold tracking-[0.2em] text-black/45">YOUR PEOPLE</p><h1 className="mt-3 text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">Connections that stay.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-black/55">A little memory of the people you’ve met and the moments you shared.</p></section>
         <ConnectionsList items={items} />
       </div>

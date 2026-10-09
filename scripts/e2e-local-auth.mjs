@@ -20,6 +20,9 @@ const owner = { email: `e2e-owner-${suffix}@example.test`, password: `${randomBy
 const other = { email: `e2e-other-${suffix}@example.test`, password: `${randomBytes(32).toString("base64url")}Bb2!`, username: `e2e_other_${suffix}` };
 const guestClaim = { email: `e2e-guest-${suffix}@example.test`, password: `${randomBytes(32).toString("base64url")}Cc3!`, username: `e2e_guest_${suffix}` };
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p1sAAAAASUVORK5CYII=", "base64");
+const progressionGuestEmails = [];
+let storageFailure = null;
+let imageSaved = false;
 
 function localUserClient() {
   return createClient(supabaseUrl, publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -98,7 +101,13 @@ async function waitSaved(page) {
 
 async function waitEditorMessage(page, message) {
   const escaped = message.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await page.locator('div[aria-live="polite"]').filter({ hasText: new RegExp(`^${escaped}$`) }).waitFor();
+  try {
+    await page.locator('div[aria-live="polite"]').filter({ hasText: new RegExp(`^${escaped}$`) }).waitFor();
+  } catch (error) {
+    console.error(`Expected editor message "${message}"; current page text: ${(await page.locator("body").innerText()).slice(-1200)}`);
+    if (message === "Photo saved") console.error(`Local profile media response: ${JSON.stringify(storageFailure)}`);
+    throw error;
+  }
 }
 
 async function addLink(page, title, value, type = "url") {
@@ -135,6 +144,35 @@ async function authenticatedClient(account) {
   return { client, user: data.user };
 }
 
+async function verifyProfileMediaRules(client, userId, imageFormats) {
+  const bucket = client.storage.from("profile-media");
+  const uploadedPaths = [];
+  const files = [
+    { extension: "png", contentType: "image/png", body: png },
+    { extension: "jpg", contentType: "image/jpeg", body: imageFormats.jpeg },
+    { extension: "webp", contentType: "image/webp", body: imageFormats.webp },
+  ];
+  for (const file of files) {
+    const path = `${userId}/media-policy-${crypto.randomUUID()}.${file.extension}`;
+    const result = await bucket.upload(path, file.body, { contentType: file.contentType, upsert: false });
+    assert.ifError(result.error, `${file.contentType} must be allowed by the private profile-media bucket`);
+    uploadedPaths.push(path);
+  }
+
+  const invalidMimePath = `${userId}/media-policy-${crypto.randomUUID()}.txt`;
+  const invalidMime = await bucket.upload(invalidMimePath, Buffer.from("not an image"), { contentType: "text/plain", upsert: false });
+  if (!invalidMime.error) await bucket.remove([invalidMimePath]);
+  assert(invalidMime.error, "profile-media must reject unsupported MIME types");
+
+  const oversizedPath = `${userId}/media-policy-${crypto.randomUUID()}.png`;
+  const oversized = await bucket.upload(oversizedPath, Buffer.alloc(5 * 1024 * 1024 + 1), { contentType: "image/png", upsert: false });
+  if (!oversized.error) await bucket.remove([oversizedPath]);
+  assert(oversized.error, "profile-media must reject files larger than 5 MiB");
+
+  const cleanup = await bucket.remove(uploadedPaths);
+  assert.ifError(cleanup.error, "Owner must be able to remove temporary MIME-policy test objects");
+}
+
 async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkIds, imagePath) {
   const ownerAuth = await authenticatedClient(ownerAccount);
   const otherAuth = await authenticatedClient(otherAccount);
@@ -159,11 +197,18 @@ async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkI
   const linkDelete = await otherClient.from("profile_links").delete().eq("id", linkIds[0]).select("id");
   assert.ifError(linkDelete.error);
   assert.equal(linkDelete.data.length, 0, "Account 2 must not delete account 1 link");
-  const forbiddenUpload = await otherClient.storage.from("profile-media").upload(imagePath, png, { contentType: "image/png" });
-  assert(forbiddenUpload.error, "Account 2 must not upload into account 1 media path");
-  await otherClient.storage.from("profile-media").remove([imagePath]);
-  const ownerImage = await ownerAuth.client.storage.from("profile-media").download(imagePath);
-  assert.ifError(ownerImage.error);
+  if (imagePath) {
+    const forbiddenPath = `${ownerId}/unauthorized-${crypto.randomUUID()}.webp`;
+    const forbiddenUpload = await otherClient.storage.from("profile-media").upload(forbiddenPath, png, { contentType: "image/png" });
+    if (!forbiddenUpload.error) await ownerAuth.client.storage.from("profile-media").remove([forbiddenPath]);
+    assert(forbiddenUpload.error, "Account 2 must not upload into account 1 media path");
+    const forbiddenReplace = await otherClient.storage.from("profile-media").upload(imagePath, png, { contentType: "image/png", upsert: true });
+    assert(forbiddenReplace.error, "Account 2 must not replace account 1 media");
+    const forbiddenDelete = await otherClient.storage.from("profile-media").remove([imagePath]);
+    assert.ifError(forbiddenDelete.error);
+    const ownerImage = await ownerAuth.client.storage.from("profile-media").download(imagePath);
+    assert.ifError(ownerImage.error);
+  }
 
   const ownerProfile = await ownerAuth.client.from("profiles").select("username, display_name, bio, is_published").eq("id", ownerId).single();
   assert.ifError(ownerProfile.error);
@@ -188,6 +233,11 @@ let imagePath = "";
 try {
   ownerBrowser = await signUpAndConfirm(browser, owner);
   const page = ownerBrowser.page;
+  page.on("response", async (response) => {
+    if (response.url().includes("/storage/v1/object/profile-media/") && !response.ok()) {
+      storageFailure = { status: response.status(), body: (await response.text()).slice(0, 500) };
+    }
+  });
   await page.getByRole("tab", { name: "personal", exact: true }).waitFor();
   await page.getByRole("tab", { name: "event", exact: true }).waitFor();
   await page.getByRole("tab", { name: "business", exact: true }).waitFor();
@@ -203,8 +253,62 @@ try {
   await page.locator('input[type="file"]').setInputFiles({ name: "profile.png", mimeType: "image/png", buffer: png });
   await page.getByRole("dialog", { name: "Crop profile image" }).waitFor();
   await page.getByRole("button", { name: "Use photo" }).click();
+  await Promise.race([
+    waitEditorMessage(page, "Photo saved"),
+    page.getByText(/This image could not be uploaded/).first().waitFor({ timeout: 20_000 }),
+  ]);
+  const mediaUnavailable = Boolean(await page.getByText(/This image could not be uploaded/).count());
+  assert(!mediaUnavailable, `Profile media upload failed: ${JSON.stringify(storageFailure)}`);
+  imageSaved = true;
+
+  const mediaAuth = await authenticatedClient(owner);
+  ownerId = mediaAuth.user.id;
+  const firstImage = await mediaAuth.client.from("profile_modes").select("image_path").eq("profile_id", ownerId).eq("slug", "personal").single();
+  assert.ifError(firstImage.error);
+  assert(firstImage.data.image_path, "Cropped profile media must be persisted to the Personal Mode");
+  const originalImagePath = firstImage.data.image_path;
+
+  const imageFormats = await page.evaluate(async (base64) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${base64}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    canvas.getContext("2d")?.drawImage(image, 0, 0, 32, 32);
+    return { jpeg: canvas.toDataURL("image/jpeg", 0.9), webp: canvas.toDataURL("image/webp", 0.9) };
+  }, png.toString("base64"));
+  const mediaFormats = {
+    jpeg: Buffer.from(imageFormats.jpeg.split(",")[1], "base64"),
+    webp: Buffer.from(imageFormats.webp.split(",")[1], "base64"),
+  };
+  await verifyProfileMediaRules(mediaAuth.client, ownerId, mediaFormats);
+
+  await page.getByRole("button", { name: "Replace photo" }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: "replacement.jpg", mimeType: "image/jpeg", buffer: mediaFormats.jpeg });
+  await page.getByRole("dialog", { name: "Crop profile image" }).waitFor();
+  const replacementUpload = page.waitForResponse((response) =>
+    response.request().method() === "POST" &&
+    response.url().includes(`/storage/v1/object/profile-media/${ownerId}/`) &&
+    response.ok(), { timeout: 20_000 });
+  const removePreviousImage = page.waitForResponse((response) =>
+    response.request().method() === "DELETE" &&
+    response.url().includes("/storage/v1/object/profile-media") &&
+    response.ok(), { timeout: 20_000 });
+  await page.getByRole("button", { name: "Use photo" }).click();
+  await replacementUpload;
+  await removePreviousImage;
   await waitEditorMessage(page, "Photo saved");
-  console.log("PASS Personal profile details and cropped private profile media saved");
+  const replacement = await mediaAuth.client.from("profile_modes").select("image_path").eq("profile_id", ownerId).eq("slug", "personal").single();
+  assert.ifError(replacement.error);
+  assert(replacement.data.image_path && replacement.data.image_path !== originalImagePath, "Replacing a photo must persist a new private Storage path");
+  imagePath = replacement.data.image_path;
+  const removedOriginal = await mediaAuth.client.storage.from("profile-media").download(originalImagePath);
+  assert(removedOriginal.error, "Replacing a photo must remove the previous owner-scoped object");
+  const ownerImage = await mediaAuth.client.storage.from("profile-media").download(imagePath);
+  assert.ifError(ownerImage.error, "Owner must be able to read the replacement photo");
+  await mediaAuth.client.auth.signOut();
+  console.log("PASS cropped upload, JPEG/PNG/WebP MIME allowlist, size/MIME rejection, replacement, old-object removal, and owner access");
 
   await addLink(page, "Portfolio", "https://example.test/portfolio");
   await addLink(page, "Contact", "https://example.test/contact");
@@ -231,6 +335,7 @@ try {
   await openSection(page, "Mode settings");
   await page.getByLabel("Event name").fill("Slush");
   await page.getByLabel("City").fill("Helsinki");
+  await page.getByLabel("Country code (ISO 2-letter)").fill("FI");
   await page.getByLabel("Dates").fill("20–21 Nov 2026");
   await page.getByLabel("Your role / project").fill("Founder · Northlight");
   await page.getByLabel("Here to meet").fill("Product designers and early-stage operators.");
@@ -279,7 +384,20 @@ try {
   assert.equal(rootResponse?.status(), 200, "Personal root profile must load for anonymous visitors");
   await anonPage.getByRole("heading", { name: "Aanya Rao" }).waitFor();
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor();
-  await anonPage.getByRole("img", { name: "Aanya Rao" }).waitFor();
+  if (imageSaved) {
+    const publicImage = anonPage.getByRole("img", { name: "Aanya Rao" });
+    await publicImage.waitFor();
+    await publicImage.evaluate((img) => new Promise((resolve) => {
+      if (img.complete) return resolve(img.naturalWidth > 0);
+      img.addEventListener("load", () => resolve(img.naturalWidth > 0), { once: true });
+      img.addEventListener("error", () => resolve(false), { once: true });
+    })).then((loaded) => assert.equal(loaded, true, "Published renderer must load the signed profile image"));
+    const mediaClient = (await authenticatedClient(owner)).client;
+    const publicUrl = mediaClient.storage.from("profile-media").getPublicUrl(imagePath).data.publicUrl;
+    const directPublicRead = await anonContext.request.get(publicUrl);
+    assert(!directPublicRead.ok(), "Private profile-media must not be available through the public object URL");
+    await mediaClient.auth.signOut();
+  }
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor({ state: "detached" });
   const eventResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=event`);
   assert.equal(eventResponse?.status(), 200);
@@ -337,7 +455,6 @@ try {
   modeIds = modesResult.data.map((mode) => mode.id);
   linkIds = linksResult.data.map((link) => link.id);
   imagePath = (await ownerClient.from("profile_modes").select("image_path").eq("profile_id", ownerId).eq("slug", "personal").single()).data.image_path;
-  assert(imagePath);
   await ownerClient.auth.signOut();
 
   await page.locator("footer").getByRole("button", { name: "Sign out" }).click();
@@ -497,6 +614,133 @@ try {
   console.log("PASS guest Connect, private email, HttpOnly session, confirmation claim, and Encounter preservation");
   console.log("PASS account 2 cannot change account 1 profile, Modes, links, media, notes, or Where You Met context");
 
+  const progressionOwner = await authenticatedClient(owner);
+  const otherPassport = await authenticatedClient(other);
+  const otherPassportRead = await otherPassport.client.from("passport_milestones").select("threshold").eq("user_id", ownerId);
+  assert.ifError(otherPassportRead.error);
+  assert.equal(otherPassportRead.data.length, 0, "Account 2 cannot read account 1 milestone history");
+  const otherStampRead = await otherPassport.client.from("passport_stamps").select("id").eq("user_id", ownerId);
+  assert.ifError(otherStampRead.error);
+  assert.equal(otherStampRead.data.length, 0, "Account 2 cannot read account 1 stamps");
+  const otherRewardAttempt = await otherPassport.client.rpc("set_passport_reward", { p_category: "profile_treatment", p_reward_id: "editorial_profile" });
+  assert(otherRewardAttempt.error, "Account 2 cannot claim account 1's reward");
+  const otherPreferenceUpdate = await otherPassport.client.from("passport_preferences").update({ reward_id: "thousand_cover" }).eq("user_id", ownerId);
+  assert(otherPreferenceUpdate.error, "Account 2 cannot change account 1's selected cosmetics");
+  const anonPassportRead = await anonymous.from("passport_stamps").select("id");
+  assert(anonPassportRead.error, "Anonymous visitors cannot enumerate Passport stamps");
+  const lockedRewardAttempt = await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_treatment", p_reward_id: "editorial_profile" });
+  assert(lockedRewardAttempt.error, "Locked rewards cannot be selected before the milestone");
+  const directGrantAttempt = await progressionOwner.client.from("passport_entitlements").insert({ user_id: ownerId, reward_id: "thousand_mark" });
+  assert(directGrantAttempt.error, "Normal clients cannot grant themselves rewards through Data API");
+
+  async function addProgressionGuest(index) {
+    const email = `e2e-progress-${suffix}-${index}@example.test`;
+    progressionGuestEmails.push(email);
+    const response = await fetch(`${appUrl}/api/connections`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: appUrl, "x-setuvara-request": "same-origin" },
+      body: JSON.stringify({ username: owner.username, mode: "event", source: "qr", requestId: crypto.randomUUID(), displayName: `E2E Person ${index}`, email }),
+    });
+    assert.equal(response.status, 201, `Guest connection ${index} should be created through the normal Setuvara endpoint`);
+    return response.json();
+  }
+
+  const initialPassport = (await progressionOwner.client.rpc("get_passport_overview")).data;
+  let progressionCount = Number(initialPassport.connectionCount);
+  assert(progressionCount < 25, "Fresh local owner should be below the 25 connection milestone");
+  const createdProgressionConnections = [];
+  for (let index = 1; progressionCount < 25; index += 1) {
+    createdProgressionConnections.push(await addProgressionGuest(index));
+    const current = (await progressionOwner.client.rpc("get_passport_overview")).data;
+    progressionCount = Number(current.connectionCount);
+  }
+  assert.equal(progressionCount, 25, "Progression should count persistent unique Connections");
+  const normalizedContexts = [
+    { city: "Helsinki", event_label: "Slush" },
+    { city: "helsinki", event_label: " slush " },
+    { city: " HELSINKI ", event_label: "SLUSH" },
+  ];
+  for (const [index, context] of normalizedContexts.entries()) {
+    const { error: contextError } = await progressionOwner.client.from("encounter_context").upsert({
+      encounter_id: createdProgressionConnections[index].encounterId,
+      user_id: ownerId,
+      city: context.city,
+      event_label: context.event_label,
+      country_code: "FI",
+    }, { onConflict: "encounter_id,user_id" });
+    assert.ifError(contextError);
+  }
+  const passportAt25 = (await progressionOwner.client.rpc("get_passport_overview")).data;
+  assert.deepEqual(passportAt25.milestones.map((item) => item.threshold), [5, 10, 25]);
+  const expectedAt25 = ["first_circle_stamp", "paper_passport_cover", "signal_accent", "signal_share", "editorial_profile"];
+  assert.deepEqual(passportAt25.rewards.map((item) => item.id).sort(), expectedAt25.sort(), "Milestone rewards compound at 5, 10, and 25");
+  assert.equal(passportAt25.events, 1, "Repeated Slush encounters award one normalized Event stamp");
+  assert.equal(passportAt25.cities, 1, "Repeated Helsinki encounters award one normalized City stamp");
+  assert.equal(passportAt25.countries, 1, "Structured Finland country snapshot appears once");
+  const slushStamps = await progressionOwner.client.from("passport_stamps").select("id").eq("user_id", ownerId).eq("stamp_type", "event").eq("context_key", "slush");
+  const helsinkiStamps = await progressionOwner.client.from("passport_stamps").select("id").eq("user_id", ownerId).eq("stamp_type", "city").eq("context_key", "helsinki");
+  assert.ifError(slushStamps.error); assert.ifError(helsinkiStamps.error);
+  assert.equal(slushStamps.data.length, 1); assert.equal(helsinkiStamps.data.length, 1);
+  assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_treatment", p_reward_id: "editorial_profile" })).error);
+  assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "share_treatment", p_reward_id: "signal_share" })).error);
+  assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "passport_cover", p_reward_id: "paper_passport_cover" })).error);
+  const lockedCentury = await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_treatment", p_reward_id: "century_profile" });
+  assert(lockedCentury.error, "Higher milestone rewards remain locked");
+  console.log("PASS unique connection milestones 5/10/25, compounding rewards, normalized Slush/Helsinki/Finland stamps, and entitlement checks");
+
+  const countBeforeRepeats = (await progressionOwner.client.rpc("get_passport_overview")).data.connectionCount;
+  for (let repeat = 0; repeat < 4; repeat += 1) {
+    const { error: repeatError } = await progressionOwner.client.rpc("connect_registered", {
+      p_target_username: other.username, p_target_mode: "event", p_share_back_mode: "personal",
+      p_request_id: crypto.randomUUID(), p_source: "direct",
+    });
+    assert.ifError(repeatError);
+  }
+  assert.equal((await progressionOwner.client.rpc("get_passport_overview")).data.connectionCount, countBeforeRepeats, "Repeat encounters must not increase unique connection progress");
+
+  for (let index = createdProgressionConnections.length + 1; progressionCount < 50; index += 1) {
+    createdProgressionConnections.push(await addProgressionGuest(index));
+    const current = (await progressionOwner.client.rpc("get_passport_overview")).data;
+    progressionCount = Number(current.connectionCount);
+  }
+  const passportAt50 = (await progressionOwner.client.rpc("get_passport_overview")).data;
+  assert.deepEqual(passportAt50.milestones.map((item) => item.threshold), [5, 10, 25, 50]);
+  assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "qr_frame", p_reward_id: "coral_qr_frame" })).error);
+  assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_mark", p_reward_id: "signal_50_mark" })).error);
+  const ownerPreferences = await progressionOwner.client.from("passport_preferences").select("category,reward_id").eq("user_id", ownerId);
+  assert.ifError(ownerPreferences.error);
+  const anonPreferences = await anonymous.from("passport_preferences").select("category,reward_id").eq("user_id", ownerId);
+  assert.ifError(anonPreferences.error);
+  assert(anonPreferences.data.every((item) => ["profile_treatment", "accent", "profile_mark"].includes(item.category)), "Anonymous reads expose only the explicitly selected public cosmetics");
+  assert.equal(anonPreferences.data.find((item) => item.category === "profile_mark")?.reward_id, "signal_50_mark");
+  await progressionOwner.client.auth.signOut();
+  await otherPassport.client.auth.signOut();
+
+  await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
+  for (const threshold of [50, 25, 10, 5]) {
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor();
+    await dialog.getByRole("heading", { name: `${threshold} connections.` }).waitFor();
+    await dialog.getByRole("button", { name: "Keep going" }).click();
+    await page.reload();
+  }
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  await page.getByRole("link", { name: "Passport", exact: true }).click();
+  await page.getByRole("heading", { name: "Every connection stays in the story." }).waitFor();
+  assert.equal(await page.getByText("50", { exact: true }).count() > 0, true);
+  assert((await page.locator("main section").first().getAttribute("class"))?.includes("bg-[#e8e2d4]"), "Equipped Passport cover must change the Passport surface");
+  await expectNoHorizontalOverflow(page, "Passport overview");
+  await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
+  await page.getByRole("button", { name: "Equipped", exact: true }).first().waitFor();
+  await page.getByRole("tab", { name: "personal", exact: true }).waitFor();
+  await openSection(page, "Share");
+  await page.getByLabel("QR frame").selectOption("coral_qr_frame");
+  await page.getByRole("img", { name: "Personal Mode QR code" }).waitFor();
+  assert(await page.locator("svg[aria-label='Personal Mode QR code']").evaluate((node) => node.parentElement?.className.includes("outline-[#ff5a4f]") ?? false), "Earned QR frame must surround the scannable QR");
+  await anonPage.goto(`${appUrl}/${owner.username}`);
+  await anonPage.getByText("SIGNAL 50", { exact: true }).waitFor();
+  console.log("PASS 50 milestone unlock, repeat encounter idempotency, reward-equipped Identity/Share/QR, private Passport, and one-time celebration");
+
   for (const route of ["/", "/login", "/signup"]) assert.equal((await anonContext.request.get(`${appUrl}${route}`)).status(), 200, `${route} must remain a static app route`);
   assert.equal((await anonContext.request.get(`${appUrl}/api/health/supabase`)).status(), 200, "Supabase health API should remain available");
   const crossOriginConnect = await anonContext.request.post(`${appUrl}/api/connections`, {
@@ -540,6 +784,10 @@ try {
     await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
     await expectNoHorizontalOverflow(page, `Connection detail ${width}x${height}`);
     await page.getByLabel("A thought to remember").waitFor();
+    await page.goto(`${appUrl}/app/passport`);
+    await page.getByRole("heading", { name: "Every connection stays in the story." }).waitFor();
+    await page.getByRole("progressbar").waitFor();
+    await expectNoHorizontalOverflow(page, `Passport ${width}x${height}`);
   }
   console.log("PASS signup/login, editor, preview, Connections list/detail, public profile, and Connect flow at phone/tablet/desktop sizes");
 
@@ -562,7 +810,7 @@ try {
       if (error) throw error;
       const testUsers = (data.users ?? []).filter((candidate) => /^e2e-(owner|other|guest)-[a-z0-9]+@example\.test$/i.test(candidate.email ?? ""));
       const guestUsers = testUsers.filter((candidate) => candidate.email?.startsWith("e2e-guest-"));
-      const guestEmails = guestUsers.map((candidate) => candidate.email).filter((email) => typeof email === "string");
+      const guestEmails = [...guestUsers.map((candidate) => candidate.email).filter((email) => typeof email === "string"), ...progressionGuestEmails];
       const guestIdentities = guestUsers.length
         ? await cleanup.from("guest_identities").select("id").in("claimed_user_id", guestUsers.map((candidate) => candidate.id))
         : { data: [], error: null };

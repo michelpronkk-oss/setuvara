@@ -44,6 +44,10 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     .eq("is_published", true)
     .maybeSingle();
   if (profileError || !profile) notFound();
+  const { data: publicCosmetics } = await supabase.from("passport_preferences")
+    .select("category,reward_id")
+    .eq("user_id", profile.id)
+    .in("category", ["profile_treatment", "accent", "profile_mark"]);
 
   const { data: rawMode, error: modeError } = await supabase
     .from("profile_modes")
@@ -120,6 +124,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
           profile={identity}
           mode={mode}
           viewerState={viewerState}
+          selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
           connectionContext={connectedState?.context as ConnectionContext | undefined}
           connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
           guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}

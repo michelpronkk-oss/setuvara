@@ -16,6 +16,8 @@ import { z } from "zod";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import type { ModeAppearance, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/client";
+import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import { CelebrationClient } from "../passport/passport-dashboard";
 
 const coral = "#FF5A4F";
 const accentOptions = [coral, "#C7FF4A", "#AFCBFF", "#E8A6FF", "#F5C66E"];
@@ -32,7 +34,7 @@ const profileSchema = z.object({
 const settingsSchema = z.record(z.string(), z.union([z.string().max(280), z.boolean()]));
 const modeSettingsSchemas: Record<ModeSlug, z.ZodType<Record<string, string | boolean>>> = {
   personal: z.object({ note: z.string().max(280).optional(), location: z.string().max(80).optional(), pronouns: z.string().max(40).optional() }).strict(),
-  event: z.object({ eventName: z.string().max(100).optional(), city: z.string().max(80).optional(), dateLabel: z.string().max(80).optional(), role: z.string().max(80).optional(), hereToMeet: z.string().max(280).optional() }).strict(),
+  event: z.object({ eventName: z.string().max(100).optional(), city: z.string().max(80).optional(), countryCode: z.string().regex(/^$|^[A-Z]{2}$/).optional(), dateLabel: z.string().max(80).optional(), role: z.string().max(80).optional(), hereToMeet: z.string().max(280).optional() }).strict(),
   business: z.object({ role: z.string().max(80).optional(), company: z.string().max(100).optional(), city: z.string().max(80).optional(), description: z.string().max(280).optional() }).strict(),
 };
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -47,6 +49,9 @@ type EditorProps = {
   error?: string;
   saved?: string;
   signOut: () => Promise<void>;
+  unlockedRewards: string[];
+  selectedRewards: Partial<Record<RewardCategory, string>>;
+  celebrationThreshold: number | null;
 };
 
 const sections = [
@@ -68,10 +73,11 @@ const errorCopy: Record<string, string> = {
   publish_failed: "Your publishing status could not be changed.",
 };
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, publicOrigin, error, saved, signOut }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, publicOrigin, error, saved, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold }: EditorProps) {
   const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
+  const [selectedRewards, setSelectedRewards] = useState(initialSelectedRewards);
   const [activeSlug, setActiveSlug] = useState<ModeSlug>(initialMode);
   const [section, setSection] = useState(sections.some((item) => item.id === initialSection) ? initialSection : "profile");
   const [previewVisitor, setPreviewVisitor] = useState(true);
@@ -172,6 +178,13 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     setStatus("error");
     setMessage(text);
     return false;
+  }
+
+  async function equipReward(category: RewardCategory, rewardId: string) {
+    const { error: selectError } = await createClient().rpc("set_passport_reward", { p_category: category, p_reward_id: rewardId });
+    if (selectError) return fail("That reward is locked or could not be equipped.");
+    setSelectedRewards((current) => ({ ...current, [category]: rewardId }));
+    setMessage("Reward equipped"); setStatus("saved"); router.refresh();
   }
 
   async function saveCurrent() {
@@ -298,14 +311,14 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   if (!activeMode) return <main className="p-8">Your Modes are being prepared.</main>;
   const publicUrl = `${publicOrigin}/${profile.username}?mode=${activeSlug}`;
-  const renderProfile = (owner: boolean) => previewMode ? <ProfileRenderer profile={previewProfile} mode={previewMode} viewerState={owner ? "owner" : "visitor_unconnected"} onShare={() => navigateTo(activeSlug, "share")} onEditMode={() => navigateTo(activeSlug, "settings")} /> : null;
+  const renderProfile = (owner: boolean) => previewMode ? <ProfileRenderer profile={previewProfile} mode={previewMode} viewerState={owner ? "owner" : "visitor_unconnected"} selectedRewards={selectedRewards} onShare={() => navigateTo(activeSlug, "share")} onEditMode={() => navigateTo(activeSlug, "settings")} /> : null;
 
   return (
     <main className="min-h-screen bg-[#f5f4ef] text-[#0d0d0d]">
       <header className="sticky top-0 z-30 border-b border-black/10 bg-[#f5f4ef]/95 backdrop-blur-sm">
         <div className="mx-auto flex min-h-16 max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-6">
           <Link className="shrink-0 text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
-          <nav aria-label="Setuvara app" className="hidden items-center gap-1 sm:flex"><Link aria-current="page" className="min-h-11 rounded-full bg-black/5 px-3 py-3 text-xs font-semibold" href="/app/identity">Identity</Link><Link className="min-h-11 rounded-full px-3 py-3 text-xs font-semibold text-black/60 hover:bg-black/5" href="/app/connections">Connections</Link></nav>
+          <nav aria-label="Setuvara app" className="hidden items-center gap-1 sm:flex"><Link aria-current="page" className="min-h-11 rounded-full bg-black/5 px-3 py-3 text-xs font-semibold" href="/app/identity">Identity</Link><Link className="min-h-11 rounded-full px-3 py-3 text-xs font-semibold text-black/60 hover:bg-black/5" href="/app/connections">Connections</Link><Link className="min-h-11 rounded-full px-3 py-3 text-xs font-semibold text-black/60 hover:bg-black/5" href="/app/passport">Passport</Link></nav>
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="hidden text-xs text-black/45 sm:inline">{activeMode.label} Mode</span>
             <span aria-live="polite" className="hidden text-xs font-medium text-black/55 sm:inline">{status === "saving" ? "Saving…" : status === "error" ? "Not saved" : hasUnsavedChanges ? "Unsaved changes" : message || (profile.is_published ? "Published" : "Draft")}</span>
@@ -337,15 +350,16 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
           <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
             <Link className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-black/10 bg-white/60 px-4 text-xs font-semibold" href="/app/connections">Connections</Link>
+            <Link className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-black/10 bg-white/60 px-4 text-xs font-semibold" href="/app/passport">Passport</Link>
             {sections.map((item) => <button className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-semibold ${section === item.id ? "bg-[#0d0d0d] text-white" : "border border-black/10 bg-white/60"}`} key={item.id} onClick={() => navigateTo(activeSlug, item.id)} type="button">{item.title}</button>)}
           </div>
 
           <div className="rounded-[1.7rem] border border-black/10 bg-white p-5 sm:p-7">
             {section === "profile" && <ProfileSection profile={profile} form={profileForm} mode={activeMode} onPhoto={() => fileRef.current?.click()} onRemovePhoto={() => void removeImage()} onSave={() => void saveProfile()} />}
             {section === "links" && <LinksSection links={activeMode.links} newTitle={newTitle} newUrl={newUrl} newType={newType} setNewTitle={setNewTitle} setNewUrl={setNewUrl} setNewType={setNewType} addLink={addLink} toggleLink={toggleLink} removeLink={removeLink} editLink={editLink} reorder={reorder} />}
-            {section === "appearance" && <AppearanceSection mode={activeMode} onChange={(updates) => { updateMode(updates); setAppearanceDirty(true); }} />}
+            {section === "appearance" && <AppearanceSection mode={activeMode} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} onChange={(updates) => { updateMode(updates); setAppearanceDirty(true); }} />}
             {section === "settings" && <SettingsSection mode={activeMode} form={settingsForm} />}
-            {section === "share" && <ShareSection profile={profile} mode={activeMode} url={publicUrl} />}
+            {section === "share" && <ShareSection profile={profile} mode={activeMode} url={publicUrl} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} />}
             {section !== "links" && section !== "share" && <button className="mt-7 min-h-12 rounded-full px-6 text-sm font-semibold" onClick={() => void saveCurrent()} style={{ backgroundColor: coral }} type="button">{status === "saving" ? "Saving…" : "Save changes"}</button>}
           </div>
           <p className="mt-4 text-center text-[11px] text-black/40 lg:hidden">{status === "saving" ? "Saving…" : message || "Your changes are saved when you choose Save changes."}</p>
@@ -362,6 +376,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       <input accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (!file) return; if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { fail("Choose a JPEG, PNG, or WebP image."); return; } if (file.size > 5 * 1024 * 1024) { fail("Images must be smaller than 5 MB."); return; } setCropSource(URL.createObjectURL(file)); }} ref={fileRef} type="file" />
       {cropSource && <CropDialog source={cropSource} crop={crop} setCrop={setCrop} zoom={zoom} setZoom={setZoom} onCropComplete={(_, pixels) => setCroppedPixels(pixels)} onCancel={() => { URL.revokeObjectURL(cropSource); setCropSource(null); }} onApply={async () => { if (!croppedPixels) return; const cropped = await cropImage(cropSource, croppedPixels); applyCrop(cropped); URL.revokeObjectURL(cropSource); }} />}
       {uploading && <div aria-live="polite" className="fixed inset-0 z-50 grid place-items-center bg-black/35"><p className="rounded-full bg-white px-6 py-4 text-sm font-semibold">Saving photo…</p></div>}
+      <CelebrationClient threshold={celebrationThreshold} name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} />
       {fullPreview && <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f4ef] px-4 py-5 sm:px-8"><div className="mb-3 flex justify-between"><span className="text-xs font-bold tracking-[0.2em]">PREVIEW · {previewVisitor ? "VISITOR" : "OWNER"}</span><button className="min-h-11 rounded-full border border-black/20 px-4 text-xs font-semibold" onClick={() => setFullPreview(false)} type="button">Close preview</button></div><div className="mx-auto flex w-full max-w-sm flex-1 items-center overflow-y-auto py-2">{renderProfile(!previewVisitor)}</div><div className="mx-auto mt-3 flex w-full max-w-sm justify-center gap-2"><button className="min-h-11 rounded-full border border-black/20 px-4 text-xs font-semibold" onClick={() => setPreviewVisitor((value) => !value)} type="button">{previewVisitor ? "Switch to owner" : "Preview as visitor"}</button><a className="inline-flex min-h-11 items-center rounded-full px-4 text-xs font-semibold" href={`/${profile.username}?mode=${activeSlug}`} target="_blank" style={{ backgroundColor: coral }}>Open profile</a></div></div>}
     </main>
   );
@@ -409,29 +424,30 @@ function SortableLink({ link, onToggle, onRemove, onEdit, onMove, canMoveUp, can
   return <div className={`flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2 ${isDragging ? "opacity-60" : ""}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}><button aria-label={`Drag ${link.title}`} className="min-h-11 min-w-11 rounded-xl text-lg text-black/45 focus-visible:outline-2" type="button" {...attributes} {...listeners}>⠿</button>{editing ? <div className="grid min-w-[180px] flex-1 gap-2 sm:grid-cols-2"><input aria-label="Edit link label" className="min-h-11 rounded-lg border border-black/15 px-3 text-base" onChange={(event) => setTitle(event.target.value)} value={title} /><input aria-label="Edit link URL" className="min-h-11 rounded-lg border border-black/15 px-3 text-base" onChange={(event) => setUrl(event.target.value)} value={url} /></div> : <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{link.title}</p><p className="truncate text-xs text-black/45">{link.url}</p></div>}<span className={`hidden text-[10px] font-semibold sm:inline ${link.is_visible ? "text-emerald-800" : "text-black/40"}`}>{link.is_visible ? "VISIBLE" : "HIDDEN"}</span><button aria-label={`Move ${link.title} up`} className="min-h-11 rounded-xl px-2 text-xs font-semibold disabled:text-black/20" disabled={!canMoveUp} onClick={() => onMove(-1)} type="button">↑</button><button aria-label={`Move ${link.title} down`} className="min-h-11 rounded-xl px-2 text-xs font-semibold disabled:text-black/20" disabled={!canMoveDown} onClick={() => onMove(1)} type="button">↓</button>{editing ? <button className="min-h-11 rounded-xl px-3 text-xs font-semibold" onClick={() => { onEdit(title, url); setEditing(false); }} type="button">Save</button> : <button aria-label={`Edit ${link.title}`} className="min-h-11 rounded-xl px-3 text-xs font-semibold underline underline-offset-4" onClick={() => setEditing(true)} type="button">Edit</button>}<button aria-label={`${link.is_visible ? "Hide" : "Show"} ${link.title}`} className="min-h-11 rounded-xl px-3 text-xs font-semibold underline underline-offset-4" onClick={onToggle} type="button">{link.is_visible ? "Hide" : "Show"}</button><button aria-label={`Delete ${link.title}`} className="min-h-11 rounded-xl px-2 text-xs font-semibold text-black/45 hover:text-red-700" onClick={onRemove} type="button">Delete</button></div>;
 }
 
-function AppearanceSection({ mode, onChange }: { mode: ProfileMode; onChange: (updates: Partial<ProfileMode>) => void }) {
+function AppearanceSection({ mode, onChange, unlockedRewards, selectedRewards, onEquip }: { mode: ProfileMode; onChange: (updates: Partial<ProfileMode>) => void; unlockedRewards: string[]; selectedRewards: Partial<Record<RewardCategory, string>>; onEquip: (category: RewardCategory, rewardId: string) => void }) {
   return <div><SectionHeading eyebrow="03 · APPEARANCE" title="Set the feeling." description="A few expressive choices, curated for Setuvara." />
     <fieldset className="mt-7"><legend className="text-sm font-semibold">Theme</legend><div className="mt-2 grid grid-cols-3 gap-2">{(["light", "dark", "editorial"] as const).map((theme) => <button aria-pressed={mode.appearance.theme === theme} className={`min-h-12 rounded-xl border text-sm font-semibold capitalize ${mode.appearance.theme === theme ? "border-black bg-[#0d0d0d] text-white" : "border-black/15"}`} key={theme} onClick={() => onChange({ appearance: { ...mode.appearance, theme } })} type="button">{theme}</button>)}</div></fieldset>
     <fieldset className="mt-7"><legend className="text-sm font-semibold">Accent</legend><div className="mt-3 flex flex-wrap gap-3">{accentOptions.map((color) => <button aria-label={`Accent ${color}`} aria-pressed={mode.appearance.accent.toLowerCase() === color.toLowerCase()} className={`size-11 rounded-full border-2 ${mode.appearance.accent.toLowerCase() === color.toLowerCase() ? "border-black ring-2 ring-black/10" : "border-white shadow-sm"}`} key={color} onClick={() => onChange({ appearance: { ...mode.appearance, accent: color } })} style={{ backgroundColor: color }} type="button" />)}</div><label className="mt-3 block text-xs font-medium text-black/55">Custom hex<input aria-label="Custom accent color" className="ml-3 min-h-10 w-32 rounded-lg border border-black/15 px-2 text-sm" onChange={(event) => { if (/^#[0-9a-f]{6}$/i.test(event.target.value)) onChange({ appearance: { ...mode.appearance, accent: event.target.value } }); }} placeholder="#FF5A4F" /></label></fieldset>
     <fieldset className="mt-7"><legend className="text-sm font-semibold">Layout</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{modeLayouts[mode.slug].map((layout) => <button aria-pressed={mode.appearance.layout === layout.value} className={`min-h-12 rounded-xl border px-3 text-sm font-semibold ${mode.appearance.layout === layout.value ? "border-black bg-[#f5f4ef]" : "border-black/15"}`} key={layout.value} onClick={() => onChange({ appearance: { ...mode.appearance, layout: layout.value } })} type="button">{layout.label}</button>)}</div></fieldset>
     <fieldset className="mt-7"><legend className="text-sm font-semibold">Image treatment</legend><div className="mt-2 grid grid-cols-3 gap-2">{(["full-bleed", "portrait", "compact"] as const).map((treatment) => <button aria-pressed={mode.appearance.imageTreatment === treatment} className={`min-h-12 rounded-xl border px-2 text-xs font-semibold capitalize ${mode.appearance.imageTreatment === treatment ? "border-black bg-[#f5f4ef]" : "border-black/15"}`} key={treatment} onClick={() => onChange({ appearance: { ...mode.appearance, imageTreatment: treatment } })} type="button">{treatment.replace("-", " ")}</button>)}</div></fieldset>
+    <fieldset className="mt-7"><legend className="text-sm font-semibold">Earned identity treatments</legend><p className="mt-1 text-xs leading-5 text-black/50">Rewards unlock through real connections and stay with your identity.</p><div className="mt-3 grid gap-2">{PASSPORT_REWARDS.filter((reward) => ["profile_treatment", "accent", "profile_mark"].includes(reward.category)).map((reward) => { const unlocked = unlockedRewards.includes(reward.id); const selected = selectedRewards[reward.category] === reward.id; return <div className="flex items-center justify-between gap-3 rounded-xl border border-black/10 px-3 py-3" key={reward.id}><div><p className="text-sm font-semibold">{reward.name}</p><p className="text-xs text-black/50">{unlocked ? "Unlocked" : `Reach ${reward.milestone} Connections`}</p></div><button aria-pressed={selected} className="min-h-10 rounded-full border border-black/15 px-3 text-xs font-semibold disabled:opacity-45" disabled={!unlocked || selected} onClick={() => onEquip(reward.category, reward.id)} type="button">{selected ? "Equipped" : unlocked ? "Equip" : "Locked"}</button></div>; })}</div><Link className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold underline underline-offset-4" href="/app/passport">View all Passport rewards</Link></fieldset>
   </div>;
 }
 
 function SettingsSection({ mode, form }: { mode: ProfileMode; form: ReturnType<typeof useForm<SettingsFormValues>> }) {
   const fields: Record<ModeSlug, { key: string; label: string; placeholder: string; multiline?: boolean }[]> = {
     personal: [{ key: "note", label: "A little more about you", placeholder: "What are you into lately?", multiline: true }, { key: "location", label: "Location", placeholder: "Berlin" }, { key: "pronouns", label: "Pronouns", placeholder: "they / them" }],
-    event: [{ key: "eventName", label: "Event name", placeholder: "Slush" }, { key: "city", label: "City", placeholder: "Helsinki" }, { key: "dateLabel", label: "Dates", placeholder: "20–21 Nov 2026" }, { key: "role", label: "Your role / project", placeholder: "Founder · Northlight" }, { key: "hereToMeet", label: "Here to meet", placeholder: "Product designers and early-stage operators", multiline: true }],
+    event: [{ key: "eventName", label: "Event name", placeholder: "Slush" }, { key: "city", label: "City", placeholder: "Helsinki" }, { key: "countryCode", label: "Country code (ISO 2-letter)", placeholder: "FI" }, { key: "dateLabel", label: "Dates", placeholder: "20–21 Nov 2026" }, { key: "role", label: "Your role / project", placeholder: "Founder · Northlight" }, { key: "hereToMeet", label: "Here to meet", placeholder: "Product designers and early-stage operators", multiline: true }],
     business: [{ key: "role", label: "Role", placeholder: "Head of Sales" }, { key: "company", label: "Company", placeholder: "Lumen Labs" }, { key: "city", label: "City", placeholder: "Berlin" }, { key: "description", label: "What you do", placeholder: "A short business introduction", multiline: true }],
   };
   return <div><SectionHeading eyebrow="04 · MODE SETTINGS" title={mode.slug === "event" ? "Put the moment in context." : mode.slug === "business" ? "Show how you work." : "Share a little more."} description={mode.slug === "personal" ? "These details belong to Personal Mode only." : "Each Mode keeps its own details and privacy."} />
-    <div className="mt-6 space-y-4">{fields[mode.slug].map((field) => <label className="block space-y-2 text-sm font-medium" key={field.key}>{field.label}{field.multiline ? <textarea className="min-h-24 w-full rounded-2xl border border-black/15 px-4 py-3 text-base font-normal outline-none focus:border-black" maxLength={280} placeholder={field.placeholder} {...form.register(field.key)} /> : <input className="min-h-12 w-full rounded-2xl border border-black/15 px-4 text-base font-normal outline-none focus:border-black" maxLength={field.key === "contactEmail" ? 254 : 100} placeholder={field.placeholder} {...form.register(field.key)} />}</label>)}
+    <div className="mt-6 space-y-4">{fields[mode.slug].map((field) => <label className="block space-y-2 text-sm font-medium" key={field.key}>{field.label}{field.multiline ? <textarea className="min-h-24 w-full rounded-2xl border border-black/15 px-4 py-3 text-base font-normal outline-none focus:border-black" maxLength={280} placeholder={field.placeholder} {...form.register(field.key)} /> : <input className="min-h-12 w-full rounded-2xl border border-black/15 px-4 text-base font-normal outline-none focus:border-black" autoCapitalize={field.key === "countryCode" ? "characters" : undefined} maxLength={field.key === "countryCode" ? 2 : field.key === "contactEmail" ? 254 : 100} placeholder={field.placeholder} {...form.register(field.key, field.key === "countryCode" ? { onChange: (event) => form.setValue(field.key, event.target.value.toUpperCase(), { shouldDirty: true }) } : undefined)} />}</label>)}
       {mode.slug === "business" && <p className="rounded-xl bg-[#f5f4ef] px-4 py-3 text-xs leading-5 text-black/60">Keep contact details in Links. You can hide any email or booking link without exposing it in your public Mode settings.</p>}
     </div>
   </div>;
 }
 
-function ShareSection({ profile, mode, url }: { profile: ProfileIdentity; mode: ProfileMode; url: string }) {
+function ShareSection({ profile, mode, url, unlockedRewards, selectedRewards, onEquip }: { profile: ProfileIdentity; mode: ProfileMode; url: string; unlockedRewards: string[]; selectedRewards: Partial<Record<RewardCategory, string>>; onEquip: (category: RewardCategory, rewardId: string) => void }) {
   const [copied, setCopied] = useState(false);
   const [full, setFull] = useState(false);
   const linkUrl = `${url}&source=link`;
@@ -447,11 +463,12 @@ function ShareSection({ profile, mode, url }: { profile: ProfileIdentity; mode: 
   }
   return <div><SectionHeading eyebrow="05 · SHARE" title="Meet them where you are." description="Your Mode has its own link and QR. Pick the right one for this moment." />
     <div className="mt-6 flex items-center gap-3"><div className="grid size-12 place-items-center rounded-2xl bg-[#0d0d0d] text-sm font-bold text-white">{profile.display_name.slice(0, 1).toUpperCase()}</div><div><p className="font-semibold">{profile.display_name}</p><p className="text-xs text-black/55">{mode.label} Mode{mode.slug === "event" && mode.settings.eventName ? ` · ${mode.settings.eventName}` : ""}</p></div></div>
-    <div className="mt-6 grid justify-center rounded-[1.7rem] bg-[#f5f4ef] p-6"><div className="rounded-2xl bg-white p-4"><QRCodeSVG aria-label={`${mode.label} Mode QR code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={220} value={qrUrl} /></div></div>
+    <div className={`mt-6 grid justify-center rounded-[1.7rem] p-6 ${selectedRewards.share_treatment === "signal_share" || selectedRewards.share_treatment === "network_share" ? "bg-[#0d0d0d] text-white" : "bg-[#f5f4ef]"}`}><div className={`rounded-2xl bg-white p-4 ${selectedRewards.qr_frame === "coral_qr_frame" ? "outline outline-4 outline-[#ff5a4f] outline-offset-2" : ""}`}><QRCodeSVG aria-label={`${mode.label} Mode QR code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={220} value={qrUrl} /></div></div>
+    <div className="mt-4 space-y-2">{(["share_treatment", "qr_frame"] as const).map((category) => <label className="block text-xs font-semibold" key={category}>{category === "qr_frame" ? "QR frame" : "Share treatment"}<select className="mt-1 min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm" onChange={(event) => { if (event.target.value) onEquip(category, event.target.value); }} value={selectedRewards[category] ?? ""}><option value="">Setuvara default</option>{PASSPORT_REWARDS.filter((reward) => reward.category === category).map((reward) => <option disabled={!unlockedRewards.includes(reward.id)} key={reward.id} value={reward.id}>{reward.name}{unlockedRewards.includes(reward.id) ? " · Unlocked" : ` · Reach ${reward.milestone}`}</option>)}</select></label>)}</div>
     <p className="mt-4 break-all rounded-xl bg-black/[0.03] px-4 py-3 text-center text-xs font-medium">{linkUrl.replace(/^https?:\/\//, "")}</p>
     <div className="mt-4 grid grid-cols-2 gap-2"><button className="min-h-12 rounded-full bg-[#0d0d0d] text-sm font-semibold text-white" onClick={async () => { const result = await copyToClipboard(linkUrl); setCopied(result); }} type="button">{copied ? "Copied" : "Copy link"}</button><button className="min-h-12 rounded-full px-4 text-sm font-semibold" onClick={() => void share()} style={{ backgroundColor: coral }} type="button">Share</button></div>
     <button className="mt-3 min-h-11 w-full rounded-full border border-black/15 text-sm font-semibold" onClick={() => setFull(true)} type="button">Full-screen QR</button>
-    {full && <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#f5f4ef] px-6 text-center"><div className="mb-5 text-xs font-bold tracking-[0.2em]">{profile.display_name.toUpperCase()}<br /><span className="mt-2 inline-block text-black/55">{mode.label.toUpperCase()}{mode.slug === "event" && mode.settings.eventName ? ` · ${String(mode.settings.eventName).toUpperCase()}` : ""}</span></div><div className="rounded-[2rem] bg-white p-5 shadow-[0_25px_70px_-40px_rgba(13,13,13,.5)]"><QRCodeSVG aria-label={`${mode.label} Mode share code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={Math.min(320, typeof window === "undefined" ? 320 : window.innerWidth - 80)} value={qrUrl} /></div><p className="mt-6 text-sm font-medium">Scan to open my Setuvara</p><p className="mt-2 text-xs text-black/50">setuvara.com/{profile.username}</p><div className="mt-5 flex gap-3"><button className="min-h-12 rounded-full border border-black/20 px-5 text-sm font-semibold" onClick={async () => { setCopied(await copyToClipboard(linkUrl)); }} type="button">Copy link</button><button className="min-h-12 rounded-full px-5 text-sm font-semibold" onClick={() => setFull(false)} style={{ backgroundColor: coral }} type="button">Done</button></div></div>}
+    {full && <div className={`fixed inset-0 z-[60] flex flex-col items-center justify-center px-6 text-center ${selectedRewards.share_treatment === "signal_share" || selectedRewards.share_treatment === "network_share" ? "bg-[#0d0d0d] text-white" : "bg-[#f5f4ef] text-[#0d0d0d]"}`}><div className="mb-5 text-xs font-bold tracking-[0.2em]">{profile.display_name.toUpperCase()}<br /><span className={`mt-2 inline-block ${selectedRewards.share_treatment === "signal_share" || selectedRewards.share_treatment === "network_share" ? "text-white/55" : "text-black/55"}`}>{mode.label.toUpperCase()}{mode.slug === "event" && mode.settings.eventName ? ` · ${String(mode.settings.eventName).toUpperCase()}` : ""}</span></div><div className={`rounded-[2rem] bg-white p-5 shadow-[0_25px_70px_-40px_rgba(13,13,13,.5)] ${selectedRewards.qr_frame === "coral_qr_frame" ? "outline outline-4 outline-[#ff5a4f] outline-offset-2" : ""}`}><QRCodeSVG aria-label={`${mode.label} Mode share code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={Math.min(320, typeof window === "undefined" ? 320 : window.innerWidth - 80)} value={qrUrl} /></div><p className="mt-6 text-sm font-medium">Scan to open my Setuvara</p><p className={`mt-2 text-xs ${selectedRewards.share_treatment === "signal_share" || selectedRewards.share_treatment === "network_share" ? "text-white/50" : "text-black/50"}`}>setuvara.com/{profile.username}</p><div className="mt-5 flex gap-3"><button className="min-h-12 rounded-full border border-current/20 px-5 text-sm font-semibold" onClick={async () => { setCopied(await copyToClipboard(linkUrl)); }} type="button">Copy link</button><button className="min-h-12 rounded-full px-5 text-sm font-semibold text-[#0d0d0d]" onClick={() => setFull(false)} style={{ backgroundColor: coral }} type="button">Done</button></div></div>}
   </div>;
 }
 

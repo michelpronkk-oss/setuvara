@@ -9,8 +9,12 @@ const root = resolve(process.cwd());
 const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 assert.equal(resolve(gitRoot), root, "Run local E2E from the Setuvara Git root");
 assert.match(readFileSync(resolve(root, "supabase/config.toml"), "utf8"), /^project_id = "setuvara"$/m);
+const supabaseCli = resolve(root, "node_modules/supabase/dist/supabase.js");
+const runSupabase = (args) => execFileSync(process.execPath, [supabaseCli, ...args], { encoding: "utf8" });
+const supabaseCliVersion = runSupabase(["--version"]).trim();
+assert.equal(supabaseCliVersion, "2.120.0", "Setuvara local E2E requires its pinned Supabase CLI 2.120.0");
 
-const status = execFileSync("supabase", ["status", "-o", "env"], { encoding: "utf8" });
+const status = runSupabase(["status", "-o", "env"]);
 const values = new Map(
   status
     .split(/\r?\n/)

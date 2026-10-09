@@ -10,7 +10,7 @@ const modes = ["personal", "event", "business"] as const;
 const layouts = { personal: ["full-bleed", "portrait-editorial"], event: ["event-poster", "conference-card"], business: ["structured", "editorial-business"] } as const;
 const settingFields: Record<(typeof modes)[number], string[]> = {
   personal: ["note", "location", "pronouns"],
-  event: ["eventName", "city", "dateLabel", "role", "hereToMeet"],
+  event: ["eventName", "city", "countryCode", "dateLabel", "role", "hereToMeet"],
   business: ["role", "company", "city", "description"],
 };
 
@@ -72,6 +72,7 @@ export async function saveModeSettings(formData: FormData) {
   }
   if (Object.keys(settings).some((key) => !settingFields[slug].includes(key))) editorError("mode_failed");
   if (Object.values(settings).some((value) => typeof value === "string" && value.length > 280)) editorError("mode_failed");
+  if (slug === "event" && typeof settings.countryCode === "string" && settings.countryCode !== "" && !/^[A-Z]{2}$/.test(settings.countryCode)) editorError("mode_failed");
   if (!["light", "dark", "editorial"].includes(appearance.theme ?? "")) editorError("mode_failed");
   if (!/^#[0-9a-f]{6}$/i.test(appearance.accent ?? "")) editorError("mode_failed");
   if (!(layouts[slug] as readonly string[]).includes(appearance.layout ?? "")) editorError("mode_failed");
