@@ -1,5 +1,12 @@
 export type ModeSlug = "personal" | "event" | "business";
-export type ViewerState = "owner" | "visitor";
+export type ViewerState = "owner" | "visitor_unconnected" | "visitor_connected";
+
+export type ConnectionContext = {
+  mode?: ModeSlug;
+  event?: string | null;
+  city?: string | null;
+  dateLabel?: string | null;
+};
 
 export type ProfileLink = {
   id: string;

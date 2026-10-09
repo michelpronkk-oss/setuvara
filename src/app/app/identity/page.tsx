@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { cookies } from "next/headers";
 
 import type { ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,8 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
   const { data: claims, error: claimsError } = await supabase.auth.getClaims();
   const userId = claims?.claims?.sub;
   if (claimsError || !userId) redirect("/login?next=/app/identity");
+  const guestSessionToken = (await cookies()).get("sv-guest-session")?.value;
+  if (guestSessionToken) await supabase.rpc("claim_guest_connections", { p_session_token: guestSessionToken });
 
   const [profileResult, modesResult, linksResult] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),

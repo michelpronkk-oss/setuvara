@@ -1,9 +1,10 @@
 # Setuvara
 
 Setuvara is a wallet-first digital identity and real-world connection network.
-This repository includes the first Setuvara product vertical: one canonical
-identity with Personal, Event, and Business Modes, profile links, publishing,
-private profile media, a shared profile renderer, and Mode-aware sharing.
+This repository includes Setuvara identity and its first connection-network
+vertical: one canonical identity with Personal, Event, and Business Modes,
+profile links and publishing, plus persistent Connections, encounter snapshots,
+and participant-private notes and meeting context.
 
 ## Stack
 
@@ -43,6 +44,29 @@ Copy `.env.example` to `.env.local` and replace its placeholders with the
 Setuvara Supabase project URL and publishable key. `.env.local` is ignored by
 Git. The app uses the publishable key in browser and server-side SSR clients;
 never put a secret or service-role key in this application.
+
+Guest Connect uses a random HttpOnly browser session. The database stores only
+its SHA-256 hash; guest email is never returned by the public API. Registered
+Connect creates one symmetric relationship per user pair and appends an
+Encounter for each share moment. A guest relationship can be claimed after
+signup and email confirmation. Notes and Where You Met context are private to
+their author, enforced by participant-aware RLS.
+
+All six network tables have RLS enabled. Guest identity and session tables have
+no direct API grants or policies; the application uses narrowly scoped
+SECURITY DEFINER functions with a locked search path and explicit role grants.
+Authenticated table access is limited to participant reads and each user’s own
+notes and encounter context.
+
+Supabase Advisor’s callable SECURITY DEFINER notices are expected for the
+token-scoped guest Connect/status/detail functions and the authenticated
+connect/claim functions. Their role grants are explicit and their search paths
+are locked. The existing username-availability function returns only a boolean;
+the existing `rls_auto_enable` event trigger is not an RPC-callable function.
+Advisor also flags indexes as unused while the new network tables have no live
+rows; retain them for the participant, claim, rate-limit, and foreign-key
+queries they cover. Leaked-password protection is an existing Auth setting and
+was not changed by the Connections migration.
 
 Before using signup or the Identity editor, apply the SQL migrations in
 `supabase/migrations/` to the dedicated Setuvara Supabase project. The Mode
@@ -91,7 +115,10 @@ supabase/
 │   ├── 20261009020739_identity_vertical.sql
 │   ├── 20261009025854_reserve_root_username_routes.sql
 │   ├── 20261009053709_profile_modes_media.sql
-│   └── 20261009054048_public_mode_settings.sql
+│   ├── 20261009054048_public_mode_settings.sql
+│   ├── 20261009133922_connections_network.sql
+│   ├── 20261009133927_preserve_encounters_after_account_deletion.sql
+│   └── 20261009134039_connections_fk_indexes.sql
 └── templates/           # Local Auth email template
 src/
 ├── app/
@@ -101,5 +128,6 @@ src/
 │   ├── u/[username]/   # Permanent legacy redirect
 │   └── ...             # Static, app, and health routes
 ├── components/profile/ # Shared profile renderer and normalized types
+├── components/connections/ # Connect flow, connections list, private memory editor
 └── lib/supabase/       # Browser, server, and session clients
 ```

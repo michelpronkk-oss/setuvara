@@ -14,3 +14,60 @@ body {
   min-height: 100vh;
   margin: 0;
 }
+
+@keyframes connect-half-left {
+  0% { opacity: 0; transform: translateX(-18px) rotate(-60deg); }
+  65% { opacity: 1; transform: translateX(1px) rotate(-60deg); }
+  100% { opacity: 1; transform: translateX(0) rotate(-60deg); }
+}
+
+@keyframes connect-half-right {
+  0% { opacity: 0; transform: translateX(18px) rotate(60deg); }
+  65% { opacity: 1; transform: translateX(-1px) rotate(60deg); }
+  100% { opacity: 1; transform: translateX(0) rotate(60deg); }
+}
+
+@keyframes connect-check {
+  0%, 55% { opacity: 0; transform: scale(.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.connect-meet-mark {
+  position: relative;
+}
+
+.connect-meet-mark::before,
+.connect-meet-mark::after {
+  position: absolute;
+  width: 7px;
+  height: 42px;
+  border-radius: 999px;
+  content: "";
+}
+
+.connect-meet-mark::before {
+  background: #ff5a4f;
+  animation: connect-half-left 520ms cubic-bezier(.2,.75,.2,1) both;
+}
+
+.connect-meet-mark::after {
+  background: #0d0d0d;
+  animation: connect-half-right 520ms cubic-bezier(.2,.75,.2,1) both;
+}
+
+.connect-meet-check {
+  position: relative;
+  z-index: 1;
+  animation: connect-check 520ms ease-out both;
+  color: #0d0d0d;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connect-meet-mark::before,
+  .connect-meet-mark::after,
+  .connect-meet-check {
+    animation-duration: 1ms;
+  }
+}

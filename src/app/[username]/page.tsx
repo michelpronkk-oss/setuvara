@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 
+import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
-import type { ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
 type PublicProfilePageProps = {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; source?: string }>;
+};
+
+type ConnectionState = {
+  connection_id: string;
+  context?: ConnectionContext | null;
 };
 
 export async function generateMetadata({ params }: PublicProfilePageProps): Promise<Metadata> {
@@ -63,7 +70,35 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   }
 
   const { data: claims } = await supabase.auth.getClaims();
-  const owner = claims?.claims?.sub === profile.id;
+  const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
+  const owner = userId === profile.id;
+  let viewerState: "owner" | "visitor_unconnected" | "visitor_connected" = owner ? "owner" : "visitor_unconnected";
+  let connectedState: ConnectionState | null = null;
+  let guestSessionName: string | null = null;
+  let isGuestSession = false;
+  let shareBackModes: { slug: ModeSlug; label: string }[] = [];
+
+  if (!owner && userId) {
+    const [{ data: connection }, { data: availableModes }] = await Promise.all([
+      supabase.rpc("get_registered_connection_state", { p_target_username: username, p_target_mode: slug }),
+      supabase.from("profile_modes").select("slug,label").eq("profile_id", userId).eq("is_enabled", true).order("sort_order"),
+    ]);
+    connectedState = connection as unknown as ConnectionState | null;
+    shareBackModes = (availableModes ?? []).filter((item) => ["personal", "event", "business"].includes(item.slug)).map((item) => ({ slug: item.slug as ModeSlug, label: item.label }));
+  } else if (!owner) {
+    const cookieStore = await cookies();
+    const guestToken = cookieStore.get("sv-guest-session")?.value;
+    if (guestToken) {
+      const [{ data: state }, { data: guestStatus }] = await Promise.all([
+        supabase.rpc("get_guest_connection_state", { p_target_username: username, p_target_mode: slug, p_session_token: guestToken }),
+        supabase.rpc("get_guest_session_status", { p_session_token: guestToken }),
+      ]);
+      connectedState = state as unknown as ConnectionState | null;
+      guestSessionName = (guestStatus as { display_name?: string } | null)?.display_name ?? null;
+      isGuestSession = Boolean(guestSessionName);
+    }
+  }
+  if (connectedState?.connection_id) viewerState = "visitor_connected";
   const identity = profile as ProfileIdentity;
   const mode: ProfileMode = {
     ...rawMode,
@@ -81,7 +116,23 @@ export default async function PublicProfilePage({ params, searchParams }: Public
           <Link className="inline-flex min-h-11 items-center text-xs font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
           {owner && <span className="rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold tracking-wide">YOUR PROFILE</span>}
         </header>
-        <ProfileRenderer profile={identity} mode={mode} viewerState={owner ? "owner" : "visitor"} />
+        <ProfileRenderer
+          profile={identity}
+          mode={mode}
+          viewerState={viewerState}
+          connectionContext={connectedState?.context as ConnectionContext | undefined}
+          connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
+          guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
+          visitorAction={!owner ? <ConnectFlow
+            username={username}
+            mode={slug}
+            source={query.source ?? "direct"}
+            registered={Boolean(userId)}
+            shareBackModes={shareBackModes}
+            guestSessionName={guestSessionName}
+            alreadyConnected={Boolean(connectedState?.connection_id)}
+          /> : undefined}
+        />
         <p className="mt-5 text-center text-[10px] font-medium tracking-wide text-black/40">Your identity, your context. Shared with Setuvara.</p>
       </div>
     </main>

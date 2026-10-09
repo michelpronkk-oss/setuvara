@@ -1,11 +1,17 @@
 import Image from "next/image";
-import type { ModeSlug, ProfileIdentity, ProfileMode, ViewerState } from "./types";
+import Link from "next/link";
+import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileMode, ViewerState } from "./types";
+import type { ReactNode } from "react";
 
 type ProfileRendererProps = {
   profile: ProfileIdentity;
   mode: ProfileMode;
   viewerState: ViewerState;
   previewAsVisitor?: boolean;
+  visitorAction?: ReactNode;
+  connectionHref?: string;
+  connectionContext?: ConnectionContext | null;
+  guestClaimHref?: string;
   onShare?: () => void;
   onEditMode?: () => void;
 };
@@ -21,6 +27,10 @@ export function ProfileRenderer({
   mode,
   viewerState,
   previewAsVisitor = false,
+  visitorAction,
+  connectionHref,
+  connectionContext,
+  guestClaimHref,
   onShare,
   onEditMode,
 }: ProfileRendererProps) {
@@ -94,6 +104,23 @@ export function ProfileRenderer({
             </p>
           )}
         </div>
+
+        {viewerState === "visitor_connected" && !previewAsVisitor && (
+          <section aria-label="Connection status" className="mt-5 rounded-2xl border border-black/10 bg-white/60 px-4 py-4">
+            <p aria-live="polite" className="text-sm font-semibold">Connected <span aria-hidden="true">✓</span></p>
+            {(connectionContext?.event || connectionContext?.city || connectionContext?.dateLabel) && (
+              <div className="mt-3 border-l-2 pl-3" style={{ borderColor: mode.appearance.accent }}>
+                <p className="text-[10px] font-bold tracking-[0.16em]">YOU MET</p>
+                <p className={`mt-1 text-xs ${secondary}`}>{[connectionContext.event, connectionContext.city].filter(Boolean).join(" · ")}</p>
+                {connectionContext.dateLabel && <p className={`mt-1 text-xs ${secondary}`}>{connectionContext.dateLabel}</p>}
+                {connectionContext.mode && <p className={`mt-1 text-[10px] ${secondary}`}>{connectionContext.mode} Mode</p>}
+              </div>
+            )}
+            {connectionHref && <Link className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold underline underline-offset-4" href={connectionHref}>View connection</Link>}
+            {guestClaimHref && <div className="mt-3 border-t border-black/10 pt-3"><Link className="inline-flex min-h-11 items-center rounded-full bg-[#ff5a4f] px-4 text-xs font-semibold" href={guestClaimHref}>Claim your Setuvara</Link><p className={`mt-1 text-[11px] leading-5 ${secondary}`}>Keep this connection, create your identity, and share yours next time.</p></div>}
+          </section>
+        )}
+        {!owner && visitorAction}
 
         {owner && (
           <div className="mt-5 flex justify-center gap-2 border-t border-current/10 pt-4">

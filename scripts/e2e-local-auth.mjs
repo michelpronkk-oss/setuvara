@@ -18,6 +18,7 @@ assert(new URL(mailpitUrl).hostname === "127.0.0.1", "Email capture must use loo
 const suffix = `${Date.now().toString(36).slice(-6)}${randomBytes(3).toString("hex")}`;
 const owner = { email: `e2e-owner-${suffix}@example.test`, password: `${randomBytes(32).toString("base64url")}Aa1!`, username: `e2e_owner_${suffix}` };
 const other = { email: `e2e-other-${suffix}@example.test`, password: `${randomBytes(32).toString("base64url")}Bb2!`, username: `e2e_other_${suffix}` };
+const guestClaim = { email: `e2e-guest-${suffix}@example.test`, password: `${randomBytes(32).toString("base64url")}Cc3!`, username: `e2e_guest_${suffix}` };
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p1sAAAAASUVORK5CYII=", "base64");
 
 function localUserClient() {
@@ -51,12 +52,12 @@ async function waitForConfirmation(email) {
   throw new Error("Timed out waiting for a local signup confirmation email");
 }
 
-async function signUpAndConfirm(browser, account, viewport = { width: 390, height: 844 }) {
-  const context = await browser.newContext({ viewport, permissions: ["clipboard-read", "clipboard-write"] });
+async function signUpAndConfirm(browser, account, viewport = { width: 390, height: 844 }, existingContext = null, claimGuest = false) {
+  const context = existingContext ?? await browser.newContext({ viewport, permissions: ["clipboard-read", "clipboard-write"] });
   const page = await context.newPage();
   let confirmationRouteSeen = false;
   page.on("request", (request) => { if (new URL(request.url()).pathname === "/auth/confirm") confirmationRouteSeen = true; });
-  await page.goto(`${appUrl}/signup`);
+  await page.goto(`${appUrl}/signup${claimGuest ? "?claim=1" : ""}`);
   await page.getByLabel("Display name").fill("Setuvara E2E Identity");
   await page.getByLabel("Username").fill(account.username);
   await page.getByLabel("Email").fill(account.email);
@@ -76,6 +77,15 @@ async function signUpAndConfirm(browser, account, viewport = { width: 390, heigh
 async function expectNoHorizontalOverflow(page, label) {
   const size = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   assert(size.scroll <= size.client + 1, `${label} overflows horizontally (${size.scroll} > ${size.client})`);
+}
+
+async function waitForConnected(page, label) {
+  try {
+    await page.getByText("You’re connected.").waitFor({ timeout: 8_000 });
+  } catch (error) {
+    console.error(`E2E ${label} failed to render success state: ${(await page.locator("body").innerText()).slice(-1600)}`);
+    throw error;
+  }
 }
 
 async function openSection(page, title) {
@@ -348,10 +358,152 @@ try {
 
   otherBrowser = await signUpAndConfirm(browser, other);
   await testIsolation(owner, other, ownerId, modeIds, linkIds, imagePath);
-  console.log("PASS account 2 cannot change account 1 profile, Modes, links, or media");
+  const ownerAuth = await authenticatedClient(owner);
+  const otherPage = otherBrowser.page;
+  await setMode(otherPage, "business");
+  await openSection(otherPage, "Mode settings");
+  await otherPage.getByLabel("Role").fill("Product Designer");
+  await otherPage.getByLabel("Company").fill("Lumen Labs");
+  await otherPage.getByLabel("City").fill("Berlin");
+  await otherPage.getByRole("button", { name: "Save changes" }).click();
+  await waitSaved(otherPage);
+  await otherPage.getByRole("button", { name: "Publish", exact: true }).click();
+  await waitEditorMessage(otherPage, "Your profile is live");
+  const otherAuth = await authenticatedClient(other);
+  const otherId = otherAuth.user.id;
+
+  // A registered visitor connects with their own selected share-back Mode.
+  await otherPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
+  await otherPage.getByRole("button", { name: "Connect", exact: true }).click();
+  await otherPage.getByRole("button", { name: "Business", exact: true }).click();
+  await otherPage.getByRole("button", { name: "Connect", exact: true }).last().click();
+  await waitForConnected(otherPage, "registered account 2 to account 1");
+  const registeredDetailHref = await otherPage.getByRole("link", { name: "View connection" }).getAttribute("href");
+  assert.match(registeredDetailHref ?? "", /^\/app\/connections\/[0-9a-f-]+$/i);
+  await otherPage.goto(`${appUrl}/app/connections`);
+  await otherPage.getByRole("link", { name: /Aanya Rao/ }).waitFor();
+  const otherConnection = (await otherAuth.client.from("connections").select("id").eq("id", registeredDetailHref?.split("/").at(-1) ?? "").single()).data;
+  assert(otherConnection, "Account 2 should see the registered relationship it created");
+
+  // The reverse direction must reuse the same symmetric edge and append an encounter.
+  await page.goto(`${appUrl}/${other.username}?mode=personal&source=link`);
+  await page.getByRole("button", { name: "Connect again", exact: true }).click();
+  await page.getByRole("button", { name: "Personal", exact: true }).click();
+  await page.getByRole("button", { name: "Connect", exact: true }).last().click();
+  await waitForConnected(page, "registered account 1 to account 2");
+  const ownerConnectionId = registeredDetailHref?.split("/").at(-1) ?? "";
+  const { data: symmetricConnections, error: symmetricError } = await ownerAuth.client.from("connections").select("id")
+    .or(`and(user_id.eq.${ownerId},connected_user_id.eq.${otherId}),and(user_id.eq.${otherId},connected_user_id.eq.${ownerId})`);
+  assert.ifError(symmetricError);
+  assert.equal(symmetricConnections?.length, 1, "The registered pair must have exactly one symmetric Connection");
+  assert.equal(symmetricConnections?.[0].id, ownerConnectionId);
+  const { data: registeredEncounters, error: registeredEncounterError } = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name,city")
+    .eq("connection_id", ownerConnectionId).order("created_at");
+  assert.ifError(registeredEncounterError);
+  assert.equal(registeredEncounters?.length, 2, "Reverse connect should add an Encounter to the existing Connection");
+  assert.equal(registeredEncounters?.[0].event_name, "Slush", "Encounter keeps the originally shared Event snapshot");
+
+  const ownerNote = await ownerAuth.client.from("connection_notes").upsert({ connection_id: ownerConnectionId, user_id: ownerId, note: "Private Setuvara E2E note" }, { onConflict: "connection_id,user_id" });
+  assert.ifError(ownerNote.error);
+  const otherCannotReadNote = await otherAuth.client.from("connection_notes").select("note").eq("connection_id", ownerConnectionId).eq("user_id", ownerId);
+  assert.ifError(otherCannotReadNote.error);
+  assert.equal(otherCannotReadNote.data?.length, 0, "The other participant cannot read a private note");
+  const otherCannotDeleteEdge = await otherAuth.client.from("connections").delete().eq("id", ownerConnectionId).select("id");
+  assert(otherCannotDeleteEdge.error || otherCannotDeleteEdge.data?.length === 0, "A participant cannot delete a Connection through Data API");
+  const otherCannotEditEdge = await otherAuth.client.from("connections").update({ user_display_name_snapshot: "Unauthorized" }).eq("id", ownerConnectionId).select("id");
+  assert(otherCannotEditEdge.error || otherCannotEditEdge.data?.length === 0, "A participant cannot rewrite Connection snapshots through Data API");
+  const otherCannotEditEncounter = await otherAuth.client.from("connection_encounters").update({ event_name: "Unauthorized" }).eq("id", registeredEncounters[0].id).select("id");
+  assert(otherCannotEditEncounter.error || otherCannotEditEncounter.data?.length === 0, "A participant cannot rewrite Encounter snapshots through Data API");
+  assert.ifError((await ownerAuth.client.from("encounter_context").upsert({ encounter_id: registeredEncounters[0].id, user_id: ownerId, city: "Helsinki", venue: "Messukeskus", event_label: "Slush" }, { onConflict: "encounter_id,user_id" })).error);
+  const otherCannotReadContext = await otherAuth.client.from("encounter_context").select("city,venue,event_label").eq("encounter_id", registeredEncounters[0].id).eq("user_id", ownerId);
+  assert.ifError(otherCannotReadContext.error);
+  assert.equal(otherCannotReadContext.data?.length, 0, "Where You Met context is private to its author");
+  await page.goto(`${appUrl}/app/connections`);
+  const search = page.getByRole("searchbox", { name: "Search connections" });
+  for (const term of ["Slush", "Helsinki", "Messukeskus", "Lumen Labs"]) {
+    await search.fill(term);
+    await page.locator(`a[href="/app/connections/${ownerConnectionId}"]`).waitFor();
+    assert.equal(await page.locator(`a[href="/app/connections/${ownerConnectionId}"]`).count(), 1, `Search should include the connection by ${term}`);
+  }
+  await search.fill("");
+  const anonymous = localUserClient();
+  const anonymousConnections = await anonymous.from("connections").select("id");
+  assert(anonymousConnections.error, "Anonymous clients cannot read Connections directly");
+  const anonymousNotes = await anonymous.from("connection_notes").select("note");
+  assert(anonymousNotes.error, "Anonymous clients cannot read private notes");
+  console.log("PASS registered connects, symmetric edge reuse, Encounter snapshots, private notes/context, and Data API isolation");
+
+  // Guest identity uses a random HttpOnly cookie; the email is never returned by guest RPCs.
+  const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const guestPage = await guestContext.newPage();
+  await guestPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
+  await guestPage.getByRole("button", { name: "Connect", exact: true }).click();
+  await guestPage.getByLabel("Name").fill("E2E Guest");
+  await guestPage.getByLabel("Email").fill(guestClaim.email);
+  await guestPage.getByRole("button", { name: "Connect", exact: true }).last().click();
+  await waitForConnected(guestPage, "guest to account 1");
+  const guestDetailHref = await guestPage.getByRole("link", { name: "View connection" }).getAttribute("href");
+  assert.match(guestDetailHref ?? "", /^\/connections\/[0-9a-f-]+$/i);
+  const guestToken = (await guestContext.cookies(appUrl)).find((cookie) => cookie.name === "sv-guest-session");
+  assert(guestToken && guestToken.httpOnly, "Guest session must be opaque and HttpOnly");
+  const guestStatus = await anonymous.rpc("get_guest_session_status", { p_session_token: guestToken.value });
+  assert.ifError(guestStatus.error);
+  assert.deepEqual(guestStatus.data, { display_name: "E2E Guest" }, "Guest status must not return the private email");
+  await guestPage.goto(`${appUrl}${guestDetailHref}`);
+  await guestPage.getByText("Connected with Aanya Rao").waitFor();
+  assert((await guestPage.locator("body").innerText()).includes("Claim your Setuvara"));
+  await guestPage.goto(`${appUrl}/${other.username}?mode=business`);
+  await guestPage.getByRole("button", { name: "Connect", exact: true }).click();
+  await guestPage.getByText("Continue as E2E Guest").waitFor();
+  await guestPage.getByRole("button", { name: "Connect", exact: true }).last().click();
+  await waitForConnected(guestPage, "guest to account 2");
+  const guestConnections = await anonymous.rpc("get_guest_session_status", { p_session_token: guestToken.value });
+  assert.ifError(guestConnections.error);
+  assert.deepEqual(guestConnections.data, { display_name: "E2E Guest" }, "Guest identity remains stable across profiles");
+  await guestPage.goto(`${appUrl}${guestDetailHref}`);
+  await guestPage.getByRole("link", { name: "Claim your Setuvara" }).click();
+  const guestClaimBrowser = await signUpAndConfirm(browser, guestClaim, { width: 390, height: 844 }, guestContext, true);
+  const guestClaimAuth = await authenticatedClient(guestClaim);
+  const { data: claimedEdge, error: claimEdgeError } = await ownerAuth.client.from("connections").select("id,connected_user_id")
+    .eq("user_id", ownerId).eq("connected_user_id", guestClaimAuth.user.id).maybeSingle();
+  assert.ifError(claimEdgeError);
+  assert(claimedEdge, "Verified signup should claim the guest edge as a registered relationship");
+  const claimedEncounters = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name")
+    .eq("connection_id", claimedEdge.id).order("created_at");
+  assert.ifError(claimedEncounters.error);
+  assert.equal(claimedEncounters.data?.length, 1, "Guest claim must preserve the encounter with account 1");
+  assert.equal(claimedEncounters.data?.find((encounter) => encounter.event_name)?.event_name, "Slush");
+  const claimedOtherEdge = await otherAuth.client.from("connections").select("id,connected_user_id")
+    .eq("user_id", otherId).eq("connected_user_id", guestClaimAuth.user.id).maybeSingle();
+  assert.ifError(claimedOtherEdge.error);
+  assert(claimedOtherEdge.data, "The guest session must claim its connection with the second profile too");
+  const claimedOtherEncounters = await otherAuth.client.from("connection_encounters").select("id")
+    .eq("connection_id", claimedOtherEdge.data.id);
+  assert.ifError(claimedOtherEncounters.error);
+  assert.equal(claimedOtherEncounters.data?.length, 1, "Guest claim must preserve the encounter with account 2");
+  const thirdAccountCannotReadUnrelated = await guestClaimAuth.client.from("connections").select("id").eq("id", ownerConnectionId);
+  assert.ifError(thirdAccountCannotReadUnrelated.error);
+  assert.equal(thirdAccountCannotReadUnrelated.data?.length, 0, "Claimed guest account cannot read unrelated account 1–2 connection");
+  assert.equal((await guestPage.request.get(`${appUrl}${guestDetailHref}`)).status(), 404, "Revoked guest sessions cannot continue reading guest details");
+  await guestClaimBrowser.page.goto(`${appUrl}/app/connections`);
+  await guestClaimBrowser.page.getByRole("link", { name: /Aanya Rao/ }).waitFor();
+  assert.equal(await guestClaimBrowser.page.locator('a[href^="/app/connections/"]').count(), 2, "Claimed guest should retain both profile Connections");
+  const otherCannotClaim = await otherAuth.client.rpc("claim_guest_connections", { p_session_token: guestToken.value });
+  assert(otherCannotClaim.error || otherCannotClaim.data?.claimed_connections === 0, "Another user cannot claim an unrelated guest session");
+  await ownerAuth.client.auth.signOut();
+  await otherAuth.client.auth.signOut();
+  await guestClaimAuth.client.auth.signOut();
+  await guestContext.close();
+  console.log("PASS guest Connect, private email, HttpOnly session, confirmation claim, and Encounter preservation");
+  console.log("PASS account 2 cannot change account 1 profile, Modes, links, media, notes, or Where You Met context");
 
   for (const route of ["/", "/login", "/signup"]) assert.equal((await anonContext.request.get(`${appUrl}${route}`)).status(), 200, `${route} must remain a static app route`);
   assert.equal((await anonContext.request.get(`${appUrl}/api/health/supabase`)).status(), 200, "Supabase health API should remain available");
+  const crossOriginConnect = await anonContext.request.post(`${appUrl}/api/connections`, {
+    headers: { "content-type": "application/json", origin: "https://attacker.invalid", "x-setuvara-request": "same-origin" },
+    data: {},
+  });
+  assert.equal(crossOriginConnect.status(), 403, "Connection API must reject a cross-origin request");
   const confirmationWithoutToken = await anonContext.request.get(`${appUrl}/auth/confirm`, { maxRedirects: 0 });
   assert([307, 308].includes(confirmationWithoutToken.status()));
   assert(confirmationWithoutToken.headers().location?.includes("/login?error=confirmation_failed"));
@@ -373,13 +525,28 @@ try {
     const response = await anonPage.setViewportSize({ width, height }).then(() => anonPage.goto(`${appUrl}/${owner.username}?mode=personal`));
     assert.equal(response?.status(), 200);
     await expectNoHorizontalOverflow(anonPage, `Public profile ${width}x${height}`);
+    const connectButton = anonPage.getByRole("button", { name: "Connect", exact: true });
+    const connectHeight = await connectButton.evaluate((element) => element.getBoundingClientRect().height);
+    assert(connectHeight >= 44, `Public Connect control should be a usable tap target at ${width}px`);
+    await connectButton.click();
+    await expectNoHorizontalOverflow(anonPage, `Public Connect flow ${width}x${height}`);
+    const publicInputFonts = await anonPage.locator('input[type="text"], input[type="email"]').evaluateAll((elements) => elements.map((input) => Number.parseFloat(getComputedStyle(input).fontSize)));
+    assert(publicInputFonts.every((font) => font >= 16), `Connect form inputs should be mobile-safe at ${width}px`);
+    await anonPage.getByRole("button", { name: "Close" }).click();
+    await page.goto(`${appUrl}/app/connections`);
+    await expectNoHorizontalOverflow(page, `Connections list ${width}x${height}`);
+    await page.getByRole("searchbox", { name: "Search connections" }).fill("Setuvara E2E Identity");
+    await page.getByRole("link", { name: /Setuvara E2E Identity/ }).waitFor();
+    await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+    await expectNoHorizontalOverflow(page, `Connection detail ${width}x${height}`);
+    await page.getByLabel("A thought to remember").waitFor();
   }
-  console.log("PASS signup/login, editor, preview, and public profile at phone/tablet/desktop sizes");
+  console.log("PASS signup/login, editor, preview, Connections list/detail, public profile, and Connect flow at phone/tablet/desktop sizes");
 
   await ownerBrowser.context.close(); await otherBrowser.context.close(); await anonContext.close();
   console.log("E2E_LOCAL_RESULT=PASS");
 } catch (error) {
-  console.error(`E2E_LOCAL_RESULT=FAIL (${error instanceof Error ? error.message : "unknown error"})`);
+  console.error(`E2E_LOCAL_RESULT=FAIL (${error instanceof Error ? error.stack ?? error.message : "unknown error"})`);
   process.exitCode = 1;
 } finally {
   await ownerBrowser?.context.close().catch(() => {});
@@ -393,7 +560,18 @@ try {
     try {
       const { data, error } = await cleanup.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (error) throw error;
-      for (const user of (data.users ?? []).filter((candidate) => [owner.email, other.email].includes(candidate.email ?? ""))) {
+      const testUsers = (data.users ?? []).filter((candidate) => /^e2e-(owner|other|guest)-[a-z0-9]+@example\.test$/i.test(candidate.email ?? ""));
+      const guestUsers = testUsers.filter((candidate) => candidate.email?.startsWith("e2e-guest-"));
+      const guestEmails = guestUsers.map((candidate) => candidate.email).filter((email) => typeof email === "string");
+      const guestIdentities = guestUsers.length
+        ? await cleanup.from("guest_identities").select("id").in("claimed_user_id", guestUsers.map((candidate) => candidate.id))
+        : { data: [], error: null };
+      const unclaimedGuests = guestEmails.length
+        ? await cleanup.from("guest_identities").select("id").in("normalized_email", guestEmails).is("claimed_user_id", null)
+        : { data: [], error: null };
+      if (guestIdentities.error) throw guestIdentities.error;
+      if (unclaimedGuests.error) throw unclaimedGuests.error;
+      for (const user of testUsers) {
         const { data: objects, error: listError } = await cleanup.storage.from("profile-media").list(user.id, { limit: 1000 });
         if (listError) throw listError;
         if (objects?.length) {
@@ -403,8 +581,13 @@ try {
         const { error: deleteError } = await cleanup.auth.admin.deleteUser(user.id);
         if (deleteError) throw deleteError;
       }
-    } catch {
-      console.warn("Local E2E test-account cleanup needs attention.");
+      const guestIdentityIds = [...new Set([...(guestIdentities.data ?? []), ...(unclaimedGuests.data ?? [])].map((guest) => guest.id))];
+      if (guestIdentityIds.length) {
+        const { error: guestDeleteError } = await cleanup.from("guest_identities").delete().in("id", guestIdentityIds);
+        if (guestDeleteError) throw guestDeleteError;
+      }
+    } catch (error) {
+      console.warn(`Local E2E test-account cleanup needs attention: ${error instanceof Error ? error.message : "unknown cleanup error"}`);
     }
   }
 }

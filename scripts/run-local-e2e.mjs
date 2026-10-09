@@ -85,7 +85,15 @@ try {
 } catch (error) {
   console.error(`Local E2E setup failed: ${error instanceof Error ? error.message : "unknown error"}`);
 } finally {
-  server.kill();
+  if (process.platform === "win32" && server.pid) {
+    await new Promise((resolveKill) => {
+      const tree = spawn("taskkill.exe", ["/PID", String(server.pid), "/T", "/F"], { stdio: "ignore" });
+      tree.once("error", resolveKill);
+      tree.once("exit", resolveKill);
+    });
+  } else {
+    server.kill();
+  }
 }
 
 if (testCode === 0) {

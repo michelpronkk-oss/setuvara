@@ -298,13 +298,14 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   if (!activeMode) return <main className="p-8">Your Modes are being prepared.</main>;
   const publicUrl = `${publicOrigin}/${profile.username}?mode=${activeSlug}`;
-  const renderProfile = (owner: boolean) => previewMode ? <ProfileRenderer profile={previewProfile} mode={previewMode} viewerState={owner ? "owner" : "visitor"} onShare={() => navigateTo(activeSlug, "share")} onEditMode={() => navigateTo(activeSlug, "settings")} /> : null;
+  const renderProfile = (owner: boolean) => previewMode ? <ProfileRenderer profile={previewProfile} mode={previewMode} viewerState={owner ? "owner" : "visitor_unconnected"} onShare={() => navigateTo(activeSlug, "share")} onEditMode={() => navigateTo(activeSlug, "settings")} /> : null;
 
   return (
     <main className="min-h-screen bg-[#f5f4ef] text-[#0d0d0d]">
       <header className="sticky top-0 z-30 border-b border-black/10 bg-[#f5f4ef]/95 backdrop-blur-sm">
         <div className="mx-auto flex min-h-16 max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-6">
-          <Link className="text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
+          <Link className="shrink-0 text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
+          <nav aria-label="Setuvara app" className="hidden items-center gap-1 sm:flex"><Link aria-current="page" className="min-h-11 rounded-full bg-black/5 px-3 py-3 text-xs font-semibold" href="/app/identity">Identity</Link><Link className="min-h-11 rounded-full px-3 py-3 text-xs font-semibold text-black/60 hover:bg-black/5" href="/app/connections">Connections</Link></nav>
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="hidden text-xs text-black/45 sm:inline">{activeMode.label} Mode</span>
             <span aria-live="polite" className="hidden text-xs font-medium text-black/55 sm:inline">{status === "saving" ? "Saving…" : status === "error" ? "Not saved" : hasUnsavedChanges ? "Unsaved changes" : message || (profile.is_published ? "Published" : "Draft")}</span>
@@ -335,6 +336,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           </div>
 
           <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+            <Link className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-black/10 bg-white/60 px-4 text-xs font-semibold" href="/app/connections">Connections</Link>
             {sections.map((item) => <button className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-semibold ${section === item.id ? "bg-[#0d0d0d] text-white" : "border border-black/10 bg-white/60"}`} key={item.id} onClick={() => navigateTo(activeSlug, item.id)} type="button">{item.title}</button>)}
           </div>
 
@@ -432,21 +434,24 @@ function SettingsSection({ mode, form }: { mode: ProfileMode; form: ReturnType<t
 function ShareSection({ profile, mode, url }: { profile: ProfileIdentity; mode: ProfileMode; url: string }) {
   const [copied, setCopied] = useState(false);
   const [full, setFull] = useState(false);
+  const linkUrl = `${url}&source=link`;
+  const qrUrl = `${url}&source=qr`;
+  const nativeShareUrl = `${url}&source=share`;
   async function share() {
     try {
-      if (navigator.share) await navigator.share({ title: `${profile.display_name} · ${mode.label} Mode`, url });
-      else { await copyToClipboard(url); setCopied(true); }
+      if (navigator.share) await navigator.share({ title: `${profile.display_name} · ${mode.label} Mode`, url: nativeShareUrl });
+      else { await copyToClipboard(linkUrl); setCopied(true); }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) setCopied(false);
     }
   }
   return <div><SectionHeading eyebrow="05 · SHARE" title="Meet them where you are." description="Your Mode has its own link and QR. Pick the right one for this moment." />
     <div className="mt-6 flex items-center gap-3"><div className="grid size-12 place-items-center rounded-2xl bg-[#0d0d0d] text-sm font-bold text-white">{profile.display_name.slice(0, 1).toUpperCase()}</div><div><p className="font-semibold">{profile.display_name}</p><p className="text-xs text-black/55">{mode.label} Mode{mode.slug === "event" && mode.settings.eventName ? ` · ${mode.settings.eventName}` : ""}</p></div></div>
-    <div className="mt-6 grid justify-center rounded-[1.7rem] bg-[#f5f4ef] p-6"><div className="rounded-2xl bg-white p-4"><QRCodeSVG aria-label={`${mode.label} Mode QR code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={220} value={url} /></div></div>
-    <p className="mt-4 break-all rounded-xl bg-black/[0.03] px-4 py-3 text-center text-xs font-medium">{url.replace(/^https?:\/\//, "")}</p>
-    <div className="mt-4 grid grid-cols-2 gap-2"><button className="min-h-12 rounded-full bg-[#0d0d0d] text-sm font-semibold text-white" onClick={async () => { const result = await copyToClipboard(url); setCopied(result); }} type="button">{copied ? "Copied" : "Copy link"}</button><button className="min-h-12 rounded-full px-4 text-sm font-semibold" onClick={() => void share()} style={{ backgroundColor: coral }} type="button">Share</button></div>
+    <div className="mt-6 grid justify-center rounded-[1.7rem] bg-[#f5f4ef] p-6"><div className="rounded-2xl bg-white p-4"><QRCodeSVG aria-label={`${mode.label} Mode QR code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={220} value={qrUrl} /></div></div>
+    <p className="mt-4 break-all rounded-xl bg-black/[0.03] px-4 py-3 text-center text-xs font-medium">{linkUrl.replace(/^https?:\/\//, "")}</p>
+    <div className="mt-4 grid grid-cols-2 gap-2"><button className="min-h-12 rounded-full bg-[#0d0d0d] text-sm font-semibold text-white" onClick={async () => { const result = await copyToClipboard(linkUrl); setCopied(result); }} type="button">{copied ? "Copied" : "Copy link"}</button><button className="min-h-12 rounded-full px-4 text-sm font-semibold" onClick={() => void share()} style={{ backgroundColor: coral }} type="button">Share</button></div>
     <button className="mt-3 min-h-11 w-full rounded-full border border-black/15 text-sm font-semibold" onClick={() => setFull(true)} type="button">Full-screen QR</button>
-    {full && <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#f5f4ef] px-6 text-center"><div className="mb-5 text-xs font-bold tracking-[0.2em]">{profile.display_name.toUpperCase()}<br /><span className="mt-2 inline-block text-black/55">{mode.label.toUpperCase()}{mode.slug === "event" && mode.settings.eventName ? ` · ${String(mode.settings.eventName).toUpperCase()}` : ""}</span></div><div className="rounded-[2rem] bg-white p-5 shadow-[0_25px_70px_-40px_rgba(13,13,13,.5)]"><QRCodeSVG aria-label={`${mode.label} Mode share code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={Math.min(320, typeof window === "undefined" ? 320 : window.innerWidth - 80)} value={url} /></div><p className="mt-6 text-sm font-medium">Scan to open my Setuvara</p><p className="mt-2 text-xs text-black/50">setuvara.com/{profile.username}</p><div className="mt-5 flex gap-3"><button className="min-h-12 rounded-full border border-black/20 px-5 text-sm font-semibold" onClick={async () => { setCopied(await copyToClipboard(url)); }} type="button">Copy link</button><button className="min-h-12 rounded-full px-5 text-sm font-semibold" onClick={() => setFull(false)} style={{ backgroundColor: coral }} type="button">Done</button></div></div>}
+    {full && <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#f5f4ef] px-6 text-center"><div className="mb-5 text-xs font-bold tracking-[0.2em]">{profile.display_name.toUpperCase()}<br /><span className="mt-2 inline-block text-black/55">{mode.label.toUpperCase()}{mode.slug === "event" && mode.settings.eventName ? ` · ${String(mode.settings.eventName).toUpperCase()}` : ""}</span></div><div className="rounded-[2rem] bg-white p-5 shadow-[0_25px_70px_-40px_rgba(13,13,13,.5)]"><QRCodeSVG aria-label={`${mode.label} Mode share code`} bgColor="#ffffff" fgColor="#0d0d0d" level="Q" marginSize={4} size={Math.min(320, typeof window === "undefined" ? 320 : window.innerWidth - 80)} value={qrUrl} /></div><p className="mt-6 text-sm font-medium">Scan to open my Setuvara</p><p className="mt-2 text-xs text-black/50">setuvara.com/{profile.username}</p><div className="mt-5 flex gap-3"><button className="min-h-12 rounded-full border border-black/20 px-5 text-sm font-semibold" onClick={async () => { setCopied(await copyToClipboard(linkUrl)); }} type="button">Copy link</button><button className="min-h-12 rounded-full px-5 text-sm font-semibold" onClick={() => setFull(false)} style={{ backgroundColor: coral }} type="button">Done</button></div></div>}
   </div>;
 }
 
