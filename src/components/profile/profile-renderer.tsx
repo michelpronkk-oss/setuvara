@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { LinkGlyph } from "@/components/links/provider-mark";
+import { PhotoGlow } from "@/components/profile/photo-glow";
 import { MeetMark } from "@/components/marketing/brand";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
@@ -18,6 +20,8 @@ type ProfileRendererProps = {
   onShare?: () => void;
   onEditMode?: () => void;
   selectedRewards?: Partial<Record<string, string>>;
+  /** Public page on a phone: the Full Bleed photo runs to the screen edges. */
+  bleed?: boolean;
 };
 
 type Tone = { bg: string; ink: string; sub: string; chip: string; line: string; dark: boolean };
@@ -36,6 +40,17 @@ const tones: Record<ProfileMode["appearance"]["theme"], Tone> = {
 
 const modeLabel: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
 
+/** Whether a Mode renders the edge-to-edge Full Bleed photo layout. */
+export function isFullBleed(mode: ProfileMode) {
+  return mode.slug === "personal" && Boolean(mode.image_url) && mode.appearance.layout !== "portrait-editorial";
+}
+
+/** Background and darkness of a Mode's theme, so a page can continue it past the card. */
+export function profileTone(mode: ProfileMode) {
+  const tone = tones[mode.appearance.theme] ?? (mode.slug === "personal" ? tones.dark : tones.light);
+  return { bg: tone.bg, dark: tone.dark };
+}
+
 export function ProfileRenderer(props: ProfileRendererProps) {
   const { mode } = props;
   if (mode.slug === "event") return <EventProfile {...props} />;
@@ -43,7 +58,85 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   return <PersonalProfile {...props} />;
 }
 
-function PersonalProfile({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
+function PersonalProfile(props: ProfileRendererProps) {
+  if (isFullBleed(props.mode)) return <PersonalBleed {...props} />;
+  return <PersonalPortrait {...props} />;
+}
+
+/** Links that read well as a lone icon: brands plus email/phone. Everything else keeps its title. */
+const isIconLink = (item: ResolvedLink) => Boolean(item.icon) || ["email", "phone", "sms"].includes(item.providerId);
+
+/** Full Bleed: edge-to-edge photo that fades into a centred name and a row of round icons. */
+function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false }: ProfileRendererProps) {
+  const tone = tones[mode.appearance.theme] ?? tones.dark;
+  const owner = viewerState === "owner" && !previewAsVisitor;
+  const accent = accentFor(mode, selectedRewards);
+  const editorialName = mode.appearance.theme === "editorial" && luminance(accent) < 0.55;
+  const links = resolveLinks(mode.links);
+  const icons = links.filter(isIconLink);
+  const rows = links.filter((item) => !isIconLink(item));
+  const treatment = mode.appearance.imageTreatment;
+  const aspect = treatment === "compact" ? "aspect-[4/3]" : treatment === "portrait" ? "aspect-square" : "aspect-[4/5]";
+  const meta = [setting(mode, "location"), setting(mode, "pronouns")].filter(Boolean).join(" · ");
+  const mark = earnedMark(selectedRewards);
+
+  return (
+    <article className={`relative isolate w-full overflow-hidden ${bleed ? "max-sm:rounded-none sm:rounded-[28px]" : "rounded-[28px]"} ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
+      <div className={`relative w-full ${aspect}`}>
+        <Image alt={profile.display_name} className="object-cover" fill priority sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
+        <div className="absolute inset-x-0 top-0 h-28" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.38), transparent)" }} />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tone.bg} 0%, ${hexAlpha(tone.bg, 0.92)} 14%, ${hexAlpha(tone.bg, 0.45)} 32%, transparent 52%)` }} />
+        {!bleed && <TopBar tone={tone} label="PERSONAL" overlay />}
+      </div>
+
+      <div className="relative -mt-24 pb-8 text-center">
+        <PhotoGlow dark={tone.dark} src={mode.image_url!} />
+        <div className="relative px-6">
+        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? "Viewing your profile" : mark}</p>}
+        <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
+        <p className="mt-1.5 font-label text-[12px] tracking-[0.04em]" style={{ color: tone.sub }}>@{profile.username}</p>
+        {(meta || profile.bio) && <p className="mx-auto mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
+
+        {icons.length > 0 && (
+          <ul aria-label="Links" className="mt-5 flex flex-wrap justify-center gap-2.5">
+            {icons.map((item) => (
+              <li key={item.link.id}>
+                <a aria-label={item.link.title} className="grid size-12 place-items-center rounded-full transition hover:scale-105 [&>svg]:size-5" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: tone.chip, color: tone.ink, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target={item.external ? "_blank" : undefined} title={item.link.title}>
+                  <ProviderGlyph item={item} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {setting(mode, "note") && <p className="mx-auto mt-5 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
+
+        <div className="text-left">
+          <OwnerOrVisitorActions accent={accent} accentInk={inkOn(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
+          {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
+        </div>
+
+        {rows.length > 0 && (
+          <ul className="mt-6 grid gap-2.5 text-left">
+            {rows.map((item) => (
+              <li key={item.link.id}>
+                <a className="flex min-h-14 items-center gap-3 rounded-2xl px-3.5 transition hover:opacity-85" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: tone.chip, color: tone.ink, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target={item.external ? "_blank" : undefined}>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg [&>img]:size-[18px] [&>svg]:size-4" style={{ background: tone.bg }}><ProviderGlyph item={item} /></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold">{item.link.title}</span><span className="block truncate text-[12px]" style={{ color: tone.sub }}>{item.display}</span></span>
+                  <span aria-hidden="true" className="text-base" style={{ color: tone.sub }}>↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+        {links.length === 0 && <div className="text-left"><EmptyLinks tone={tone} text="No links shared in this Mode yet." /></div>}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
   const tone = tones[mode.appearance.theme] ?? tones.dark;
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = accentFor(mode, selectedRewards);
@@ -267,8 +360,7 @@ function EmptyLinks({ tone, text }: { tone: Tone; text: string }) {
 }
 
 function ProviderGlyph({ item }: { item: ResolvedLink }) {
-  if (!item.icon) return null;
-  return <svg aria-hidden="true" className="size-3.5 shrink-0" fill="currentColor" focusable="false" viewBox="0 0 24 24"><path d={item.icon.path} /></svg>;
+  return <LinkGlyph icon={item.icon} url={item.url} />;
 }
 
 function resolveLinks(links: ProfileLink[]): ResolvedLink[] {

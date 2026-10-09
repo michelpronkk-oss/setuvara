@@ -25,7 +25,7 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
 };
 
 export const LAYOUTS: Record<ModeSlug, { value: string; label: string; note: string }[]> = {
-  personal: [{ value: "full-bleed", label: "Full Bleed", note: "Photo fills the top" }, { value: "portrait-editorial", label: "Portrait Editorial", note: "Framed portrait, quieter" }],
+  personal: [{ value: "full-bleed", label: "Full Bleed", note: "Edge-to-edge photo, round icons" }, { value: "portrait-editorial", label: "Portrait Editorial", note: "Framed portrait, quieter" }],
   event: [{ value: "event-poster", label: "Event Poster", note: "Big event header" }, { value: "conference-card", label: "Conference Card", note: "Compact badge header" }],
   business: [{ value: "structured", label: "Structured", note: "Role, company, city table" }, { value: "editorial-business", label: "Editorial Business", note: "Name-first, open layout" }],
 };

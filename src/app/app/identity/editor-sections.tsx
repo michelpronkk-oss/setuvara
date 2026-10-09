@@ -372,7 +372,7 @@ function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: Profile
     <li className={`min-w-0 rounded-[18px] bg-white transition-shadow ${isDragging ? "relative z-10 shadow-[0_24px_50px_-20px_rgba(13,13,13,.45),inset_0_0_0_2px_#0D0D0D]" : editing ? "shadow-[inset_0_0_0_2px_#0D0D0D]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null), transition }}>
       <div className="flex min-h-[70px] items-center gap-1.5 py-2 pl-1.5 pr-2 sm:gap-2 sm:pr-3">
         <DragHandle {...attributes} {...listeners} />
-        <ProviderMark className="size-10 rounded-xl bg-[#F5F4EF]" icon={provider.icon} label={provider.name} />
+        <ProviderMark className="size-10 rounded-xl bg-[#F5F4EF]" icon={provider.icon} label={provider.name} url={resolved?.url ?? link.url} />
         <button className={`min-w-0 flex-1 px-1.5 text-left ${link.is_visible ? "" : "opacity-50"}`} onClick={toggleEditing} type="button">
           <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{editing ? "Editing link" : link.title}</span>{!link.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
           <span className="block truncate text-[13px] text-black/55">{editing ? provider.name : resolved?.displayValue ?? provider.name}</span>
@@ -446,7 +446,7 @@ function AddLinkPanel({ api, initial, onClose }: { api: EditorApi; initial: Link
       ) : (
         <form onSubmit={submit}>
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3"><ProviderMark className="size-10 rounded-xl bg-[#F5F4EF]" icon={provider.icon} label={provider.name} /><div className="min-w-0"><p className="truncate text-[15px] font-semibold">{provider.name}</p><button className="text-[13px] font-semibold text-black/55 underline underline-offset-4" onClick={() => setProvider(null)} type="button">Change type</button></div></div>
+            <div className="flex min-w-0 items-center gap-3"><ProviderMark className="size-10 rounded-xl bg-[#F5F4EF]" icon={provider.icon} label={provider.name} url={normalized?.ok ? normalized.data.url : null} /><div className="min-w-0"><p className="truncate text-[15px] font-semibold">{provider.name}</p><button className="text-[13px] font-semibold text-black/55 underline underline-offset-4" onClick={() => setProvider(null)} type="button">Change type</button></div></div>
             <button aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full text-lg hover:bg-black/5" onClick={onClose} type="button">×</button>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
