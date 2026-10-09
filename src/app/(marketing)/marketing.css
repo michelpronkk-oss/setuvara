@@ -1,0 +1,77 @@
+/*
+ * Marketing motion. Everything here is progressive: browsers without scroll-driven
+ * animations, and visitors who prefer reduced motion, get the final composed state.
+ */
+html:has(.marketing-root) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.marketing-root) { scroll-behavior: auto; }
+}
+
+@keyframes marketing-reveal {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes marketing-stamp {
+  from { opacity: 0; transform: scale(1.12) rotate(var(--stamp-from, -6deg)); }
+  to { opacity: 1; transform: scale(1) rotate(var(--stamp-rotate, 0deg)); }
+}
+
+@keyframes meet-top {
+  from { transform: translate(-9px, -6px); }
+  to { transform: none; }
+}
+
+@keyframes meet-bottom {
+  from { transform: translate(9px, 6px); }
+  to { transform: none; }
+}
+
+@keyframes marketing-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.stamp-rotate { transform: rotate(var(--stamp-rotate, 0deg)); }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: marketing-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 5% entry 70%;
+    }
+
+    .stamp-rotate {
+      animation: marketing-stamp linear both;
+      animation-timeline: view();
+      animation-range: entry 10% entry 80%;
+    }
+
+    .meet-join .meet-join-top,
+    .meet-join .meet-join-bottom {
+      animation: meet-top linear both;
+      animation-timeline: view();
+      animation-range: entry 30% cover 45%;
+    }
+
+    .meet-join .meet-join-bottom { animation-name: meet-bottom; }
+
+    .progress-fill {
+      transform-origin: left;
+      animation: marketing-progress linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 40%;
+    }
+  }
+}
+
+.mode-panel { transition: opacity 420ms cubic-bezier(.2,.8,.2,1), transform 520ms cubic-bezier(.2,.8,.2,1), filter 420ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-panel { transition-duration: 1ms; }
+}

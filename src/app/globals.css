@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Setuvara brand tokens. Font faces are provided by next/font on the marketing layout. */
+@theme inline {
+  --color-ink: #0d0d0d;
+  --color-paper: #f5f4ef;
+  --color-coral: #ff5a4f;
+  --color-lime: #c7ff4a;
+  --color-sky: #afcbff;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-label: var(--font-geist-mono), ui-monospace, monospace;
+}
+
 :root {
   color-scheme: light;
   background: #f8fafc;

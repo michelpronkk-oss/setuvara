@@ -9,13 +9,14 @@ import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
 type AuthFormProps = {
   mode: "login" | "signup";
+  defaultUsername?: string;
 };
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, defaultUsername = "" }: AuthFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(defaultUsername);
   const [displayName, setDisplayName] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);

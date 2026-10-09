@@ -9,7 +9,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const routes = [
-    { path: "/", heading: "One identity. Every version of you.", title: "One identity. Every version of you." },
+    { path: "/", heading: "One identity. Every version of you.", title: "Setuvara — One identity. Every version of you." },
     { path: "/pricing", heading: "Clear pricing, when it’s time.", title: "Pricing" },
     { path: "/events", heading: "Bring the right context into the room.", title: "Setuvara for Events" },
     { path: "/teams", heading: "A better introduction starts with people.", title: "Setuvara for Teams" },
@@ -27,6 +27,19 @@ try {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, `${route.path} should not overflow at phone width`);
   }
+
+  await page.goto(new URL("/", appUrl).toString());
+  for (const id of ["product", "modes", "share", "how", "remember", "connections", "passport", "events", "teams"]) {
+    assert.equal(await page.locator(`#${id}`).count(), 1, `Homepage should include the #${id} section`);
+  }
+  const modeSwitcher = page.getByRole("group", { name: "Aanya’s Modes" });
+  await modeSwitcher.getByRole("button", { name: "Business" }).click();
+  assert.equal(await modeSwitcher.getByRole("button", { name: "Business" }).getAttribute("aria-pressed"), "true", "Hero Mode switcher should select Business");
+  await page.locator("#hero-claim-mobile").fill("future_name");
+  await page.locator("#hero-claim-mobile").press("Enter");
+  await page.waitForURL("**/signup?username=future_name");
+  assert.equal(await page.getByLabel("Username").inputValue(), "future_name", "Claim form should prefill the signup username");
+  await page.goto(new URL("/", appUrl).toString());
 
   const menuButton = page.getByRole("button", { name: "Open navigation menu" });
   assert((await menuButton.boundingBox())?.height >= 44, "Mobile menu button should be a usable tap target");
