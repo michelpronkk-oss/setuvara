@@ -18,6 +18,10 @@ import type { ModeAppearance, ModeSlug, ProfileIdentity, ProfileLink, ProfileMod
 import { createClient } from "@/lib/supabase/client";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import { CelebrationClient } from "../passport/passport-dashboard";
+import { createProviderLink, updateProviderLink } from "./actions";
+import { normalizeLinkPayload, providerForLink, resolveStoredLink, type LinkMode, type LinkProvider } from "@/lib/links/providers";
+import { ProviderPicker } from "@/components/links/provider-picker";
+import { ProviderMark } from "@/components/links/provider-mark";
 
 const coral = "#FF5A4F";
 const accentOptions = [coral, "#C7FF4A", "#AFCBFF", "#E8A6FF", "#F5C66E"];
@@ -86,8 +90,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [appearanceDirty, setAppearanceDirty] = useState(false);
   const [message, setMessage] = useState(saved ? savedMessage(saved) : "");
   const [newTitle, setNewTitle] = useState("");
-  const [newUrl, setNewUrl] = useState("");
-  const [newType, setNewType] = useState("url");
+  const [newValue, setNewValue] = useState("");
+  const [newProvider, setNewProvider] = useState<LinkProvider | null>(null);
   const [cropSource, setCropSource] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -198,25 +202,16 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   async function addLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeMode || !newTitle.trim()) return fail("Add a link name first.");
-    let linkUrl: string;
-    if (newType === "email") {
-      const email = newUrl.trim().replace(/^mailto:/i, "");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter a valid email address.");
-      linkUrl = `mailto:${email}`;
-    } else {
-      let url: URL;
-      try { url = new URL(newUrl); } catch { return fail("Enter a full link beginning with https://."); }
-      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return fail("Use a safe HTTP or HTTPS link.");
-      linkUrl = url.toString();
-    }
-    const next = [...activeMode.links, { id: crypto.randomUUID(), title: newTitle.trim(), url: linkUrl, link_type: newType, is_visible: true, sort_order: activeMode.links.length }];
-    const { error: insertError } = await createClient().from("profile_links").insert({ profile_id: profile.id, mode_id: activeMode.id, title: newTitle.trim(), url: linkUrl, link_type: newType, is_visible: true, sort_order: activeMode.links.length });
-    if (insertError) return fail("The link could not be added.");
-    const { data, error: selectError } = await createClient().from("profile_links").select("id, title, url, link_type, is_visible, sort_order").eq("profile_id", profile.id).eq("mode_id", activeMode.id).order("sort_order");
-    if (selectError) return fail("The link was added but could not be reloaded.");
-    updateMode({ links: data ?? next });
-    setNewTitle(""); setNewUrl(""); setMessage("Link added"); setStatus("saved");
+    if (!activeMode || !newProvider) return fail("Choose a link provider first.");
+    const normalized = normalizeLinkPayload({ providerId: newProvider.id, value: newValue });
+    if (!normalized.ok) return fail(normalized.message);
+    const title = newTitle.trim() || newProvider.defaultLabel;
+    if (title.length > 60) return fail("Link labels must be 1–60 characters.");
+    setStatus("saving");
+    const result = await createProviderLink({ modeId: activeMode.id, slug: activeSlug, providerId: newProvider.id, title, value: newValue });
+    if (!result.ok) return fail(result.message);
+    updateMode({ links: [...activeMode.links, result.link as ProfileLink] });
+    setNewProvider(null); setNewTitle(""); setNewValue(""); setMessage("Link added"); setStatus("saved"); router.refresh();
   }
 
   async function toggleLink(link: ProfileLink) {
@@ -236,21 +231,14 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   }
 
   async function editLink(link: ProfileLink, title: string, value: string) {
-    if (!title.trim() || title.trim().length > 60) return fail("Link labels must be 1–60 characters.");
-    let linkUrl = value.trim();
-    if (link.link_type === "email") {
-      const email = linkUrl.replace(/^mailto:/i, "");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Enter a valid email address.");
-      linkUrl = `mailto:${email}`;
-    } else {
-      let url: URL;
-      try { url = new URL(linkUrl); } catch { return fail("Enter a full link beginning with https://."); }
-      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return fail("Use a safe HTTP or HTTPS link.");
-      linkUrl = url.toString();
-    }
-    const { error: updateError } = await createClient().from("profile_links").update({ title: title.trim(), url: linkUrl }).eq("id", link.id).eq("profile_id", profile.id);
-    if (updateError) return fail("This link could not be saved.");
-    updateMode({ links: activeMode.links.map((item) => item.id === link.id ? { ...item, title: title.trim(), url: linkUrl } : item) });
+    if (!activeMode || !title.trim() || title.trim().length > 60) return fail("Link labels must be 1–60 characters.");
+    const provider = providerForLink(link.link_type);
+    const normalized = normalizeLinkPayload({ providerId: provider.id, value });
+    if (!normalized.ok) return fail(normalized.message);
+    setStatus("saving");
+    const result = await updateProviderLink({ linkId: link.id, modeId: activeMode.id, slug: activeSlug, providerId: provider.id, title: title.trim(), value });
+    if (!result.ok) return fail(result.message);
+    updateMode({ links: activeMode.links.map((item) => item.id === link.id ? result.link as ProfileLink : item) });
     setMessage("Link updated"); setStatus("saved"); router.refresh();
   }
 
@@ -356,7 +344,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
           <div className="rounded-[1.7rem] border border-black/10 bg-white p-5 sm:p-7">
             {section === "profile" && <ProfileSection profile={profile} form={profileForm} mode={activeMode} onPhoto={() => fileRef.current?.click()} onRemovePhoto={() => void removeImage()} onSave={() => void saveProfile()} />}
-            {section === "links" && <LinksSection links={activeMode.links} newTitle={newTitle} newUrl={newUrl} newType={newType} setNewTitle={setNewTitle} setNewUrl={setNewUrl} setNewType={setNewType} addLink={addLink} toggleLink={toggleLink} removeLink={removeLink} editLink={editLink} reorder={reorder} />}
+            {section === "links" && <LinksSection mode={activeSlug} links={activeMode.links} newTitle={newTitle} newValue={newValue} newProvider={newProvider} setNewTitle={setNewTitle} setNewValue={setNewValue} setNewProvider={setNewProvider} addLink={addLink} toggleLink={toggleLink} removeLink={removeLink} editLink={editLink} reorder={reorder} />}
             {section === "appearance" && <AppearanceSection mode={activeMode} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} onChange={(updates) => { updateMode(updates); setAppearanceDirty(true); }} />}
             {section === "settings" && <SettingsSection mode={activeMode} form={settingsForm} />}
             {section === "share" && <ShareSection profile={profile} mode={activeMode} url={publicUrl} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} />}
@@ -404,14 +392,28 @@ function ProfileSection({ profile, form, mode, onPhoto, onRemovePhoto, onSave }:
   </div>;
 }
 
-function LinksSection({ links, newTitle, newUrl, newType, setNewTitle, setNewUrl, setNewType, addLink, toggleLink, removeLink, editLink, reorder }: { links: ProfileLink[]; newTitle: string; newUrl: string; newType: string; setNewTitle: (value: string) => void; setNewUrl: (value: string) => void; setNewType: (value: string) => void; addLink: (event: FormEvent<HTMLFormElement>) => void; toggleLink: (link: ProfileLink) => void; removeLink: (link: ProfileLink) => void; editLink: (link: ProfileLink, title: string, url: string) => void; reorder: (links: ProfileLink[]) => void }) {
+function LinksSection({ mode, links, newTitle, newValue, newProvider, setNewTitle, setNewValue, setNewProvider, addLink, toggleLink, removeLink, editLink, reorder }: { mode: LinkMode; links: ProfileLink[]; newTitle: string; newValue: string; newProvider: LinkProvider | null; setNewTitle: (value: string) => void; setNewValue: (value: string) => void; setNewProvider: (provider: LinkProvider | null) => void; addLink: (event: FormEvent<HTMLFormElement>) => void; toggleLink: (link: ProfileLink) => void; removeLink: (link: ProfileLink) => void; editLink: (link: ProfileLink, title: string, value: string) => void; reorder: (links: ProfileLink[]) => void }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const normalizedValue = newProvider && newValue ? normalizeLinkPayload({ providerId: newProvider.id, value: newValue }) : null;
+  const valueLabel = newProvider?.inputKind === "email" ? "Email address" : newProvider?.inputKind === "phone" ? "Phone number" : newProvider?.inputKind === "handle" || newProvider?.inputKind === "username" ? "Username or profile link" : "Link or URL";
   return <div><SectionHeading eyebrow="02 · LINKS" title="Give people a next step." description="Keep each Mode focused on what matters in that moment." />
     {!links.length && <div className="mt-6 rounded-2xl bg-[#f5f4ef] p-5"><p className="font-semibold">No links yet</p><p className="mt-1 text-sm text-black/55">Add the first way people can reach you.</p></div>}
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={({ active, over }) => { if (!over || active.id === over.id) return; const from = links.findIndex((item) => item.id === active.id); const to = links.findIndex((item) => item.id === over.id); reorder(arrayMove(links, from, to)); }}>
       <SortableContext items={links.map((link) => link.id)} strategy={verticalListSortingStrategy}><div className="mt-5 space-y-2">{links.map((link, index) => <SortableLink key={link.id} link={link} onToggle={() => toggleLink(link)} onRemove={() => removeLink(link)} onEdit={(title, url) => editLink(link, title, url)} onMove={(direction) => { const destination = index + direction; if (destination < 0 || destination >= links.length) return; reorder(arrayMove(links, index, destination)); }} canMoveUp={index > 0} canMoveDown={index < links.length - 1} />)}</div></SortableContext>
     </DndContext>
-    <form className="mt-6 rounded-2xl border border-dashed border-black/20 p-4" onSubmit={addLink}><p className="mb-3 text-sm font-semibold">Add a link</p><div className="grid gap-3 sm:grid-cols-2"><input aria-label="Link label" className="min-h-12 rounded-xl border border-black/15 px-3 text-base" maxLength={60} onChange={(event) => setNewTitle(event.target.value)} placeholder="Label · LinkedIn" value={newTitle} /><input aria-label="Link URL" className="min-h-12 rounded-xl border border-black/15 px-3 text-base" onChange={(event) => setNewUrl(event.target.value)} placeholder={newType === "email" ? "hello@example.com" : "https://…"} type={newType === "email" ? "text" : "url"} value={newUrl} /></div><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><select aria-label="Link type" className="min-h-11 rounded-xl border border-black/15 px-3 text-sm" onChange={(event) => setNewType(event.target.value)} value={newType}>{[["url", "Website"], ["instagram", "Instagram"], ["linkedin", "LinkedIn"], ["spotify", "Spotify"], ["whatsapp", "WhatsApp"], ["email", "Email"], ["calendar", "Calendar"], ["document", "Document / company"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="min-h-11 rounded-full px-5 text-xs font-semibold" style={{ backgroundColor: coral }} type="submit">Add link</button></div></form>
+    <form className="mt-6 rounded-2xl border border-dashed border-black/20 bg-[#fcfbf8] p-4 sm:p-5" onSubmit={addLink}>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Add a link</p><p className="mt-1 text-xs text-black/50">Pick a place people can find or reach you.</p></div><ProviderPicker mode={mode} onSelect={(provider) => { setNewProvider(provider); setNewTitle(provider.defaultLabel); setNewValue(""); }} selectedProviderId={newProvider?.id} /></div>
+      {newProvider && <>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-xs font-semibold">Link label <input aria-label="Link label" className="min-h-12 rounded-xl border border-black/15 bg-white px-3 text-base font-normal outline-none focus:border-black" maxLength={60} onChange={(event) => setNewTitle(event.target.value)} value={newTitle} /></label>
+          <label className="grid gap-1.5 text-xs font-semibold">{valueLabel}<input aria-describedby={normalizedValue && !normalizedValue.ok && newValue ? "new-link-error" : undefined} aria-label="Link value" autoComplete="url" className="min-h-12 rounded-xl border border-black/15 bg-white px-3 text-base font-normal outline-none focus:border-black" maxLength={2048} onChange={(event) => setNewValue(event.target.value)} placeholder={newProvider.placeholder} type="text" value={newValue} /></label>
+        </div>
+        {newProvider.instructions && <p className="mt-2 text-xs leading-5 text-black/55">{newProvider.instructions}</p>}
+        {normalizedValue?.ok && newValue.trim() && <p className="mt-2 text-xs text-black/55">Preview <span aria-hidden="true">→</span> <span className="font-medium text-black/75">{normalizedValue.data.displayValue}</span></p>}
+        {normalizedValue && !normalizedValue.ok && newValue.trim() && <p className="mt-2 text-xs text-[#a5231e]" id="new-link-error" role="alert">{normalizedValue.message}</p>}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-[11px] text-black/45">Visible on your public profile</p><button className="min-h-12 rounded-full px-6 text-sm font-semibold" disabled={Boolean(newValue.trim() && normalizedValue && !normalizedValue.ok)} style={{ backgroundColor: coral }} type="submit">Add {newProvider.name}</button></div>
+      </>}
+    </form>
     <p className="mt-3 text-[11px] text-black/45">Drag to reorder · Hidden links stay available here</p>
   </div>;
 }
@@ -419,9 +421,21 @@ function LinksSection({ links, newTitle, newUrl, newType, setNewTitle, setNewUrl
 function SortableLink({ link, onToggle, onRemove, onEdit, onMove, canMoveUp, canMoveDown }: { link: ProfileLink; onToggle: () => void; onRemove: () => void; onEdit: (title: string, url: string) => void; onMove: (direction: -1 | 1) => void; canMoveUp: boolean; canMoveDown: boolean }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(link.title);
-  const [url, setUrl] = useState(link.url);
+  const provider = providerForLink(link.link_type);
+  const normalized = resolveStoredLink(provider.id, link.url);
+  const [value, setValue] = useState(normalized?.canonicalValue ?? link.url);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
-  return <div className={`flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2 ${isDragging ? "opacity-60" : ""}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}><button aria-label={`Drag ${link.title}`} className="min-h-11 min-w-11 rounded-xl text-lg text-black/45 focus-visible:outline-2" type="button" {...attributes} {...listeners}>⠿</button>{editing ? <div className="grid min-w-[180px] flex-1 gap-2 sm:grid-cols-2"><input aria-label="Edit link label" className="min-h-11 rounded-lg border border-black/15 px-3 text-base" onChange={(event) => setTitle(event.target.value)} value={title} /><input aria-label="Edit link URL" className="min-h-11 rounded-lg border border-black/15 px-3 text-base" onChange={(event) => setUrl(event.target.value)} value={url} /></div> : <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{link.title}</p><p className="truncate text-xs text-black/45">{link.url}</p></div>}<span className={`hidden text-[10px] font-semibold sm:inline ${link.is_visible ? "text-emerald-800" : "text-black/40"}`}>{link.is_visible ? "VISIBLE" : "HIDDEN"}</span><button aria-label={`Move ${link.title} up`} className="min-h-11 rounded-xl px-2 text-xs font-semibold disabled:text-black/20" disabled={!canMoveUp} onClick={() => onMove(-1)} type="button">↑</button><button aria-label={`Move ${link.title} down`} className="min-h-11 rounded-xl px-2 text-xs font-semibold disabled:text-black/20" disabled={!canMoveDown} onClick={() => onMove(1)} type="button">↓</button>{editing ? <button className="min-h-11 rounded-xl px-3 text-xs font-semibold" onClick={() => { onEdit(title, url); setEditing(false); }} type="button">Save</button> : <button aria-label={`Edit ${link.title}`} className="min-h-11 rounded-xl px-3 text-xs font-semibold underline underline-offset-4" onClick={() => setEditing(true)} type="button">Edit</button>}<button aria-label={`${link.is_visible ? "Hide" : "Show"} ${link.title}`} className="min-h-11 rounded-xl px-3 text-xs font-semibold underline underline-offset-4" onClick={onToggle} type="button">{link.is_visible ? "Hide" : "Show"}</button><button aria-label={`Delete ${link.title}`} className="min-h-11 rounded-xl px-2 text-xs font-semibold text-black/45 hover:text-red-700" onClick={onRemove} type="button">Delete</button></div>;
+  return <div className={`flex flex-wrap items-center gap-2 rounded-2xl border border-black/10 bg-white p-2 ${isDragging ? "opacity-60" : ""}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    <button aria-label={`Drag ${link.title}`} className="min-h-11 min-w-11 rounded-xl text-lg text-black/45 focus-visible:outline-2" type="button" {...attributes} {...listeners}>⠿</button>
+    <ProviderMark className="size-8 rounded-lg" icon={provider.icon} label={provider.name} />
+    {editing ? <div className="grid min-w-[180px] flex-1 gap-2 sm:grid-cols-2"><label className="grid gap-1 text-[10px] font-semibold text-black/55">Label<input aria-label="Edit link label" className="min-h-11 rounded-lg border border-black/15 px-3 text-base text-black" maxLength={60} onChange={(event) => setTitle(event.target.value)} value={title} /></label><label className="grid gap-1 text-[10px] font-semibold text-black/55">{provider.inputKind === "email" ? "Email address" : provider.inputKind === "phone" ? "Phone number" : provider.inputKind === "handle" || provider.inputKind === "username" ? "Username or profile link" : "Link or URL"}<input aria-label="Edit link value" className="min-h-11 rounded-lg border border-black/15 px-3 text-base text-black" maxLength={2048} onChange={(event) => setValue(event.target.value)} placeholder={provider.placeholder} value={value} /></label></div> : <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-black/45">{provider.name}</p><p className="truncate text-sm font-semibold">{link.title}</p><p className="truncate text-xs text-black/45">{normalized?.displayValue ?? "Saved link"}</p></div>}
+    <span className={`hidden text-[10px] font-semibold sm:inline ${link.is_visible ? "text-emerald-800" : "text-black/40"}`}>{link.is_visible ? "VISIBLE" : "HIDDEN"}</span>
+    <button aria-label={`Move ${link.title} up`} className="min-h-11 rounded-xl px-2 text-xs font-semibold disabled:text-black/20" disabled={!canMoveUp} onClick={() => onMove(-1)} type="button">↑</button>
+    <button aria-label={`Move ${link.title} down`} className="min-h-11 rounded-xl px-2 text-xs font-semibold disabled:text-black/20" disabled={!canMoveDown} onClick={() => onMove(1)} type="button">↓</button>
+    {editing ? <button className="min-h-11 rounded-xl px-3 text-xs font-semibold" onClick={() => { onEdit(title, value); setEditing(false); }} type="button">Save</button> : <button aria-label={`Edit ${link.title}`} className="min-h-11 rounded-xl px-3 text-xs font-semibold underline underline-offset-4" onClick={() => setEditing(true)} type="button">Edit</button>}
+    <button aria-label={`${link.is_visible ? "Hide" : "Show"} ${link.title}`} aria-pressed={link.is_visible} className="min-h-11 rounded-xl px-3 text-xs font-semibold underline underline-offset-4" onClick={onToggle} type="button">{link.is_visible ? "Hide" : "Show"}</button>
+    <button aria-label={`Delete ${link.title}`} className="min-h-11 rounded-xl px-2 text-xs font-semibold text-black/45 hover:text-red-700" onClick={onRemove} type="button">Delete</button>
+  </div>;
 }
 
 function AppearanceSection({ mode, onChange, unlockedRewards, selectedRewards, onEquip }: { mode: ProfileMode; onChange: (updates: Partial<ProfileMode>) => void; unlockedRewards: string[]; selectedRewards: Partial<Record<RewardCategory, string>>; onEquip: (category: RewardCategory, rewardId: string) => void }) {

@@ -52,6 +52,11 @@ Encounter for each share moment. A guest relationship can be claimed after
 signup and email confirmation. Notes and Where You Met context are private to
 their author, enforced by participant-aware RLS.
 
+Mode-specific profile links use the typed registry in `src/lib/links/providers.ts`.
+The registry drives provider suggestions, input validation and normalization,
+server-side saves, and safe public rendering. Links store a provider identifier
+and normalized destination; no provider OAuth is used.
+
 All six network tables have RLS enabled. Guest identity and session tables have
 no direct API grants or policies; the application uses narrowly scoped
 SECURITY DEFINER functions with a locked search path and explicit role grants.
@@ -118,7 +123,10 @@ supabase/
 │   ├── 20261009054048_public_mode_settings.sql
 │   ├── 20261009133922_connections_network.sql
 │   ├── 20261009133927_preserve_encounters_after_account_deletion.sql
-│   └── 20261009134039_connections_fk_indexes.sql
+│   ├── 20261009134039_connections_fk_indexes.sql
+│   ├── 20261009140904_passport_progression.sql
+│   ├── 20261009140956_passport_policy_indexes.sql
+│   └── 20261009143858_link_provider_types.sql
 └── templates/           # Local Auth email template
 src/
 ├── app/
@@ -127,7 +135,10 @@ src/
 │   ├── [username]/     # Published profile at the canonical root URL
 │   ├── u/[username]/   # Permanent legacy redirect
 │   └── ...             # Static, app, and health routes
+├── components/links/   # Provider picker and reusable provider marks
 ├── components/profile/ # Shared profile renderer and normalized types
 ├── components/connections/ # Connect flow, connections list, private memory editor
-└── lib/supabase/       # Browser, server, and session clients
+└── lib/
+    ├── links/          # Central provider registry and canonical normalization
+    └── supabase/       # Browser, server, and session clients
 ```

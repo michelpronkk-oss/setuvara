@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileMode, ViewerState } from "./types";
 import type { ReactNode } from "react";
+import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
+import { ProviderMark } from "@/components/links/provider-mark";
 
 type ProfileRendererProps = {
   profile: ProfileIdentity;
@@ -45,7 +47,6 @@ export function ProfileRenderer({
   const isPoster = layout === "event-poster" || layout === "full-bleed";
   const isStructured = layout === "structured" || layout === "conference-card";
   const accentColor = selectedRewards.accent === "signal_accent" ? "#FF5A4F" : mode.appearance.accent;
-  const accentStyle = { backgroundColor: accentColor };
   const signature = selectedRewards.profile_mark === "signal_50_mark" ? "SIGNAL 50" : selectedRewards.profile_mark === "thousand_mark" ? "THOUSAND MET" : null;
   const treatmentClass = selectedRewards.profile_treatment === "editorial_profile" || selectedRewards.profile_treatment === "century_profile" ? "shadow-[inset_0_0_0_1px_rgba(255,90,79,.38)]" : selectedRewards.profile_treatment === "connector_treatment" ? "border-[#ff5a4f]/45" : "";
 
@@ -92,19 +93,24 @@ export function ProfileRenderer({
         </div>
 
         <div className="mt-10 space-y-2.5">
-          {mode.links.filter((link) => link.is_visible).map((link) => (
-            <a
-              className={`flex min-h-12 items-center justify-between gap-4 rounded-2xl px-4 py-3 text-sm font-semibold transition ${dark ? "bg-white/10 hover:bg-white/15" : editorial ? "bg-white/70 hover:bg-white" : "border border-black/10 hover:border-black/20 hover:bg-[#f5f4ef]"}`}
-              href={link.url}
+          {mode.links.filter((link) => link.is_visible).map((link) => {
+            const provider = providerForLink(link.link_type);
+            const destination = resolveStoredLink(provider.id, link.url);
+            if (!destination) return null;
+            const external = /^https?:/i.test(destination.url);
+            return <a
+              className={`flex min-h-14 items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${dark ? "bg-white/10 hover:bg-white/15" : editorial ? "bg-white/70 hover:bg-white" : "border border-black/10 hover:border-black/20 hover:bg-[#f5f4ef]"}`}
+              href={destination.url}
               key={link.id}
-              rel="noreferrer"
-              style={link.link_type === "calendar" ? accentStyle : undefined}
-              target="_blank"
+              rel={external ? "noopener noreferrer" : undefined}
+              style={provider.category === "Business & actions" ? { borderColor: `${accentColor}55` } : undefined}
+              target={external ? "_blank" : undefined}
             >
-              <span className="min-w-0 truncate">{link.title}</span>
-              <span aria-hidden="true" className="text-lg leading-none">↗</span>
-            </a>
-          ))}
+              <ProviderMark className="size-9 rounded-xl bg-black/[0.04]" icon={provider.icon} label={provider.name} />
+              <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{link.title}</span><span className={`mt-0.5 block truncate text-xs ${secondary}`}>{destination.displayValue}</span></span>
+              <span aria-hidden="true" className="shrink-0 text-base leading-none text-current/45">{external ? "↗" : provider.id === "email" ? "✉" : "→"}</span>
+            </a>;
+          })}
           {!mode.links.some((link) => link.is_visible) && (
             <p className={`rounded-2xl border border-dashed border-current/20 px-4 py-4 text-sm ${secondary}`}>
               {mode.slug === "event" && !mode.settings.eventName ? "Event Mode is ready when you are." : "No links shared in this Mode yet."}

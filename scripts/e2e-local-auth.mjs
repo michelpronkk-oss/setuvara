@@ -110,12 +110,18 @@ async function waitEditorMessage(page, message) {
   }
 }
 
-async function addLink(page, title, value, type = "url") {
+async function addLink(page, title, value, provider = "Custom Link") {
   await openSection(page, "Links");
+  const pickerTrigger = page.getByRole("button", { name: /Choose a provider|Change$/ }).first();
+  await pickerTrigger.click();
+  const picker = page.getByRole("dialog", { name: "Choose a link" });
+  const providerSearch = picker.getByRole("textbox", { name: "Search links" });
+  await providerSearch.fill(provider);
+  const option = picker.getByRole("button", { name: new RegExp(provider.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }).first();
+  await option.click();
   await page.getByRole("textbox", { name: "Link label" }).fill(title);
-  await page.getByRole("textbox", { name: "Link URL" }).fill(value);
-  await page.getByLabel("Link type").selectOption(type);
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("textbox", { name: "Link value" }).fill(value);
+  await page.getByRole("button", { name: `Add ${provider}`, exact: true }).click();
   await page.getByRole("button", { name: `Hide ${title}`, exact: true }).waitFor();
 }
 
@@ -310,9 +316,9 @@ try {
   await mediaAuth.client.auth.signOut();
   console.log("PASS cropped upload, JPEG/PNG/WebP MIME allowlist, size/MIME rejection, replacement, old-object removal, and owner access");
 
-  await addLink(page, "Portfolio", "https://example.test/portfolio");
-  await addLink(page, "Contact", "https://example.test/contact");
-  await addLink(page, "Email me", "hello@example.test", "email");
+  await addLink(page, "Portfolio", "https://example.test/portfolio", "Portfolio");
+  await addLink(page, "Contact", "https://example.test/contact", "Contact Form");
+  await addLink(page, "Email me", "hello@example.test", "Email");
   const personalSort = await authenticatedClient(owner);
   const beforeOrder = await personalSort.client.from("profile_links").select("id, title, sort_order, mode_id").eq("profile_id", personalSort.user.id).order("sort_order");
   assert.ifError(beforeOrder.error);
@@ -331,6 +337,52 @@ try {
   await personalSort.client.auth.signOut();
   console.log("PASS Personal link create, email type, edit, and persisted drag order");
 
+  await addLink(page, "Instagram", "@meyvor", "Instagram");
+  await addLink(page, "TikTok", "https://www.tiktok.com/@meyvor", "TikTok");
+  await addLink(page, "WhatsApp", "+31 6 12345678", "WhatsApp");
+  await addLink(page, "Spotify", "https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb", "Spotify");
+  await addLink(page, "YouTube", "@setuvara", "YouTube");
+  await addLink(page, "My site", "example.com", "Website");
+  const normalizedPersonal = await authenticatedClient(owner);
+  const personalRows = await normalizedPersonal.client.from("profile_links").select("title,url,link_type").eq("profile_id", normalizedPersonal.user.id).eq("mode_id", (await normalizedPersonal.client.from("profile_modes").select("id").eq("profile_id", normalizedPersonal.user.id).eq("slug", "personal").single()).data.id);
+  assert.ifError(personalRows.error);
+  const personalByTitle = new Map(personalRows.data.map((link) => [link.title, link]));
+  assert.equal(personalByTitle.get("Instagram")?.url, "https://instagram.com/meyvor");
+  assert.equal(personalByTitle.get("TikTok")?.url, "https://tiktok.com/@meyvor");
+  assert.equal(personalByTitle.get("WhatsApp")?.url, "https://wa.me/31612345678");
+  assert.equal(personalByTitle.get("Spotify")?.url, "https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb");
+  assert.equal(personalByTitle.get("YouTube")?.url, "https://youtube.com/@setuvara");
+  assert.equal(personalByTitle.get("My site")?.url, "https://example.com/");
+  await normalizedPersonal.client.auth.signOut();
+
+  await openSection(page, "Links");
+  const linkCountBeforeRejects = (await (await authenticatedClient(owner)).client.from("profile_links").select("id", { count: "exact", head: true })).count;
+  await page.getByRole("button", { name: "Choose a provider" }).click();
+  const invalidPicker = page.getByRole("dialog", { name: "Choose a link" });
+  await invalidPicker.getByRole("textbox", { name: "Search links" }).fill("Custom Link");
+  await invalidPicker.getByRole("button", { name: /Custom Link/ }).click();
+  const linkValue = page.getByRole("textbox", { name: "Link value" });
+  const customAdd = page.getByRole("button", { name: "Add Custom Link" });
+  for (const unsafe of ["javascript:alert(1)", "data:text/html,hello", "file:///private/file", "https://not a domain/path"]) {
+    await linkValue.fill(unsafe);
+    assert.equal(await customAdd.isDisabled(), true, `${unsafe} must be rejected before persistence`);
+  }
+  await page.getByRole("button", { name: /Custom Link Change/ }).click();
+  const whatsappPicker = page.getByRole("dialog", { name: "Choose a link" });
+  await whatsappPicker.getByRole("textbox", { name: "Search links" }).fill("WhatsApp");
+  await whatsappPicker.getByRole("button", { name: /WhatsApp/ }).click();
+  await page.getByRole("textbox", { name: "Link value" }).fill("1234");
+  assert.equal(await page.getByRole("button", { name: "Add WhatsApp" }).isDisabled(), true, "Broken WhatsApp phone must be rejected");
+  await page.getByRole("button", { name: /WhatsApp Change/ }).click();
+  const emailPicker = page.getByRole("dialog", { name: "Choose a link" });
+  await emailPicker.getByRole("textbox", { name: "Search links" }).fill("Email");
+  await emailPicker.getByRole("button", { name: /^Email/ }).first().click();
+  await page.getByRole("textbox", { name: "Link value" }).fill("mailto:broken");
+  assert.equal(await page.getByRole("button", { name: "Add Email" }).isDisabled(), true, "Malformed email must be rejected");
+  const postRejectCount = (await (await authenticatedClient(owner)).client.from("profile_links").select("id", { count: "exact", head: true })).count;
+  assert.equal(postRejectCount, linkCountBeforeRejects, "Unsafe/malformed provider inputs must not be persisted");
+  console.log("PASS provider normalization and rejection for unsafe protocols, malformed URLs, email, and international phone data");
+
   await setMode(page, "event");
   await openSection(page, "Mode settings");
   await page.getByLabel("Event name").fill("Slush");
@@ -346,7 +398,13 @@ try {
   await page.getByRole("button", { name: "Event Poster" }).click();
   await page.getByRole("button", { name: "Save changes" }).click();
   await waitSaved(page);
-  await addLink(page, "Slush connections", "https://example.test/slush");
+  await addLink(page, "Slush connections", "https://slush.org", "Event Page");
+  await addLink(page, "LinkedIn", "https://www.linkedin.com/in/michel-pronk", "LinkedIn");
+  await addLink(page, "Event X", "@slushdotorg", "X");
+  await addLink(page, "Schedule", "https://slush.org/schedule", "Schedule");
+  const eventReload = await page.reload();
+  assert.equal(eventReload?.status(), 200);
+  await page.getByRole("button", { name: "Hide LinkedIn" }).waitFor();
   console.log("PASS Event Mode settings, appearance, and links");
 
   await setMode(page, "business");
@@ -361,7 +419,24 @@ try {
   await page.getByRole("button", { name: "Editorial Business" }).click();
   await page.getByRole("button", { name: "Save changes" }).click();
   await waitSaved(page);
-  await addLink(page, "Book an intro", "https://example.test/booking", "calendar");
+  await addLink(page, "Book an intro", "michel", "Calendly");
+  await addLink(page, "LinkedIn", "https://www.linkedin.com/company/northlight", "LinkedIn");
+  await addLink(page, "Company site", "northlight.example", "Company Website");
+  await addLink(page, "Email sales", "sales@northlight.example", "Email");
+  await addLink(page, "Call sales", "+49 30 12345678", "Phone");
+  await addLink(page, "GitHub", "octocat", "GitHub");
+  await addLink(page, "Work", "https://portfolio.example/work", "Portfolio");
+  await addLink(page, "Pitch deck", "https://northlight.example/deck", "Pitch Deck");
+  await page.reload();
+  await page.getByRole("button", { name: "Hide Book an intro" }).waitFor();
+  const businessAuth = await authenticatedClient(owner);
+  const businessLinks = await businessAuth.client.from("profile_links").select("title,url,link_type").eq("profile_id", businessAuth.user.id).order("sort_order");
+  assert.ifError(businessLinks.error);
+  const bookLink = businessLinks.data.find((link) => link.title === "Book an intro");
+  const phoneLink = businessLinks.data.find((link) => link.title === "Call sales");
+  assert.equal(bookLink?.url, "https://calendly.com/michel");
+  assert.equal(phoneLink?.url, "tel:+493012345678");
+  await businessAuth.client.auth.signOut();
   console.log("PASS Business Mode settings, appearance, and links");
 
   await openSection(page, "Share");
@@ -384,6 +459,14 @@ try {
   assert.equal(rootResponse?.status(), 200, "Personal root profile must load for anonymous visitors");
   await anonPage.getByRole("heading", { name: "Aanya Rao" }).waitFor();
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor();
+  for (const [label, href] of [
+    ["Instagram", "https://instagram.com/meyvor"],
+    ["TikTok", "https://tiktok.com/@meyvor"],
+    ["WhatsApp", "https://wa.me/31612345678"],
+    ["Spotify", "https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb"],
+    ["YouTube", "https://youtube.com/@setuvara"],
+    ["My site", "https://example.com/"],
+  ]) assert.equal(await anonPage.getByRole("link", { name: new RegExp(label) }).getAttribute("href"), href, `${label} public destination must be normalized and safe`);
   if (imageSaved) {
     const publicImage = anonPage.getByRole("img", { name: "Aanya Rao" });
     await publicImage.waitFor();
@@ -404,12 +487,19 @@ try {
   await anonPage.getByText("Slush", { exact: true }).waitFor();
   await anonPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor();
+  assert.equal(await anonPage.getByRole("link", { name: /LinkedIn/ }).getAttribute("href"), "https://www.linkedin.com/in/michel-pronk");
+  assert.equal(await anonPage.getByRole("link", { name: /Event X/ }).getAttribute("href"), "https://x.com/slushdotorg");
+  assert.equal(await anonPage.getByRole("link", { name: /Schedule/ }).getAttribute("href"), "https://slush.org/schedule");
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor({ state: "detached" });
   const businessResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=business`);
   assert.equal(businessResponse?.status(), 200);
   await anonPage.getByText("Head of Sales", { exact: true }).waitFor();
   await anonPage.getByText("Lumen Labs", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Book an intro" }).waitFor();
+  assert.equal(await anonPage.getByRole("link", { name: /Book an intro/ }).getAttribute("href"), "https://calendly.com/michel");
+  assert.equal(await anonPage.getByRole("link", { name: /GitHub/ }).getAttribute("href"), "https://github.com/octocat");
+  assert.equal(await anonPage.locator('a[href="mailto:sales@northlight.example"]').count(), 1, "Public Business Mode should render a validated mailto action");
+  assert.equal(await anonPage.locator('a[href="tel:+493012345678"]').count(), 1, "Public Business Mode should render a validated phone action");
   const modeAccess = await authenticatedClient(owner);
   const eventMode = (await modeAccess.client.from("profile_modes").select("id").eq("profile_id", modeAccess.user.id).eq("slug", "event").single()).data;
   assert(eventMode);
@@ -451,7 +541,7 @@ try {
   const linksResult = await ownerClient.from("profile_links").select("id, title, mode_id").eq("profile_id", ownerId).order("sort_order");
   assert.ifError(modesResult.error); assert.ifError(linksResult.error);
   assert.deepEqual(modesResult.data.map((mode) => mode.slug), ["personal", "event", "business"]);
-  assert.equal(linksResult.data.length, 5);
+  assert.equal(linksResult.data.length, 21, "All Personal/Event/Business provider links must persist");
   modeIds = modesResult.data.map((mode) => mode.id);
   linkIds = linksResult.data.map((link) => link.id);
   imagePath = (await ownerClient.from("profile_modes").select("image_path").eq("profile_id", ownerId).eq("slug", "personal").single()).data.image_path;
@@ -762,6 +852,19 @@ try {
     await page.setViewportSize({ width, height });
     await page.goto(`${appUrl}/app/identity?mode=personal&section=profile`);
     await expectNoHorizontalOverflow(page, `Identity editor ${width}x${height}`);
+    await openSection(page, "Links");
+    const providerTrigger = page.getByRole("button", { name: "Choose a provider" });
+    assert((await providerTrigger.boundingBox())?.height >= 44, `Provider picker trigger must be a usable tap target at ${width}px`);
+    await providerTrigger.click();
+    const providerDialog = page.getByRole("dialog", { name: "Choose a link" });
+    const dialogBounds = await providerDialog.boundingBox();
+    assert(dialogBounds && dialogBounds.width <= width, `Provider picker must fit the viewport at ${width}px`);
+    await providerDialog.getByRole("textbox", { name: "Search links" }).fill("booking");
+    await providerDialog.getByRole("button", { name: /Calendly/ }).waitFor();
+    await expectNoHorizontalOverflow(page, `Provider picker ${width}x${height}`);
+    await page.keyboard.press("Escape");
+    await providerDialog.waitFor({ state: "detached" });
+    await openSection(page, "Profile");
     await page.getByRole("button", { name: "Preview as visitor" }).waitFor();
     await page.getByRole("button", { name: "Preview as visitor" }).click();
     await expectNoHorizontalOverflow(page, `Editor preview ${width}x${height}`);

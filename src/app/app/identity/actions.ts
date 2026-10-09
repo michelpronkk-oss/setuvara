@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
+import { normalizeLinkPayload } from "@/lib/links/providers";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const modes = ["personal", "event", "business"] as const;
@@ -85,24 +87,56 @@ export async function saveModeSettings(formData: FormData) {
   redirect(`/app/identity?mode=${slug}&saved=mode`);
 }
 
-export async function addLink(formData: FormData) {
+const providerLinkPayload = z.object({
+  modeId: z.string().regex(uuidPattern),
+  slug: z.enum(modes),
+  providerId: z.string().min(1).max(40),
+  title: z.string().trim().min(1).max(60),
+  value: z.string().trim().min(1).max(2048),
+});
+
+export async function createProviderLink(payload: unknown) {
+  const parsed = providerLinkPayload.safeParse(payload);
+  if (!parsed.success) return { ok: false as const, message: "Choose a provider and check its details." };
   const { supabase, userId } = await getAuthenticatedClient();
-  const modeId = getText(formData, "modeId");
-  const title = getText(formData, "title");
-  const url = getText(formData, "url");
-  const linkType = getText(formData, "linkType");
-  if (!uuidPattern.test(modeId) || !title || title.length > 60) editorError("invalid_link");
-  let parsedUrl: URL;
-  try { parsedUrl = new URL(url); } catch { editorError("invalid_link"); }
-  if (!["http:", "https:"].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) editorError("invalid_link");
-  if (!["url", "instagram", "linkedin", "spotify", "whatsapp", "email", "calendar", "document"].includes(linkType)) editorError("invalid_link");
-  const { data: mode, error: modeError } = await supabase.from("profile_modes").select("id").eq("id", modeId).eq("profile_id", userId).maybeSingle();
-  if (modeError || !mode) editorError("invalid_link");
-  const { data: lastLink } = await supabase.from("profile_links").select("sort_order").eq("profile_id", userId).eq("mode_id", modeId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
-  const { error } = await supabase.from("profile_links").insert({ profile_id: userId, mode_id: modeId, title, url: parsedUrl.toString(), link_type: linkType, sort_order: (lastLink?.sort_order ?? 0) + 1 });
-  if (error) editorError("link_failed");
+  const normalized = normalizeLinkPayload({ providerId: parsed.data.providerId, value: parsed.data.value });
+  if (!normalized.ok) return { ok: false as const, message: normalized.message };
+  const { data: mode, error: modeError } = await supabase.from("profile_modes").select("id").eq("id", parsed.data.modeId).eq("profile_id", userId).eq("slug", parsed.data.slug).maybeSingle();
+  if (modeError || !mode) return { ok: false as const, message: "This Mode could not be found." };
+  const { data: link, error } = await supabase.from("profile_links").insert({
+    profile_id: userId,
+    mode_id: mode.id,
+    title: parsed.data.title,
+    url: normalized.data.url,
+    link_type: parsed.data.providerId,
+    is_visible: true,
+  }).select("id, title, url, link_type, is_visible, sort_order").single();
+  if (error || !link) return { ok: false as const, message: "This link could not be saved. Check the details and try again." };
   revalidatePath("/app/identity");
-  redirect(`/app/identity?mode=${getText(formData, "slug")}&section=links&saved=link`);
+  const { data: profile } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
+  if (profile) revalidatePath(`/${profile.username}`);
+  return { ok: true as const, link };
+}
+
+export async function updateProviderLink(payload: unknown) {
+  const parsed = providerLinkPayload.extend({ linkId: z.string().regex(uuidPattern) }).safeParse(payload);
+  if (!parsed.success) return { ok: false as const, message: "Check the link details and try again." };
+  const { supabase, userId } = await getAuthenticatedClient();
+  const normalized = normalizeLinkPayload({ providerId: parsed.data.providerId, value: parsed.data.value });
+  if (!normalized.ok) return { ok: false as const, message: normalized.message };
+  const { data: mode, error: modeError } = await supabase.from("profile_modes").select("id").eq("id", parsed.data.modeId).eq("profile_id", userId).eq("slug", parsed.data.slug).maybeSingle();
+  if (modeError || !mode) return { ok: false as const, message: "This Mode could not be found." };
+  const { data: link, error } = await supabase.from("profile_links").update({
+    title: parsed.data.title,
+    url: normalized.data.url,
+    link_type: parsed.data.providerId,
+  }).eq("id", parsed.data.linkId).eq("profile_id", userId).eq("mode_id", mode.id)
+    .select("id, title, url, link_type, is_visible, sort_order").maybeSingle();
+  if (error || !link) return { ok: false as const, message: "This link could not be saved. Check the details and try again." };
+  revalidatePath("/app/identity");
+  const { data: profile } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
+  if (profile) revalidatePath(`/${profile.username}`);
+  return { ok: true as const, link };
 }
 
 export async function deleteLink(formData: FormData) {
