@@ -12,7 +12,7 @@ import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
 import type { BlockKind, ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type LinkPreview } from "@/lib/blocks/media";
 import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, validateBlock } from "@/lib/blocks/registry";
-import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, providerForLink, resolveStoredLink, type LinkProvider } from "@/lib/links/providers";
+import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, normalizeProviderValue, providerForLink, resolveStoredLink, type LinkProvider, type LinkProviderId } from "@/lib/links/providers";
 import { AddLinkPanel, DragHandle, LinkRow } from "./editor-sections";
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { BlockIcon, Card, Field, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
@@ -162,6 +162,13 @@ function BlockRow({ api, block, onEdit }: { api: EditorApi; block: ProfileBlock;
 
 // ---------------------------------------------------------------- Add sheet
 
+/** Apps offered when someone types a bare username, most likely first per Mode. */
+const HANDLE_APPS: Record<"personal" | "event" | "business", LinkProviderId[]> = {
+  personal: ["instagram", "tiktok", "x", "youtube", "threads", "snapchat", "twitch", "telegram"],
+  event: ["instagram", "linkedin", "x", "tiktok", "threads", "youtube", "github", "telegram"],
+  business: ["linkedin", "instagram", "x", "github", "youtube", "tiktok", "calendly", "telegram"],
+};
+
 function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => void; onPick: (next: SheetState) => void }) {
   const [paste, setPaste] = useState("");
   const blocks = api.mode.blocks ?? [];
@@ -175,14 +182,18 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
   const music = !video && value ? parseMusic(value) : null;
   const detected = !video && !music && value ? detectProvider(value) : null;
   const generic = detected && ["website", "company_website", "url"].includes(detected.provider.id);
+  // A bare username: ask which app it belongs to instead of guessing.
+  const handleApps = !video && !music && (!detected || generic) && /^@?[A-Za-z0-9_][A-Za-z0-9_.-]{0,59}$/.test(value)
+    ? HANDLE_APPS[api.slug].map((id) => linkProviderById[id]).filter((provider) => normalizeProviderValue(provider.id, value).ok)
+    : [];
 
   return (
     <Sheet onClose={onClose} title="Add content" wide>
       <label className="block" htmlFor="smart-paste">
-        <span className="text-sm font-semibold">Paste any link</span>
-        <span className="mt-0.5 block text-[13px] text-black/55">YouTube, TikTok, Spotify, a website, an email… we’ll suggest the best way to show it.</span>
+        <span className="text-sm font-semibold">Paste a link or username</span>
+        <span className="mt-0.5 block text-[13px] text-black/55">A link, a @username, an email or a phone number. We’ll suggest the best way to show it.</span>
       </label>
-      <TextInput autoCapitalize="none" autoComplete="off" className="mt-2.5" id="smart-paste" inputMode="url" onChange={(event) => setPaste(event.target.value)} placeholder="https://" spellCheck={false} value={paste} />
+      <TextInput autoCapitalize="none" autoComplete="off" className="mt-2.5" id="smart-paste" inputMode="url" onChange={(event) => setPaste(event.target.value)} placeholder="instagram.com/you or @you" spellCheck={false} value={paste} />
 
       {value && (
         <div className="mt-3 grid gap-2">
@@ -194,7 +205,20 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
             <Suggestion disabled={full} icon={BLOCKS.feature.icon} label="Feature it as a card" note="Big card with the page’s image and title" onClick={() => onPick({ type: "block", kind: "feature", seed: { url: /^https?:\/\//i.test(value) ? value : `https://${value}` } })} primary />
             <Suggestion label="Add as a link button" mark={detected.provider} note={detected.value} onClick={() => onPick({ type: "link", provider: detected.provider, value: detected.value })} />
           </>}
-          {!video && !music && !detected && <p className="px-1 text-[13px] text-black/55">That doesn’t look like a link yet.</p>}
+          {handleApps.length > 0 && (
+            <div className={generic ? "mt-2" : ""}>
+              <p className="px-1 text-[13px] font-semibold">{generic ? "Or is it a username? Pick the app:" : `Which app is ${value.startsWith("@") ? value : `@${value}`} on?`}</p>
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {handleApps.map((provider) => (
+                  <button aria-label={`${provider.name}: ${value}`} className="flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-white px-1 text-center text-[12px] font-semibold shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" key={provider.id} onClick={() => onPick({ type: "link", provider, value })} type="button">
+                    <ProviderMark className="size-7 rounded-lg bg-[#F5F4EF]" icon={provider.icon} label={provider.name} url={provider.hostname ? `https://${provider.hostname}` : null} />
+                    <span className="line-clamp-1">{provider.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {!video && !music && !detected && !handleApps.length && <p className="px-1 text-[13px] text-black/55">That doesn’t look like a link or username yet.</p>}
         </div>
       )}
 
