@@ -34,9 +34,14 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 
 ## Environment
 
-No application environment variables are required yet. Copy `.env.example` to
-`.env.local` when local configuration is introduced. Keep secrets in local
-environment files and never commit them.
+Copy `.env.example` to `.env.local` and replace its placeholders with the
+Setuvara Supabase project URL and publishable key. `.env.local` is ignored by
+Git. The app uses the publishable key in browser and server-side SSR clients;
+never put a secret or service-role key in this application.
+
+The non-product connectivity check is available at
+`/api/health/supabase`. It checks the Supabase Auth health endpoint and does
+not read or write database data.
 
 ## Project structure
 
