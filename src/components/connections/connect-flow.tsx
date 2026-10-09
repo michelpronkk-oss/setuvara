@@ -15,11 +15,15 @@ type ConnectFlowProps = {
   alreadyConnected?: boolean;
   shareBackModes?: ShareBackMode[];
   guestSessionName?: string | null;
+  /** Visible trigger copy, e.g. "Connect at Slush" in Event Mode. */
+  label?: string;
+  /** Ink suits Event and Business Modes; accent is the Personal default. */
+  tone?: "accent" | "ink";
 };
 
 const validSources = ["qr", "link", "share", "native_share", "profile", "direct"];
 
-export function ConnectFlow({ username, mode, source, registered, alreadyConnected = false, shareBackModes = [], guestSessionName = null }: ConnectFlowProps) {
+export function ConnectFlow({ username, mode, source, registered, alreadyConnected = false, shareBackModes = [], guestSessionName = null, label = "Connect", tone = "accent" }: ConnectFlowProps) {
   const router = useRouter();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -92,8 +96,8 @@ export function ConnectFlow({ username, mode, source, registered, alreadyConnect
 
   return (
     <>
-      <button className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#ff5a4f] px-6 text-sm font-semibold text-[#0d0d0d] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d0d0d]" onClick={() => setOpen(true)} ref={triggerRef} type="button">
-        {alreadyConnected ? "Connect again" : "Connect"}
+      <button className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold transition ${tone === "ink" ? "bg-[#0d0d0d] text-[#f5f4ef]" : "bg-[#ff5a4f] text-[#0d0d0d]"} hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d0d0d]`} onClick={() => setOpen(true)} ref={triggerRef} type="button">
+        {alreadyConnected ? "Connect again" : label}
       </button>
       {open && (
         <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0d]/45 p-0 sm:place-items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) close(); }}>

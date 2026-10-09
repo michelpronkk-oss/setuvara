@@ -18,6 +18,8 @@ export function AppShell({ children, displayName, publicProfileUrl, signOut }: {
   signOut: () => Promise<void>;
 }) {
   const pathname = usePathname();
+  // The identity editor is a full-screen workspace with its own navigation.
+  if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <>{children}</>;
   const initials = displayName.trim().slice(0, 1).toUpperCase() || "S";
 
   return (

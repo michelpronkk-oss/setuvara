@@ -1,40 +1,23 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
-import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import { marketingFontClasses } from "@/app/(marketing)/fonts";
+import { MeetMark } from "@/components/marketing/brand";
 import type { ModeAppearance, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/client";
+import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import { isAllowedUsername } from "@/lib/usernames";
 import { CelebrationClient } from "../passport/passport-dashboard";
 import { createProviderLink, updateProviderLink } from "./actions";
-import { normalizeLinkPayload, providerForLink, type LinkProvider } from "@/lib/links/providers";
-import { isEditorSection, useIdentityEditorStore, type EditorSnapshot } from "./editor-store";
-import { AppearanceSection, CropDialog, dataUrlToBlob, LinksSection, ProfileSection, SectionButton, SettingsSection, ShareSection, cropImage } from "./editor-sections";
-
-const coral = "#FF5A4F";
-const modeLayouts: Record<ModeSlug, { value: string; label: string }[]> = {
-  personal: [{ value: "full-bleed", label: "Full Bleed" }, { value: "portrait-editorial", label: "Portrait Editorial" }],
-  event: [{ value: "event-poster", label: "Event Poster" }, { value: "conference-card", label: "Conference Card" }],
-  business: [{ value: "structured", label: "Structured" }, { value: "editorial-business", label: "Editorial Business" }],
-};
-const profileSchema = z.object({
-  username: z.string().trim().regex(/^[a-z0-9_]{3,24}$/, "Use 3–24 lowercase letters, numbers, or underscores."),
-  display_name: z.string().trim().min(1).max(80),
-  bio: z.string().max(280),
-});
-const settingsSchema = z.record(z.string(), z.union([z.string().max(280), z.boolean()]));
-const modeSettingsSchemas: Record<ModeSlug, z.ZodType<Record<string, string | boolean>>> = {
-  personal: z.object({ note: z.string().max(280).optional(), location: z.string().max(80).optional(), pronouns: z.string().max(40).optional() }).strict(),
-  event: z.object({ eventName: z.string().max(100).optional(), city: z.string().max(80).optional(), countryCode: z.string().regex(/^$|^[A-Z]{2}$/).optional(), dateLabel: z.string().max(80).optional(), role: z.string().max(80).optional(), hereToMeet: z.string().max(280).optional() }).strict(),
-  business: z.object({ role: z.string().max(80).optional(), company: z.string().max(100).optional(), city: z.string().max(80).optional(), description: z.string().max(280).optional() }).strict(),
-};
-type ProfileFormValues = z.infer<typeof profileSchema>;
-type SettingsFormValues = z.infer<typeof settingsSchema>;
+import { CropDialog, cropToBlob } from "./editor-crop";
+import { FullPreview, PreviewPane } from "./editor-preview";
+import { AppearanceSection, HomeSection, LinksSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
+import { MODE_SLUGS, SECTIONS, SETTING_KEYS, LAYOUTS, type EditableProfile, type EditorApi, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
+import { modeMeta } from "./editor-ui";
 
 type EditorProps = {
   initialProfile: ProfileIdentity;
@@ -50,435 +33,640 @@ type EditorProps = {
   celebrationThreshold: number | null;
 };
 
-const sections = [
-  { id: "profile", title: "Profile", detail: "Your identity, everywhere" },
-  { id: "links", title: "Links", detail: "The ways people reach you" },
-  { id: "appearance", title: "Appearance", detail: "Make this Mode feel right" },
-  { id: "settings", title: "Mode settings", detail: "Context for this version" },
-  { id: "share", title: "Share", detail: "Ready for the moment" },
-] as const;
+type SaveStatus = "saved" | "pending" | "saving" | "error";
+type Task = () => Promise<string | null>;
 
-const errorCopy: Record<string, string> = {
-  invalid_username: "That username cannot be used. Choose 3–24 lowercase letters, numbers, or underscores.",
-  username_taken: "That username is already in use.",
-  save_failed: "Your profile could not be saved. Please try again.",
-  invalid_identity: "Check the name and bio and try again.",
-  invalid_link: "Add a link title and a safe HTTP or HTTPS address.",
-  link_failed: "That link change could not be saved.",
-  mode_failed: "Some Mode details are invalid. Review them and try again.",
-  publish_failed: "Your publishing status could not be changed.",
-};
+const profileSchema = z.object({
+  username: z.string().trim().regex(/^[a-z0-9_]{3,24}$/, "Use 3–24 lowercase letters, numbers or underscores."),
+  display_name: z.string().trim().min(1, "Add the name people know you by.").max(80, "Keep your name under 80 characters."),
+  bio: z.string().max(280, "Keep this under 280 characters."),
+});
+const SAVE_DELAY = 650;
+const MEDIA = "profile-media";
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, publicOrigin, error, saved, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold }: EditorProps) {
-  const router = useRouter();
+function isSection(value: string): value is Section {
+  return value === "home" || SECTIONS.some((section) => section.id === value);
+}
+
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
+  const [slug, setSlug] = useState<ModeSlug>(initialMode);
+  const [section, setSection] = useState<Section>(isSection(initialSection) ? initialSection : "home");
   const [selectedRewards, setSelectedRewards] = useState(initialSelectedRewards);
-  const activeSlug = useIdentityEditorStore((state) => state.activeSlug);
-  const section = useIdentityEditorStore((state) => state.section);
-  const setNavigation = useIdentityEditorStore((state) => state.setNavigation);
-  const initializeOwner = useIdentityEditorStore((state) => state.initializeOwner);
-  const pushUndo = useIdentityEditorStore((state) => state.pushUndo);
-  const undo = useIdentityEditorStore((state) => state.undo);
-  const redo = useIdentityEditorStore((state) => state.redo);
-  const clearHistory = useIdentityEditorStore((state) => state.clearHistory);
-  const canUndo = useIdentityEditorStore((state) => state.undoStack.length > 0);
-  const canRedo = useIdentityEditorStore((state) => state.redoStack.length > 0);
-  const [previewVisitor, setPreviewVisitor] = useState(true);
+  const [previewState, setPreviewState] = useState<PreviewState>("owner");
   const [fullPreview, setFullPreview] = useState(false);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [appearanceDirty, setAppearanceDirty] = useState(false);
-  const [message, setMessage] = useState(saved ? savedMessage(saved) : "");
-  const [newTitle, setNewTitle] = useState("");
-  const [newValue, setNewValue] = useState("");
-  const [newProvider, setNewProvider] = useState<LinkProvider | null>(null);
-  const [cropSource, setCropSource] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedPixels, setCroppedPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>("saved");
+  const [statusMessage, setStatusMessage] = useState(error ? "Something didn’t save last time. Check your details." : "");
+  const [justPublished, setJustPublished] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [savedUsername, setSavedUsername] = useState(initialProfile.username);
+  const [usernameCheck, setUsernameCheck] = useState<{ candidate: string; result: UsernameStatus } | null>(null);
+  const [toastState, setToastState] = useState<{ id: number; text: string; action?: { label: string; run: () => void } } | null>(null);
+  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean } | null>(null);
+  const [busyPhoto, setBusyPhoto] = useState(false);
+
+  const supabase = useMemo(() => createClient(), []);
+  const profileRef = useRef(profile);
+  const modesRef = useRef(modes);
+  const savedUsernameRef = useRef(initialProfile.username);
+  const pending = useRef(new Map<string, Task>());
+  const failed = useRef(new Map<string, Task>());
+  const timer = useRef<number | null>(null);
+  const flushing = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoTarget = useRef<string | null>(null);
+  const toastTimer = useRef<number | null>(null);
 
-  const activeMode = useMemo(() => modes.find((mode) => mode.slug === activeSlug) ?? modes[0], [activeSlug, modes]);
-  const profileForm = useForm<ProfileFormValues>({ resolver: zodResolver(profileSchema), defaultValues: initialProfile });
-  const settingsForm = useForm<SettingsFormValues>({ resolver: zodResolver(settingsSchema), values: activeMode?.settings ?? {} });
-  const settingsWatch = useWatch({ control: settingsForm.control });
-  const profileWatch = useWatch({ control: profileForm.control });
-  const previewProfile = { ...profile, ...profileWatch };
-  const previewSettings = Object.fromEntries(Object.entries(settingsWatch).filter((entry): entry is [string, string | boolean] => entry[1] !== undefined));
-  const previewMode = activeMode ? { ...activeMode, settings: previewSettings } : activeMode;
-  const hasUnsavedChanges = appearanceDirty || profileForm.formState.isDirty || settingsForm.formState.isDirty;
-  const draftSnapshot = useMemo<EditorSnapshot>(() => ({
-    profileId: profile.id,
-    profile: {
-      username: String(profileWatch.username ?? profile.username),
-      display_name: String(profileWatch.display_name ?? profile.display_name),
-      bio: String(profileWatch.bio ?? profile.bio),
-    },
-    modes: modes.map((mode) => ({
-      id: mode.id,
-      settings: mode.id === activeMode?.id ? previewSettings : mode.settings,
-      appearance: mode.appearance,
-      links: mode.links.map(({ id, title, url, is_visible, sort_order }) => ({ id, title, url, is_visible, sort_order })),
-    })),
-  }), [activeMode?.id, modes, previewSettings, profile, profileWatch]);
-  const previousSnapshot = useRef(draftSnapshot);
-  const saveProfileRef = useRef<((values?: ProfileFormValues) => Promise<boolean>) | null>(null);
-  const saveModeRef = useRef<(() => Promise<boolean>) | null>(null);
-  const restoreHistoryRef = useRef<((forward: boolean) => Promise<boolean | undefined>) | null>(null);
-  const profileDraftKey = JSON.stringify(profileWatch);
-  const settingsDraftKey = JSON.stringify(settingsWatch);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+  useEffect(() => { modesRef.current = modes; }, [modes]);
 
-  useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const warnBeforeExit = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    window.addEventListener("beforeunload", warnBeforeExit);
-    return () => window.removeEventListener("beforeunload", warnBeforeExit);
-  }, [hasUnsavedChanges]);
+  const mode = modes.find((item) => item.slug === slug) ?? modes[0];
 
-  useEffect(() => {
-    initializeOwner(profile.id);
-  }, [initializeOwner, profile.id]);
-
-  useEffect(() => {
-    setNavigation(initialMode, isEditorSection(initialSection) ? initialSection : "profile");
-  }, [initialMode, initialSection, setNavigation]);
-
-  useEffect(() => {
-    previousSnapshot.current = draftSnapshot;
-  }, [draftSnapshot]);
-
-  useEffect(() => {
-    if (!profileForm.formState.isDirty || !profileSchema.safeParse(profileForm.getValues()).success) return;
-    const timer = window.setTimeout(() => { if (saveProfileRef.current) void saveProfileRef.current(profileForm.getValues()); }, 800);
-    return () => window.clearTimeout(timer);
-  }, [profileDraftKey, profileForm, profileForm.formState.isDirty]);
-
-  useEffect(() => {
-    if ((!settingsForm.formState.isDirty && !appearanceDirty) || !activeMode) return;
-    const timer = window.setTimeout(() => { if (saveModeRef.current) void saveModeRef.current(); }, 800);
-    return () => window.clearTimeout(timer);
-  }, [activeMode, appearanceDirty, settingsDraftKey, settingsForm, settingsForm.formState.isDirty]);
-
-  function recordEdit() {
-    pushUndo(previousSnapshot.current);
-  }
-
-  async function restoreHistory(forward: boolean) {
-    const snapshot = forward ? redo(draftSnapshot) : undo(draftSnapshot);
-    if (!snapshot || snapshot.profileId !== profile.id) return;
-    const supabase = createClient();
-    setStatus("saving");
-    const profileUpdate = await supabase.from("profiles").update(snapshot.profile).eq("id", profile.id);
-    if (profileUpdate.error) return fail("That edit could not be restored. Your saved version is still safe.");
-    for (const modeSnapshot of snapshot.modes) {
-      const modeUpdate = await supabase.from("profile_modes").update({ settings: modeSnapshot.settings, appearance: modeSnapshot.appearance }).eq("id", modeSnapshot.id).eq("profile_id", profile.id);
-      if (modeUpdate.error) return fail("That edit could not be restored. Your saved version is still safe.");
-      for (const link of modeSnapshot.links) {
-        const linkUpdate = await supabase.from("profile_links").update({ title: link.title, url: link.url, is_visible: link.is_visible, sort_order: link.sort_order }).eq("id", link.id).eq("profile_id", profile.id).eq("mode_id", modeSnapshot.id);
-        if (linkUpdate.error) return fail("That edit could not be restored. Your saved version is still safe.");
-      }
-    }
-    setProfile((current) => ({ ...current, ...snapshot.profile }));
-    profileForm.reset(snapshot.profile);
-    setModes((current) => current.map((mode) => {
-      const restored = snapshot.modes.find((item) => item.id === mode.id);
-      if (!restored) return mode;
-      return { ...mode, settings: restored.settings, appearance: restored.appearance, links: mode.links.map((link) => {
-        const restoredLink = restored.links.find((item) => item.id === link.id);
-        return restoredLink ? { ...link, ...restoredLink } : link;
-      }) };
-    }));
-    const activeSettings = snapshot.modes.find((mode) => mode.id === activeMode?.id)?.settings;
-    if (activeSettings) settingsForm.reset(activeSettings);
-    setAppearanceDirty(false);
-    setStatus("saved"); setMessage(forward ? "Edit restored" : "Change undone"); router.refresh();
-  }
-
-  useEffect(() => {
-    saveProfileRef.current = saveProfile;
-    saveModeRef.current = saveMode;
-    restoreHistoryRef.current = restoreHistory;
-  });
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
-      event.preventDefault();
-      if (event.shiftKey && restoreHistoryRef.current) void restoreHistoryRef.current(true);
-      else if (restoreHistoryRef.current) void restoreHistoryRef.current(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+  const toast = useCallback((text: string, action?: { label: string; run: () => void }) => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    setToastState({ id: Date.now(), text, action });
+    toastTimer.current = window.setTimeout(() => setToastState(null), action ? 6000 : 2400);
   }, []);
 
-  function navigateTo(nextMode = activeSlug, nextSection = section) {
-    if (profileForm.formState.isDirty) void saveProfile(profileForm.getValues());
-    if (settingsForm.formState.isDirty || appearanceDirty) void saveMode();
-    if (activeMode && nextMode !== activeSlug) {
-      const currentSettings = Object.fromEntries(Object.entries(settingsForm.getValues()).filter((entry): entry is [string, string | boolean] => entry[1] !== undefined));
-      setModes((current) => current.map((mode) => mode.id === activeMode.id ? { ...mode, settings: currentSettings } : mode));
+  // ---------- Autosave engine ----------
+  const flush = useCallback(async () => {
+    if (timer.current) { window.clearTimeout(timer.current); timer.current = null; }
+    // A flush already running picks up anything queued meanwhile.
+    if (flushing.current || !pending.current.size) return;
+    flushing.current = true;
+    let firstError: string | null = null;
+    while (pending.current.size) {
+      setStatus("saving");
+      const tasks = [...pending.current.entries()];
+      pending.current.clear();
+      for (const [key, task] of tasks) {
+        let result: string | null;
+        try { result = await task(); } catch { result = "Your connection dropped. Your edits are still here."; }
+        if (result) { failed.current.set(key, task); firstError ??= result; }
+        else failed.current.delete(key);
+      }
     }
-    setNavigation(nextMode, isEditorSection(nextSection) ? nextSection : "profile");
-    const query = new URLSearchParams({ mode: nextMode, section: nextSection });
-    router.replace(`/app/identity?${query.toString()}`, { scroll: false });
-    setMessage("");
-    setStatus("idle");
-  }
+    flushing.current = false;
+    if (firstError || failed.current.size) { setStatus("error"); setStatusMessage(firstError ?? "Some changes didn’t save."); }
+    else { setStatus("saved"); setStatusMessage(""); }
+  }, []);
 
-  function updateMode(updates: Partial<ProfileMode>) {
-    if (!activeMode) return;
-    setModes((current) => current.map((mode) => mode.id === activeMode.id ? { ...mode, ...updates } : mode));
-    setStatus("idle");
-  }
+  const schedule = useCallback((key: string, task: Task) => {
+    pending.current.set(key, task);
+    failed.current.delete(key);
+    setStatus("pending");
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => { void flush(); }, SAVE_DELAY);
+  }, [flush]);
 
-  async function saveProfile(values = profileForm.getValues()) {
-    const parsed = profileSchema.safeParse(values);
-    if (!parsed.success) {
-      setMessage(parsed.error.issues[0]?.message ?? "Check your profile details.");
-      setStatus("error");
-      return false;
+  const retry = useCallback(() => {
+    for (const [key, task] of failed.current) pending.current.set(key, task);
+    failed.current.clear();
+    void flush();
+  }, [flush]);
+
+  /** Immediate writes (links, photos, publishing) share the same status chip. */
+  const runNow = useCallback(async (work: () => Promise<string | null>) => {
+    setStatus("saving");
+    let result: string | null;
+    try { result = await work(); } catch { result = "Your connection dropped. Try again."; }
+    if (result) { setStatus("error"); setStatusMessage(result); toast(result); }
+    else { setStatus(pending.current.size ? "pending" : failed.current.size ? "error" : "saved"); }
+    return result;
+  }, [toast]);
+
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!pending.current.size && !flushing.current && !failed.current.size) return;
+      void flush();
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); void flush(); }
+      if (event.key === "Escape") setFullPreview(false);
+    };
+    window.addEventListener("beforeunload", warn);
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("beforeunload", warn); window.removeEventListener("keydown", onKey); };
+  }, [flush]);
+
+  // ---------- Profile ----------
+  const saveProfileTask: Task = useCallback(async () => {
+    const draft = profileRef.current;
+    const parsed = profileSchema.safeParse({ username: draft.username, display_name: draft.display_name, bio: draft.bio });
+    const errors: Record<string, string> = {};
+    if (!parsed.success) for (const issue of parsed.error.issues) errors[String(issue.path[0])] ??= issue.message;
+    if (errors.display_name || errors.bio) {
+      setFieldErrors((current) => ({ ...current, ...errors }));
+      return "Fix the highlighted field to save.";
     }
-    const supabase = createClient();
-    setStatus("saving");
-    const { data: existing, error: readError } = await supabase.from("profiles").select("username").eq("id", profile.id).single();
-    if (readError) return fail("Your profile could not be loaded.");
-    if (existing.username !== parsed.data.username) {
-      const { data: available, error: availabilityError } = await supabase.rpc("is_username_available", { candidate_username: parsed.data.username });
-      if (availabilityError || !available) return fail(availabilityError ? "Username availability could not be checked." : "That username is already in use.");
+    // A username that can't be used never blocks the rest of the profile from saving.
+    const username = draft.username.trim();
+    let usernameError: string | null = null;
+    let includeUsername = username !== savedUsernameRef.current;
+    if (includeUsername) {
+      if (errors.username) usernameError = errors.username;
+      else if (!isAllowedUsername(username)) usernameError = "That username is reserved.";
+      else {
+        const { data: available, error: availabilityError } = await supabase.rpc("is_username_available", { candidate_username: username });
+        if (availabilityError) usernameError = "We couldn’t check that username. Try again.";
+        else if (!available) { usernameError = "That username is taken."; setUsernameCheck({ candidate: username, result: "taken" }); }
+      }
+      if (usernameError) includeUsername = false;
     }
-    const { error: updateError } = await supabase.from("profiles").update(parsed.data).eq("id", profile.id);
-    if (updateError) return fail("Your profile could not be saved.");
-    setProfile((current) => ({ ...current, ...parsed.data }));
-    profileForm.reset(parsed.data);
-    setStatus("saved");
-    setMessage("Saved");
-    router.refresh();
-    return true;
-  }
-
-  async function saveMode() {
-    if (!activeMode) return false;
-    const mode = modes.find((item) => item.id === activeMode.id) ?? activeMode;
-    const parsed = modeSettingsSchemas[mode.slug].safeParse(settingsForm.getValues());
-    if (!parsed.success || !validAppearance(mode.slug, mode.appearance)) return fail("Review this Mode’s settings and appearance.");
-    setStatus("saving");
-    const supabase = createClient();
-    const { error: updateError } = await supabase.from("profile_modes").update({ settings: parsed.data, appearance: mode.appearance }).eq("id", mode.id).eq("profile_id", profile.id);
-    if (updateError) return fail("This Mode could not be saved.");
-    updateMode({ settings: parsed.data });
-    settingsForm.reset(parsed.data);
-    setAppearanceDirty(false);
-    setStatus("saved");
-    setMessage("Saved");
-    router.refresh();
-    return true;
-  }
-
-  function fail(text: string) {
-    setStatus("error");
-    setMessage(text);
-    return false;
-  }
-
-  async function equipReward(category: RewardCategory, rewardId: string) {
-    const { error: selectError } = await createClient().rpc("set_passport_reward", { p_category: category, p_reward_id: rewardId });
-    if (selectError) return fail("That reward is locked or could not be equipped.");
-    setSelectedRewards((current) => ({ ...current, [category]: rewardId }));
-    setMessage("Reward equipped"); setStatus("saved"); router.refresh();
-  }
-
-  async function saveCurrent() {
-    if (section === "profile") await saveProfile();
-    else if (["appearance", "settings"].includes(section)) await saveMode();
-    else {
-      setStatus("saved");
-      setMessage("Saved");
-    }
-  }
-
-  async function addLink(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeMode || !newProvider) return fail("Choose a link provider first.");
-    const normalized = normalizeLinkPayload({ providerId: newProvider.id, value: newValue });
-    if (!normalized.ok) return fail(normalized.message);
-    const title = newTitle.trim() || newProvider.defaultLabel;
-    if (title.length > 60) return fail("Link labels must be 1–60 characters.");
-    setStatus("saving");
-    const result = await createProviderLink({ modeId: activeMode.id, slug: activeSlug, providerId: newProvider.id, title, value: newValue });
-    if (!result.ok) return fail(result.message);
-    clearHistory();
-    updateMode({ links: [...activeMode.links, result.link as ProfileLink] });
-    setNewProvider(null); setNewTitle(""); setNewValue(""); setMessage("Link added"); setStatus("saved"); router.refresh();
-  }
-
-  async function toggleLink(link: ProfileLink) {
-    const visible = !link.is_visible;
-    recordEdit();
-    const { error: updateError } = await createClient().from("profile_links").update({ is_visible: visible }).eq("id", link.id).eq("profile_id", profile.id);
-    if (updateError) return fail("Link visibility could not be updated.");
-    updateMode({ links: activeMode.links.map((item) => item.id === link.id ? { ...item, is_visible: visible } : item) });
-    setMessage(visible ? "Link visible" : "Link hidden"); setStatus("saved");
-    router.refresh();
-  }
-
-  async function removeLink(link: ProfileLink) {
-    clearHistory();
-    const { error: deleteError } = await createClient().from("profile_links").delete().eq("id", link.id).eq("profile_id", profile.id);
-    if (deleteError) return fail("The link could not be removed.");
-    updateMode({ links: activeMode.links.filter((item) => item.id !== link.id) });
-    setMessage("Link removed"); setStatus("saved");
-  }
-
-  async function editLink(link: ProfileLink, title: string, value: string) {
-    if (!activeMode || !title.trim() || title.trim().length > 60) return fail("Link labels must be 1–60 characters.");
-    const provider = providerForLink(link.link_type);
-    const normalized = normalizeLinkPayload({ providerId: provider.id, value });
-    if (!normalized.ok) return fail(normalized.message);
-    recordEdit();
-    setStatus("saving");
-    const result = await updateProviderLink({ linkId: link.id, modeId: activeMode.id, slug: activeSlug, providerId: provider.id, title: title.trim(), value });
-    if (!result.ok) return fail(result.message);
-    updateMode({ links: activeMode.links.map((item) => item.id === link.id ? result.link as ProfileLink : item) });
-    setMessage("Link updated"); setStatus("saved"); router.refresh();
-  }
-
-  async function reorder(ordered: ProfileLink[]) {
-    if (!activeMode) return;
-    recordEdit();
-    const client = createClient();
-    setStatus("saving");
-    for (const [index, link] of ordered.entries()) {
-      const { error: orderError } = await client.from("profile_links").update({ sort_order: index }).eq("id", link.id).eq("profile_id", profile.id).eq("mode_id", activeMode.id);
-      if (orderError) return fail("The new link order could not be saved.");
-    }
-    updateMode({ links: ordered.map((link, index) => ({ ...link, sort_order: index })) });
-    setStatus("saved"); setMessage("Order saved");
-  }
-
-  async function publish(next: boolean) {
-    const { error: publishError } = await createClient().from("profiles").update({ is_published: next }).eq("id", profile.id);
-    if (publishError) return fail("Publishing status could not be changed.");
-    setProfile((current) => ({ ...current, is_published: next }));
-    setMessage(next ? "Your profile is live" : "Your profile is private"); setStatus("saved"); router.refresh();
-  }
-
-  function applyCrop(croppedImage: string) {
-    const blob = dataUrlToBlob(croppedImage);
-    void uploadImage(blob);
-    setCropSource(null);
-  }
-
-  async function uploadImage(blob: Blob) {
-    if (!activeMode) return;
-    clearHistory();
-    setUploading(true);
-    const supabase = createClient();
-    const extension = "webp";
-    const path = `${profile.id}/${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from("profile-media").upload(path, blob, { contentType: "image/webp", upsert: false });
-    if (uploadError) { setUploading(false); return fail("This image could not be uploaded. Use a JPEG, PNG, or WebP under 5 MB."); }
-    const { error: updateError } = await supabase.from("profile_modes").update({ image_path: path }).eq("id", activeMode.id).eq("profile_id", profile.id);
+    const values = { display_name: draft.display_name.trim(), bio: draft.bio, ...(includeUsername ? { username } : {}) };
+    const { error: updateError } = await supabase.from("profiles").update(values).eq("id", initialProfile.id);
     if (updateError) {
-      await supabase.storage.from("profile-media").remove([path]);
-      setUploading(false);
-      return fail("The image uploaded but could not be attached to this Mode.");
+      if (updateError.code === "23505") { setFieldErrors((current) => ({ ...current, username: "That username is taken." })); return "That username is taken."; }
+      return "Your profile couldn’t be saved. Try again.";
     }
-    const { data: signed } = await supabase.storage.from("profile-media").createSignedUrl(path, 3600);
-    if (activeMode.image_path) await supabase.storage.from("profile-media").remove([activeMode.image_path]);
-    updateMode({ image_path: path, image_url: signed?.signedUrl ?? null });
-    setUploading(false); setStatus("saved"); setMessage("Photo saved"); router.refresh();
-  }
+    if (includeUsername) { savedUsernameRef.current = username; setSavedUsername(username); }
+    setFieldErrors((current) => { const next = { ...current }; delete next.display_name; delete next.bio; if (usernameError) next.username = usernameError; else delete next.username; return next; });
+    return usernameError;
+  }, [initialProfile.id, supabase]);
 
-  async function removeImage() {
-    if (!activeMode?.image_path) return;
-    clearHistory();
-    const supabase = createClient();
-    const oldPath = activeMode.image_path;
-    const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null }).eq("id", activeMode.id).eq("profile_id", profile.id);
-    if (updateError) return fail("The photo could not be removed.");
-    await supabase.storage.from("profile-media").remove([oldPath]);
-    updateMode({ image_path: null, image_url: null }); setMessage("Photo removed"); setStatus("saved"); router.refresh();
-  }
+  const updateProfile = useCallback((patch: Partial<EditableProfile>) => {
+    const next = { ...profileRef.current, ...patch };
+    if (patch.username !== undefined) next.username = patch.username.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+    profileRef.current = next;
+    setProfile(next);
+    setFieldErrors((current) => { const copy = { ...current }; for (const key of Object.keys(patch)) delete copy[key]; return copy; });
+    schedule("profile", saveProfileTask);
+  }, [saveProfileTask, schedule]);
 
-  if (!activeMode) return <main className="p-8">Your Modes are being prepared.</main>;
-  const publicUrl = `${publicOrigin}/${profile.username}?mode=${activeSlug}`;
-  const renderProfile = (owner: boolean) => previewMode ? <ProfileRenderer profile={previewProfile} mode={previewMode} viewerState={owner ? "owner" : "visitor_unconnected"} selectedRewards={selectedRewards} onShare={() => navigateTo(activeSlug, "share")} onEditMode={() => navigateTo(activeSlug, "settings")} /> : null;
+  // Debounced username availability, so people know before the save runs.
+  const usernameValid = /^[a-z0-9_]{3,24}$/.test(profile.username) && isAllowedUsername(profile.username);
+  const usernameStatus: UsernameStatus = profile.username === savedUsername ? "idle" : !usernameValid ? "invalid" : usernameCheck?.candidate === profile.username ? usernameCheck.result : "checking";
+  useEffect(() => {
+    const candidate = profile.username;
+    if (candidate === savedUsername || !usernameValid) return;
+    const handle = window.setTimeout(async () => {
+      const { data, error: checkError } = await supabase.rpc("is_username_available", { candidate_username: candidate });
+      setUsernameCheck({ candidate, result: checkError ? "idle" : data ? "available" : "taken" });
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [profile.username, savedUsername, supabase, usernameValid]);
+
+  // ---------- Modes ----------
+  const patchMode = useCallback((modeId: string, patch: Partial<ProfileMode>) => {
+    const next = modesRef.current.map((item) => item.id === modeId ? { ...item, ...patch } : item);
+    modesRef.current = next;
+    setModes(next);
+  }, []);
+
+  const saveModeTask = useCallback((modeId: string): Task => async () => {
+    const current = modesRef.current.find((item) => item.id === modeId);
+    if (!current) return null;
+    const limits = SETTING_KEYS[current.slug];
+    const settings: Record<string, string> = {};
+    for (const [key, max] of Object.entries(limits)) {
+      const value = current.settings[key];
+      if (typeof value !== "string") continue;
+      if (value.length > max) return `Keep that under ${max} characters.`;
+      settings[key] = value.trim();
+    }
+    const appearance = current.appearance;
+    if (!validAppearance(current.slug, appearance)) return "That look isn’t available for this Mode.";
+    const { error: updateError } = await supabase.from("profile_modes").update({ settings, appearance }).eq("id", modeId).eq("profile_id", initialProfile.id);
+    return updateError ? `${modeMeta[current.slug].name} Mode couldn’t be saved. Try again.` : null;
+  }, [initialProfile.id, supabase]);
+
+  const updateSetting = useCallback((key: string, value: string) => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current) return;
+    patchMode(current.id, { settings: { ...current.settings, [key]: value } });
+    schedule(`mode:${current.id}`, saveModeTask(current.id));
+  }, [patchMode, saveModeTask, schedule, slug]);
+
+  const updateAppearance = useCallback((patch: Partial<ModeAppearance>) => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current) return;
+    patchMode(current.id, { appearance: { ...current.appearance, ...patch } });
+    schedule(`mode:${current.id}`, saveModeTask(current.id));
+  }, [patchMode, saveModeTask, schedule, slug]);
+
+  const setModeEnabled = useCallback(async (enabled: boolean) => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current || current.slug === "personal") return;
+    patchMode(current.id, { is_enabled: enabled });
+    const failure = await runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_modes").update({ is_enabled: enabled }).eq("id", current.id).eq("profile_id", initialProfile.id);
+      return updateError ? "That Mode couldn’t be switched. Try again." : null;
+    });
+    if (failure) patchMode(current.id, { is_enabled: !enabled });
+    else toast(enabled ? `${modeMeta[current.slug].name} Mode is live` : `${modeMeta[current.slug].name} Mode is off. Its link stops working.`);
+  }, [initialProfile.id, patchMode, runNow, slug, supabase, toast]);
+
+  const setPublished = useCallback(async (published: boolean) => {
+    await flush();
+    const failure = await runNow(async () => {
+      const { error: publishError } = await supabase.from("profiles").update({ is_published: published }).eq("id", initialProfile.id);
+      return publishError ? "Publishing didn’t go through. Try again." : null;
+    });
+    if (failure) return;
+    setProfile((current) => ({ ...current, is_published: published }));
+    if (published) { setJustPublished(true); window.setTimeout(() => setJustPublished(false), 5000); toast("Published. Every share surface is up to date."); }
+    else toast("Your Setuvara is private. Links and QR codes stop working.");
+  }, [flush, initialProfile.id, runNow, supabase, toast]);
+
+  // ---------- Links ----------
+  const setLinks = useCallback((modeId: string, links: ProfileLink[]) => patchMode(modeId, { links }), [patchMode]);
+
+  const addLinkTo = useCallback(async (target: ProfileMode, provider: LinkProvider, title: string, value: string) => {
+    const result = await createProviderLink({ modeId: target.id, slug: target.slug, providerId: provider.id, title: title.trim() || provider.defaultLabel, value });
+    if (!result.ok) return { error: result.message, link: null };
+    const latest = modesRef.current.find((item) => item.id === target.id) ?? target;
+    const link = result.link as ProfileLink;
+    setLinks(target.id, [...latest.links, link]);
+    return { error: null, link };
+  }, [setLinks]);
+
+  const addLink = useCallback(async (provider: LinkProvider, title: string, value: string) => {
+    let message: string | null = null;
+    await runNow(async () => { const result = await addLinkTo(mode, provider, title, value); message = result.error; return null; });
+    if (message) { setStatus("saved"); return message; }
+    toast(`Link added to ${modeMeta[mode.slug].name} Mode`);
+    return null;
+  }, [addLinkTo, mode, runNow, toast]);
+
+  const editLink = useCallback(async (link: ProfileLink, title: string, value: string) => {
+    const provider = providerForLink(link.link_type);
+    let message: string | null = null;
+    await runNow(async () => {
+      const result = await updateProviderLink({ linkId: link.id, modeId: mode.id, slug: mode.slug, providerId: provider.id, title: title.trim(), value });
+      if (!result.ok) { message = result.message; return null; }
+      const latest = modesRef.current.find((item) => item.id === mode.id) ?? mode;
+      setLinks(mode.id, latest.links.map((item) => item.id === link.id ? { ...item, ...(result.link as ProfileLink) } : item));
+      return null;
+    });
+    return message;
+  }, [mode, runNow, setLinks]);
+
+  const toggleLink = useCallback((link: ProfileLink) => {
+    const target = mode;
+    const visible = !link.is_visible;
+    setLinks(target.id, target.links.map((item) => item.id === link.id ? { ...item, is_visible: visible } : item));
+    void runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_links").update({ is_visible: visible }).eq("id", link.id).eq("profile_id", initialProfile.id);
+      if (updateError) {
+        const latest = modesRef.current.find((item) => item.id === target.id) ?? target;
+        setLinks(target.id, latest.links.map((item) => item.id === link.id ? { ...item, is_visible: !visible } : item));
+        return "That link couldn’t be updated.";
+      }
+      return null;
+    });
+  }, [initialProfile.id, mode, runNow, setLinks, supabase]);
+
+  const reorderLinks = useCallback((ordered: ProfileLink[]) => {
+    const target = mode;
+    const before = target.links;
+    setLinks(target.id, ordered.map((link, index) => ({ ...link, sort_order: index })));
+    void runNow(async () => {
+      const results = await Promise.all(ordered.map((link, index) => supabase.from("profile_links").update({ sort_order: index }).eq("id", link.id).eq("profile_id", initialProfile.id).eq("mode_id", target.id)));
+      if (results.some((result) => result.error)) { setLinks(target.id, before); return "The new order couldn’t be saved."; }
+      return null;
+    });
+  }, [initialProfile.id, mode, runNow, setLinks, supabase]);
+
+  const deleteLink = useCallback((link: ProfileLink) => {
+    const target = mode;
+    const index = target.links.findIndex((item) => item.id === link.id);
+    setLinks(target.id, target.links.filter((item) => item.id !== link.id));
+    void runNow(async () => {
+      const { error: deleteError } = await supabase.from("profile_links").delete().eq("id", link.id).eq("profile_id", initialProfile.id);
+      if (deleteError) {
+        const latest = modesRef.current.find((item) => item.id === target.id) ?? target;
+        const restored = [...latest.links]; restored.splice(index, 0, link); setLinks(target.id, restored);
+        return "That link couldn’t be deleted.";
+      }
+      return null;
+    }).then((failure) => {
+      if (failure) return;
+      toast("Link deleted", { label: "Undo", run: () => {
+        const provider = providerForLink(link.link_type);
+        const value = resolveStoredLink(provider.id, link.url)?.canonicalValue ?? link.url;
+        void runNow(async () => {
+          const result = await addLinkTo(target, provider, link.title, value);
+          if (result.error || !result.link) return result.error ?? "That link couldn’t be restored.";
+          const latest = modesRef.current.find((item) => item.id === target.id) ?? target;
+          const others = latest.links.filter((item) => item.id !== result.link!.id);
+          const restored = { ...result.link, is_visible: link.is_visible };
+          others.splice(Math.min(index, others.length), 0, restored);
+          setLinks(target.id, others.map((item, order) => ({ ...item, sort_order: order })));
+          await Promise.all(others.map((item, order) => supabase.from("profile_links").update({ sort_order: order, ...(item.id === restored.id ? { is_visible: link.is_visible } : {}) }).eq("id", item.id).eq("profile_id", initialProfile.id)));
+          return null;
+        });
+      } });
+    });
+  }, [addLinkTo, initialProfile.id, mode, runNow, setLinks, supabase, toast]);
+
+  const copyLinksFrom = useCallback(async (source: ModeSlug) => {
+    const from = modesRef.current.find((item) => item.slug === source);
+    if (!from?.links.length) return;
+    const target = mode;
+    let copied = 0;
+    await runNow(async () => {
+      for (const link of from.links) {
+        const provider = providerForLink(link.link_type);
+        const value = resolveStoredLink(provider.id, link.url)?.canonicalValue ?? link.url;
+        const result = await addLinkTo(target, provider, link.title, value);
+        if (result.error) return result.error;
+        copied += 1;
+      }
+      return null;
+    });
+    if (copied) toast(`${copied} link${copied === 1 ? "" : "s"} copied from ${modeMeta[source].name}`);
+  }, [addLinkTo, mode, runNow, toast]);
+
+  // ---------- Photos ----------
+  const removeIfUnused = useCallback(async (path: string | null) => {
+    if (!path || modesRef.current.some((item) => item.image_path === path)) return;
+    await supabase.storage.from(MEDIA).remove([path]);
+  }, [supabase]);
+
+  const pickPhoto = useCallback(() => { photoTarget.current = mode.id; fileRef.current?.click(); }, [mode.id]);
+  const recropPhoto = useCallback(() => { if (mode.image_url) setCrop({ source: mode.image_url, modeId: mode.id, revoke: false }); }, [mode.id, mode.image_url]);
+
+  const savePhoto = useCallback(async (modeId: string, blob: Blob) => {
+    setBusyPhoto(true);
+    const target = modesRef.current.find((item) => item.id === modeId);
+    const failure = await runNow(async () => {
+      if (!target) return "That Mode couldn’t be found.";
+      const path = `${initialProfile.id}/${crypto.randomUUID()}.webp`;
+      const { error: uploadError } = await supabase.storage.from(MEDIA).upload(path, blob, { contentType: "image/webp", upsert: false });
+      if (uploadError) return "The photo couldn’t be uploaded. Use a JPEG, PNG or WebP under 5 MB.";
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: path }).eq("id", modeId).eq("profile_id", initialProfile.id);
+      if (updateError) { await supabase.storage.from(MEDIA).remove([path]); return "The photo uploaded but couldn’t be attached."; }
+      const { data: signed } = await supabase.storage.from(MEDIA).createSignedUrl(path, 3600);
+      const previous = target.image_path;
+      patchMode(modeId, { image_path: path, image_url: signed?.signedUrl ?? URL.createObjectURL(blob) });
+      await removeIfUnused(previous);
+      return null;
+    });
+    setBusyPhoto(false);
+    if (!failure) toast(`Photo updated in ${modeMeta[target?.slug ?? "personal"].name} Mode`);
+  }, [initialProfile.id, patchMode, removeIfUnused, runNow, supabase, toast]);
+
+  const removePhoto = useCallback(() => {
+    const target = mode;
+    if (!target.image_path) return;
+    const previous = { image_path: target.image_path, image_url: target.image_url };
+    patchMode(target.id, { image_path: null, image_url: null });
+    void runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      if (updateError) { patchMode(target.id, previous); return "The photo couldn’t be removed."; }
+      await removeIfUnused(previous.image_path);
+      return null;
+    });
+  }, [initialProfile.id, mode, patchMode, removeIfUnused, runNow, supabase]);
+
+  const usePhotoFrom = useCallback((source: ModeSlug) => {
+    const from = modesRef.current.find((item) => item.slug === source);
+    const target = mode;
+    if (!from?.image_path || from.id === target.id) return;
+    const previous = { image_path: target.image_path, image_url: target.image_url };
+    patchMode(target.id, { image_path: from.image_path, image_url: from.image_url });
+    void runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: from.image_path }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      if (updateError) { patchMode(target.id, previous); return "That photo couldn’t be used here."; }
+      await removeIfUnused(previous.image_path);
+      return null;
+    }).then((failure) => { if (!failure) toast(`Using your ${modeMeta[source].name} photo`); });
+  }, [initialProfile.id, mode, patchMode, removeIfUnused, runNow, supabase, toast]);
+
+  // ---------- Rewards ----------
+  const equipReward = useCallback(async (category: RewardCategory, rewardId: string) => {
+    const failure = await runNow(async () => {
+      const { error: selectError } = await supabase.rpc("set_passport_reward", { p_category: category, p_reward_id: rewardId });
+      return selectError ? "That reward is locked or couldn’t be equipped." : null;
+    });
+    if (!failure) { setSelectedRewards((current) => ({ ...current, [category]: rewardId })); toast(`${PASSPORT_REWARDS.find((reward) => reward.id === rewardId)?.name ?? "Reward"} equipped`); }
+  }, [runNow, supabase, toast]);
+
+  // ---------- Navigation ----------
+  const go = useCallback((nextSection: Section, nextSlug?: ModeSlug) => {
+    if (pending.current.size) void flush();
+    const targetSlug = nextSlug ?? slug;
+    setSection(nextSection);
+    setSlug(targetSlug);
+    const query = new URLSearchParams({ mode: targetSlug });
+    if (nextSection !== "home") query.set("section", nextSection);
+    window.history.replaceState(window.history.state, "", `/app/identity?${query.toString()}`);
+    document.getElementById("editor-scroll")?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }, [flush, slug]);
+
+  const publicUrl = useCallback((target: ModeSlug, source?: string) => {
+    const query = new URLSearchParams();
+    if (target !== "personal") query.set("mode", target);
+    if (source) query.set("source", source);
+    const suffix = query.toString();
+    return `${publicOrigin}/${savedUsername}${suffix ? `?${suffix}` : ""}`;
+  }, [publicOrigin, savedUsername]);
+
+  const api: EditorApi = {
+    profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto,
+    updateProfile, updateSetting, updateAppearance, setModeEnabled, setPublished,
+    addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
+    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
+  };
+
+  if (!mode) return <main className="grid min-h-dvh place-items-center p-8 text-sm">Your Modes are being prepared.</main>;
+
+  const sectionTitle = SECTIONS.find((item) => item.id === section)?.short ?? "Profile";
+  const publishButton = profile.is_published
+    ? <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-black/[0.06] px-4 text-sm font-semibold text-black/70 transition hover:bg-black/10" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
+    : <button className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-5 text-sm font-semibold text-[#0D0D0D] transition hover:brightness-95" onClick={() => void setPublished(true)} type="button">Publish</button>;
+
+  const content = (
+    <>
+      {section === "home" && <HomeSection api={api} key={slug} />}
+      {section === "profile" && <ProfileSection api={api} />}
+      {section === "links" && <LinksSection api={api} key={slug} />}
+      {section === "appearance" && <AppearanceSection api={api} />}
+      {section === "settings" && <SettingsSection api={api} />}
+      {section === "share" && <ShareSection api={api} />}
+    </>
+  );
 
   return (
-    <main className="min-h-screen bg-[#f5f4ef] text-[#0d0d0d]">
-      <header className="border-b border-black/10 bg-[#f5f4ef]/70">
-        <div className="mx-auto flex min-h-16 max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <span className="hidden text-xs text-black/45 sm:inline">{activeMode.label} Mode</span>
-            <span aria-live="polite" className="hidden text-xs font-medium text-black/55 sm:inline">{status === "saving" ? "Saving…" : status === "error" ? "Not saved" : hasUnsavedChanges ? "Unsaved changes" : message || (profile.is_published ? "Published" : "Draft")}</span>
-            <div className="hidden items-center gap-1 sm:flex" aria-label="Edit history">
-              <button aria-label="Undo last edit" className="min-h-10 min-w-10 rounded-full border border-black/10 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-35" disabled={!canUndo || status === "saving"} onClick={() => void restoreHistory(false)} title="Undo (Ctrl/⌘ Z)" type="button">↶</button>
-              <button aria-label="Redo last edit" className="min-h-10 min-w-10 rounded-full border border-black/10 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-35" disabled={!canRedo || status === "saving"} onClick={() => void restoreHistory(true)} title="Redo (Ctrl/⌘ Shift Z)" type="button">↷</button>
-            </div>
-            <button className="min-h-11 rounded-full border border-black/15 px-3 text-xs font-semibold sm:px-4" onClick={() => { setPreviewVisitor(true); setFullPreview(true); }} type="button">Preview as visitor</button>
-            <button className="min-h-11 rounded-full px-4 text-xs font-semibold text-[#0d0d0d]" onClick={() => void publish(!profile.is_published)} style={{ backgroundColor: coral }} type="button">{profile.is_published ? "Unpublish" : "Publish"}</button>
-          </div>
+    <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden`}>
+      {/* Desktop top bar */}
+      <header className="hidden h-[72px] shrink-0 items-center justify-between gap-5 border-b border-black/10 pl-7 pr-6 lg:flex">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link aria-label="Back to Setuvara home" className="flex items-center gap-2.5" href="/app"><MeetMark className="size-7" /><span className="font-display text-[21px] font-bold tracking-[-0.05em]">setuvara</span></Link>
+          <span aria-hidden="true" className="mx-1.5 h-[22px] w-px bg-black/15" />
+          <span className="hidden text-[15px] text-black/60 xl:inline">Editing</span>
+        </div>
+        <ModeTabs modes={modes} onPick={(next) => go(section, next)} slug={slug} />
+        <div className="flex items-center gap-3">
+          <SaveChip justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
+          <button className="inline-flex min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:hidden" onClick={() => setFullPreview(true)} type="button">Preview</button>
+          <button className="hidden min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:inline-flex" onClick={() => setFullPreview(true)} type="button">Full preview</button>
+          {publishButton}
         </div>
       </header>
 
-      {(error || message) && <div aria-live="polite" className={`mx-auto mt-4 max-w-[1500px] px-4 text-sm sm:px-6 ${error || status === "error" ? "text-red-800" : "text-black/65"}`}>{errorCopy[error ?? ""] ?? message}</div>}
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F5F4EF]/92 backdrop-blur-md lg:hidden">
+        <div className="flex h-14 items-center gap-2 px-3">
+          {section === "home"
+            ? <Link aria-label="Back to Setuvara home" className="flex min-h-11 items-center gap-1.5 px-1.5" href="/app"><MeetMark className="size-6" /></Link>
+            : <button className="flex min-h-11 min-w-0 items-center gap-1 px-1.5 text-[15px] font-semibold" onClick={() => go("home")} type="button"><span aria-hidden="true" className="text-lg leading-none">‹</span><span className="truncate">{sectionTitle}</span></button>}
+          <MobileModePicker onPick={(next) => go(section, next)} slug={slug} />
+          <div className="ml-auto flex items-center gap-1.5">
+            <button className="inline-flex min-h-10 items-center rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D]" onClick={() => setFullPreview(true)} type="button">Preview</button>
+            {profile.is_published
+              ? <a aria-label="Your Setuvara is live. Open it." className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[13px] font-semibold text-black/70" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
+              : <button className="inline-flex min-h-10 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold" onClick={() => void setPublished(true)} type="button">Publish</button>}
+          </div>
+        </div>
+        <MobileSaveLine justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
+      </header>
 
-      <div className="mx-auto grid max-w-[1500px] gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[180px_minmax(320px,1fr)_minmax(300px,420px)] lg:gap-8 lg:py-8">
-        <aside className="hidden lg:block">
-          <p className="mb-3 text-[10px] font-bold tracking-[0.2em] text-black/45">YOUR IDENTITY</p>
-          <nav aria-label="Editor sections" className="space-y-1">
-            {sections.map((item) => <SectionButton active={section === item.id} key={item.id} onClick={() => navigateTo(activeSlug, item.id)}>{item.title}</SectionButton>)}
+      <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[232px_minmax(0,1fr)] xl:grid-cols-[256px_minmax(0,1fr)_minmax(420px,34%)] 2xl:grid-cols-[256px_minmax(0,1fr)_minmax(460px,36%)]">
+        {/* Rail */}
+        <aside className="hidden min-h-0 flex-col border-r border-black/10 px-4 py-6 lg:flex">
+          <button className="flex items-center gap-3 rounded-2xl px-2 py-1.5 text-left transition hover:bg-black/[0.04]" onClick={() => go("home")} type="button">
+            <Avatar mode={modes.find((item) => item.slug === "personal") ?? mode} name={profile.display_name} />
+            <span className="min-w-0"><span className="block truncate text-[15px] font-semibold">{profile.display_name || "Your name"}</span><span className="block text-[13px] text-black/55">One identity · 3 Modes</span></span>
+          </button>
+          <nav aria-label="Editor sections" className="mt-7 grid gap-1">
+            {SECTIONS.map((item, index) => {
+              const active = section === item.id;
+              return (
+                <button aria-current={active ? "page" : undefined} className={`group flex min-h-[52px] items-center gap-3.5 rounded-2xl px-3.5 text-left transition ${active ? "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" : "hover:bg-black/[0.035]"}`} key={item.id} onClick={() => go(item.id)} type="button">
+                  <span className={`font-label text-[11px] ${active ? "text-[#FF5A4F]" : "text-black/40"}`}>0{index + 1}</span>
+                  <span className={`flex-1 font-display text-[19px] font-bold tracking-[-0.035em] ${active ? "text-black" : "text-black/50 group-hover:text-black/75"}`}>{item.title}</span>
+                  {active && <span aria-hidden="true" className="font-display text-base font-bold text-[#FF5A4F]">/</span>}
+                </button>
+              );
+            })}
           </nav>
-          <button className="mt-8 min-h-11 rounded-full border border-black/15 px-4 text-xs font-semibold" onClick={() => setFullPreview(true)} type="button">Full-screen preview</button>
-          <form action={signOut} className="mt-10"><button className="min-h-11 text-xs font-semibold text-black/55 underline underline-offset-4" type="submit">Sign out</button></form>
-        </aside>
-
-        <section className="min-w-0">
-          <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div><p className="text-[10px] font-bold tracking-[0.2em] text-black/45">ONE IDENTITY · THREE VERSIONS</p><h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">Make this one yours.</h1></div>
-            <div className="flex rounded-full border border-black/10 bg-white/70 p-1" role="tablist" aria-label="Profile Mode">
-              {(["personal", "event", "business"] as const).map((slug) => <button aria-selected={slug === activeSlug} className={`min-h-10 rounded-full px-3 text-xs font-semibold capitalize ${slug === activeSlug ? "bg-[#0d0d0d] text-white" : "text-black/60"}`} key={slug} onClick={() => navigateTo(slug, section)} role="tab" type="button">{slug}</button>)}
+          <div className="mt-auto px-2 pt-8">
+            <p className="text-[13px] text-black/55">{profile.is_published ? "Live at" : "Will live at"}</p>
+            <p className="mt-1 break-all font-label text-[12px]">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
+            <a className="mt-2 inline-flex min-h-9 items-center text-sm font-semibold underline underline-offset-4" href={publicUrl(slug)} rel="noreferrer" target="_blank">View live profile ↗</a>
+            <div className="mt-5 flex items-center gap-4 border-t border-black/10 pt-4 text-[13px] text-black/55">
+              <Link className="min-h-9 py-2 hover:text-black" href="/app">Home</Link>
+              <Link className="min-h-9 py-2 hover:text-black" href="/app/connections">Connections</Link>
+              <form action={signOut}><button className="min-h-9 py-2 hover:text-black" type="submit">Sign out</button></form>
             </div>
           </div>
+        </aside>
 
-          <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            {sections.map((item) => <button className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-semibold ${section === item.id ? "bg-[#0d0d0d] text-white" : "border border-black/10 bg-white/60"}`} key={item.id} onClick={() => navigateTo(activeSlug, item.id)} type="button">{item.title}</button>)}
-          </div>
+        {/* Content */}
+        <main className="min-w-0 lg:min-h-0 lg:overflow-y-auto" id="editor-scroll">
+          <div className={`mx-auto w-full max-w-[720px] px-4 pb-32 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10 xl:px-11 ${section === "home" ? "max-lg:hidden" : ""}`}>{content}</div>
+          {section === "home" && <div className="px-4 pb-28 pt-5 sm:px-6 lg:hidden"><MobileHome api={api} onPreview={() => setFullPreview(true)} /></div>}
+        </main>
 
-          <div className="rounded-[1.7rem] border border-black/10 bg-white p-5 sm:p-7">
-            {section === "profile" && <ProfileSection profile={profile} form={profileForm} mode={activeMode} onDraftChange={recordEdit} onPhoto={() => fileRef.current?.click()} onRemovePhoto={() => void removeImage()} onSave={() => void saveProfile()} />}
-            {section === "links" && <LinksSection mode={activeSlug} links={activeMode.links} newTitle={newTitle} newValue={newValue} newProvider={newProvider} setNewTitle={setNewTitle} setNewValue={setNewValue} setNewProvider={setNewProvider} addLink={addLink} toggleLink={toggleLink} removeLink={removeLink} editLink={editLink} reorder={reorder} />}
-            {section === "appearance" && <AppearanceSection mode={activeMode} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} onChange={(updates) => { recordEdit(); updateMode(updates); setAppearanceDirty(true); }} />}
-            {section === "settings" && <SettingsSection mode={activeMode} form={settingsForm} onDraftChange={recordEdit} />}
-            {section === "share" && <ShareSection profile={profile} mode={activeMode} url={publicUrl} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} />}
-            {section !== "links" && section !== "share" && <button className="mt-7 min-h-12 rounded-full px-6 text-sm font-semibold" onClick={() => void saveCurrent()} style={{ backgroundColor: coral }} type="button">{status === "saving" ? "Saving…" : "Save changes"}</button>}
-          </div>
-          <p className="mt-4 text-center text-[11px] text-black/40 lg:hidden">{status === "saving" ? "Saving…" : status === "error" ? "Your draft is here. Retry when you’re ready." : message || "Changes save as you go."}</p>
-        </section>
-
-        <aside className="hidden lg:block">
-          <div className="mb-3 flex items-center justify-between"><p className="text-[10px] font-bold tracking-[0.2em] text-black/45">LIVE PREVIEW</p><button className="min-h-10 rounded-full px-3 text-[11px] font-semibold" onClick={() => setPreviewVisitor((value) => !value)} type="button">{previewVisitor ? "Visitor view" : "Owner view"}</button></div>
-          <div className="mx-auto max-w-[340px] rounded-[2.5rem] border-[7px] border-[#0d0d0d] bg-[#0d0d0d] p-1 shadow-[0_30px_90px_-40px_rgba(13,13,13,.6)]"><div className="max-h-[calc(100vh-150px)] overflow-y-auto rounded-[2rem] bg-white p-3">{renderProfile(!previewVisitor)}</div></div>
+        {/* Live preview */}
+        <aside aria-label="Live preview" className="hidden min-h-0 overflow-y-auto border-l border-black/10 bg-[#E9E7E0] xl:block">
+          <PreviewPane api={api} previewState={previewState} setPreviewState={setPreviewState} />
         </aside>
       </div>
 
-      <footer className="mx-auto flex max-w-[1500px] items-center justify-between px-4 pb-6 text-[11px] text-black/40 sm:px-6"><span>{activeMode.label} · {profile.is_published ? "Live" : "Draft"}</span><div className="flex items-center gap-4"><a className="min-h-11 py-3 font-semibold underline underline-offset-4" href={`/${profile.username}?mode=${activeSlug}`} target="_blank">Open public URL</a><form action={signOut}><button className="min-h-11 py-3 text-xs font-semibold underline underline-offset-4 lg:hidden" type="submit">Sign out</button></form></div></footer>
+      {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} />}
+      {crop && <CropDialog key={crop.source} busy={busyPhoto} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; fileRef.current?.click(); }} onSave={async (area) => {
+        try {
+          const blob = await cropToBlob(crop.source, area);
+          const target = crop.modeId;
+          if (crop.revoke) URL.revokeObjectURL(crop.source);
+          setCrop(null);
+          await savePhoto(target, blob);
+        } catch { toast("That photo couldn’t be prepared. Try a different file."); }
+      }} source={crop.source} />}
 
-      <input accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (!file) return; if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { fail("Choose a JPEG, PNG, or WebP image."); return; } if (file.size > 5 * 1024 * 1024) { fail("Images must be smaller than 5 MB."); return; } setCropSource(URL.createObjectURL(file)); }} ref={fileRef} type="file" />
-      {cropSource && <CropDialog source={cropSource} crop={crop} setCrop={setCrop} zoom={zoom} setZoom={setZoom} onCropComplete={(_, pixels) => setCroppedPixels(pixels)} onCancel={() => { URL.revokeObjectURL(cropSource); setCropSource(null); }} onApply={async () => { if (!croppedPixels) return; const cropped = await cropImage(cropSource, croppedPixels); applyCrop(cropped); URL.revokeObjectURL(cropSource); }} />}
-      {uploading && <div aria-live="polite" className="fixed inset-0 z-50 grid place-items-center bg-black/35"><p className="rounded-full bg-white px-6 py-4 text-sm font-semibold">Saving photo…</p></div>}
-      <CelebrationClient threshold={celebrationThreshold} name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} />
-      {fullPreview && <div className="fixed inset-0 z-50 flex flex-col bg-[#f5f4ef] px-4 py-5 sm:px-8"><div className="mb-3 flex justify-between"><span className="text-xs font-bold tracking-[0.2em]">PREVIEW · {previewVisitor ? "VISITOR" : "OWNER"}</span><button className="min-h-11 rounded-full border border-black/20 px-4 text-xs font-semibold" onClick={() => setFullPreview(false)} type="button">Close preview</button></div><div className="mx-auto flex w-full max-w-sm flex-1 items-center overflow-y-auto py-2">{renderProfile(!previewVisitor)}</div><div className="mx-auto mt-3 flex w-full max-w-sm justify-center gap-2"><button className="min-h-11 rounded-full border border-black/20 px-4 text-xs font-semibold" onClick={() => setPreviewVisitor((value) => !value)} type="button">{previewVisitor ? "Switch to owner" : "Preview as visitor"}</button><a className="inline-flex min-h-11 items-center rounded-full px-4 text-xs font-semibold" href={`/${profile.username}?mode=${activeSlug}`} target="_blank" style={{ backgroundColor: coral }}>Open profile</a></div></div>}
-    </main>
+      <input accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => {
+        const file = event.currentTarget.files?.[0];
+        event.currentTarget.value = "";
+        if (!file) return;
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast("Choose a JPEG, PNG or WebP image."); return; }
+        if (file.size > 15 * 1024 * 1024) { toast("That image is too large. Choose one under 15 MB."); return; }
+        if (crop?.revoke) URL.revokeObjectURL(crop.source);
+        setCrop({ source: URL.createObjectURL(file), modeId: photoTarget.current ?? mode.id, revoke: true });
+      }} ref={fileRef} type="file" />
+
+      {toastState && (
+        <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-5 z-[90] flex justify-center px-4 max-lg:bottom-24" key={toastState.id}>
+          <div className="pointer-events-auto flex min-h-12 max-w-md items-center gap-4 rounded-full bg-[#0D0D0D] py-1.5 pl-5 pr-1.5 text-sm font-semibold text-[#F5F4EF] shadow-[0_18px_50px_-18px_rgba(13,13,13,.7)] [animation:toast-in_.22s_ease-out]">
+            <span className="py-2">{toastState.text}</span>
+            {toastState.action ? <button className="min-h-9 rounded-full bg-[#F5F4EF] px-4 text-[13px] text-[#0D0D0D]" onClick={() => { toastState.action?.run(); setToastState(null); }} type="button">{toastState.action.label}</button> : <span className="w-3" />}
+          </div>
+        </div>
+      )}
+      <CelebrationClient name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} threshold={celebrationThreshold} />
+    </div>
   );
 }
 
-function savedMessage(saved: string) {
-  const messages: Record<string, string> = { identity: "Identity saved", link: "Link added", link_removed: "Link removed", link_visibility: "Link visibility updated", published: "Your profile is live", unpublished: "Your profile is private", mode: "Mode saved", links_ordered: "Link order saved" };
-  return messages[saved] ?? "";
+function ModeTabs({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
+  return (
+    <div aria-label="Mode" className="flex gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" role="tablist">
+      {MODE_SLUGS.map((item) => {
+        const on = item === slug;
+        const meta = modeMeta[item];
+        const eventName = item === "event" ? String(modes.find((entry) => entry.slug === "event")?.settings.eventName ?? "").trim() : "";
+        const off = modes.find((entry) => entry.slug === item)?.is_enabled === false;
+        return (
+          <button aria-selected={on} className="flex h-10 items-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors 2xl:px-5" key={item} onClick={() => onPick(item)} role="tab" style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.55)", boxShadow: on ? meta.ring : undefined }} type="button">
+            {meta.name}
+            {eventName && <span className="hidden max-w-[110px] truncate text-xs font-medium opacity-80 2xl:inline">{eventName}</span>}
+            {off && <span className="text-[11px] font-medium opacity-70">Off</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileModePicker({ slug, onPick }: { slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
+  const meta = modeMeta[slug];
+  return (
+    <label className="relative inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-[13px] font-semibold" style={{ background: meta.bg, color: meta.fg, boxShadow: meta.ring }}>
+      {meta.name}<span aria-hidden="true" className="text-[10px]">▼</span>
+      <span className="sr-only">Mode</span>
+      <select aria-label="Mode" className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onPick(event.target.value as ModeSlug)} value={slug}>
+        {MODE_SLUGS.map((item) => <option key={item} value={item}>{modeMeta[item].name}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function SaveChip({ status, message, justPublished, onRetry }: { status: SaveStatus; message: string; justPublished: boolean; onRetry: () => void }) {
+  if (justPublished && status === "saved") return <span className="inline-flex min-h-9 items-center rounded-full bg-[#C7FF4A] px-3.5 text-sm font-semibold">Published · just now</span>;
+  if (status === "error") return <button className="inline-flex min-h-9 max-w-[280px] items-center gap-2 rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#B42318]/[0.06]" onClick={onRetry} title={message} type="button"><span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[#B42318]" /><span className="truncate">Not saved · Retry</span></button>;
+  if (status === "saving" || status === "pending") return <span aria-live="polite" className="inline-flex min-h-9 items-center gap-2 px-2 text-sm text-black/60"><span aria-hidden="true" className="size-3.5 animate-spin rounded-full border-2 border-black/20 border-t-black/70" />Saving…</span>;
+  return <span aria-live="polite" className="inline-flex min-h-9 items-center gap-1.5 px-2 text-sm text-black/60"><span aria-hidden="true">✓</span>Saved</span>;
+}
+
+function MobileSaveLine({ status, message, justPublished, onRetry }: { status: SaveStatus; message: string; justPublished: boolean; onRetry: () => void }) {
+  if (status === "saved" && !justPublished) return null;
+  return (
+    <div className="flex items-center justify-center gap-2 border-t border-black/5 px-4 py-1.5 text-[12px] font-medium" style={{ background: justPublished && status === "saved" ? "#C7FF4A" : undefined }}>
+      {status === "error" ? <button className="font-semibold text-[#B42318]" onClick={onRetry} type="button">{message || "Not saved"} · Retry</button>
+        : status === "saved" ? "Published · every share surface is up to date"
+          : <span className="text-black/60">Saving…</span>}
+    </div>
+  );
+}
+
+function Avatar({ mode, name }: { mode: ProfileMode; name: string }) {
+  return (
+    <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#0D0D0D] font-display text-base font-bold text-[#F5F4EF]">
+      {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
+      {mode.image_url ? <img alt="" className="absolute inset-0 size-full object-cover" src={mode.image_url} /> : (name.trim()[0] ?? "S").toUpperCase()}
+    </span>
+  );
 }
 
 function validAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  return ["light", "dark", "editorial"].includes(appearance.theme) && /^#[\da-f]{6}$/i.test(appearance.accent) && modeLayouts[slug].some((layout) => layout.value === appearance.layout) && ["full-bleed", "portrait", "compact"].includes(appearance.imageTreatment);
+  return ["light", "dark", "editorial"].includes(appearance.theme)
+    && /^#[\da-f]{6}$/i.test(appearance.accent)
+    && LAYOUTS[slug].some((layout) => layout.value === appearance.layout)
+    && ["full-bleed", "portrait", "compact"].includes(appearance.imageTreatment);
 }
+
