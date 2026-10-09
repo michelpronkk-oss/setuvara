@@ -75,3 +75,19 @@ html:has(.marketing-root) {
 @media (prefers-reduced-motion: reduce) {
   .mode-panel { transition-duration: 1ms; }
 }
+
+/* Legendary foil: a single thin sheen across the Thousand Cover, never a background. */
+.foil-sheen {
+  background: linear-gradient(115deg, transparent 38%, rgba(199,255,74,.16) 46%, rgba(175,203,255,.18) 52%, transparent 60%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .foil-sheen { animation: foil-sweep 4.8s ease-in-out infinite; }
+}
+
+@keyframes foil-sweep {
+  0%, 35% { background-position: 100% 0; }
+  70%, 100% { background-position: 0% 0; }
+}

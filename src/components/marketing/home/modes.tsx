@@ -1,6 +1,8 @@
 import { demoModes, person } from "./demo";
-import { ModeProfile } from "./mode-profile";
+import { ModePhone } from "./mode-phone";
 import { Display, Label, Shell } from "./primitives";
+
+const stages = { personal: "bg-[#ece9e1]", event: "bg-[#ffe1dc]", business: "bg-[#e3ebfb]" } as const;
 
 const facts = [
   { title: "Own links", detail: "60 providers, or your own." },
@@ -32,7 +34,7 @@ export function Modes() {
                 <Label className="shrink-0">{String(index + 1).padStart(2, "0")} · {mode.label}</Label>
                 <p className="hidden text-[13px] text-ink/60 sm:block lg:text-right">{mode.audience}</p>
               </div>
-              <div className="min-h-[460px] flex-1 lg:min-h-[560px]"><ModeProfile slug={mode.slug} /></div>
+              <div className={`flex justify-center overflow-hidden rounded-[2rem] px-4 pt-8 ${stages[mode.slug]}`}><div className="-mb-16"><ModePhone slug={mode.slug} /></div></div>
             </div>
           ))}
         </div>

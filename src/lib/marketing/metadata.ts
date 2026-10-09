@@ -16,7 +16,7 @@ export function marketingMetadata({ title, description, path }: { title: string;
       title,
       description,
       url,
-      images: [{ url: image, width: 1200, height: 630, alt: "Setuvara — One identity. Every version of you." }],
+      images: [{ url: image, width: 1200, height: 630, alt: "Setuvara | One identity. Every version of you." }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };

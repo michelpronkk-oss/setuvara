@@ -12,7 +12,7 @@ export function Physical() {
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-3"><Label className="text-paper/60">Wallet & NFC</Label><LaterTag className="text-coral">Coming later</LaterTag></div>
           <Display className="text-[clamp(44px,6vw,100px)] leading-[0.88]"><span id="physical-title">Digital by default. <span className="text-coral">Physical when you want it.</span></span></Display>
-          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-paper/70">QR, link and share today. Wallet pass and NFC card next — always pointing to the latest you.</p>
+          <p className="max-w-[30rem] text-[17px] leading-[1.5] text-paper/70">QR, link and share today. Wallet pass and NFC card next. Always the latest you.</p>
         </div>
 
         <div aria-hidden="true" className="relative mx-auto flex min-h-[360px] w-full max-w-[560px] items-center justify-center sm:min-h-[460px]">

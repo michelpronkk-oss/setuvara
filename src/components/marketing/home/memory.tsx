@@ -16,7 +16,7 @@ export function Memory() {
           <div className="flex flex-col gap-5">
             <Label className="text-coral">Remember</Label>
             <Display className="text-[clamp(48px,6.6vw,108px)] leading-[0.88]"><span id="remember-title">Names fade. Context shouldn’t.</span></Display>
-            <p className="max-w-[30rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Who, where, when — plus a note only you&nbsp;see.</p>
+            <p className="max-w-[30rem] text-[17px] leading-[1.5] text-ink/70 sm:text-[19px]">Who, where, when. Plus a note only you&nbsp;see.</p>
           </div>
 
           <article aria-label="Example connection: Marco Silva" className="reveal flex flex-col gap-6 rounded-[2rem] bg-white p-6 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-8">
@@ -54,7 +54,7 @@ export function Memory() {
           <div className="flex flex-col gap-5 lg:pt-6">
             <Label className="text-coral">Connections</Label>
             <Display className="text-[clamp(40px,4.6vw,72px)] leading-[0.92]">Everyone you’ve met. Searchable by moment.</Display>
-            <p className="max-w-[28rem] text-[17px] leading-[1.5] text-ink/70">Try it — these are example people.</p>
+            <p className="max-w-[28rem] text-[17px] leading-[1.5] text-ink/70">Try it. These are example people.</p>
           </div>
           <ConnectionsDemo items={demoConnections} />
         </div>

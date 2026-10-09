@@ -9,7 +9,7 @@ import { MeetConnect, Share } from "@/components/marketing/home/share-connect";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
-  title: "Setuvara — One identity. Every version of you.",
+  title: "Setuvara | One identity. Every version of you.",
   description: "Setuvara is a digital identity for real life. Share Personal, Event, and Business Modes in person, connect in a tap, and remember where you met.",
   path: "/",
 });

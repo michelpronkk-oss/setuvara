@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 
-export const alt = "Setuvara — One identity. Every version of you.";
+export const alt = "Setuvara | One identity. Every version of you.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

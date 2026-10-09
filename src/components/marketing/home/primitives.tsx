@@ -1,8 +1,5 @@
 import type { ReactNode } from "react";
 
-import { ProviderMark } from "@/components/links/provider-mark";
-import { providerForLink } from "@/lib/links/providers";
-
 export function Shell({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-14 ${className}`}>{children}</div>;
 }
@@ -43,18 +40,3 @@ export function ClaimForm({ tone = "light", id }: { tone?: "light" | "coral"; id
 }
 
 export type DemoLink = { provider: string; title: string; detail: string };
-
-export function LinkRow({ link, tone, compact = false }: { link: DemoLink; tone: "dark" | "coral" | "light"; compact?: boolean }) {
-  const provider = providerForLink(link.provider);
-  const surface = tone === "dark" ? "bg-white/10" : tone === "coral" ? "bg-paper/75" : "border border-ink/10 bg-white";
-  return (
-    <div className={`flex items-center gap-3 rounded-2xl ${surface} ${compact ? "min-h-12 px-2.5 py-2" : "min-h-14 px-3 py-2.5"}`}>
-      <ProviderMark className={`${compact ? "size-8" : "size-9"} ${tone === "dark" ? "!bg-white/10 !text-paper" : ""}`} icon={provider?.icon} label={provider?.name ?? link.title} />
-      <span className="min-w-0 flex-1">
-        <span className={`block truncate font-semibold ${compact ? "text-[13px]" : "text-sm"}`}>{link.title}</span>
-        <span className={`mt-0.5 block truncate ${compact ? "text-[11px]" : "text-xs"} ${tone === "dark" ? "text-paper/60" : "text-ink/55"}`}>{link.detail}</span>
-      </span>
-      <span aria-hidden="true" className="shrink-0 text-sm opacity-45">↗</span>
-    </div>
-  );
-}

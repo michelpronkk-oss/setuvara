@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { HeroModes } from "./hero-modes";
-import { ModeProfile } from "./mode-profile";
+import { ModePhone } from "./mode-phone";
 import { person } from "./demo";
 import { ClaimForm, Display, Label, Shell } from "./primitives";
 
@@ -25,9 +25,9 @@ export function Hero() {
         <div className="mt-8 w-full max-w-[880px] sm:mt-12">
           <HeroModes
             cards={[
-              <ModeProfile key="personal" linkCount={2} size="compact" slug="personal" />,
-              <ModeProfile key="event" linkCount={2} size="compact" slug="event" />,
-              <ModeProfile key="business" linkCount={2} size="compact" slug="business" />,
+              <ModePhone key="personal" slug="personal" />,
+              <ModePhone key="event" slug="event" />,
+              <ModePhone key="business" slug="business" />,
             ]}
             name={person.firstName}
           />

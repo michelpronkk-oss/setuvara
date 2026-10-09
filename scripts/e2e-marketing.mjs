@@ -9,7 +9,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const routes = [
-    { path: "/", heading: "One identity. Every version of you.", title: "Setuvara — One identity. Every version of you." },
+    { path: "/", heading: "One identity. Every version of you.", title: "Setuvara | One identity. Every version of you." },
     { path: "/pricing", heading: "Clear pricing, when it’s time.", title: "Pricing" },
     { path: "/events", heading: "Bring the right context into the room.", title: "Setuvara for Events" },
     { path: "/teams", heading: "A better introduction starts with people.", title: "Setuvara for Teams" },
