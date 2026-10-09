@@ -1,3 +1,5 @@
+import { CharacterAvatar } from "@/components/avatar/character-avatar";
+
 import { ConnectionsDemo } from "./connections-demo";
 import { demoConnections } from "./demo";
 import { Display, Label, Shell } from "./primitives";
@@ -21,7 +23,7 @@ export function Memory() {
 
           <article aria-label="Example connection: Marco Silva" className="reveal flex flex-col gap-6 rounded-[2rem] bg-white p-6 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-8">
             <div className="flex items-center gap-4">
-              <span aria-hidden="true" className="grid size-14 shrink-0 place-items-center rounded-2xl bg-ink font-display text-[20px] font-bold text-paper">MS</span>
+              <CharacterAvatar className="size-14 shrink-0 rounded-2xl" seed="Marco Silva" />
               <div className="min-w-0">
                 <p className="font-display text-[28px] font-bold leading-none tracking-[-0.04em]">Marco Silva</p>
                 <p className="mt-1.5 truncate text-[14px] text-ink/60">Head of Sales · Northlight</p>

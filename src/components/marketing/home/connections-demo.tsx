@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { CharacterAvatar } from "@/components/avatar/character-avatar";
+
 import type { DemoConnection } from "./demo";
 
 const prompts = [
@@ -54,7 +56,7 @@ export function ConnectionsDemo({ items }: { items: DemoConnection[] }) {
       <ul className="flex min-h-[248px] flex-col divide-y divide-white/10 rounded-[1.4rem] bg-white/[0.04] px-4 sm:px-5">
         {results.map((item) => (
           <li className="flex items-center gap-3.5 py-4" key={item.id}>
-            <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-paper font-display text-[17px] font-bold text-ink">{item.name.slice(0, 1)}</span>
+            <CharacterAvatar className="size-11 shrink-0 rounded-full" seed={item.name} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-semibold">{item.name}</span>
               <span className="mt-0.5 block truncate text-[12px] text-paper/55">{item.role}</span>

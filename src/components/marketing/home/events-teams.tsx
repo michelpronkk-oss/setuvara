@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { CharacterAvatar } from "@/components/avatar/character-avatar";
+
+import { personAvatar } from "./demo";
 import { Display, Label, LaterTag, Shell } from "./primitives";
 
 export function Events() {
@@ -47,7 +50,7 @@ export function Events() {
               </div>
               {[["Lena Fischer", "Product Designer · Atelier Nord"], ["Jonas Berg", "Talent · Lumen Labs"], ["Elif Demir", "Founder · Kestrel Grid"]].map(([name, role]) => (
                 <div className="flex items-center gap-3 border-b border-ink/10 py-3 last:border-0" key={name}>
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-ink font-display text-[14px] font-bold text-paper">{name.slice(0, 1)}</span>
+                  <CharacterAvatar className="size-9 shrink-0 rounded-full" seed={name} />
                   <span className="min-w-0"><span className="block truncate text-[14px] font-semibold">{name}</span><span className="block truncate text-[12px] text-ink/55">{role}</span></span>
                 </div>
               ))}
@@ -123,7 +126,7 @@ export function Teams() {
             {team.map((member) => (
               <div className="flex flex-col gap-3 rounded-[1.25rem] bg-paper p-3 sm:gap-4 sm:p-4" key={member.initials}>
                 <div className="flex items-start justify-between">
-                  <span className={`grid size-10 place-items-center rounded-xl font-display text-[14px] font-bold sm:size-12 sm:text-[16px] ${member.tone}`}>{member.initials}</span>
+                  <CharacterAvatar className="size-10 rounded-xl sm:size-12" seed={member.name} traits={member.name === "Aanya Rao" ? personAvatar : undefined} />
                   <span className="hidden font-label text-[9px] uppercase tracking-[0.16em] text-ink/45 sm:inline">Business</span>
                 </div>
                 <div>

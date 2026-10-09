@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 
+import { CharacterAvatar } from "@/components/avatar/character-avatar";
 import { ProviderMark } from "@/components/links/provider-mark";
 import { providerForLink } from "@/lib/links/providers";
 
 import { MeetMark } from "../brand";
-import { person, type DemoMode } from "./demo";
+import { person, personAvatar, type DemoMode } from "./demo";
 
 /**
  * Setuvara's own device mockup: a phone at a fixed design size (280×580) that
@@ -64,10 +65,7 @@ function PersonalScreen() {
     <div className="flex h-full flex-col bg-ink px-5 pb-6 text-paper">
       <Url dark mode="personal" />
       <div className="mt-5 flex items-center gap-3">
-        <span className="relative grid size-[62px] shrink-0 place-items-center overflow-hidden rounded-full bg-coral">
-          <span className="absolute -bottom-3 -right-2 size-10 rounded-full bg-sky" />
-          <span className="relative font-display text-[24px] font-extrabold tracking-[-0.05em] text-ink">A</span>
-        </span>
+        <CharacterAvatar className="size-[62px] shrink-0 rounded-full ring-2 ring-coral ring-offset-2 ring-offset-ink" seed={person.name} traits={personAvatar} />
         <span className="flex flex-col">
           <span className="font-label text-[8px] uppercase tracking-[0.2em] text-coral">Personal</span>
           <span className="mt-1 text-[11px] text-paper/55">@{person.username} · Lisbon</span>
@@ -106,8 +104,13 @@ function EventScreen() {
         <span className="absolute -right-3 -top-3 size-6 rounded-full bg-[#1b1b1b]" />
       </div>
       <div className="flex flex-1 flex-col px-5 pb-6 pt-4">
-        <p className="font-display text-[26px] font-bold leading-none tracking-[-0.045em]">{person.name}</p>
-        <p className="mt-1.5 text-[11px] font-medium">Partnerships · Lumen Labs</p>
+        <div className="flex items-center gap-3">
+          <CharacterAvatar className="size-11 shrink-0 rounded-full ring-2 ring-ink" seed={person.name} traits={personAvatar} />
+          <span>
+            <span className="block font-display text-[24px] font-bold leading-none tracking-[-0.045em]">{person.name}</span>
+            <span className="mt-1 block text-[11px] font-medium">Partnerships · Lumen Labs</span>
+          </span>
+        </div>
         <div className="mt-3 rounded-[12px] bg-ink px-3 py-2 text-paper">
           <p className="font-label text-[8px] uppercase tracking-[0.18em] text-coral">Here to meet</p>
           <p className="mt-0.5 text-[11px] font-medium">Climate founders · Grid operators</p>
@@ -127,7 +130,7 @@ function BusinessScreen() {
     <div className="flex h-full flex-col bg-paper px-5 pb-6 text-ink">
       <Url dark={false} mode="business" />
       <div className="mt-5 flex items-start justify-between">
-        <span className="grid size-[68px] place-items-center rounded-[16px] bg-sky font-display text-[24px] font-bold tracking-[-0.04em] [clip-path:polygon(0_0,100%_0,100%_calc(100%-20px),calc(100%-12px)_100%,0_100%)]">AR</span>
+        <CharacterAvatar className="size-[68px] rounded-[16px] [clip-path:polygon(0_0,100%_0,100%_calc(100%-20px),calc(100%-12px)_100%,0_100%)]" seed={person.name} traits={personAvatar} />
         <span className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]"><MeetMark className="size-3" /><span className="font-label text-[8px] uppercase tracking-[0.16em]">Business</span></span>
       </div>
       <p className="mt-4 font-display text-[32px] font-bold leading-[0.95] tracking-[-0.05em]">Aanya Rao</p>

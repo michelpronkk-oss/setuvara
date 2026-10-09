@@ -1,4 +1,6 @@
-import { demoModes, person } from "./demo";
+import { CharacterAvatar } from "@/components/avatar/character-avatar";
+
+import { demoModes, person, personAvatar } from "./demo";
 import { ModePhone } from "./mode-phone";
 import { Display, Label, Shell } from "./primitives";
 
@@ -20,7 +22,7 @@ export function Modes() {
         </div>
 
         <div aria-hidden="true" className="flex items-center gap-3 sm:gap-4">
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ink font-display text-[15px] font-bold text-paper">{person.initials}</span>
+          <CharacterAvatar className="size-11 shrink-0 rounded-full" seed={person.name} traits={personAvatar} />
           <span className="shrink-0 text-[15px] font-semibold">One identity · @{person.username}</span>
           <span className="h-[1.5px] min-w-6 flex-1 bg-ink" />
           <span className="shrink-0 font-label text-[11px] uppercase tracking-[0.16em]">3 Modes</span>

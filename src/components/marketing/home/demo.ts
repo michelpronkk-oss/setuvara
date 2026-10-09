@@ -4,6 +4,9 @@ import type { DemoLink } from "./primitives";
 // rendered with the same structure as the real public profile.
 export const person = { name: "Aanya Rao", firstName: "Aanya", username: "aanya", initials: "AR" };
 
+// Aanya's generated character is pinned so she looks the same everywhere.
+export const personAvatar = { hairStyle: "bun", hair: "#3a271c", skin: "#c98e6a", background: "#afcbff", shirt: "#ff5a4f", glasses: false } as const;
+
 export type DemoMode = {
   slug: "personal" | "event" | "business";
   label: string;
