@@ -4,6 +4,9 @@ import { cookies } from "next/headers";
 import { getSupabaseConfig } from "./config";
 
 export async function createClient() {
+  // Read cookies first: it marks the route as request-time during prerendering,
+  // so builds without Supabase env vars (e.g. Preview) don't fail on this check.
+  const cookieStore = await cookies();
   const config = getSupabaseConfig();
 
   if (!config) {
@@ -11,8 +14,6 @@ export async function createClient() {
       "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
     );
   }
-
-  const cookieStore = await cookies();
 
   return createServerClient(config.url, config.publishableKey, {
     cookies: {
