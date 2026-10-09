@@ -22,6 +22,7 @@ import { createProviderLink, updateProviderLink } from "./actions";
 import { normalizeLinkPayload, providerForLink, resolveStoredLink, type LinkMode, type LinkProvider } from "@/lib/links/providers";
 import { ProviderPicker } from "@/components/links/provider-picker";
 import { ProviderMark } from "@/components/links/provider-mark";
+import { isEditorSection, useIdentityEditorStore, type EditorSnapshot } from "./editor-store";
 
 const coral = "#FF5A4F";
 const accentOptions = [coral, "#C7FF4A", "#AFCBFF", "#E8A6FF", "#F5C66E"];
@@ -82,8 +83,16 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [selectedRewards, setSelectedRewards] = useState(initialSelectedRewards);
-  const [activeSlug, setActiveSlug] = useState<ModeSlug>(initialMode);
-  const [section, setSection] = useState(sections.some((item) => item.id === initialSection) ? initialSection : "profile");
+  const activeSlug = useIdentityEditorStore((state) => state.activeSlug);
+  const section = useIdentityEditorStore((state) => state.section);
+  const setNavigation = useIdentityEditorStore((state) => state.setNavigation);
+  const initializeOwner = useIdentityEditorStore((state) => state.initializeOwner);
+  const pushUndo = useIdentityEditorStore((state) => state.pushUndo);
+  const undo = useIdentityEditorStore((state) => state.undo);
+  const redo = useIdentityEditorStore((state) => state.redo);
+  const clearHistory = useIdentityEditorStore((state) => state.clearHistory);
+  const canUndo = useIdentityEditorStore((state) => state.undoStack.length > 0);
+  const canRedo = useIdentityEditorStore((state) => state.redoStack.length > 0);
   const [previewVisitor, setPreviewVisitor] = useState(true);
   const [fullPreview, setFullPreview] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -100,7 +109,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const fileRef = useRef<HTMLInputElement>(null);
 
   const activeMode = useMemo(() => modes.find((mode) => mode.slug === activeSlug) ?? modes[0], [activeSlug, modes]);
-  const profileForm = useForm<ProfileFormValues>({ resolver: zodResolver(profileSchema), values: profile });
+  const profileForm = useForm<ProfileFormValues>({ resolver: zodResolver(profileSchema), defaultValues: initialProfile });
   const settingsForm = useForm<SettingsFormValues>({ resolver: zodResolver(settingsSchema), values: activeMode?.settings ?? {} });
   const settingsWatch = useWatch({ control: settingsForm.control });
   const profileWatch = useWatch({ control: profileForm.control });
@@ -108,6 +117,26 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const previewSettings = Object.fromEntries(Object.entries(settingsWatch).filter((entry): entry is [string, string | boolean] => entry[1] !== undefined));
   const previewMode = activeMode ? { ...activeMode, settings: previewSettings } : activeMode;
   const hasUnsavedChanges = appearanceDirty || profileForm.formState.isDirty || settingsForm.formState.isDirty;
+  const draftSnapshot = useMemo<EditorSnapshot>(() => ({
+    profileId: profile.id,
+    profile: {
+      username: String(profileWatch.username ?? profile.username),
+      display_name: String(profileWatch.display_name ?? profile.display_name),
+      bio: String(profileWatch.bio ?? profile.bio),
+    },
+    modes: modes.map((mode) => ({
+      id: mode.id,
+      settings: mode.id === activeMode?.id ? previewSettings : mode.settings,
+      appearance: mode.appearance,
+      links: mode.links.map(({ id, title, url, is_visible, sort_order }) => ({ id, title, url, is_visible, sort_order })),
+    })),
+  }), [activeMode?.id, modes, previewSettings, profile, profileWatch]);
+  const previousSnapshot = useRef(draftSnapshot);
+  const saveProfileRef = useRef<((values?: ProfileFormValues) => Promise<boolean>) | null>(null);
+  const saveModeRef = useRef<(() => Promise<boolean>) | null>(null);
+  const restoreHistoryRef = useRef<((forward: boolean) => Promise<boolean | undefined>) | null>(null);
+  const profileDraftKey = JSON.stringify(profileWatch);
+  const settingsDraftKey = JSON.stringify(settingsWatch);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -116,13 +145,90 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     return () => window.removeEventListener("beforeunload", warnBeforeExit);
   }, [hasUnsavedChanges]);
 
+  useEffect(() => {
+    initializeOwner(profile.id);
+  }, [initializeOwner, profile.id]);
+
+  useEffect(() => {
+    setNavigation(initialMode, isEditorSection(initialSection) ? initialSection : "profile");
+  }, [initialMode, initialSection, setNavigation]);
+
+  useEffect(() => {
+    previousSnapshot.current = draftSnapshot;
+  }, [draftSnapshot]);
+
+  useEffect(() => {
+    if (!profileForm.formState.isDirty || !profileSchema.safeParse(profileForm.getValues()).success) return;
+    const timer = window.setTimeout(() => { if (saveProfileRef.current) void saveProfileRef.current(profileForm.getValues()); }, 800);
+    return () => window.clearTimeout(timer);
+  }, [profileDraftKey, profileForm, profileForm.formState.isDirty]);
+
+  useEffect(() => {
+    if ((!settingsForm.formState.isDirty && !appearanceDirty) || !activeMode) return;
+    const timer = window.setTimeout(() => { if (saveModeRef.current) void saveModeRef.current(); }, 800);
+    return () => window.clearTimeout(timer);
+  }, [activeMode, appearanceDirty, settingsDraftKey, settingsForm, settingsForm.formState.isDirty]);
+
+  function recordEdit() {
+    pushUndo(previousSnapshot.current);
+  }
+
+  async function restoreHistory(forward: boolean) {
+    const snapshot = forward ? redo(draftSnapshot) : undo(draftSnapshot);
+    if (!snapshot || snapshot.profileId !== profile.id) return;
+    const supabase = createClient();
+    setStatus("saving");
+    const profileUpdate = await supabase.from("profiles").update(snapshot.profile).eq("id", profile.id);
+    if (profileUpdate.error) return fail("That edit could not be restored. Your saved version is still safe.");
+    for (const modeSnapshot of snapshot.modes) {
+      const modeUpdate = await supabase.from("profile_modes").update({ settings: modeSnapshot.settings, appearance: modeSnapshot.appearance }).eq("id", modeSnapshot.id).eq("profile_id", profile.id);
+      if (modeUpdate.error) return fail("That edit could not be restored. Your saved version is still safe.");
+      for (const link of modeSnapshot.links) {
+        const linkUpdate = await supabase.from("profile_links").update({ title: link.title, url: link.url, is_visible: link.is_visible, sort_order: link.sort_order }).eq("id", link.id).eq("profile_id", profile.id).eq("mode_id", modeSnapshot.id);
+        if (linkUpdate.error) return fail("That edit could not be restored. Your saved version is still safe.");
+      }
+    }
+    setProfile((current) => ({ ...current, ...snapshot.profile }));
+    profileForm.reset(snapshot.profile);
+    setModes((current) => current.map((mode) => {
+      const restored = snapshot.modes.find((item) => item.id === mode.id);
+      if (!restored) return mode;
+      return { ...mode, settings: restored.settings, appearance: restored.appearance, links: mode.links.map((link) => {
+        const restoredLink = restored.links.find((item) => item.id === link.id);
+        return restoredLink ? { ...link, ...restoredLink } : link;
+      }) };
+    }));
+    const activeSettings = snapshot.modes.find((mode) => mode.id === activeMode?.id)?.settings;
+    if (activeSettings) settingsForm.reset(activeSettings);
+    setAppearanceDirty(false);
+    setStatus("saved"); setMessage(forward ? "Edit restored" : "Change undone"); router.refresh();
+  }
+
+  useEffect(() => {
+    saveProfileRef.current = saveProfile;
+    saveModeRef.current = saveMode;
+    restoreHistoryRef.current = restoreHistory;
+  });
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+      event.preventDefault();
+      if (event.shiftKey && restoreHistoryRef.current) void restoreHistoryRef.current(true);
+      else if (restoreHistoryRef.current) void restoreHistoryRef.current(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   function navigateTo(nextMode = activeSlug, nextSection = section) {
+    if (profileForm.formState.isDirty) void saveProfile(profileForm.getValues());
+    if (settingsForm.formState.isDirty || appearanceDirty) void saveMode();
     if (activeMode && nextMode !== activeSlug) {
       const currentSettings = Object.fromEntries(Object.entries(settingsForm.getValues()).filter((entry): entry is [string, string | boolean] => entry[1] !== undefined));
       setModes((current) => current.map((mode) => mode.id === activeMode.id ? { ...mode, settings: currentSettings } : mode));
     }
-    setActiveSlug(nextMode);
-    setSection(nextSection);
+    setNavigation(nextMode, isEditorSection(nextSection) ? nextSection : "profile");
     const query = new URLSearchParams({ mode: nextMode, section: nextSection });
     router.replace(`/app/identity?${query.toString()}`, { scroll: false });
     setMessage("");
@@ -210,12 +316,14 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     setStatus("saving");
     const result = await createProviderLink({ modeId: activeMode.id, slug: activeSlug, providerId: newProvider.id, title, value: newValue });
     if (!result.ok) return fail(result.message);
+    clearHistory();
     updateMode({ links: [...activeMode.links, result.link as ProfileLink] });
     setNewProvider(null); setNewTitle(""); setNewValue(""); setMessage("Link added"); setStatus("saved"); router.refresh();
   }
 
   async function toggleLink(link: ProfileLink) {
     const visible = !link.is_visible;
+    recordEdit();
     const { error: updateError } = await createClient().from("profile_links").update({ is_visible: visible }).eq("id", link.id).eq("profile_id", profile.id);
     if (updateError) return fail("Link visibility could not be updated.");
     updateMode({ links: activeMode.links.map((item) => item.id === link.id ? { ...item, is_visible: visible } : item) });
@@ -224,6 +332,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   }
 
   async function removeLink(link: ProfileLink) {
+    clearHistory();
     const { error: deleteError } = await createClient().from("profile_links").delete().eq("id", link.id).eq("profile_id", profile.id);
     if (deleteError) return fail("The link could not be removed.");
     updateMode({ links: activeMode.links.filter((item) => item.id !== link.id) });
@@ -235,6 +344,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const provider = providerForLink(link.link_type);
     const normalized = normalizeLinkPayload({ providerId: provider.id, value });
     if (!normalized.ok) return fail(normalized.message);
+    recordEdit();
     setStatus("saving");
     const result = await updateProviderLink({ linkId: link.id, modeId: activeMode.id, slug: activeSlug, providerId: provider.id, title: title.trim(), value });
     if (!result.ok) return fail(result.message);
@@ -244,6 +354,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   async function reorder(ordered: ProfileLink[]) {
     if (!activeMode) return;
+    recordEdit();
     const client = createClient();
     setStatus("saving");
     for (const [index, link] of ordered.entries()) {
@@ -269,6 +380,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   async function uploadImage(blob: Blob) {
     if (!activeMode) return;
+    clearHistory();
     setUploading(true);
     const supabase = createClient();
     const extension = "webp";
@@ -289,6 +401,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   async function removeImage() {
     if (!activeMode?.image_path) return;
+    clearHistory();
     const supabase = createClient();
     const oldPath = activeMode.image_path;
     const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null }).eq("id", activeMode.id).eq("profile_id", profile.id);
@@ -303,13 +416,15 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   return (
     <main className="min-h-screen bg-[#f5f4ef] text-[#0d0d0d]">
-      <header className="sticky top-0 z-30 border-b border-black/10 bg-[#f5f4ef]/95 backdrop-blur-sm">
+      <header className="border-b border-black/10 bg-[#f5f4ef]/70">
         <div className="mx-auto flex min-h-16 max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-6">
-          <Link className="shrink-0 text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
-          <nav aria-label="Setuvara app" className="hidden items-center gap-1 sm:flex"><Link aria-current="page" className="min-h-11 rounded-full bg-black/5 px-3 py-3 text-xs font-semibold" href="/app/identity">Identity</Link><Link className="min-h-11 rounded-full px-3 py-3 text-xs font-semibold text-black/60 hover:bg-black/5" href="/app/connections">Connections</Link><Link className="min-h-11 rounded-full px-3 py-3 text-xs font-semibold text-black/60 hover:bg-black/5" href="/app/passport">Passport</Link></nav>
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             <span className="hidden text-xs text-black/45 sm:inline">{activeMode.label} Mode</span>
             <span aria-live="polite" className="hidden text-xs font-medium text-black/55 sm:inline">{status === "saving" ? "Saving…" : status === "error" ? "Not saved" : hasUnsavedChanges ? "Unsaved changes" : message || (profile.is_published ? "Published" : "Draft")}</span>
+            <div className="hidden items-center gap-1 sm:flex" aria-label="Edit history">
+              <button aria-label="Undo last edit" className="min-h-10 min-w-10 rounded-full border border-black/10 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-35" disabled={!canUndo || status === "saving"} onClick={() => void restoreHistory(false)} title="Undo (Ctrl/⌘ Z)" type="button">↶</button>
+              <button aria-label="Redo last edit" className="min-h-10 min-w-10 rounded-full border border-black/10 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-35" disabled={!canRedo || status === "saving"} onClick={() => void restoreHistory(true)} title="Redo (Ctrl/⌘ Shift Z)" type="button">↷</button>
+            </div>
             <button className="min-h-11 rounded-full border border-black/15 px-3 text-xs font-semibold sm:px-4" onClick={() => { setPreviewVisitor(true); setFullPreview(true); }} type="button">Preview as visitor</button>
             <button className="min-h-11 rounded-full px-4 text-xs font-semibold text-[#0d0d0d]" onClick={() => void publish(!profile.is_published)} style={{ backgroundColor: coral }} type="button">{profile.is_published ? "Unpublish" : "Publish"}</button>
           </div>
@@ -337,20 +452,18 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           </div>
 
           <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            <Link className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-black/10 bg-white/60 px-4 text-xs font-semibold" href="/app/connections">Connections</Link>
-            <Link className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-black/10 bg-white/60 px-4 text-xs font-semibold" href="/app/passport">Passport</Link>
             {sections.map((item) => <button className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-semibold ${section === item.id ? "bg-[#0d0d0d] text-white" : "border border-black/10 bg-white/60"}`} key={item.id} onClick={() => navigateTo(activeSlug, item.id)} type="button">{item.title}</button>)}
           </div>
 
           <div className="rounded-[1.7rem] border border-black/10 bg-white p-5 sm:p-7">
-            {section === "profile" && <ProfileSection profile={profile} form={profileForm} mode={activeMode} onPhoto={() => fileRef.current?.click()} onRemovePhoto={() => void removeImage()} onSave={() => void saveProfile()} />}
+            {section === "profile" && <ProfileSection profile={profile} form={profileForm} mode={activeMode} onDraftChange={recordEdit} onPhoto={() => fileRef.current?.click()} onRemovePhoto={() => void removeImage()} onSave={() => void saveProfile()} />}
             {section === "links" && <LinksSection mode={activeSlug} links={activeMode.links} newTitle={newTitle} newValue={newValue} newProvider={newProvider} setNewTitle={setNewTitle} setNewValue={setNewValue} setNewProvider={setNewProvider} addLink={addLink} toggleLink={toggleLink} removeLink={removeLink} editLink={editLink} reorder={reorder} />}
-            {section === "appearance" && <AppearanceSection mode={activeMode} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} onChange={(updates) => { updateMode(updates); setAppearanceDirty(true); }} />}
-            {section === "settings" && <SettingsSection mode={activeMode} form={settingsForm} />}
+            {section === "appearance" && <AppearanceSection mode={activeMode} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} onChange={(updates) => { recordEdit(); updateMode(updates); setAppearanceDirty(true); }} />}
+            {section === "settings" && <SettingsSection mode={activeMode} form={settingsForm} onDraftChange={recordEdit} />}
             {section === "share" && <ShareSection profile={profile} mode={activeMode} url={publicUrl} unlockedRewards={unlockedRewards} selectedRewards={selectedRewards} onEquip={equipReward} />}
             {section !== "links" && section !== "share" && <button className="mt-7 min-h-12 rounded-full px-6 text-sm font-semibold" onClick={() => void saveCurrent()} style={{ backgroundColor: coral }} type="button">{status === "saving" ? "Saving…" : "Save changes"}</button>}
           </div>
-          <p className="mt-4 text-center text-[11px] text-black/40 lg:hidden">{status === "saving" ? "Saving…" : message || "Your changes are saved when you choose Save changes."}</p>
+          <p className="mt-4 text-center text-[11px] text-black/40 lg:hidden">{status === "saving" ? "Saving…" : status === "error" ? "Your draft is here. Retry when you’re ready." : message || "Changes save as you go."}</p>
         </section>
 
         <aside className="hidden lg:block">
@@ -383,9 +496,9 @@ function SectionButton({ active, children, onClick }: { active: boolean; childre
   return <button className={`flex min-h-12 w-full items-center rounded-xl px-4 text-left text-sm font-semibold ${active ? "bg-[#0d0d0d] text-white" : "text-black/65 hover:bg-black/5"}`} onClick={onClick} type="button">{children}</button>;
 }
 
-function ProfileSection({ profile, form, mode, onPhoto, onRemovePhoto, onSave }: { profile: ProfileIdentity; form: ReturnType<typeof useForm<ProfileFormValues>>; mode: ProfileMode; onPhoto: () => void; onRemovePhoto: () => void; onSave: () => void }) {
+function ProfileSection({ profile, form, mode, onDraftChange, onPhoto, onRemovePhoto, onSave }: { profile: ProfileIdentity; form: ReturnType<typeof useForm<ProfileFormValues>>; mode: ProfileMode; onDraftChange: () => void; onPhoto: () => void; onRemovePhoto: () => void; onSave: () => void }) {
   const { register, formState: { errors } } = form;
-  return <div><SectionHeading eyebrow="01 · PROFILE" title="Start with you." description="One person, at the center of every Mode." />
+  return <div onChange={onDraftChange}><SectionHeading eyebrow="01 · PROFILE" title="Start with you." description="One person, at the center of every Mode." />
     <div className="mt-6 flex flex-wrap items-center gap-4"><div className="relative grid size-20 place-items-center overflow-hidden rounded-[1.5rem] bg-[#f5f4ef] text-2xl font-semibold">{mode.image_url ? <NextImage alt={`${profile.display_name} profile`} className="object-cover" fill sizes="80px" src={mode.image_url} unoptimized /> : profile.display_name.slice(0, 1).toUpperCase()}</div><div><p className="font-semibold">A photo that feels like you</p><p className="mt-1 text-xs text-black/50">JPEG, PNG, or WebP · up to 5 MB</p><div className="mt-2 flex gap-2"><button className="min-h-11 rounded-full border border-black/15 px-4 text-xs font-semibold" onClick={onPhoto} type="button">{mode.image_path ? "Replace photo" : "Add a photo"}</button>{mode.image_path && <button className="min-h-11 px-3 text-xs font-semibold text-black/55 underline underline-offset-4" onClick={onRemovePhoto} type="button">Remove</button>}</div></div></div>
     <div className="mt-7 space-y-5"><Field label="Username" error={errors.username?.message}><div className="flex items-center rounded-2xl border border-black/15 px-4 focus-within:border-black"><span className="text-black/40">@</span><input className="min-h-12 w-full px-2 text-base outline-none" {...register("username")} /></div></Field><Field label="Display name" error={errors.display_name?.message}><input className="min-h-12 w-full rounded-2xl border border-black/15 px-4 text-base outline-none focus:border-black" maxLength={80} {...register("display_name")} /></Field><Field label="Personal bio" error={errors.bio?.message}><textarea className="min-h-28 w-full resize-y rounded-2xl border border-black/15 px-4 py-3 text-base outline-none focus:border-black" maxLength={280} placeholder="A few honest words about you" {...register("bio")} /></Field></div>
     <button className="mt-5 min-h-11 text-xs font-semibold underline underline-offset-4" onClick={onSave} type="button">Save identity details</button>
@@ -448,13 +561,13 @@ function AppearanceSection({ mode, onChange, unlockedRewards, selectedRewards, o
   </div>;
 }
 
-function SettingsSection({ mode, form }: { mode: ProfileMode; form: ReturnType<typeof useForm<SettingsFormValues>> }) {
+function SettingsSection({ mode, form, onDraftChange }: { mode: ProfileMode; form: ReturnType<typeof useForm<SettingsFormValues>>; onDraftChange: () => void }) {
   const fields: Record<ModeSlug, { key: string; label: string; placeholder: string; multiline?: boolean }[]> = {
     personal: [{ key: "note", label: "A little more about you", placeholder: "What are you into lately?", multiline: true }, { key: "location", label: "Location", placeholder: "Berlin" }, { key: "pronouns", label: "Pronouns", placeholder: "they / them" }],
     event: [{ key: "eventName", label: "Event name", placeholder: "Slush" }, { key: "city", label: "City", placeholder: "Helsinki" }, { key: "countryCode", label: "Country code (ISO 2-letter)", placeholder: "FI" }, { key: "dateLabel", label: "Dates", placeholder: "20–21 Nov 2026" }, { key: "role", label: "Your role / project", placeholder: "Founder · Northlight" }, { key: "hereToMeet", label: "Here to meet", placeholder: "Product designers and early-stage operators", multiline: true }],
     business: [{ key: "role", label: "Role", placeholder: "Head of Sales" }, { key: "company", label: "Company", placeholder: "Lumen Labs" }, { key: "city", label: "City", placeholder: "Berlin" }, { key: "description", label: "What you do", placeholder: "A short business introduction", multiline: true }],
   };
-  return <div><SectionHeading eyebrow="04 · MODE SETTINGS" title={mode.slug === "event" ? "Put the moment in context." : mode.slug === "business" ? "Show how you work." : "Share a little more."} description={mode.slug === "personal" ? "These details belong to Personal Mode only." : "Each Mode keeps its own details and privacy."} />
+  return <div onChange={onDraftChange}><SectionHeading eyebrow="04 · MODE SETTINGS" title={mode.slug === "event" ? "Put the moment in context." : mode.slug === "business" ? "Show how you work." : "Share a little more."} description={mode.slug === "personal" ? "These details belong to Personal Mode only." : "Each Mode keeps its own details and privacy."} />
     <div className="mt-6 space-y-4">{fields[mode.slug].map((field) => <label className="block space-y-2 text-sm font-medium" key={field.key}>{field.label}{field.multiline ? <textarea className="min-h-24 w-full rounded-2xl border border-black/15 px-4 py-3 text-base font-normal outline-none focus:border-black" maxLength={280} placeholder={field.placeholder} {...form.register(field.key)} /> : <input className="min-h-12 w-full rounded-2xl border border-black/15 px-4 text-base font-normal outline-none focus:border-black" autoCapitalize={field.key === "countryCode" ? "characters" : undefined} maxLength={field.key === "countryCode" ? 2 : field.key === "contactEmail" ? 254 : 100} placeholder={field.placeholder} {...form.register(field.key, field.key === "countryCode" ? { onChange: (event) => form.setValue(field.key, event.target.value.toUpperCase(), { shouldDirty: true }) } : undefined)} />}</label>)}
       {mode.slug === "business" && <p className="rounded-xl bg-[#f5f4ef] px-4 py-3 text-xs leading-5 text-black/60">Keep contact details in Links. You can hide any email or booking link without exposing it in your public Mode settings.</p>}
     </div>

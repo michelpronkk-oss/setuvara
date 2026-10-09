@@ -44,8 +44,7 @@ export default async function ConnectionDetailPage({ params }: ConnectionDetailP
   return (
     <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl">
-        <header className="flex items-center justify-between"><Link className="text-sm font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link><nav aria-label="Setuvara app" className="flex gap-1"><Link className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold" href="/app/identity">Identity</Link><Link className="inline-flex min-h-11 items-center rounded-full bg-black/5 px-3 text-xs font-semibold" href="/app/connections">Connections</Link><Link className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold" href="/app/passport">Passport</Link></nav></header>
-        <Link className="mt-8 inline-flex min-h-11 items-center text-xs font-semibold text-black/55 underline underline-offset-4" href="/app/connections">← All connections</Link>
+        <Link className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-black/55 underline underline-offset-4" href="/app/connections">← All connections</Link>
         <section className="mt-7 rounded-[2rem] bg-[#0d0d0d] p-6 text-[#f5f4ef] sm:p-10">
           <p className="text-[10px] font-bold tracking-[0.2em] text-white/55">A CONNECTION THAT STAYS</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">{displayName}</h1>

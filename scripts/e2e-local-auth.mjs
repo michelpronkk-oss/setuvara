@@ -244,13 +244,31 @@ try {
       storageFailure = { status: response.status(), body: (await response.text()).slice(0, 500) };
     }
   });
+  await page.goto(`${appUrl}/app`);
+  await page.getByRole("heading", { name: /Good to see you/ }).waitFor();
+  await page.getByRole("link", { name: "Share your Setuvara" }).waitFor();
+  await page.getByRole("link", { name: "Identity", exact: true }).waitFor();
+  await page.locator("details > summary").click();
+  await page.getByRole("link", { name: "View public profile" }).waitFor();
+  await page.getByRole("link", { name: "Mode settings" }).waitFor();
+  await page.locator("details > summary").click();
+  await expectNoHorizontalOverflow(page, "Setuvara Home");
+  await page.goto(`${appUrl}/app/identity`);
   await page.getByRole("tab", { name: "personal", exact: true }).waitFor();
   await page.getByRole("tab", { name: "event", exact: true }).waitFor();
   await page.getByRole("tab", { name: "business", exact: true }).waitFor();
-  console.log("PASS local signup → captured confirmation → /auth/confirm → authenticated editor");
+  console.log("PASS local signup → captured confirmation → /auth/confirm → authenticated editor and Setuvara Home shell");
 
   await page.getByLabel("Username").fill(owner.username);
   await page.getByLabel("Display name").fill("Aanya Rao");
+  await page.getByLabel("Personal bio").fill("A draft that saves itself while I make it mine.");
+  await waitSaved(page);
+  await page.reload();
+  assert.equal(await page.getByLabel("Personal bio").inputValue(), "A draft that saves itself while I make it mine.", "Valid profile edits should autosave and survive refresh");
+  await page.getByLabel("Personal bio").fill("Temporary text for undo.");
+  await page.keyboard.press("Control+z");
+  await page.waitForFunction(() => document.querySelector('textarea[placeholder="A few honest words about you"]')?.value === "A draft that saves itself while I make it mine.");
+  await waitEditorMessage(page, "Change undone");
   await page.getByLabel("Personal bio").fill("One person, three thoughtful contexts.");
   await page.getByRole("button", { name: "Save identity details" }).click();
   await waitSaved(page);
@@ -850,6 +868,11 @@ try {
   for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
     await testResponsiveAuth(browser, width, height);
     await page.setViewportSize({ width, height });
+    await page.goto(`${appUrl}/app`);
+    await page.getByRole("heading", { name: /Good to see you/ }).waitFor();
+    await expectNoHorizontalOverflow(page, `Setuvara Home ${width}x${height}`);
+    await page.getByRole("link", { name: "Connections", exact: true }).waitFor();
+    await page.getByRole("link", { name: "Passport", exact: true }).waitFor();
     await page.goto(`${appUrl}/app/identity?mode=personal&section=profile`);
     await expectNoHorizontalOverflow(page, `Identity editor ${width}x${height}`);
     await openSection(page, "Links");
