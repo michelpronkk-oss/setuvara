@@ -1,9 +1,9 @@
 # Setuvara
 
 Setuvara is a wallet-first digital identity and real-world connection network.
-This repository includes the first Identity vertical: email authentication,
-username reservation, Social and Business modes, profile links, publishing, and
-public profiles.
+This repository includes the first Setuvara product vertical: one canonical
+identity with Personal, Event, and Business Modes, profile links, publishing,
+private profile media, a shared profile renderer, and Mode-aware sharing.
 
 ## Stack
 
@@ -33,8 +33,9 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 - `npm run build` creates a production build.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
-- `npm run e2e:local` runs the local signup, email confirmation, Identity, RLS,
-  routing, and responsive flow in Playwright.
+- `npm run e2e:local` runs local signup, email confirmation, the three-Mode
+  editor, media/link permissions, sharing, RLS, routing, and responsive flows
+  in Playwright.
 
 ## Environment
 
@@ -44,8 +45,10 @@ Git. The app uses the publishable key in browser and server-side SSR clients;
 never put a secret or service-role key in this application.
 
 Before using signup or the Identity editor, apply the SQL migrations in
-`supabase/migrations/` to the dedicated Setuvara Supabase project. Signup
-confirmation uses `/auth/confirm` and the `token_hash` verification flow.
+`supabase/migrations/` to the dedicated Setuvara Supabase project. The Mode
+migration preserves each existing Social Mode row and its links, renames it
+Personal, and adds Event for existing and new profiles. Signup confirmation
+uses `/auth/confirm` and the `token_hash` verification flow.
 Published profiles use the canonical root URL
 `https://setuvara.com/[username]`; the legacy `/u/[username]` path permanently
 redirects there.
@@ -85,22 +88,18 @@ supabase/
 ├── config.toml          # Local Supabase stack and Auth settings
 ├── functions/send-email/ # Supabase Auth Send Email Hook
 ├── migrations/
-    ├── 20261009010000_identity_vertical.sql
-    └── 20261009025854_reserve_root_username_routes.sql
+│   ├── 20261009020739_identity_vertical.sql
+│   ├── 20261009025854_reserve_root_username_routes.sql
+│   ├── 20261009053709_profile_modes_media.sql
+│   └── 20261009054048_public_mode_settings.sql
 └── templates/           # Local Auth email template
 src/
-└── app/
-    ├── app/            # Redirects to the signed-in Identity editor
-    ├── app/identity/   # Signed-in Identity editor and actions
-    ├── auth/callback/ # Legacy OAuth/code callback
-    ├── auth/confirm/  # Email token_hash confirmation
-    ├── login/
-    ├── signup/
-    ├── [username]/   # Published public profile at the root URL
-    ├── u/[username]/ # Permanent redirect to the root username URL
-    ├── api/health/   # Non-product Supabase connectivity check
-    ├── globals.css
-    ├── layout.tsx
-    └── page.tsx
-src/lib/supabase/     # Browser, server, and session clients
+├── app/
+│   ├── app/identity/   # Multi-Mode editor, sharing, and actions
+│   ├── auth/           # Auth callbacks and confirmation
+│   ├── [username]/     # Published profile at the canonical root URL
+│   ├── u/[username]/   # Permanent legacy redirect
+│   └── ...             # Static, app, and health routes
+├── components/profile/ # Shared profile renderer and normalized types
+└── lib/supabase/       # Browser, server, and session clients
 ```

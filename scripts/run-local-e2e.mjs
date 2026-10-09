@@ -20,8 +20,10 @@ const values = new Map(
 );
 const localUrl = values.get("API_URL");
 const localPublishableKey = values.get("PUBLISHABLE_KEY");
+const localServiceRoleKey = values.get("SERVICE_ROLE_KEY");
 assert(localUrl && new URL(localUrl).hostname === "127.0.0.1", "Supabase CLI must target local Setuvara only");
 assert(localPublishableKey, "Local Supabase publishable key is missing");
+assert(localServiceRoleKey, "Local Setuvara service key is required only to clean generated local E2E accounts");
 
 const appUrl = "http://127.0.0.1:3014";
 const env = {
@@ -32,6 +34,7 @@ const env = {
   E2E_APP_URL: appUrl,
   E2E_MAILPIT_URL: "http://127.0.0.1:54324",
 };
+const e2eEnv = { ...env, E2E_LOCAL_SERVICE_KEY: localServiceRoleKey };
 
 await new Promise((resolveReady, reject) => {
   const probe = createServer();
@@ -72,7 +75,7 @@ try {
 
   const runner = spawn(process.execPath, ["scripts/e2e-local-auth.mjs"], {
     cwd: root,
-    env,
+    env: e2eEnv,
     stdio: ["ignore", "inherit", "inherit"],
   });
   testCode = await new Promise((resolveCode, reject) => {

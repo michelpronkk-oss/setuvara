@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import type { ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -13,10 +15,9 @@ type PublicProfilePageProps = {
 export async function generateMetadata({ params }: PublicProfilePageProps): Promise<Metadata> {
   const { username: rawUsername } = await params;
   const username = normalizeUsername(rawUsername);
-
   if (!isAllowedUsername(username)) notFound();
-
   return {
+    title: `@${username} · Setuvara`,
     alternates: { canonical: `https://setuvara.com/${encodeURIComponent(username)}` },
   };
 }
@@ -24,92 +25,65 @@ export async function generateMetadata({ params }: PublicProfilePageProps): Prom
 export default async function PublicProfilePage({ params, searchParams }: PublicProfilePageProps) {
   const [{ username: rawUsername }, query] = await Promise.all([params, searchParams]);
   const username = normalizeUsername(rawUsername);
-
   if (!isAllowedUsername(username)) notFound();
+  const slug = (query.mode ?? "personal") as ModeSlug;
+  if (!["personal", "event", "business"].includes(slug)) notFound();
 
   const supabase = await createClient();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, display_name, bio")
+    .select("id, username, display_name, bio, is_published")
     .eq("username", username)
     .eq("is_published", true)
     .maybeSingle();
-
   if (profileError || !profile) notFound();
 
-  const { data: modes, error: modesError } = await supabase
+  const { data: rawMode, error: modeError } = await supabase
     .from("profile_modes")
-    .select("id, slug, label, sort_order")
+    .select("id, slug, label, is_enabled, settings, appearance, image_path")
     .eq("profile_id", profile.id)
+    .eq("slug", slug)
     .eq("is_enabled", true)
-    .order("sort_order");
+    .maybeSingle();
+  if (modeError || !rawMode) notFound();
 
-  if (modesError || !modes?.length) notFound();
-
-  const activeMode = modes.find((mode) => mode.slug === query.mode) ?? modes[0];
-  const { data: links } = await supabase
+  const { data: links, error: linksError } = await supabase
     .from("profile_links")
-    .select("id, title, url, sort_order")
+    .select("id, title, url, link_type, is_visible, sort_order")
     .eq("profile_id", profile.id)
-    .eq("mode_id", activeMode.id)
+    .eq("mode_id", rawMode.id)
     .eq("is_visible", true)
     .order("sort_order");
+  if (linksError) notFound();
+
+  let imageUrl: string | null = null;
+  if (rawMode.image_path) {
+    const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, 3600);
+    imageUrl = image?.signedUrl ?? null;
+  }
+
+  const { data: claims } = await supabase.auth.getClaims();
+  const owner = claims?.claims?.sub === profile.id;
+  const identity = profile as ProfileIdentity;
+  const mode: ProfileMode = {
+    ...rawMode,
+    slug: rawMode.slug as ModeSlug,
+    settings: rawMode.settings as Record<string, string | boolean>,
+    appearance: rawMode.appearance as ProfileMode["appearance"],
+    image_url: imageUrl,
+    links: (links ?? []) as ProfileLink[],
+  };
 
   return (
-    <main className="flex min-h-screen justify-center px-5 py-14 sm:py-20">
-      <article className="w-full max-w-xl">
-        <Link className="inline-flex min-h-11 items-center text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800" href="/">
-          Setuvara
-        </Link>
-        <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-emerald-100 text-2xl font-semibold text-emerald-900">
-            {profile.display_name.slice(0, 1).toUpperCase()}
-          </div>
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-slate-950">
-            {profile.display_name}
-          </h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">@{profile.username}</p>
-          {profile.bio && <p className="mt-5 whitespace-pre-wrap leading-7 text-slate-700">{profile.bio}</p>}
-
-          <nav aria-label="Profile modes" className="mt-8 flex gap-2 border-b border-slate-200">
-            {modes.map((mode) => (
-              <Link
-                aria-current={activeMode.id === mode.id ? "page" : undefined}
-                className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold ${
-                  activeMode.id === mode.id
-                    ? "border-emerald-800 text-emerald-900"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-                href={`/${profile.username}?mode=${mode.slug}`}
-                key={mode.id}
-              >
-                {mode.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="mt-5 space-y-3">
-            {links?.map((link) => (
-              <a
-                className="flex items-center justify-between rounded-2xl border border-slate-200 px-5 py-4 font-semibold text-slate-800 transition hover:border-emerald-300 hover:bg-emerald-50"
-                href={link.url}
-                key={link.id}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {link.title}
-                <span aria-hidden="true" className="text-emerald-800">↗</span>
-              </a>
-            ))}
-            {!links?.length && (
-              <p className="rounded-2xl bg-slate-50 px-5 py-4 text-sm text-slate-500">
-                This mode has no links yet.
-              </p>
-            )}
-          </div>
-        </section>
-        <p className="mt-6 text-center text-xs text-slate-400">Shared with Setuvara</p>
-      </article>
+    <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-lg">
+        <header className="mb-5 flex items-center justify-between px-1">
+          <Link className="inline-flex min-h-11 items-center text-xs font-bold lowercase tracking-[0.22em]" href="/">setuvara</Link>
+          {owner && <span className="rounded-full border border-black/10 px-3 py-2 text-[10px] font-semibold tracking-wide">YOUR PROFILE</span>}
+        </header>
+        <ProfileRenderer profile={identity} mode={mode} viewerState={owner ? "owner" : "visitor"} />
+        <p className="mt-5 text-center text-[10px] font-medium tracking-wide text-black/40">Your identity, your context. Shared with Setuvara.</p>
+      </div>
     </main>
   );
 }
