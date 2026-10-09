@@ -17,6 +17,16 @@ export type ProfileLink = {
   sort_order: number;
 };
 
+export type BlockKind = "video" | "music" | "feature" | "services" | "highlights" | "testimonial";
+
+export type ProfileBlock = {
+  id: string;
+  kind: BlockKind;
+  data: Record<string, unknown>;
+  is_visible: boolean;
+  sort_order: number;
+};
+
 export type ModeAppearance = {
   theme: "light" | "dark" | "editorial";
   accent: string;
@@ -34,6 +44,8 @@ export type ProfileMode = {
   image_path: string | null;
   image_url?: string | null;
   links: ProfileLink[];
+  /** Content blocks, in order. Absent where a surface doesn't load them. */
+  blocks?: ProfileBlock[];
 };
 
 export type ProfileIdentity = {

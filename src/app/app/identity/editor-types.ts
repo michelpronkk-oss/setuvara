@@ -1,4 +1,4 @@
-import type { ModeAppearance, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import type { LinkProvider } from "@/lib/links/providers";
 import type { RewardCategory } from "@/lib/passport/rewards";
 
@@ -9,8 +9,8 @@ export type EditableProfile = Pick<ProfileIdentity, "username" | "display_name" 
 
 export const SECTIONS: { id: Exclude<Section, "home">; title: string; short: string }[] = [
   { id: "profile", title: "Profile", short: "Profile" },
-  { id: "links", title: "Links & Actions", short: "Links" },
-  { id: "appearance", title: "Appearance", short: "Appearance" },
+  { id: "links", title: "Content", short: "Content" },
+  { id: "appearance", title: "Appearance", short: "Style" },
   { id: "settings", title: "Mode Settings", short: "Settings" },
   { id: "share", title: "Share", short: "Share" },
 ];
@@ -53,6 +53,11 @@ export type EditorApi = {
   deleteLink: (link: ProfileLink) => void;
   reorderLinks: (ordered: ProfileLink[]) => void;
   copyLinksFrom: (slug: ModeSlug) => Promise<void>;
+  addBlock: (kind: BlockKind, data: Record<string, unknown>) => Promise<string | null>;
+  updateBlock: (block: ProfileBlock, data: Record<string, unknown>) => Promise<string | null>;
+  toggleBlock: (block: ProfileBlock) => void;
+  deleteBlock: (block: ProfileBlock) => void;
+  reorderBlocks: (ordered: ProfileBlock[]) => void;
   pickPhoto: () => void;
   recropPhoto: () => void;
   removePhoto: () => void;

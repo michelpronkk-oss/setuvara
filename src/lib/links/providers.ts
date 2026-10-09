@@ -342,3 +342,27 @@ export function providerSearchText(provider: LinkProvider) {
 export function providerForLink(providerId: string) {
   return LINK_PROVIDERS.find((provider) => provider.id === providerId) ?? linkProviderById.url;
 }
+
+/**
+ * Best provider for a pasted value: email and phone by shape, otherwise the
+ * provider whose domain matches and accepts the link. Unknown sites become
+ * a Website link.
+ */
+export function detectProvider(rawValue: string): { provider: LinkProvider; value: string } | null {
+  const value = rawValue.trim();
+  if (!value) return null;
+  if (/^(mailto:)?[^\s@/:]+@[^\s@/]+\.[^\s@/]+$/i.test(value)) return { provider: linkProviderById.email, value: value.replace(/^mailto:/i, "") };
+  if (/^(tel:)?\+?[\d\s().-]{8,20}$/.test(value)) return { provider: linkProviderById.phone, value: value.replace(/^tel:/i, "") };
+  let host: string;
+  try {
+    host = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (!host.includes(".")) return null;
+  const match = LINK_PROVIDERS.find((provider) => {
+    const hosts = [provider.hostname, ...(provider.aliases ?? [])].filter(Boolean) as string[];
+    return hosts.some((candidate) => host === candidate || host === `www.${candidate}`) && normalizeProviderValue(provider.id, value).ok;
+  });
+  return { provider: match ?? linkProviderById.website, value };
+}

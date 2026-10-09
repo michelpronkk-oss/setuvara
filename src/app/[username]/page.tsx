@@ -8,6 +8,7 @@ import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { isFullBleed, ProfileRenderer, profileTone } from "@/components/profile/profile-renderer";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import { readableBlocks } from "@/lib/blocks/registry";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -69,6 +70,15 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     .order("sort_order");
   if (linksError) notFound();
 
+  // Blocks are optional content: if they can't load, the profile still renders.
+  const { data: blockRows } = await supabase
+    .from("profile_blocks")
+    .select("id, kind, data, is_visible, sort_order")
+    .eq("profile_id", profile.id)
+    .eq("mode_id", rawMode.id)
+    .eq("is_visible", true)
+    .order("sort_order");
+
   let imageUrl: string | null = null;
   if (rawMode.image_path) {
     const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, 3600);
@@ -113,6 +123,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     appearance: rawMode.appearance as ProfileMode["appearance"],
     image_url: imageUrl,
     links: (links ?? []) as ProfileLink[],
+    blocks: readableBlocks(blockRows),
   };
 
   // Full Bleed runs the photo to the phone's edges; the page takes on the profile's own background.
