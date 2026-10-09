@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { CharacterAvatar } from "@/components/avatar/character-avatar";
 
-import { personAvatar } from "./demo";
 import { Display, Label, LaterTag, Shell } from "./primitives";
+import { TeamsConsole } from "./teams-console";
 
 export function Events() {
   return (
@@ -92,11 +92,6 @@ const teamCapabilities = [
   "Team connections",
 ];
 
-const team = [
-  { initials: "AR", name: "Aanya Rao", role: "Partnerships Lead", tone: "bg-coral text-ink" },
-  { initials: "JB", name: "Jonas Berg", role: "Talent", tone: "bg-sky text-ink" },
-  { initials: "MT", name: "Mei Tanaka", role: "Solutions Engineer", tone: "bg-lime text-ink" },
-];
 
 export function Teams() {
   return (
@@ -117,30 +112,7 @@ export function Teams() {
           <Link className="inline-flex min-h-11 items-center gap-2 self-start text-[16px] font-semibold underline decoration-[1.5px] underline-offset-[6px] hover:text-coral focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral" href="/teams">Setuvara for Teams <span aria-hidden="true">→</span></Link>
         </div>
 
-        <div aria-label="Concept preview of a team identity" className="reveal flex flex-col gap-5 rounded-[2rem] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-8" role="group">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="font-display text-[30px] font-extrabold tracking-[-0.045em]">Lumen Labs</p>
-            <Label className="!text-[10px] text-ink/50">Concept preview</Label>
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {team.map((member) => (
-              <div className="flex flex-col gap-3 rounded-[1.25rem] bg-paper p-3 sm:gap-4 sm:p-4" key={member.initials}>
-                <div className="flex items-start justify-between">
-                  <CharacterAvatar className="size-10 rounded-xl sm:size-12" seed={member.name} traits={member.name === "Aanya Rao" ? personAvatar : undefined} />
-                  <span className="hidden font-label text-[9px] uppercase tracking-[0.16em] text-ink/45 sm:inline">Business</span>
-                </div>
-                <div>
-                  <p className="text-[14px] font-semibold leading-tight sm:text-[16px]">{member.name}</p>
-                  <p className="mt-0.5 text-[12px] text-ink/60">{member.role}</p>
-                </div>
-                <div className="hidden flex-col gap-1.5 border-t border-ink/10 pt-3 text-[12px] font-medium sm:flex">
-                  <span>LinkedIn</span><span>Book a meeting</span><span>Company website</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="text-[13px] leading-5 text-ink/55">One template. Everyone keeps their own identity.</p>
-        </div>
+        <TeamsConsole />
       </Shell>
     </section>
   );

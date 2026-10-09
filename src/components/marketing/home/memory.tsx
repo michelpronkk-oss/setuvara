@@ -2,13 +2,14 @@ import { CharacterAvatar } from "@/components/avatar/character-avatar";
 
 import { ConnectionsDemo } from "./connections-demo";
 import { demoConnections } from "./demo";
+import { Flag } from "./flag";
 import { Display, Label, Shell } from "./primitives";
 
 const encounters = [
-  { when: "Jun 2026", where: "TNW Conference · Amsterdam", mode: "Business" },
-  { when: "Mar 2026", where: "Coffee · Lisbon", mode: "Personal" },
-  { when: "Nov 2025", where: "Web Summit · Lisbon", mode: "Event" },
-];
+  { when: "Jun 2026", where: "TNW Conference · Amsterdam", mode: "Business", country: "NL" },
+  { when: "Mar 2026", where: "Coffee · Lisbon", mode: "Personal", country: "PT" },
+  { when: "Nov 2025", where: "Web Summit · Lisbon", mode: "Event", country: "PT" },
+] as const;
 
 export function Memory() {
   return (
@@ -31,7 +32,7 @@ export function Memory() {
             </div>
             <dl className="grid grid-cols-3 gap-x-3 gap-y-4 border-t-[1.5px] border-ink pt-5">
               <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-coral">You met</dt><dd className="mt-1 text-[14px] font-semibold sm:text-[16px]">TNW Conference</dd></div>
-              <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">Where</dt><dd className="mt-1 text-[14px] font-semibold sm:text-[16px]">Amsterdam</dd></div>
+              <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">Where</dt><dd className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold sm:text-[16px]"><Flag className="h-[12px] w-[18px]" country="NL" />Amsterdam</dd></div>
               <div><dt className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">Mode</dt><dd className="mt-1 text-[14px] font-semibold sm:text-[16px]">Business</dd></div>
             </dl>
             <div className="rounded-2xl bg-[repeating-linear-gradient(-30deg,#f5f4ef_0_8px,#fff_8px_16px)] px-5 py-4 shadow-[inset_0_0_0_1.5px_#0d0d0d]">
@@ -43,7 +44,7 @@ export function Memory() {
               <ol className="mt-2 divide-y divide-ink/10">
                 {encounters.map((encounter) => (
                   <li className="flex flex-col gap-0.5 py-2.5 text-[14px] sm:flex-row sm:items-baseline sm:justify-between sm:gap-4" key={encounter.when}>
-                    <span className="min-w-0 truncate font-semibold">{encounter.where}</span>
+                    <span className="flex min-w-0 items-center gap-2 font-semibold"><Flag className="h-[11px] w-[16px]" country={encounter.country} /><span className="truncate">{encounter.where}</span></span>
                     <span className="shrink-0 font-label text-[11px] uppercase tracking-[0.1em] text-ink/50">{encounter.mode} · {encounter.when}</span>
                   </li>
                 ))}

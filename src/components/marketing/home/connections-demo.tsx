@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { CharacterAvatar } from "@/components/avatar/character-avatar";
 
 import type { DemoConnection } from "./demo";
+import { Flag } from "./flag";
 
 const prompts = [
   { label: "Who did I meet in Amsterdam?", query: "amsterdam" },
@@ -60,7 +61,7 @@ export function ConnectionsDemo({ items }: { items: DemoConnection[] }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-semibold">{item.name}</span>
               <span className="mt-0.5 block truncate text-[12px] text-paper/55">{item.role}</span>
-              <span className="mt-0.5 block truncate text-[12px] text-paper/80">{item.event} · {item.city}</span>
+              <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-paper/80"><Flag className="h-[11px] w-[16px]" country={item.country} /><span className="truncate">{item.event} · {item.city}</span></span>
             </span>
             <span className="hidden shrink-0 text-right sm:block">
               <span className="block font-label text-[10px] uppercase tracking-[0.14em] text-coral">{item.mode}</span>

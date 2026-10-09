@@ -53,17 +53,18 @@ export type DemoConnection = {
   role: string;
   event: string;
   city: string;
+  country: "NL" | "PT" | "IE" | "FI";
   mode: "Personal" | "Event" | "Business";
   lastMet: string;
   encounters: number;
 };
 
 export const demoConnections: DemoConnection[] = [
-  { id: "marco", name: "Marco Silva", role: "Head of Sales · Northlight", event: "TNW Conference", city: "Amsterdam", mode: "Business", lastMet: "Jun 2026", encounters: 3 },
-  { id: "priya", name: "Priya Nair", role: "Lisbon run club", event: "Saturday long run", city: "Lisbon", mode: "Personal", lastMet: "4 Oct 2026", encounters: 6 },
-  { id: "tom", name: "Tom Okafor", role: "CTO · Gridline", event: "SaaStock", city: "Dublin", mode: "Business", lastMet: "30 Sep 2026", encounters: 1 },
-  { id: "noah", name: "Noah Chen", role: "Founder · Tidewater", event: "Canal dinner", city: "Amsterdam", mode: "Personal", lastMet: "12 Sep 2026", encounters: 2 },
-  { id: "lena", name: "Lena Fischer", role: "Product Designer · Atelier Nord", event: "Slush", city: "Helsinki", mode: "Event", lastMet: "20 Nov 2025", encounters: 1 },
-  { id: "jonas", name: "Jonas Berg", role: "Talent · Lumen Labs", event: "Slush", city: "Helsinki", mode: "Event", lastMet: "19 Nov 2025", encounters: 2 },
-  { id: "sofia", name: "Sofia Marques", role: "Partner · Ondas Ventures", event: "Web Summit", city: "Lisbon", mode: "Event", lastMet: "12 Nov 2025", encounters: 1 },
+  { id: "marco", name: "Marco Silva", role: "Head of Sales · Northlight", event: "TNW Conference", city: "Amsterdam", country: "NL", mode: "Business", lastMet: "Jun 2026", encounters: 3 },
+  { id: "priya", name: "Priya Nair", role: "Lisbon run club", event: "Saturday long run", city: "Lisbon", country: "PT", mode: "Personal", lastMet: "4 Oct 2026", encounters: 6 },
+  { id: "tom", name: "Tom Okafor", role: "CTO · Gridline", event: "SaaStock", city: "Dublin", country: "IE", mode: "Business", lastMet: "30 Sep 2026", encounters: 1 },
+  { id: "noah", name: "Noah Chen", role: "Founder · Tidewater", event: "Canal dinner", city: "Amsterdam", country: "NL", mode: "Personal", lastMet: "12 Sep 2026", encounters: 2 },
+  { id: "lena", name: "Lena Fischer", role: "Product Designer · Atelier Nord", event: "Slush", city: "Helsinki", country: "FI", mode: "Event", lastMet: "20 Nov 2025", encounters: 1 },
+  { id: "jonas", name: "Jonas Berg", role: "Talent · Lumen Labs", event: "Slush", city: "Helsinki", country: "FI", mode: "Event", lastMet: "19 Nov 2025", encounters: 2 },
+  { id: "sofia", name: "Sofia Marques", role: "Partner · Ondas Ventures", event: "Web Summit", city: "Lisbon", country: "PT", mode: "Event", lastMet: "12 Nov 2025", encounters: 1 },
 ];
