@@ -21,11 +21,25 @@ const handleMessages: Record<HandleStatus, string> = {
   checking: "Checking…",
   taken: "Already taken. Try one of these:",
   ok: "Available. It’s yours if you want it.",
-  error: "We couldn’t check that right now. Try again in a moment.",
+  error: "We couldn’t check that right now.",
 };
 
 function cleanHandle(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
+}
+
+// Resolves true/false for availability, or null if Supabase is unreachable or
+// unconfigured. Never throws and never hangs, so the UI can always settle.
+async function checkAvailability(candidate: string): Promise<boolean | null> {
+  try {
+    const request = createClient().rpc("is_username_available", { candidate_username: candidate });
+    const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000));
+    const result = await Promise.race([request, timeout]);
+    if (!result || result.error) return null;
+    return Boolean(result.data);
+  } catch {
+    return null;
+  }
 }
 
 function suggestionsFor(handle: string) {
@@ -36,6 +50,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [handle, setHandle] = useState(cleanHandle(initialHandle));
+  const [attempt, setAttempt] = useState(0);
   const [remote, setRemote] = useState<{ candidate: string; result: "ok" | "taken" | "error" } | null>(null);
   const [suggested, setSuggested] = useState<{ candidate: string; list: string[] } | null>(null);
   const [name, setName] = useState("");
@@ -60,21 +75,17 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
     if (step !== 0 || localStatus) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
-      const { data, error: rpcError } = await createClient().rpc("is_username_available", { candidate_username: candidate });
-      if (!cancelled) setRemote({ candidate, result: rpcError ? "error" : data ? "ok" : "taken" });
+      const available = await checkAvailability(candidate);
+      if (!cancelled) setRemote({ candidate, result: available === null ? "error" : available ? "ok" : "taken" });
     }, 350);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [candidate, localStatus, step]);
+  }, [candidate, localStatus, step, attempt]);
 
   useEffect(() => {
     if (status !== "taken") return;
     let cancelled = false;
     (async () => {
-      const client = createClient();
-      const checks = await Promise.all(suggestionsFor(candidate).map(async (option) => {
-        const { data } = await client.rpc("is_username_available", { candidate_username: option });
-        return data ? option : null;
-      }));
+      const checks = await Promise.all(suggestionsFor(candidate).map(async (option) => ((await checkAvailability(option)) ? option : null)));
       if (!cancelled) setSuggested({ candidate, list: checks.filter((value): value is string => Boolean(value)).slice(0, 3) });
     })();
     return () => { cancelled = true; };
@@ -146,8 +157,14 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
     setNotice("");
     const confirmationUrl = new URL("/auth/confirm", window.location.origin);
     confirmationUrl.searchParams.set("next", "/app/identity");
-    const { error: resendError } = await createClient().auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: confirmationUrl.toString() } });
-    setNotice(resendError ? "We couldn’t resend just yet. Try again in a moment." : "Sent again. Check your inbox.");
+    let failed = true;
+    try {
+      const { error: resendError } = await createClient().auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: confirmationUrl.toString() } });
+      failed = Boolean(resendError);
+    } catch {
+      failed = true;
+    }
+    setNotice(failed ? "We couldn’t resend just yet. Try again in a moment." : "Sent again. Check your inbox.");
     setCooldown(30);
   }
 
@@ -191,7 +208,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
               />
               <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full transition-colors duration-200 ${dot}`} />
             </label>
-            <p aria-live="polite" className={`min-h-5 text-[14px] ${status === "taken" || status === "invalid" || status === "error" ? "text-[#c22f25]" : "text-ink/65"}`} id="handle-message">{handleMessages[status]}</p>
+            <p aria-live="polite" className={`min-h-5 text-[14px] ${status === "taken" || status === "invalid" || status === "error" ? "text-[#c22f25]" : "text-ink/65"}`} id="handle-message">{handleMessages[status]}{status === "error" ? <> <button className="font-semibold text-ink underline underline-offset-4" onClick={() => { setRemote(null); setAttempt((value) => value + 1); }} type="button">Try again</button></> : null}</p>
             {suggestions.length ? (
               <div className="flex flex-wrap gap-2">
                 {suggestions.map((suggestion) => (
@@ -201,7 +218,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
             ) : null}
           </div>
           <button className={`h-[60px] truncate rounded-full px-6 text-[17px] font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${blocked ? "cursor-not-allowed bg-ink/10 text-ink/45" : "bg-coral text-ink hover:bg-[#f34c42]"}`} disabled={blocked} type="submit">
-            Claim setuvara.com/{preview}
+            Claim @{preview}
           </button>
         </form>
       ) : null}

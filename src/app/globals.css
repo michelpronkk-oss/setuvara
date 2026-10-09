@@ -83,3 +83,12 @@ body {
     animation-duration: 1ms;
   }
 }
+
+/* iOS Safari zooms into any focused field under 16px. Keep every text field at 16px on phones. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

@@ -21,11 +21,11 @@ export function ClaimForm({ tone = "light", id }: { tone?: "light" | "coral"; id
   return (
     <form action="/signup" className={`flex h-[60px] w-full max-w-[520px] items-center gap-1 rounded-full pl-5 pr-1.5 shadow-[inset_0_0_0_1.5px_#0d0d0d] focus-within:shadow-[inset_0_0_0_2.5px_#0d0d0d] ${tone === "coral" ? "bg-paper" : "bg-white"}`} method="get">
       <label className="sr-only" htmlFor={id}>Choose your Setuvara username</label>
-      <span aria-hidden="true" className="shrink-0 font-label text-[14px] text-ink/55 sm:text-[15px]">setuvara.com/</span>
+      <span aria-hidden="true" className="shrink-0 font-label text-[15px] text-ink/55 sm:text-[16px]">setuvara.com/</span>
       <input
         autoCapitalize="none"
         autoComplete="off"
-        className="min-w-0 flex-1 bg-transparent font-label text-[14px] font-medium text-ink outline-none placeholder:text-ink/35 sm:text-[15px]"
+        className="min-w-0 flex-1 bg-transparent font-label text-[16px] font-medium text-ink outline-none placeholder:text-ink/35 sm:text-[15px]"
         id={id}
         maxLength={24}
         name="username"

@@ -63,7 +63,7 @@ async function signUpAndConfirm(browser, account, viewport = { width: 390, heigh
   await page.goto(`${appUrl}/signup${claimGuest ? "?claim=1" : ""}`);
   await page.getByLabel("Username").fill(account.username);
   await page.getByText("Available. It’s yours if you want it.").waitFor({ timeout: 10_000 });
-  await page.getByRole("button", { name: `Claim setuvara.com/${account.username}` }).click();
+  await page.getByRole("button", { name: `Claim @${account.username}` }).click();
   await page.getByLabel("Your name").fill("Setuvara E2E Identity");
   await page.getByLabel("Email").fill(account.email);
   await page.getByLabel("Password", { exact: true }).fill(account.password);
