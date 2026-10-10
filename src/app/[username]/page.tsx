@@ -13,6 +13,8 @@ import { resolveModeAccent } from "@/components/profile/appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
+import { memberTierForPlan } from "@/lib/billing/member-badge";
+import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
@@ -97,7 +99,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const { profile, mode: rawMode } = record;
   const supabase = await createClient();
 
-  const [{ data: publicCosmetics }, { data: links, error: linksError }] = await Promise.all([
+  const [{ data: publicCosmetics }, { data: links, error: linksError }, memberTier] = await Promise.all([
     supabase.from("passport_preferences")
       .select("category,reward_id")
       .eq("user_id", profile.id)
@@ -108,6 +110,9 @@ export default async function PublicProfilePage({ params, searchParams }: Public
       .eq("mode_id", rawMode.id)
       .eq("is_visible", true)
       .order("sort_order"),
+    // Member status comes from the canonical billing resolution, never from profile data.
+    // Billing is secondary here: if it cannot be read, the profile renders without a badge.
+    getUserBillingState(profile.id).then((state) => memberTierForPlan(state.plan), () => null),
   ]);
   if (linksError) notFound();
 
@@ -238,6 +243,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
           connectionContext={connectedState?.context as ConnectionContext | undefined}
           connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
           guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
+          memberTier={memberTier}
           visitorAction={canInitiateConnection ? <ConnectFlow
             username={username}
             mode={slug}

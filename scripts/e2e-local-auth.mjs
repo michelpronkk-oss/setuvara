@@ -640,8 +640,9 @@ try {
   assert.equal((await page.request.get(`${appUrl}/api/analytics?range=30d`)).status(), 403, "Free users cannot request Plus history");
   assert.equal((await page.request.get(`${appUrl}/api/analytics/export?range=7d`)).status(), 403, "Free users cannot export analytics");
   await page.goto(`${appUrl}/app/analytics`);
-  await page.getByRole("heading", { name: "Analytics", exact: true }).waitFor();
-  await page.getByText("Your first signal is on its way.").waitFor();
+  await page.getByRole("heading", { level: 1, name: "Your story starts the first time you share." }).waitFor();
+  await page.getByText("Share once, and this page starts telling your story.").waitFor();
+  assert.equal(await page.locator("main [role='alert']").count(), 0, "Zero analytics on a 200 is Day One, not an error");
   await page.goto(`${appUrl}/app`);
   await expectNoHorizontalOverflow(page, "Setuvara Home");
   await page.goto(`${appUrl}/app/identity`);

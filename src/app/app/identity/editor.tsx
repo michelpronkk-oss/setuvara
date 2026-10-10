@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import type { MemberTier } from "@/lib/billing/member-badge";
 import { isAllowedUsername } from "@/lib/usernames";
 import { CelebrationClient } from "../passport/passport-dashboard";
 import { createProviderLink, updateProviderLink } from "./actions";
@@ -38,6 +39,7 @@ type EditorProps = {
   unlockedRewards: string[];
   selectedRewards: Partial<Record<RewardCategory, string>>;
   celebrationThreshold: number | null;
+  memberTier: MemberTier | null;
 };
 
 type SaveStatus = "saved" | "pending" | "saving" | "error";
@@ -64,7 +66,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -643,7 +645,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   }, [publicOrigin, savedUsername]);
 
   const api: EditorApi = {
-    profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto,
+    profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier,
     updateProfile, updateSetting, updateAppearance, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,

@@ -53,6 +53,7 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
     <ProfileRenderer
       connectionContext={state === "connected" ? context : null}
       connectionHref={state === "connected" ? "/app/connections" : undefined}
+      memberTier={api.memberTier}
       mode={mode}
       onEditMode={() => api.go("profile")}
       onShare={() => api.go("share")}
