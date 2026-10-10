@@ -12,14 +12,30 @@ export type { BlockKind, ProfileBlock };
 
 const text = (max: number) => z.string().trim().max(max);
 const httpsImage = z.string().trim().max(1000).regex(/^https:\/\//i).nullable().optional();
+const contentMediaPath = z.string().trim().max(100);
+
+const providerVideoSchema = z.object({
+  source: z.literal("provider").optional(),
+  url: z.string().trim().max(500).refine((value) => Boolean(parseVideo(value)), "Paste a YouTube, Vimeo, TikTok, Loom or Instagram video link."),
+  title: text(120).optional(),
+  caption: text(160).optional(),
+  thumbnail: httpsImage,
+});
+
+const uploadedVideoSchema = z.object({
+  source: z.literal("upload"),
+  video_path: contentMediaPath.regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(mp4|webm)$/i, "Upload an MP4 or WebM video."),
+  video_mime_type: z.enum(["video/mp4", "video/webm"]),
+  title: text(120).optional(),
+  caption: text(160).optional(),
+}).superRefine((data, context) => {
+  const matches = (data.video_mime_type === "video/mp4" && data.video_path.endsWith(".mp4"))
+    || (data.video_mime_type === "video/webm" && data.video_path.endsWith(".webm"));
+  if (!matches) context.addIssue({ code: "custom", path: ["video_mime_type"], message: "The video type does not match its uploaded file." });
+});
 
 export const blockSchemas = {
-  video: z.object({
-    url: z.string().trim().max(500).refine((value) => Boolean(parseVideo(value)), "Paste a YouTube, Vimeo, TikTok, Loom or Instagram video link."),
-    title: text(120).optional(),
-    caption: text(160).optional(),
-    thumbnail: httpsImage,
-  }),
+  video: z.union([providerVideoSchema, uploadedVideoSchema]),
   music: z.object({
     url: z.string().trim().max(500).refine((value) => Boolean(parseMusic(value)), "Paste a Spotify, YouTube Music, SoundCloud, Apple Music or Deezer link."),
     title: text(120).optional(),
@@ -36,7 +52,7 @@ export const blockSchemas = {
   }),
   image: z.object({
     image_path: z.string().trim().max(100).regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i, "Upload a JPEG, PNG or WebP image."),
-    alt: text(180).min(1, "Describe the image for visitors."),
+    alt: text(180).optional(),
     caption: text(240).optional(),
   }),
   services: z.object({
@@ -103,8 +119,11 @@ export function validateBlock(kind: BlockKind, data: unknown): { ok: true; data:
   if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check this block." };
   const clean = JSON.parse(JSON.stringify(result.data, (_key, value) => (value === "" ? undefined : value))) as Record<string, unknown>;
   if (kind === "video") {
-    const media = parseVideo(String(clean.url));
-    if (media) clean.url = media.url;
+    if (clean.source !== "upload") {
+      const media = parseVideo(String(clean.url));
+      if (media) clean.url = media.url;
+      clean.source = "provider";
+    }
   }
   if (kind === "music") {
     const media = parseMusic(String(clean.url));
@@ -133,6 +152,7 @@ export function blockSummary(block: Pick<ProfileBlock, "kind" | "data">): string
   const str = (value: unknown) => (typeof value === "string" ? value : "");
   switch (block.kind) {
     case "video": {
+      if (str(data.source) === "upload" || str(data.video_path)) return str(data.title) || "Uploaded video";
       const media = parseVideo(str(data.url));
       return str(data.title) || (media ? `${media.provider === "youtube" ? "YouTube" : media.provider[0].toUpperCase() + media.provider.slice(1)} video` : "Video");
     }

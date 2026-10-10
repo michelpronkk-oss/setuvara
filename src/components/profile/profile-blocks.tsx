@@ -74,12 +74,42 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
   const [playing, setPlaying] = useState(false);
   const media = parseVideo(str(data.url));
   const focus = useMediaFocus(`video:${id}`);
+  const uploadedVideo = data.source === "upload" || typeof data.video_path === "string";
+  const uploadedVideoRef = useRef<HTMLVideoElement>(null);
+  const videoUrl = str(data.video_url);
+  const title = str(data.title);
+  const caption = str(data.caption);
+  useEffect(() => {
+    if (uploadedVideo && videoUrl) uploadedVideoRef.current?.load();
+  }, [uploadedVideo, videoUrl, data.video_mime_type]);
+  if (uploadedVideo) {
+    if (!videoUrl) return null;
+    return (
+      <figure>
+        {title && <p className="mb-2 px-1 text-[14px] font-semibold leading-snug">{title}</p>}
+        <div className="overflow-hidden rounded-2xl bg-[#0D0D0D]">
+          <video
+            aria-label={title || "Uploaded video"}
+            className="block max-h-[80vh] w-full object-contain"
+            controls
+            playsInline
+            preload="metadata"
+            ref={uploadedVideoRef}
+            onPlay={() => focus.claim(() => uploadedVideoRef.current?.pause())}
+            onPause={() => focus.release()}
+            onEnded={() => focus.release()}
+          >
+            <source src={videoUrl} type={str(data.video_mime_type) || undefined} />
+          </video>
+        </div>
+        {caption && <figcaption className="mt-2 px-1 text-[13px] leading-5" style={{ color: tone.sub }}>{caption}</figcaption>}
+      </figure>
+    );
+  }
   if (!media) return null;
   const start = () => { focus.claim(); setPlaying(true); };
   const close = () => { setPlaying(false); focus.release(); };
   const thumbnail = str(data.thumbnail) || media.thumbnail;
-  const title = str(data.title);
-  const caption = str(data.caption);
   const frame = media.vertical ? "mx-auto aspect-[9/16] w-full max-w-[300px]" : "aspect-video w-full";
   return (
     <figure>

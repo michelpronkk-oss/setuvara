@@ -28,6 +28,13 @@ let storageFailure = null;
 let imageSaved = false;
 let contentImageBlockId = "";
 let contentImagePath = "";
+let eventImageBlockId = "";
+let eventImagePath = "";
+let businessImageBlockId = "";
+let businessImagePath = "";
+let contentVideoBlockId = "";
+let contentVideoPath = "";
+let contentVideoFixture = Buffer.alloc(0);
 let featureBlockId = "";
 let featureImagePath = "";
 let featureFallbackUrl = "";
@@ -194,6 +201,63 @@ async function expectNoHorizontalOverflow(page, label) {
   assert(size.scroll <= size.client + 1, `${label} overflows horizontally (${size.scroll} > ${size.client})`);
 }
 
+async function createWebmFixture(page, frameColor = "#ff5a4f") {
+  const fixture = await page.evaluate(async (color) => {
+    if (!MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) throw new Error("The local browser cannot create a WebM E2E fixture");
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not create the local video fixture canvas");
+    let frame = 0;
+    const paint = () => {
+      context.fillStyle = color;
+      context.fillRect(0, 0, 64, 64);
+      context.fillStyle = frame++ % 2 ? "#0d0d0d" : "#f5f4ef";
+      context.fillRect(frame % 48, 16, 16, 32);
+    };
+    paint();
+    const stream = canvas.captureStream(12);
+    const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8" });
+    const chunks = [];
+    recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
+    const stopped = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+    const animation = setInterval(paint, 80);
+    recorder.start();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    recorder.stop();
+    await stopped;
+    clearInterval(animation);
+    stream.getTracks().forEach((track) => track.stop());
+    const blob = new Blob(chunks, { type: "video/webm" });
+    return { type: blob.type, bytes: [...new Uint8Array(await blob.arrayBuffer())] };
+  }, frameColor);
+  assert.equal(fixture.type, "video/webm");
+  const bytes = Buffer.from(fixture.bytes);
+  assert(bytes.length > 100, "The browser should produce a real playable WebM fixture");
+  assert.equal(bytes.subarray(0, 4).toString("hex"), "1a45dfa3", "The browser fixture should have a WebM EBML signature");
+  return bytes;
+}
+
+async function waitForUploadedVideoPreview(page, label = "Uploaded video") {
+  const video = page.getByRole("region", { name: label }).locator("video");
+  await video.waitFor();
+  try {
+    await page.waitForFunction((regionLabel) => {
+      const region = [...document.querySelectorAll("section[aria-label]")].find((element) => element.getAttribute("aria-label") === regionLabel);
+      const player = region?.querySelector("video");
+      return player instanceof HTMLVideoElement
+        && player.currentSrc.includes("/storage/v1/object/sign/profile-media/")
+        && player.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
+    }, label, { timeout: 15_000 });
+  } catch (error) {
+    const state = await video.evaluate((player) => ({ readyState: player.readyState, networkState: player.networkState, duration: player.duration, errorCode: player.error?.code ?? null, hasSignedSource: player.currentSrc.includes("/storage/v1/object/sign/profile-media/") })).catch(() => null);
+    console.error(`Uploaded video preview diagnostic: ${JSON.stringify(state)}`);
+    throw error;
+  }
+  return video;
+}
+
 async function waitForConnected(page, label) {
   try {
     await page.getByText("You’re connected.").waitFor({ timeout: 8_000 });
@@ -220,6 +284,23 @@ async function waitSaved(page) {
   await page.locator('span[aria-live="polite"]').filter({ hasText: /Saved$/ }).waitFor({ state: "attached" });
 }
 
+async function waitForDeletedMedia(client, blockId, path, label) {
+  const deadline = Date.now() + 10_000;
+  let rowCount = 1;
+  let assetDeleted = false;
+  while (Date.now() < deadline) {
+    const row = await client.from("profile_blocks").select("id").eq("id", blockId);
+    assert.ifError(row.error);
+    rowCount = row.data.length;
+    const asset = await client.storage.from("profile-media").download(path);
+    assetDeleted = Boolean(asset.error);
+    if (rowCount === 0 && assetDeleted) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(rowCount, 0, `${label} block row should be deleted`);
+  assert(assetDeleted, `${label} block should remove its unreferenced Storage object`);
+}
+
 async function waitEditorMessage(page, message) {
   message = ({ "Photo saved": "Photo updated in Personal Mode", "Your profile is live": "Published. Every share surface is up to date.", "Your profile is private": "Your Setuvara is private. Links and QR codes stop working." })[message] ?? message;
   const escaped = message.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -243,6 +324,17 @@ async function openAddLink(page) {
   await openSection(page, "Links");
   await page.getByRole("button", { name: /^(Add|Add content.*)$/ }).filter({ visible: true }).click();
 
+}
+async function addContentImage(page, caption, alt = null) {
+  await openAddLink(page);
+  await page.getByRole("button", { name: /^Image/ }).filter({ visible: true }).click();
+  const dialog = page.getByRole("dialog").last();
+  await dialog.getByLabel("Upload profile image").setInputFiles({ name: "mode-content.png", mimeType: "image/png", buffer: png });
+  await dialog.getByText("Image ready", { exact: true }).waitFor();
+  if (alt !== null) await dialog.getByLabel("Describe the image").fill(alt);
+  await dialog.getByLabel("Caption", { exact: true }).fill(caption);
+  await dialog.getByRole("button", { name: "Add image", exact: true }).click();
+  await dialog.waitFor({ state: "detached" });
 }
 async function addLink(page, title, value, provider = "Custom Link") {
   await openAddLink(page);
@@ -373,22 +465,27 @@ async function verifyProfileMediaRules(client, userId, imageFormats) {
   if (!invalidMime.error) await bucket.remove([invalidMimePath]);
   assert(invalidMime.error, "profile-media must reject unsupported MIME types");
 
-  const oversizedPath = `${userId}/media-policy-${crypto.randomUUID()}.png`;
-  const oversized = await bucket.upload(oversizedPath, Buffer.alloc(5 * 1024 * 1024 + 1), { contentType: "image/png", upsert: false });
-  if (!oversized.error) await bucket.remove([oversizedPath]);
-  assert(oversized.error, "profile-media must reject files larger than 5 MiB");
+  const bucketRules = localSql(`select file_size_limit, allowed_mime_types from storage.buckets where id = 'profile-media'`);
+  assert.equal(Number(bucketRules[0]?.file_size_limit), 50 * 1024 * 1024, "profile-media must keep a 50 MiB ceiling for resumable video uploads");
+  for (const type of ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]) {
+    assert(bucketRules[0]?.allowed_mime_types.includes(type), `profile-media must allow ${type}`);
+  }
 
   const cleanup = await bucket.remove(uploadedPaths);
   assert.ifError(cleanup.error, "Owner must be able to remove temporary MIME-policy test objects");
 }
 
-async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkIds, imagePath, blockIds = [], blockImagePath = "") {
+async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkIds, imagePath, blockIds = [], blockImagePath = "", additionalBlockImagePaths = []) {
   const ownerAuth = await authenticatedClient(ownerAccount);
   const otherAuth = await authenticatedClient(otherAccount);
   const otherClient = otherAuth.client;
 
   const imageWithoutPath = await ownerAuth.client.from("profile_blocks").insert({ profile_id: ownerId, mode_id: modeIds[0], kind: "image", data: { alt: "Missing storage path" } });
   assert(imageWithoutPath.error, "Database must reject Image blocks without an owner-scoped image path");
+  const videoWithoutPath = await ownerAuth.client.from("profile_blocks").insert({ profile_id: ownerId, mode_id: modeIds[0], kind: "video", data: { source: "upload", video_mime_type: "video/webm" } });
+  assert(videoWithoutPath.error, "Database must reject uploaded Video blocks without an owner-scoped video path");
+  const mismatchedVideo = await ownerAuth.client.from("profile_blocks").insert({ profile_id: ownerId, mode_id: modeIds[0], kind: "video", data: { source: "upload", video_path: `${ownerId}/${crypto.randomUUID()}.webm`, video_mime_type: "video/mp4" } });
+  assert(mismatchedVideo.error, "Database must reject video paths whose extension does not match their MIME type");
 
   const profileUpdate = await otherClient.from("profiles").update({ username: otherAccount.username, display_name: "Unauthorized", is_published: false }).eq("id", ownerId).select("id");
   assert.ifError(profileUpdate.error);
@@ -426,6 +523,15 @@ async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkI
     const blockImage = await ownerAuth.client.storage.from("profile-media").download(blockImagePath);
     assert.ifError(blockImage.error, "Account 2 must not delete account 1 content image");
   }
+  if (contentVideoPath) {
+    const forbiddenVideoPath = `${ownerId}/${crypto.randomUUID()}.webm`;
+    const forbiddenVideoUpload = await otherClient.storage.from("profile-media").upload(forbiddenVideoPath, contentVideoFixture, { contentType: "video/webm", upsert: false });
+    assert(forbiddenVideoUpload.error, "Account 2 must not upload into account 1 video media folder");
+    const forbiddenVideoDelete = await otherClient.storage.from("profile-media").remove([contentVideoPath]);
+    assert.ifError(forbiddenVideoDelete.error);
+    const ownerVideo = await ownerAuth.client.storage.from("profile-media").download(contentVideoPath);
+    assert.ifError(ownerVideo.error, "Account 2 must not delete account 1 uploaded video");
+  }
   if (imagePath) {
     const forbiddenPath = `${ownerId}/unauthorized-${crypto.randomUUID()}.webp`;
     const forbiddenUpload = await otherClient.storage.from("profile-media").upload(forbiddenPath, png, { contentType: "image/png" });
@@ -437,6 +543,12 @@ async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkI
     assert.ifError(forbiddenDelete.error);
     const ownerImage = await ownerAuth.client.storage.from("profile-media").download(imagePath);
     assert.ifError(ownerImage.error);
+  }
+  for (const path of additionalBlockImagePaths) {
+    const forbiddenDelete = await otherClient.storage.from("profile-media").remove([path]);
+    assert.ifError(forbiddenDelete.error);
+    const ownerImage = await ownerAuth.client.storage.from("profile-media").download(path);
+    assert.ifError(ownerImage.error, "Account 2 must not delete another Mode's content image");
   }
 
   const ownerProfile = await ownerAuth.client.from("profiles").select("username, display_name, bio, is_published").eq("id", ownerId).single();
@@ -561,7 +673,7 @@ try {
   await imageDialog.getByRole("alert").filter({ hasText: /smaller than 5 MB/ }).waitFor();
   await imageDialog.getByLabel("Upload profile image").setInputFiles({ name: "content-photo.png", mimeType: "image/png", buffer: png });
   await imageDialog.getByText("Image ready").waitFor();
-  await imageDialog.getByLabel("Describe the image").fill("A candid Setuvara E2E image");
+  await imageDialog.getByLabel("Describe the image").fill("");
   await imageDialog.getByLabel("Caption").fill("A candid image block");
   await imageDialog.getByRole("button", { name: "Add image", exact: true }).click();
   await imageDialog.waitFor({ state: "detached" });
@@ -573,6 +685,64 @@ try {
   contentImagePath = contentImage.data.data.image_path;
   assert.match(contentImagePath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.png$`, "i"), "Image block must persist an owner-scoped random Storage path");
   assert.equal(contentImage.data.mode_id, (await contentAuth.client.from("profile_modes").select("id").eq("profile_id", ownerId).eq("slug", "personal").single()).data.id, "Image content must stay inside the selected Mode");
+
+  // Uploaded video goes through the same owner-scoped bucket and block renderer.
+  contentVideoFixture = await createWebmFixture(page);
+  await openAddLink(page);
+  await page.getByRole("button", { name: /^Video/ }).filter({ visible: true }).click();
+  let videoDialog = page.getByRole("dialog").last();
+  await videoDialog.getByRole("button", { name: "Upload", exact: true }).click();
+  const videoInput = videoDialog.getByLabel("Choose uploaded video");
+  await videoInput.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("not a video") });
+  await videoDialog.getByRole("alert").filter({ hasText: /Choose an MP4 or WebM video/ }).waitFor();
+  await videoInput.setInputFiles({ name: "invalid.webm", mimeType: "video/webm", buffer: Buffer.from("not a WebM video") });
+  await videoDialog.getByRole("alert").filter({ hasText: /doesn’t match its video format/ }).waitFor();
+  await videoInput.evaluate((input) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array(50 * 1024 * 1024 + 1)], "oversized.webm", { type: "video/webm" }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await videoDialog.getByRole("alert").filter({ hasText: /smaller than 50 MB/ }).waitFor();
+  await videoInput.setInputFiles({ name: "setuvara-e2e.webm", mimeType: "video/webm", buffer: contentVideoFixture });
+  await videoDialog.getByText("Video ready", { exact: true }).waitFor();
+  const videoPreview = await waitForUploadedVideoPreview(page);
+  assert(await videoPreview.getAttribute("controls") !== null, "Video upload preview should expose native controls");
+  assert(await videoPreview.getAttribute("playsinline") !== null, "Video upload preview should be inline on mobile");
+  await videoDialog.getByLabel("Title", { exact: true }).fill("Setuvara E2E uploaded video");
+  await videoDialog.getByLabel("Caption", { exact: true }).fill("A real local upload");
+  await videoDialog.getByRole("button", { name: "Add video", exact: true }).click();
+  await videoDialog.waitFor({ state: "detached" });
+
+  const contentVideo = await contentAuth.client.from("profile_blocks").select("id, data, mode_id, is_visible").eq("profile_id", ownerId).eq("kind", "video").contains("data", { source: "upload" }).single();
+  assert.ifError(contentVideo.error);
+  contentVideoBlockId = contentVideo.data.id;
+  contentVideoPath = contentVideo.data.data.video_path;
+  assert.match(contentVideoPath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.webm$`, "i"), "Uploaded video path must be random and owner-scoped");
+  assert.equal(contentVideo.data.data.video_mime_type, "video/webm");
+  assert.equal(contentVideo.data.mode_id, contentImage.data.mode_id, "Uploaded video must remain in the selected Personal Mode");
+  await page.reload();
+  await page.locator("li").filter({ hasText: "Setuvara E2E uploaded video" }).waitFor();
+
+  await setMode(page, "event");
+  await addContentImage(page, "Event image E2E", "A separate Event image");
+  await setMode(page, "business");
+  await addContentImage(page, "Business image E2E", "A separate Business image");
+  await setMode(page, "personal");
+  const eventModeForImage = (await contentAuth.client.from("profile_modes").select("id").eq("profile_id", ownerId).eq("slug", "event").single()).data;
+  const businessModeForImage = (await contentAuth.client.from("profile_modes").select("id").eq("profile_id", ownerId).eq("slug", "business").single()).data;
+  const eventImage = await contentAuth.client.from("profile_blocks").select("id, data, mode_id").eq("profile_id", ownerId).eq("kind", "image").eq("mode_id", eventModeForImage.id).single();
+  const businessImage = await contentAuth.client.from("profile_blocks").select("id, data, mode_id").eq("profile_id", ownerId).eq("kind", "image").eq("mode_id", businessModeForImage.id).single();
+  assert.ifError(eventImage.error); assert.ifError(businessImage.error);
+  eventImageBlockId = eventImage.data.id;
+  eventImagePath = eventImage.data.data.image_path;
+  businessImageBlockId = businessImage.data.id;
+  businessImagePath = businessImage.data.data.image_path;
+  assert.match(eventImagePath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.png$`, "i"));
+  assert.match(businessImagePath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.png$`, "i"));
+  await page.reload();
+  await page.locator("li").filter({ hasText: "Setuvara E2E uploaded video" }).waitFor();
+  console.log("PASS validated WebM upload, resumable Storage persistence, native preview, and image/video block schema");
 
   featureFallbackUrl = "https://images.example.test/setuvara-link-preview.jpg";
   const featureUrl = "https://example.com/setuvara-feature";
@@ -816,8 +986,10 @@ try {
     await mediaClient.auth.signOut();
   }
   await anonPage.route("https://images.example.test/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: png }));
-  const publicContentImage = anonPage.locator('img[alt="A candid Setuvara E2E image"]');
+  const publicContentImage = anonPage.locator("figure").filter({ hasText: "A candid image block" }).locator("img").first();
   await publicContentImage.waitFor();
+  assert.equal(await publicContentImage.getAttribute("alt"), "", "Image description is optional and should remain decorative when omitted");
+  assert.equal(contentImage.data.data.alt, undefined, "Empty optional image description should not be persisted as false metadata");
   assert.match(await publicContentImage.getAttribute("src"), /storage\/v1\/object\/sign\/profile-media\//, "Published public Image block must receive an authorized signed image URL");
   const publicFeature = anonPage.locator(`a[href="https://example.com/setuvara-feature"]`);
   await publicFeature.locator("img").waitFor();
@@ -869,20 +1041,67 @@ try {
   await page.getByRole("switch", { name: "Hide Image", exact: true }).click();
   await waitSaved(page);
   await anonPage.reload();
-  assert.equal(await anonPage.locator('img[alt="A candid Setuvara E2E image"]').count(), 0, "Hidden Image blocks must not render publicly");
+  assert.equal(await anonPage.locator("figure").filter({ hasText: "A candid image block" }).count(), 0, "Hidden Image blocks must not render publicly");
   const anonymousStorage = localUserClient();
   const hiddenImageSigning = await anonymousStorage.storage.from("profile-media").createSignedUrl(contentImagePath, 60);
   assert(hiddenImageSigning.error, "Anonymous visitors must not sign hidden Image block storage paths");
   await page.getByRole("switch", { name: "Show Image", exact: true }).click();
   await waitSaved(page);
   await anonPage.reload();
-  await anonPage.locator('img[alt="A candid Setuvara E2E image"]').waitFor();
-  console.log("PASS public Image/Featured Link rendering, custom-image priority, replace/remove cleanup, metadata fallback, and block visibility");
+  await anonPage.locator("figure").filter({ hasText: "A candid image block" }).locator("img").waitFor();
+
+  let videoRow = page.locator("li").filter({ hasText: "Setuvara E2E uploaded video" });
+  const replacementVideoBytes = await createWebmFixture(page, "#afcBff");
+  await videoRow.getByRole("button").nth(1).click();
+  videoDialog = page.getByRole("dialog").last();
+  await videoDialog.getByRole("button", { name: "Replace video", exact: true }).click();
+  await videoDialog.getByLabel("Choose uploaded video").setInputFiles({ name: "setuvara-replacement.webm", mimeType: "video/webm", buffer: replacementVideoBytes });
+  await videoDialog.getByText("Video ready", { exact: true }).waitFor();
+  await waitForUploadedVideoPreview(page);
+  await videoDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await videoDialog.waitFor({ state: "detached" });
+  await waitSaved(page);
+  const replacementVideo = await contentAuth.client.from("profile_blocks").select("data").eq("id", contentVideoBlockId).single();
+  assert.ifError(replacementVideo.error);
+  const replacedVideoPath = replacementVideo.data.data.video_path;
+  assert(replacedVideoPath && replacedVideoPath !== contentVideoPath, "Replacing an uploaded video should persist a fresh path");
+  assert((await contentAuth.client.storage.from("profile-media").download(contentVideoPath)).error, "Replacing an uploaded video should remove the old unreferenced object");
+  contentVideoPath = replacedVideoPath;
+  await anonPage.reload();
+  let publicVideo = anonPage.locator('video[aria-label="Setuvara E2E uploaded video"]');
+  await publicVideo.waitFor();
+  assert(await publicVideo.getAttribute("controls") !== null, "Public uploaded video must have native controls");
+  assert(await publicVideo.getAttribute("playsinline") !== null, "Public uploaded video must play inline on mobile");
+  await publicVideo.evaluate((video) => video.play());
+  await anonPage.waitForFunction(() => {
+    const video = document.querySelector('video[aria-label="Setuvara E2E uploaded video"]');
+    return video instanceof HTMLVideoElement && video.currentTime > 0;
+  }, null, { timeout: 5_000 });
+  await publicVideo.evaluate((video) => video.pause());
+  const publicVideoPath = localUserClient().storage.from("profile-media").getPublicUrl(contentVideoPath).data.publicUrl;
+  assert(!(await anonContext.request.get(publicVideoPath)).ok(), "Private uploaded video must not be accessible via the public object URL");
+  const videoOwner = await authenticatedClient(owner);
+  await videoOwner.client.auth.signOut();
+  await page.getByRole("switch", { name: "Hide Video", exact: true }).click();
+  await waitSaved(page);
+  await anonPage.reload();
+  assert.equal(await anonPage.locator('video[aria-label="Setuvara E2E uploaded video"]').count(), 0, "Hidden uploaded video must not render publicly");
+  const hiddenVideoSigning = await anonymousStorage.storage.from("profile-media").createSignedUrl(contentVideoPath, 60);
+  assert(hiddenVideoSigning.error, "Anonymous visitors must not sign hidden uploaded video paths");
+  await page.getByRole("switch", { name: "Show Video", exact: true }).click();
+  await waitSaved(page);
+  await anonPage.reload();
+  publicVideo = anonPage.locator('video[aria-label="Setuvara E2E uploaded video"]');
+  await publicVideo.waitFor();
+  console.log("PASS Image/Video public rendering, hide/show RLS, native playback, replacement cleanup, feature image priority, and optional image alt");
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor({ state: "detached" });
   const eventResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=event`);
   assert.equal(eventResponse?.status(), 200);
   await assertPublicConnectAccent(anonPage, owner.username, "event", eventCustomAccent);
-  assert.equal(await anonPage.locator('img[alt="A candid Setuvara E2E image"]').count(), 0, "Personal Mode content images must not appear in Event Mode");
+  assert.equal(await anonPage.locator("figure").filter({ hasText: "A candid image block" }).count(), 0, "Personal Mode content images must not appear in Event Mode");
+  assert.equal(await anonPage.locator('video[aria-label="Setuvara E2E uploaded video"]').count(), 0, "Personal Mode uploaded videos must not appear in Event Mode");
+  await anonPage.locator("figure").filter({ hasText: "Event image E2E" }).locator("img").waitFor();
+  assert.equal(await anonPage.locator("figure").filter({ hasText: "Business image E2E" }).count(), 0, "Business Mode image must not appear in Event Mode");
   await anonPage.getByText("Slush", { exact: true }).waitFor();
   await anonPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor();
@@ -899,6 +1118,8 @@ try {
   assert.equal(await anonPage.getByRole("link", { name: /GitHub/ }).getAttribute("href"), "https://github.com/octocat");
   assert.equal(await anonPage.locator('a[href="mailto:sales@northlight.example"]').count(), 1, "Public Business Mode should render a validated mailto action");
   assert.equal(await anonPage.locator('a[href="tel:+493012345678"]').count(), 1, "Public Business Mode should render a validated phone action");
+  await anonPage.locator("figure").filter({ hasText: "Business image E2E" }).locator("img").waitFor();
+  assert.equal(await anonPage.locator("figure").filter({ hasText: "Event image E2E" }).count(), 0, "Event Mode image must not appear in Business Mode");
   const modeAccess = await authenticatedClient(owner);
   const eventMode = (await modeAccess.client.from("profile_modes").select("id").eq("profile_id", modeAccess.user.id).eq("slug", "event").single()).data;
   assert(eventMode);
@@ -970,7 +1191,7 @@ try {
   console.log("PASS logout, protected app redirect, login, and persisted Mode data");
 
   otherBrowser = await signUpAndConfirm(browser, other);
-  await testIsolation(owner, other, ownerId, modeIds, linkIds, imagePath, [contentImageBlockId, featureBlockId], contentImagePath);
+  await testIsolation(owner, other, ownerId, modeIds, linkIds, imagePath, [contentImageBlockId, eventImageBlockId, businessImageBlockId, contentVideoBlockId, featureBlockId], contentImagePath, [eventImagePath, businessImagePath]);
   const ownerAuth = await authenticatedClient(owner);
   const otherPage = otherBrowser.page;
   await setMode(otherPage, "business");
@@ -1383,6 +1604,15 @@ try {
     await expectNoHorizontalOverflow(page, `Image block editor ${width}x${height}`);
     await imageBlockDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await imageBlockDialog.waitFor({ state: "detached" });
+    const videoBlockRow = page.locator("li").filter({ hasText: "Setuvara E2E uploaded video" });
+    await videoBlockRow.getByRole("button").nth(1).click();
+    const videoBlockDialog = page.getByRole("dialog").last();
+    const replaceVideoButton = videoBlockDialog.getByRole("button", { name: "Replace video", exact: true });
+    assert((await replaceVideoButton.boundingBox())?.height >= 44, `Video upload control must be a usable tap target at ${width}px`);
+    await videoBlockDialog.getByLabel("Choose uploaded video").waitFor();
+    await expectNoHorizontalOverflow(page, `Video block editor ${width}x${height}`);
+    await videoBlockDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await videoBlockDialog.waitFor({ state: "detached" });
     await openAddLink(page);
     const providerTrigger = page.getByRole("button", { name: "Choose a provider" });
     assert((await providerTrigger.boundingBox())?.height >= 44, `Provider picker trigger must be a usable tap target at ${width}px`);
@@ -1409,6 +1639,9 @@ try {
     const response = await anonPage.setViewportSize({ width, height }).then(() => anonPage.goto(`${appUrl}/${owner.username}?mode=personal`));
     assert.equal(response?.status(), 200);
     await expectNoHorizontalOverflow(anonPage, `Public profile ${width}x${height}`);
+    const responsiveVideo = anonPage.locator('video[aria-label="Setuvara E2E uploaded video"]');
+    await responsiveVideo.waitFor();
+    assert(await responsiveVideo.getAttribute("controls") !== null, `Public video controls must remain available at ${width}px`);
     await anonPage.screenshot({ path: `.next/home-qa/public-${width}.png`, fullPage: true });
     const connectButton = anonPage.getByRole("button", { name: "Connect", exact: true });
     const connectHeight = await connectButton.evaluate((element) => element.getBoundingClientRect().height);
@@ -1455,6 +1688,28 @@ try {
   assert.equal(deletedImageBlock.data.length, 0, "Deleting an Image block must remove its database row");
   const deletedImageAsset = await imageCleanupClient.client.storage.from("profile-media").download(contentImagePath);
   assert(deletedImageAsset.error, "Deleting an unreferenced Image block must remove its Storage object");
+  const videoBlockRow = page.locator("li").filter({ hasText: "Setuvara E2E uploaded video" });
+  await videoBlockRow.getByRole("button").nth(1).click();
+  const videoDeleteDialog = page.getByRole("dialog").last();
+  await videoDeleteDialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByText("Video deleted", { exact: true }).waitFor();
+  const deletedVideoBlock = await imageCleanupClient.client.from("profile_blocks").select("id").eq("id", contentVideoBlockId);
+  assert.ifError(deletedVideoBlock.error);
+  assert.equal(deletedVideoBlock.data.length, 0, "Deleting an uploaded video must remove its database row");
+  const deletedVideoAsset = await imageCleanupClient.client.storage.from("profile-media").download(contentVideoPath);
+  assert(deletedVideoAsset.error, "Deleting an unreferenced uploaded video must remove its Storage object");
+  for (const [slug, blockId, mediaPath, caption] of [
+    ["event", eventImageBlockId, eventImagePath, "Event image E2E"],
+    ["business", businessImageBlockId, businessImagePath, "Business image E2E"],
+  ]) {
+    await setMode(page, slug);
+    const modeImageRow = page.locator("li").filter({ hasText: caption });
+    await modeImageRow.getByRole("button").nth(1).click();
+    const modeImageDialog = page.getByRole("dialog").last();
+    await modeImageDialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await waitForDeletedMedia(imageCleanupClient.client, blockId, mediaPath, `${slug} Image`);
+    await page.getByText("Image deleted", { exact: true }).waitFor();
+  }
   await imageCleanupClient.client.auth.signOut();
   console.log("PASS deleted Image block cleanup and authenticated editor image controls at phone/tablet/desktop sizes");
 

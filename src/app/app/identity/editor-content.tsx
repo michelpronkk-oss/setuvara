@@ -13,12 +13,13 @@ import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
 import type { BlockKind, ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type LinkPreview } from "@/lib/blocks/media";
 import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, validateBlock } from "@/lib/blocks/registry";
-import { removePendingContentImages } from "@/lib/blocks/storage";
+import { removePendingContentMedia } from "@/lib/blocks/storage";
 import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, normalizeProviderValue, providerForLink, resolveStoredLink, type LinkProvider, type LinkProviderId } from "@/lib/links/providers";
 import { createClient } from "@/lib/supabase/client";
 import { AddLinkPanel, DragHandle, LinkRow } from "./editor-sections";
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { ContentImageControl } from "./content-image-control";
+import { ContentVideoControl } from "./content-video-control";
 import { BlockIcon, Card, Field, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
 type SheetState =
@@ -293,17 +294,20 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
   const [touched, setTouched] = useState<Set<string>>(() => new Set(block ? Object.keys(block.data) : []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [videoPlayable, setVideoPlayable] = useState(false);
+  const [videoSource, setVideoSource] = useState<"link" | "upload">(() => kind === "video" && (block?.data.source === "upload" || typeof block?.data.video_path === "string") ? "upload" : "link");
   const [soundtrack, setSoundtrack] = useState(Boolean(block?.is_soundtrack));
-  const pendingImagePaths = useRef(new Set<string>());
+  const pendingMediaPaths = useRef(new Set<string>());
+  const submitting = useRef(false);
   const cleanupClient = useMemo(() => createClient(), []);
   const meta = BLOCKS[kind];
   const str = (key: string) => (typeof data[key] === "string" ? String(data[key]) : "");
   const set = (key: string, value: unknown) => { setData((current) => ({ ...current, [key]: value })); setTouched((current) => new Set(current).add(key)); setError(null); };
-  const closeSheet = () => { if (!saving && !imageUploading) onClose(); };
+  const closeSheet = () => { if (!saving && !mediaUploading) onClose(); };
 
   useEffect(() => () => {
-    void removePendingContentImages(cleanupClient, api.profile.id, pendingImagePaths.current);
+    void removePendingContentMedia(cleanupClient, api.profile.id, pendingMediaPaths.current);
   }, [api.profile.id, cleanupClient]);
 
   const url = str("url").trim();
@@ -322,20 +326,36 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
     return next;
   }, [data, kind, preview, touched]);
 
-  const check = validateBlock(kind, kind === "feature" ? { ...merged, url: normalizedUrl } : merged);
+  const blockDraft = kind === "feature"
+    ? { ...merged, url: normalizedUrl }
+    : kind === "video" && videoSource === "upload"
+      ? { ...merged, source: "upload", url: undefined }
+      : kind === "video"
+        ? { ...merged, source: "provider", video_path: undefined, video_mime_type: undefined, video_url: undefined }
+        : merged;
+  const check = validateBlock(kind, blockDraft);
   const music = kind === "music" ? parseMusic(url) : null;
   const canSoundtrack = Boolean(music?.soundtrack) && (block?.is_visible ?? true);
   const currentSoundtrack = (api.mode.blocks ?? []).find((item) => item.is_soundtrack && item.id !== block?.id);
-  const previewBlock: ProfileBlock | null = check.ok ? { id: "preview", kind, data: { ...check.data, ...(str("image_url") ? { image_url: str("image_url") } : {}) }, is_visible: true, sort_order: 0 } : null;
+  const previewBlock: ProfileBlock | null = check.ok ? { id: "preview", kind, data: { ...check.data, ...(str("image_url") ? { image_url: str("image_url") } : {}), ...(str("video_url") ? { video_url: str("video_url") } : {}) }, is_visible: true, sort_order: 0 } : null;
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
-    if (imageUploading) return;
+    if (mediaUploading || submitting.current) return;
     if (!check.ok) { setError(check.message); return; }
+    if (kind === "video" && videoSource === "upload" && !videoPlayable) { setError("Wait for the uploaded video preview to load before adding it."); return; }
+    submitting.current = true;
     setSaving(true);
     const options = kind === "music" ? { soundtrack: soundtrack && canSoundtrack } : {};
-    const failure = block ? await api.updateBlock(block, check.data, options) : await api.addBlock(kind, check.data, options);
-    setSaving(false);
+    let failure: string | null;
+    try {
+      failure = block ? await api.updateBlock(block, check.data, options) : await api.addBlock(kind, check.data, options);
+    } catch {
+      failure = "That block couldn’t be saved. Check your connection and try again.";
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
     if (failure) setError(failure);
     else onClose();
   }
@@ -348,19 +368,45 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
     <Sheet
       footer={
         <div className="flex items-center justify-between gap-2">
-          {block ? <button className="min-h-11 rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#B42318]/[0.07] disabled:opacity-45" disabled={saving || imageUploading} onClick={() => { api.deleteBlock(block); onClose(); }} type="button">Delete</button> : <span />}
-          <div className="flex gap-2"><Pill disabled={saving || imageUploading} onClick={closeSheet} variant="ghost">Cancel</Pill><Pill disabled={saving || imageUploading} onClick={() => void submit()} variant="ink">{saving ? "Saving…" : imageUploading ? "Uploading…" : block ? "Save" : `Add ${meta.name.toLowerCase()}`}</Pill></div>
+          {block ? <button className="min-h-11 rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#B42318]/[0.07] disabled:opacity-45" disabled={saving || mediaUploading} onClick={() => { api.deleteBlock(block); onClose(); }} type="button">Delete</button> : <span />}
+          <div className="flex gap-2"><Pill disabled={saving || mediaUploading} onClick={closeSheet} variant="ghost">Cancel</Pill><Pill disabled={saving || mediaUploading || (kind === "video" && videoSource === "upload" && !videoPlayable)} onClick={() => void submit()} variant="ink">{saving ? "Saving…" : mediaUploading ? "Uploading…" : block ? "Save" : `Add ${meta.name.toLowerCase()}`}</Pill></div>
         </div>
       }
       onClose={closeSheet}
       title={<span className="flex items-center gap-3"><BlockIcon className="size-9 rounded-xl bg-[#0D0D0D] text-[#F5F4EF]" path={meta.icon} />{block ? `Edit ${meta.name.toLowerCase()}` : meta.name}</span>}
     >
       <form className="grid gap-4" onSubmit={submit}>
-        {(kind === "video" || kind === "music" || kind === "feature") && (
+        {kind === "video" && (
+          <div aria-label="Video source" className="grid grid-cols-2 gap-1 rounded-full bg-[#F5F4EF] p-1" role="group">
+            {(["link", "upload"] as const).map((source) => (
+              <button aria-pressed={videoSource === source} className={`min-h-10 rounded-full px-4 text-sm font-semibold transition ${videoSource === source ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-black/55 hover:bg-black/[0.04]"}`} key={source} onClick={() => { setVideoSource(source); setVideoPlayable(false); setError(null); }} type="button">
+                {source === "link" ? "Link" : "Upload"}
+              </button>
+            ))}
+          </div>
+        )}
+        {((kind === "video" && videoSource === "link") || kind === "music" || kind === "feature") && (
           <Field hint={loading ? "Looking it up…" : preview?.title ? "Details filled in" : failed || preview ? "Add a title below if you like" : meta.hint} htmlFor="block-url" label="Link">
             <TextInput autoCapitalize="none" autoFocus={!url} id="block-url" inputMode="url" onChange={(event) => set("url", event.target.value)} placeholder={kind === "video" ? "youtube.com/watch?v=… or a TikTok link" : kind === "music" ? "open.spotify.com/…" : "https://"} spellCheck={false} value={str("url")} />
           </Field>
         )}
+        {kind === "video" && videoSource === "upload" && <ContentVideoControl
+          label="Uploaded video"
+          mimeType={str("video_mime_type")}
+          onBusyChange={setMediaUploading}
+          onChange={(path, url, mimeType) => {
+            pendingMediaPaths.current.add(path);
+            set("source", "upload");
+            set("video_path", path);
+            set("video_mime_type", mimeType);
+            set("video_url", url);
+            setVideoPlayable(false);
+          }}
+          onPlayableChange={setVideoPlayable}
+          previewUrl={str("video_url")}
+          profileId={api.profile.id}
+          videoPath={str("video_path")}
+        />}
         {kind === "music" && (
           <div className="rounded-2xl bg-white p-3.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
             <div className="flex items-center gap-3">
@@ -382,9 +428,9 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
         {(kind === "feature" || kind === "image") && <ContentImageControl
           imagePath={str("image_path")}
           label={kind === "image" ? "Profile image" : "Featured Link image"}
-          onBusyChange={setImageUploading}
+          onBusyChange={setMediaUploading}
           onChange={(path, url) => {
-            if (path) pendingImagePaths.current.add(path);
+            if (path) pendingMediaPaths.current.add(path);
             set("image_path", path);
             set("image_url", url);
           }}

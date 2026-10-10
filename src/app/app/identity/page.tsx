@@ -62,10 +62,20 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
       // Blocks are optional: an older database without them still opens the editor.
       blocks: await Promise.all(readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)).map(async (block) => {
-        const path = typeof block.data.image_path === "string" ? block.data.image_path : null;
-        if (!path) return block;
-        const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(path, 3600);
-        return { ...block, data: { ...block.data, image_url: image?.signedUrl ?? null } };
+        const imagePath = typeof block.data.image_path === "string" ? block.data.image_path : null;
+        const videoPath = typeof block.data.video_path === "string" ? block.data.video_path : null;
+        const [image, video] = await Promise.all([
+          imagePath ? supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600) : Promise.resolve({ data: null }),
+          videoPath ? supabase.storage.from("profile-media").createSignedUrl(videoPath, 3600) : Promise.resolve({ data: null }),
+        ]);
+        return {
+          ...block,
+          data: {
+            ...block.data,
+            ...(imagePath ? { image_url: image.data?.signedUrl ?? null } : {}),
+            ...(videoPath ? { video_url: video.data?.signedUrl ?? null } : {}),
+          },
+        };
       })),
     };
   }));

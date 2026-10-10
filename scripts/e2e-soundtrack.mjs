@@ -14,6 +14,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
+import { createClient } from "@supabase/supabase-js";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -24,6 +25,7 @@ assert(serviceKey, "E2E_LOCAL_SERVICE_KEY (local stack) is required to seed test
 if (shots) mkdirSync(shots, { recursive: true });
 
 const stamp = Date.now().toString(36);
+const seededUsers = [];
 const admin = (path, init = {}) => fetch(`${supabaseUrl}${path}`, { ...init, headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation", ...init.headers } }).then(async (response) => {
   const body = await response.text();
   assert(response.ok, `${init.method ?? "GET"} ${path}: ${response.status} ${body}`);
@@ -42,6 +44,50 @@ async function seedPhoto(browser, userId) {
   await admin(`/rest/v1/profile_modes?profile_id=eq.${userId}&slug=eq.personal`, { method: "PATCH", body: JSON.stringify({ image_path: path, appearance: { theme: "dark", accent: "#FF5A4F", layout: "full-bleed", imageTreatment: "full-bleed" } }) });
 }
 
+async function seedUploadedVideo(browser, userId) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(appUrl);
+  const bytes = Buffer.from(await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext("2d");
+    if (!context || !MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) throw new Error("Local browser cannot create the uploaded-video soundtrack fixture");
+    let frame = 0;
+    const paint = () => {
+      context.fillStyle = frame++ % 2 ? "#ff5a4f" : "#afcbff";
+      context.fillRect(0, 0, 64, 64);
+      context.fillStyle = "#0d0d0d";
+      context.fillRect(frame % 48, 16, 16, 32);
+    };
+    paint();
+    const stream = canvas.captureStream(12);
+    const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8" });
+    const chunks = [];
+    recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
+    const stopped = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+    const animation = setInterval(paint, 80);
+    recorder.start();
+    await new Promise((resolve) => setTimeout(resolve, 3200));
+    recorder.stop();
+    await stopped;
+    clearInterval(animation);
+    stream.getTracks().forEach((track) => track.stop());
+    return [...new Uint8Array(await new Blob(chunks, { type: "video/webm" }).arrayBuffer())];
+  }));
+  await page.close();
+  assert(bytes.length > 100 && bytes.subarray(0, 4).toString("hex") === "1a45dfa3", "Soundtrack fixture should be a real WebM video");
+  const path = `${userId}/${crypto.randomUUID()}.webm`;
+  const upload = await fetch(`${supabaseUrl}/storage/v1/object/profile-media/${path}`, {
+    method: "POST",
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "video/webm" },
+    body: bytes,
+  });
+  assert(upload.ok, `video upload: ${upload.status} ${await upload.text()}`);
+  const [mode] = await admin(`/rest/v1/profile_modes?profile_id=eq.${userId}&slug=eq.personal&select=id`);
+  await admin("/rest/v1/profile_blocks", { method: "POST", body: JSON.stringify({ profile_id: userId, mode_id: mode.id, kind: "video", sort_order: 4, is_visible: true, data: { source: "upload", video_path: path, video_mime_type: "video/webm", title: "Uploaded soundtrack video", caption: "A local native player" } }) });
+}
+
 async function seedUser(name, modes) {
   const username = `${name}${stamp}`.slice(0, 30);
   const user = await admin("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email: `${username}@example.test`, password: "Soundtrack-test-1", email_confirm: true, user_metadata: { username, display_name: name[0].toUpperCase() + name.slice(1) } }) });
@@ -54,7 +100,9 @@ async function seedUser(name, modes) {
       await admin("/rest/v1/profile_blocks", { method: "POST", body: JSON.stringify({ profile_id: user.id, mode_id: mode.id, sort_order: index, is_visible: true, ...block }) });
     }
   }
-  return { id: user.id, username, email: `${username}@example.test`, password: "Soundtrack-test-1" };
+  const seeded = { id: user.id, username, email: `${username}@example.test`, password: "Soundtrack-test-1" };
+  seededUsers.push(seeded);
+  return seeded;
 }
 
 const SPOTIFY = { kind: "music", data: { url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC", title: "Golden Hour · JVKE" }, is_soundtrack: true };
@@ -184,6 +232,7 @@ try {
   const silent = await seedUser("silent", { personal: [SOUNDCLOUD, VIDEO] });
   const owner = await seedUser("aanya", { personal: [SPOTIFY, VIDEO, SOUNDCLOUD, QUOTE], event: [YT_MUSIC, VIDEO], business: [VIDEO] });
   await seedPhoto(browser, owner.id);
+  await seedUploadedVideo(browser, owner.id);
   const clips = await seedUser("clips", {
     personal: [{ kind: "music", data: { url: "https://music.apple.com/us/album/blinding-lights/1499378108?i=1499378615", title: "Blinding Lights" }, is_soundtrack: true }],
     event: [{ kind: "music", data: { url: "https://soundcloud.com/odesza/a-moment-apart", title: "A Moment Apart" }, is_soundtrack: true }],
@@ -250,6 +299,28 @@ try {
   await page.getByRole("button", { name: "Close video" }).click();
   await until(async () => !(await fake(page, "spotify"))[0].paused, "Closing the video resumes the soundtrack", 3000);
   console.log("PASS video pauses and resumes the soundtrack");
+
+  // Native uploaded video shares the same audio-focus handoff as provider video.
+  const uploadedVideo = page.locator('video[aria-label="Uploaded soundtrack video"]');
+  await uploadedVideo.waitFor();
+  assert(await uploadedVideo.getAttribute("controls") !== null, "Uploaded public video has native controls");
+  assert(await uploadedVideo.getAttribute("playsinline") !== null, "Uploaded public video stays inline on phones");
+  await uploadedVideo.evaluate((video) => video.play());
+  await until(async () => (await fake(page, "spotify"))[0].paused, "Uploaded video pauses the soundtrack");
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video[aria-label="Uploaded soundtrack video"]');
+    return video instanceof HTMLVideoElement && video.currentTime > 0.1;
+  });
+  await uploadedVideo.evaluate((video) => video.pause());
+  await until(async () => !(await fake(page, "spotify"))[0].paused, "Pausing uploaded video resumes the soundtrack", 3000);
+  await uploadedVideo.evaluate((video) => video.play());
+  await until(async () => (await fake(page, "spotify"))[0].paused, "Uploaded video pauses the soundtrack before ending");
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video[aria-label="Uploaded soundtrack video"]');
+    return video instanceof HTMLVideoElement && video.ended;
+  }, null, { timeout: 10_000 });
+  await until(async () => !(await fake(page, "spotify"))[0].paused, "Ending uploaded video resumes the soundtrack", 3000);
+  console.log("PASS native uploaded video pauses/resumes the soundtrack on pause and end");
 
   // Video ended through the player also hands back.
   await page.getByRole("button", { name: "Play Studio session" }).click();
@@ -416,4 +487,19 @@ try {
   }
 } finally {
   await browser.close();
+  const cleanup = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  for (const user of seededUsers) {
+    try {
+      const { data: objects, error: listError } = await cleanup.storage.from("profile-media").list(user.id, { limit: 1000 });
+      if (listError) throw listError;
+      if (objects?.length) {
+        const { error: removeError } = await cleanup.storage.from("profile-media").remove(objects.map((object) => `${user.id}/${object.name}`));
+        if (removeError) throw removeError;
+      }
+      const { error: deleteError } = await cleanup.auth.admin.deleteUser(user.id);
+      if (deleteError) throw deleteError;
+    } catch (error) {
+      console.warn(`Local soundtrack E2E cleanup needs attention for a generated user: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
 }

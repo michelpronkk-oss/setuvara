@@ -119,10 +119,24 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const identity = profile as ProfileIdentity;
   const publicBlocks = await Promise.all(readableBlocks(blockRows).map(async (block) => {
     if (block.is_soundtrack) return { ...block, data: { url: block.data.url } };
-    const { image_path: imagePath, ...data } = block.data;
-    if (typeof imagePath !== "string") return { ...block, data };
-    const { data: signed } = await supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600);
-    return { ...block, data: { ...data, image_url: signed?.signedUrl ?? null } };
+    const imagePath = block.data.image_path;
+    const videoPath = block.data.video_path;
+    const data = { ...block.data };
+    delete data.image_path;
+    delete data.video_path;
+    delete data.video_mime_type;
+    const [image, video] = await Promise.all([
+      typeof imagePath === "string" ? supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600) : Promise.resolve({ data: null }),
+      typeof videoPath === "string" ? supabase.storage.from("profile-media").createSignedUrl(videoPath, 3600) : Promise.resolve({ data: null }),
+    ]);
+    return {
+      ...block,
+      data: {
+        ...data,
+        ...(typeof imagePath === "string" ? { image_url: image.data?.signedUrl ?? null } : {}),
+        ...(typeof videoPath === "string" ? { video_url: video.data?.signedUrl ?? null } : {}),
+      },
+    };
   }));
   const mode: ProfileMode = {
     ...rawMode,
