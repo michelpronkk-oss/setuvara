@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthHeading, AuthLayout, fieldClass, Spinner } from "./auth-layout";
 import { PasswordInput } from "./password-input";
 
-export function LoginForm({ notice }: { notice?: string }) {
+export function LoginForm({ next = "/app", notice }: { next?: string; notice?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +26,7 @@ export function LoginForm({ notice }: { notice?: string }) {
     try {
       const { error: signInError } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
       if (signInError) return setError("That email and password don’t match. Try again.");
-      router.replace("/app/identity");
+      router.replace(next);
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
