@@ -4,16 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 
 function getSafeNextUrl(value: string | null, origin: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
-    return new URL("/app/identity", origin);
+    return new URL("/app", origin);
   }
 
   try {
     const destination = new URL(value, origin);
     return destination.origin === origin
       ? new URL(destination.pathname, origin)
-      : new URL("/app/identity", origin);
+      : new URL("/app", origin);
   } catch {
-    return new URL("/app/identity", origin);
+    return new URL("/app", origin);
   }
 }
 

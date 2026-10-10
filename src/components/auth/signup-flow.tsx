@@ -130,7 +130,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
       }
 
       const confirmationUrl = new URL("/auth/confirm", window.location.origin);
-      confirmationUrl.searchParams.set("next", "/app/identity");
+      confirmationUrl.searchParams.set("next", "/app");
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -139,7 +139,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
       if (signUpError) return setError("We couldn’t create the account. Check your details and try again.");
 
       if (data.session) {
-        router.replace("/app/identity");
+        router.replace("/app");
         router.refresh();
         return;
       }
@@ -156,7 +156,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
     if (cooldown > 0) return;
     setNotice("");
     const confirmationUrl = new URL("/auth/confirm", window.location.origin);
-    confirmationUrl.searchParams.set("next", "/app/identity");
+    confirmationUrl.searchParams.set("next", "/app");
     let failed = true;
     try {
       const { error: resendError } = await createClient().auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: confirmationUrl.toString() } });
@@ -261,7 +261,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
             <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-2xl bg-coral">
               <svg className="size-6" fill="none" viewBox="0 0 24 24"><rect height="14" rx="2.5" stroke="#0d0d0d" strokeWidth="1.8" width="18" x="3" y="5" /><path d="m4 7 8 6 8-6" stroke="#0d0d0d" strokeLinejoin="round" strokeWidth="1.8" /></svg>
             </span>
-            <p className="text-[14px] leading-[1.5] text-ink/70">The link signs you in and opens your identity editor. It can take a minute to arrive.</p>
+            <p className="text-[14px] leading-[1.5] text-ink/70">The link signs you in and opens your Setuvara home. It can take a minute to arrive.</p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 text-[14px]">
             <span aria-live="polite" className="text-ink/65">{notice || "Didn’t get it? Check spam, or resend."}</span>

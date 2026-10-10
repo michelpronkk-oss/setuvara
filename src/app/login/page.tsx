@@ -5,8 +5,14 @@ import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = { title: "Log in · Setuvara", robots: { index: false } };
 
+// Only same-site paths are allowed as a post-login destination.
+function safeNextPath(value: string | undefined) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return "/app";
+  return value;
+}
+
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -20,7 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <div className={marketingFontClasses}>
-      <LoginForm notice={notice} />
+      <LoginForm next={safeNextPath(query.next)} notice={notice} />
     </div>
   );
 }

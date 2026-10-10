@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 
 import { getSupabaseConfig } from "@/lib/supabase/config";
 
-const DEFAULT_NEXT_PATH = "/app/identity";
+const DEFAULT_NEXT_PATH = "/app";
 
 function getSafeNextPath(value: string | null, origin: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
