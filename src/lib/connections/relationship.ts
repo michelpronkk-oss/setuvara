@@ -82,7 +82,7 @@ export type RelationshipInput = {
   now?: Date;
 };
 
-export type SourceKind = "qr" | "link" | "pass" | "tap" | "profile";
+export type SourceKind = "qr" | "quick_qr" | "link" | "pass" | "tap" | "profile";
 export type Provenance = "viewer" | "confirmed" | "corrected" | "suggested";
 
 export type Suggestion = { value: string; reason: string; city?: string | null };
@@ -191,6 +191,7 @@ function initials(name: string) {
 
 export function sourceKind(source: string): SourceKind {
   if (source === "qr") return "qr";
+  if (source === "quick_qr") return "quick_qr";
   if (source === "link" || source === "share" || source === "native_share") return "link";
   if (source === "direct_share") return "pass";
   if (source === "tap") return "tap";
@@ -207,6 +208,8 @@ export function describeSource(source: string, viewerShared: boolean, name: stri
   switch (kind) {
     case "qr":
       return { kind, label: "Scanned QR code", detail: viewerShared ? `${first} scanned your QR code` : `You scanned ${first}’s QR code` };
+    case "quick_qr":
+      return { kind, label: "Quick QR", detail: viewerShared ? `${first} opened your Quick QR` : `You opened ${first}’s Quick QR` };
     case "link":
       return { kind, label: "Shared link", detail: viewerShared ? `${first} opened a link you shared` : `You opened a link ${first} shared` };
     case "pass":

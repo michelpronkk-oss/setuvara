@@ -1,6 +1,20 @@
-# Setuvara Tap infrastructure
+# Setuvara Tap
 
 Tap is an opaque entry point into one identity's current Equipped Share State. A Tap token is a public pointer, not an account credential. The database stores only its SHA-256 digest; the application returns the raw `/t/<token>` URL once when a device is created or rotated.
+
+## Product controls
+
+The owner manages Tap at `/app/tap`. Equipped selects one enabled Personal, Event, or Business Mode and either **View profile** or **Connect in person**. Saving changes the existing identity-wide database state; it does not change Connection Access policy. A Mode with `nobody` policy remains view-only. An unpublished profile or disabled Mode cannot resolve from Tap or Quick QR.
+
+The Home stage and its Share sheet link to Tap without replacing the existing Mode-specific QR. Mode-specific sharing stays fixed to the chosen Mode. Quick QR follows Equipped, so changing Equipped changes what the same Quick QR and every active Tap device open.
+
+## Quick Share
+
+`/q/<opaque-token>` is a stable identity-scoped Quick Share locator, independent of physical Tap devices. It resolves the current Equipped state on every request and redirects to the canonical profile with `source=quick_qr`. A lost or disabled physical device has no effect on Quick QR. Its public URL can later be encoded by a Wallet QR without a new resolver; Wallet is not implemented here.
+
+The `quick_share_locators` table keeps a random nonce and SHA-256 token hash, never the raw token. The application derives the repeatable 43-character token using the server-only `QUICK_SHARE_TOKEN_KEY`. Generate a random 32-byte base64url value and keep it stable for the Setuvara deployment. A missing or changed key makes owner URL rendering fail closed; an owner can rotate a locator after restoring a valid key, without redisplaying the old URL. No hash is exposed to the browser. `POST /api/tap/quick-share` creates or reads the owner's locator and returns its public URL. `POST /api/tap/quick-share/rotate` invalidates the previous URL and its Connection Passes; existing printed QR codes must then be replaced.
+
+The Quick Share table has RLS enabled and no direct Data API grants. Its public resolver can return only a published identity's enabled Equipped Mode. Direct-only Connect uses a short-lived pass scoped to that locator; scans within one time window reuse that pass so public scans cannot exhaust a daily grant quota. The Connection RPC rechecks the live Equipped state and Mode policy and derives verified Quick QR attribution from the bound pass, not a URL query parameter. The locator does not grant account, editing, billing, or device permissions. Quick Share responses and redirects are non-cacheable.
 
 ## Resolution
 
@@ -25,6 +39,8 @@ The Supabase Security Advisor reports the Tap tables as RLS-enabled without dire
 - `POST /api/tap/claim` consumes a one-time claim secret for a factory-provisioned device. The database stores only its hash; the private provisioning RPC is explicitly granted to `service_role` and is not exposed to browser callers.
 
 No hardware fulfillment or factory-provisioning workflow is included. Owner-created records represent Tap entries controlled by that account; stock claims are a separate path for future provisioning.
+
+To program an owner-created Tap, copy the URL shown immediately after creation or rotation. In an NFC writing app, create a URL/URI record, paste that URL, write it to a standard NDEF-compatible tag, then test it with another phone. The raw URL cannot be recovered later; rotation produces a new one and requires rewriting the tag. A factory Tap instead needs its separate one-time activation code in the claim flow. Its public `/t/` URL is never the claim secret.
 
 ## Privacy
 

@@ -161,7 +161,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     assert.equal(new URL(shared.url).searchParams.get("mode"), "event");
     await dialog.getByRole("button", { name: "Close", exact: true }).focus();
     await page.keyboard.press("Shift+Tab");
-    assert(await dialog.getByRole("link", { name: "Full-screen QR and downloads" }).evaluate((node) => node === document.activeElement), "Share focus must wrap backwards");
+    assert(await dialog.getByRole("link", { name: "Open Quick QR & Tap settings" }).evaluate((node) => node === document.activeElement), "Share focus must wrap backwards");
     await page.keyboard.press("Tab");
     assert(await dialog.getByRole("button", { name: "Close", exact: true }).evaluate((node) => node === document.activeElement));
     await page.keyboard.press("Escape");

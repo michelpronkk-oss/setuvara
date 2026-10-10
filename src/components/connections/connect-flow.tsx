@@ -22,7 +22,7 @@ type ConnectFlowProps = {
   accent: string;
 };
 
-const validSources = ["qr", "link", "share", "native_share", "profile", "direct", "tap"];
+const validSources = ["qr", "quick_qr", "link", "share", "native_share", "profile", "direct", "tap"];
 
 export function ConnectFlow({ username, mode, source, registered, alreadyConnected = false, shareBackModes = [], guestSessionName = null, label = "Connect", accent }: ConnectFlowProps) {
   const router = useRouter();

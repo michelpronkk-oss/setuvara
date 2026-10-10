@@ -5,7 +5,7 @@ import { visitorPassCookie } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 
 const modeSchema = z.enum(["personal", "event", "business"]);
-const sourceSchema = z.enum(["qr", "link", "share", "native_share", "profile", "direct", "tap"]).catch("direct");
+const sourceSchema = z.enum(["qr", "quick_qr", "link", "share", "native_share", "profile", "direct", "tap"]).catch("direct");
 const requestSchema = z.object({
   username: z.string().regex(/^[a-z0-9_]{3,24}$/),
   mode: modeSchema,

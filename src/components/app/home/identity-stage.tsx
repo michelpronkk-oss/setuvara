@@ -110,6 +110,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
           <div className="hidden flex-wrap items-end justify-between gap-5 pr-7 lg:flex">
             <ModePicker modes={modes} onPick={pick} slug={slug} variant="stage" />
             <div className="flex gap-2.5">
+              <Link className="inline-flex min-h-[54px] items-center rounded-full px-4 text-[15px] font-semibold text-[#f5f4ef]/85 underline-offset-4 hover:underline focus-visible:outline-2" href="/app/tap">Tap ↗</Link>
               <Link className="inline-flex min-h-[54px] items-center rounded-full px-[22px] text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.45)] hover:bg-white/10 focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>Edit</Link>
               <button className="inline-flex min-h-[54px] items-center gap-2.5 rounded-full bg-[#ff5a4f] px-[26px] text-base font-semibold text-[#0d0d0d] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5f4ef]" onClick={openShare} type="button">
                 Share {NAMES[slug]}<ArrowIcon />
@@ -127,6 +128,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <svg aria-hidden="true" height="18" viewBox="0 0 20 20" width="18"><path d="M4 16l1-4 8-8 3 3-8 8z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.6" /></svg>
           </Link>
         </div>
+        <Link className="inline-flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4" href="/app/tap">Quick QR &amp; Tap settings →</Link>
       </div>
 
       {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onPick={pick} publicUrl={publicUrl} slug={slug} username={username} />}
@@ -286,6 +288,7 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
             {canShare && <button className="min-h-[52px] min-w-0 whitespace-nowrap rounded-full bg-[#ff5a4f] px-3 py-3 text-center text-sm font-semibold leading-5 text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50" disabled={!linkUrl} onClick={() => void share()} type="button">Share link</button>}
             <Link aria-label="Open full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 whitespace-nowrap items-center justify-center rounded-full px-3 py-3 text-center text-sm font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share${inPerson ? "&intent=in_person" : ""}`}>Open QR screen</Link>
           </div>
+          <Link className="order-5 inline-flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4 md:order-none" href="/app/tap" onClick={onClose}>Open Quick QR &amp; Tap settings →</Link>
           <p className="sr-only">setuvara.com/{username}</p>
         </div>
       </section>

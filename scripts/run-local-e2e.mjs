@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -36,12 +37,13 @@ const env = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: localPublishableKey,
   SUPABASE_SERVICE_ROLE_KEY: localServiceRoleKey,
   NEXT_PUBLIC_APP_URL: appUrl,
+  QUICK_SHARE_TOKEN_KEY: randomBytes(32).toString("base64url"),
   PLAYWRIGHT_BROWSERS_PATH: resolve(root, ".playwright-browsers"),
   E2E_APP_URL: appUrl,
   E2E_MAILPIT_URL: "http://127.0.0.1:54324",
 };
 const e2eEnv = { ...env, E2E_LOCAL_SERVICE_KEY: localServiceRoleKey };
-const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs", "scripts/e2e-tap.mjs"];
+const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs", "scripts/e2e-tap.mjs", "scripts/e2e-tap-experience.mjs"];
 const requestedScript = process.env.E2E_LOCAL_SCRIPT;
 assert(!requestedScript || e2eScripts.includes(requestedScript), "E2E_LOCAL_SCRIPT must name a Setuvara local E2E script");
 
