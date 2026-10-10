@@ -10,6 +10,7 @@ const columns = [
       { href: "/#share", label: "Share & Connect" },
       { href: "/#connections", label: "Connections" },
       { href: "/#passport", label: "Passport" },
+      { href: "/roadmap", label: "Roadmap" },
     ],
   },
   {

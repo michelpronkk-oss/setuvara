@@ -1,5 +1,6 @@
 import { getUserEntitlements } from "@/lib/billing/service";
 import { getWalletProviderAvailability } from "@/lib/wallet/config";
+import { WALLET_PUBLICLY_LAUNCHED } from "@/lib/wallet/launch";
 import { getWalletPassForProfile, loadWalletProfileData, WalletRequestError, walletAppearance } from "@/lib/wallet/server";
 import { getTapOwner } from "@/lib/tap/server";
 
@@ -14,23 +15,30 @@ export async function GET() {
   if (!owner) return walletJson({ error: "unauthorized" }, 401);
 
   try {
-    const [entitlements, profile, record] = await Promise.all([
+    const profile = await loadWalletProfileData(owner.supabase, owner.profileId);
+    const profileState = {
+      username: profile.username,
+      displayName: profile.displayName,
+      mode: profile.mode,
+      modeEnabled: profile.modeEnabled,
+      published: profile.published,
+    };
+
+    if (!WALLET_PUBLICLY_LAUNCHED) {
+      return walletJson({ walletPubliclyLaunched: false, profile: profileState });
+    }
+
+    const [entitlements, record] = await Promise.all([
       getUserEntitlements(owner.profileId),
-      loadWalletProfileData(owner.supabase, owner.profileId),
       getWalletPassForProfile(owner.profileId),
     ]);
     const availability = getWalletProviderAvailability();
     return walletJson({
+      walletPubliclyLaunched: true,
       providers: availability,
       canUseWallet: entitlements.capabilities["wallet.core"].available,
       canUsePremiumAppearance: entitlements.capabilities["wallet.premium_appearance"].available,
-      profile: {
-        username: profile.username,
-        displayName: profile.displayName,
-        mode: profile.mode,
-        modeEnabled: profile.modeEnabled,
-        published: profile.published,
-      },
+      profile: profileState,
       pass: {
         exists: record !== null,
         appearance: walletAppearance(record?.appearance_preset) ?? "classic",

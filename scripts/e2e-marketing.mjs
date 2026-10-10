@@ -13,6 +13,7 @@ try {
     { path: "/pricing", heading: "Keep the network open.", title: "Setuvara plans" },
     { path: "/events", heading: "Bring the right context into the room.", title: "Setuvara for Events" },
     { path: "/teams", heading: "A better introduction starts with people.", title: "Setuvara for Teams" },
+    { path: "/roadmap", heading: "Built around the moments that matter.", title: "Setuvara roadmap" },
   ];
 
   for (const route of routes) {
@@ -73,7 +74,7 @@ try {
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport);
-    for (const path of ["/", "/pricing", "/events", "/teams"]) {
+    for (const path of ["/", "/pricing", "/events", "/teams", "/roadmap"]) {
       await page.goto(new URL(path, appUrl).toString());
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
       assert.equal(overflow, false, `${path} should not overflow at ${viewport.width}px`);

@@ -21,7 +21,7 @@ const navigation = [
 // The 60° tick that marks the current destination. Same angle as the Meet mark cut.
 const tick = "polygon(2.3px 0,100% 0,calc(100% - 2.3px) 100%,0 100%)";
 
-export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut }: {
+export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut, walletPubliclyLaunched }: {
   children: ReactNode;
   displayName: string;
   username: string | null;
@@ -31,8 +31,10 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
   canManageBilling: boolean;
   publicProfileUrl: string | null;
   signOut: () => Promise<void>;
+  walletPubliclyLaunched: boolean;
 }) {
   const pathname = usePathname();
+  const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
   // The identity editor is a full-screen workspace with its own navigation.
   if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <>{children}</>;
 
@@ -45,7 +47,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
           <span className="font-display text-[19px] font-bold tracking-[-0.03em] md:text-[21px]">setuvara</span>
         </Link>
         <nav aria-label="Main navigation" className="hidden gap-0 md:flex lg:gap-1.5">
-          {navigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
+          {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
           <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} canManageBilling={canManageBilling} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
@@ -54,8 +56,8 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
 
       <div className="min-w-0 pb-[calc(78px+env(safe-area-inset-bottom))] md:pb-0" id="app-main" tabIndex={-1}>{children}</div>
 
-      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden">
-        {navigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="bottom" />)}
+      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
+        {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="bottom" />)}
       </nav>
     </div>
   );

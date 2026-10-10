@@ -6,6 +6,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { AppShell } from "@/components/app/app-shell";
 import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
+import { WALLET_PUBLICLY_LAUNCHED } from "@/lib/wallet/launch";
 import { readFocus } from "@/components/profile/photo-focus";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./identity/actions";
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         plan={billing.plan}
         publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}
         signOut={signOut}
+        walletPubliclyLaunched={WALLET_PUBLICLY_LAUNCHED}
         username={profile?.username ?? null}
       >
         {children}

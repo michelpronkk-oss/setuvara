@@ -111,13 +111,11 @@ try {
     }));
   }
   assert.equal(ownerResponse.status(), 200, `A confirmed Free owner can read Wallet readiness (${initial.error ?? ownerResponse.status()})`);
-  assert.equal(initial.canUseWallet, true, "wallet.core is Free");
+  assert.equal(initial.walletPubliclyLaunched, false, "Wallet product launch is deliberately off while providers remain inactive");
   assert.equal(initial.profile.username, accounts[0].username);
-  assert.deepEqual(initial.providers, {
-    apple: { available: false, status: "setup_required" },
-    google: { available: false, status: "setup_required" },
-  }, "Missing provider variables must fail closed with safe readiness only");
-  assert.equal(initial.pass.exists, false);
+  assert.equal(Object.hasOwn(initial, "providers"), false, "Inactive provider readiness is not exposed through the consumer Wallet API");
+  assert.equal(Object.hasOwn(initial, "pass"), false, "No pass internals are returned before the product launch");
+  assert.equal(Object.hasOwn(initial, "canUseWallet"), false, "Consumer Wallet API does not expose entitlement internals before launch");
   assert.doesNotMatch(JSON.stringify(initial), /secret|private.?key|service.?role|credential/i);
 
   const passFixture = await admin.from("wallet_passes").insert({ profile_id: ownerUserId }).select("profile_id").single();
@@ -133,12 +131,15 @@ try {
 
   await owner.page.goto(`${appUrl}/app/wallet`);
   await owner.page.getByRole("heading", { name: "Your identity, ready when you are." }).waitFor();
-  await owner.page.getByText("Apple pass signing and update service setup is required.").waitFor();
-  await owner.page.getByText("A Google Wallet issuer and approved class are required.").waitFor();
+  await owner.page.getByText("Apple Wallet + Google Wallet", { exact: true }).waitFor();
+  await owner.page.getByText("Coming soon", { exact: true }).waitFor();
+  await owner.page.getByText("Carry your Setuvara identity with you.").waitFor();
+  await owner.page.getByText("Quick QR remains ready today.").waitFor();
+  const walletPageText = await owner.page.locator("main").innerText();
+  assert.doesNotMatch(walletPageText, /issuer|certificate|PassKit|signing|service account|setup required|APNs|Google Cloud|provider/i, "Consumer Wallet page does not expose setup details");
+  assert.equal(await owner.page.locator('nav[aria-label="Main navigation"] a[href="/app/wallet"]').count(), 0, "Wallet is absent from primary app navigation while not launched");
   assert.equal(await owner.page.getByRole("link", { name: "Add pass" }).count(), 0);
   assert.equal(await owner.page.getByRole("button", { name: "Add pass" }).count(), 0);
-  const editorial = owner.page.getByRole("button", { name: "Editorial · Plus" });
-  assert.equal(await editorial.isDisabled(), true, "Free cannot select the Plus Wallet appearance");
 
   for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
     await owner.page.setViewportSize({ width, height });
@@ -146,8 +147,9 @@ try {
     const modeLink = owner.page.getByRole("link", { name: /Change Equipped Mode/ });
     const modeBounds = await modeLink.boundingBox();
     assert(modeBounds && modeBounds.height >= 44 && modeBounds.width > 0, `Equipped Mode control is reachable at ${width}px`);
-    const classicBounds = await owner.page.getByRole("button", { name: "Setuvara", exact: true }).boundingBox();
-    assert(classicBounds && classicBounds.height >= 44, `Appearance control is a usable tap target at ${width}px`);
+    const qrLink = owner.page.getByRole("link", { name: "Use Quick QR" });
+    const qrBounds = await qrLink.boundingBox();
+    assert(qrBounds && qrBounds.height >= 44 && qrBounds.width > 0, `Quick QR action is reachable at ${width}px`);
     assert(await owner.page.getByRole("heading", { name: "Your identity, ready when you are." }).isVisible());
   }
 
@@ -168,9 +170,29 @@ try {
   assert.equal(privateResponse.status(), 200, "Account 2 gets only its own Wallet state");
   const otherState = await privateResponse.json();
   assert.equal(otherState.profile.username, accounts[1].username);
-  assert.equal(otherState.pass.exists, false, "Account 2 cannot see the owner’s pass record through the application API");
+  assert.equal(Object.hasOwn(otherState, "pass"), false, "Account 2 cannot see pass internals through the pre-launch application API");
   const anonymousPage = await browser.newPage();
   assert.equal((await anonymousPage.request.get(`${appUrl}/api/wallet`)).status(), 401, "Unauthenticated Wallet API access remains blocked");
+  const roadmapResponse = await anonymousPage.goto(`${appUrl}/roadmap`);
+  assert.equal(roadmapResponse?.status(), 200, "Public roadmap loads without authentication");
+  await anonymousPage.getByRole("heading", { name: "Built around the moments that matter." }).waitFor();
+  for (const item of ["Identity", "Personal, Event & Business", "Quick QR", "Setuvara Tap", "Connections", "Passport", "Analytics", "Apple & Google Wallet", "Product refinement", "Identity expression", "Physical Setuvara"]) {
+    assert(await anonymousPage.getByText(item, { exact: true }).count(), `Roadmap includes ${item}`);
+  }
+  const footerRoadmap = anonymousPage.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Roadmap", exact: true });
+  assert.equal(await footerRoadmap.getAttribute("href"), "/roadmap", "Footer Roadmap link points to the public route");
+  assert.equal(await anonymousPage.locator('link[rel="canonical"]').getAttribute("href"), "https://setuvara.com/roadmap");
+  const roadmapText = await anonymousPage.locator("body").innerText();
+  assert.doesNotMatch(roadmapText, /issuer|certificate|PassKit|service account|environment variables|APNs|Google Cloud|setup required|provider architecture/i, "Public roadmap contains no Wallet setup details");
+  await anonymousPage.goto(`${appUrl}/`);
+  await anonymousPage.getByRole("navigation", { name: "Footer navigation" }).getByRole("link", { name: "Roadmap", exact: true }).click();
+  await anonymousPage.waitForURL(`${appUrl}/roadmap`);
+  assert.equal(new URL(anonymousPage.url()).pathname, "/roadmap", "Footer Roadmap link opens the expected public route");
+  for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
+    await anonymousPage.setViewportSize({ width, height });
+    await assertNoOverflow(anonymousPage, width, height);
+    assert(await anonymousPage.getByRole("heading", { name: "Built around the moments that matter." }).isVisible(), `Roadmap hero is visible at ${width}px`);
+  }
   await anonymousPage.close();
   const anonymousWalletRoute = await browser.newPage();
   await anonymousWalletRoute.goto(`${appUrl}/app/wallet`);
@@ -181,7 +203,7 @@ try {
   contexts.push(publicContext);
   const publicResponse = await publicContext.request.get(`${appUrl}/${accounts[0].username}`);
   assert.equal(publicResponse.status(), 404, "A private profile remains absent from logged-out public access");
-  console.log("PASS local confirmed signup, Free entitlement, provider fail-closed state, Wallet API isolation, and responsive owner surface");
+  console.log("PASS local confirmed signup, consumer Wallet launch gate, hidden provider readiness, Wallet API isolation, public roadmap, and responsive surfaces");
 } finally {
   for (const context of contexts) await context.close().catch(() => {});
   await browser.close().catch(() => {});

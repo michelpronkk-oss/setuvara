@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type WalletState = {
-  providers: {
+  walletPubliclyLaunched: boolean;
+  providers?: {
     apple: { available: boolean; status: "ready" | "setup_required" };
     google: { available: boolean; status: "ready" | "setup_required" };
   };
-  canUseWallet: boolean;
-  canUsePremiumAppearance: boolean;
+  canUseWallet?: boolean;
+  canUsePremiumAppearance?: boolean;
   profile: {
     username: string;
     displayName: string;
@@ -17,12 +18,12 @@ type WalletState = {
     modeEnabled: boolean;
     published: boolean;
   };
-  pass: { exists: boolean; appearance: "classic" | "editorial" };
+  pass?: { exists: boolean; appearance: "classic" | "editorial" };
 };
 
 const modeLabel = { personal: "Personal", event: "Event", business: "Business" } as const;
 
-export function WalletExperience() {
+export function WalletExperience({ walletPubliclyLaunched }: { walletPubliclyLaunched: boolean }) {
   const [state, setState] = useState<WalletState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -111,7 +112,11 @@ export function WalletExperience() {
 
   const profileReady = state?.profile.published && state.profile.modeEnabled;
   const canAdd = Boolean(state?.canUseWallet && profileReady);
-  const anyProvider = Boolean(state?.providers.apple.available || state?.providers.google.available);
+  const anyProvider = Boolean(state?.providers?.apple.available || state?.providers?.google.available);
+
+  if (!walletPubliclyLaunched) {
+    return <ComingSoonWallet loading={loading} notice={notice} onRetry={retryLoad} state={state} />;
+  }
 
   return (
     <main className="mx-auto min-h-[calc(100dvh-60px)] w-full max-w-[1440px] px-4 py-6 text-[#0d0d0d] sm:px-6 md:min-h-[calc(100dvh-76px)] md:px-8 md:py-10">
@@ -151,17 +156,17 @@ export function WalletExperience() {
 
           <div className="mt-7 space-y-3">
             <ProviderRow
-              available={Boolean(state?.providers.apple.available)}
-              canAdd={Boolean(canAdd && state?.providers.apple.available)}
-              description={state?.providers.apple.available ? "A signed pass with the live Setuvara QR." : "Apple pass signing and update service setup is required."}
+              available={Boolean(state?.providers?.apple.available)}
+              canAdd={Boolean(canAdd && state?.providers?.apple.available)}
+              description={state?.providers?.apple.available ? "A signed pass with the live Setuvara QR." : "Apple pass signing and update service setup is required."}
               label="Apple Wallet"
               href="/api/wallet/apple"
               verb="Add pass"
             />
             <ProviderRow
-              available={Boolean(state?.providers.google.available)}
-              canAdd={Boolean(canAdd && state?.providers.google.available)}
-              description={state?.providers.google.available ? "A Google Wallet pass that stays linked to your identity." : "A Google Wallet issuer and approved class are required."}
+              available={Boolean(state?.providers?.google.available)}
+              canAdd={Boolean(canAdd && state?.providers?.google.available)}
+              description={state?.providers?.google.available ? "A Google Wallet pass that stays linked to your identity." : "A Google Wallet issuer and approved class are required."}
               label="Google Wallet"
               onClick={() => void addGooglePass()}
               verb={busy ? "Opening…" : "Add pass"}
@@ -177,17 +182,81 @@ export function WalletExperience() {
                 <p className="font-label text-[10px] uppercase tracking-[0.18em] text-black/50">Appearance</p>
                 <p className="mt-1 text-sm text-black/70">A calm Setuvara finish, kept simple.</p>
               </div>
-              {state?.pass.exists && anyProvider && <button className="min-h-11 shrink-0 rounded-full px-3 text-xs font-semibold underline underline-offset-4 disabled:opacity-50" disabled={busy} onClick={() => void refreshSavedPasses()} type="button">Refresh saved passes</button>}
+              {state?.pass?.exists && anyProvider && <button className="min-h-11 shrink-0 rounded-full px-3 text-xs font-semibold underline underline-offset-4 disabled:opacity-50" disabled={busy} onClick={() => void refreshSavedPasses()} type="button">Refresh saved passes</button>}
             </div>
             <div aria-label="Wallet appearance" className="mt-4 grid grid-cols-2 gap-2" role="group">
-              <AppearanceChoice active={!loading && state?.pass.appearance === "classic"} disabled={loading || busy} label="Setuvara" onClick={() => void saveAppearance("classic")} />
-              <AppearanceChoice active={!loading && state?.pass.appearance === "editorial"} disabled={loading || busy || !state?.canUsePremiumAppearance} label="Editorial · Plus" onClick={() => void saveAppearance("editorial")} />
+              <AppearanceChoice active={!loading && state?.pass?.appearance === "classic"} disabled={loading || busy} label="Setuvara" onClick={() => void saveAppearance("classic")} />
+              <AppearanceChoice active={!loading && state?.pass?.appearance === "editorial"} disabled={loading || busy || !state?.canUsePremiumAppearance} label="Editorial · Plus" onClick={() => void saveAppearance("editorial")} />
             </div>
             {!loading && !state?.canUsePremiumAppearance && <p className="mt-3 text-xs leading-5 text-black/55">Editorial appearance is included with Plus and Pro. <Link className="font-semibold underline underline-offset-4" href="/pricing">See plans</Link></p>}
           </div>
         </section>
       </div>
       {!state && !loading && <p aria-live="polite" className="mt-6 text-sm text-black/65">Wallet is taking a moment. <button className="font-semibold underline underline-offset-4" onClick={retryLoad} type="button">Try again</button></p>}
+    </main>
+  );
+}
+
+function ComingSoonWallet({ loading, notice, onRetry, state }: {
+  loading: boolean;
+  notice: string | null;
+  onRetry: () => void;
+  state: WalletState | null;
+}) {
+  return (
+    <main className="mx-auto min-h-[calc(100dvh-60px)] w-full max-w-[1440px] px-4 py-6 text-[#0d0d0d] sm:px-6 md:min-h-[calc(100dvh-76px)] md:px-8 md:py-10">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)] lg:gap-8">
+        <section className="flex min-w-0 flex-col justify-between overflow-hidden rounded-[28px] bg-[#0d0d0d] p-6 text-[#f5f4ef] sm:p-8 lg:min-h-[470px] lg:p-10">
+          <div>
+            <p className="font-label text-[11px] uppercase tracking-[0.22em] text-[#c7ff4a]">Setuvara Wallet</p>
+            <h1 className="mt-5 max-w-[620px] font-display text-4xl font-semibold leading-[1.02] tracking-[-0.055em] sm:text-5xl lg:text-6xl">Your identity, ready when you are.</h1>
+            <p className="mt-5 max-w-[560px] text-base leading-7 text-white/70 sm:text-lg">One Setuvara pass. One QR. It follows the Mode you have Equipped, so the right version of you is always ready to share.</p>
+          </div>
+
+          <div className="mt-12 flex flex-wrap items-end justify-between gap-6 border-t border-white/15 pt-5">
+            <div>
+              <p className="font-label text-[10px] uppercase tracking-[0.18em] text-white/50">Currently Equipped</p>
+              {loading ? <p className="mt-2 h-7 w-32 animate-pulse rounded-full bg-white/10" /> : state ? <p className="mt-2 text-xl font-semibold">{modeLabel[state.profile.mode]} Mode</p> : <p className="mt-2 text-sm text-white/70">Your Setuvara Mode</p>}
+            </div>
+            <Link className="inline-flex min-h-11 items-center rounded-full border border-white/25 px-4 text-sm font-semibold transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7ff4a]" href="/app/tap">Change Equipped Mode <span aria-hidden="true" className="ml-2">↗</span></Link>
+          </div>
+        </section>
+
+        <section aria-labelledby="wallet-status-heading" className="min-w-0 rounded-[28px] bg-white p-6 shadow-[0_0_0_1px_rgba(13,13,13,.08)] sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-label text-[10px] uppercase tracking-[0.2em] text-black/50">Your pass</p>
+              <h2 className="mt-2 break-words font-display text-2xl font-semibold tracking-[-0.035em] sm:text-3xl" id="wallet-status-heading">{loading ? "Getting things ready" : state?.profile.displayName ?? "Your Setuvara"}</h2>
+              {state && <p className="mt-1 break-all text-sm text-black/60">setuvara.com/{state.profile.username}</p>}
+            </div>
+            <span className="inline-flex min-h-9 shrink-0 items-center rounded-full bg-[#ff5a4f]/12 px-3 font-label text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a92c27]">Coming soon</span>
+          </div>
+
+          <div className="mt-7 border-t border-black/10 pt-6">
+            <h3 className="font-display text-xl font-semibold tracking-[-0.025em]">Apple Wallet + Google Wallet</h3>
+            <p className="mt-2 text-sm leading-6 text-black/65">Carry your Setuvara identity with you. Your pass follows whatever Mode and sharing intent you have Equipped.</p>
+          </div>
+
+          <ul aria-label="What your Wallet pass will include" className="mt-6 grid gap-3 text-sm text-black/75 sm:grid-cols-2">
+            {["One identity pass", "The same stable QR", "Personal, Event and Business", "Follows Equipped automatically"].map((feature) => (
+              <li className="flex min-w-0 items-start gap-2.5" key={feature}>
+                <span aria-hidden="true" className="mt-[0.48rem] size-1.5 shrink-0 rounded-full bg-[#ff5a4f]" />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-7 flex flex-col gap-4 border-t border-black/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Quick QR remains ready today.</p>
+              <p className="mt-1 text-sm leading-5 text-black/60">Share the Mode you have Equipped.</p>
+            </div>
+            <Link className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-[#f5f4ef] transition hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff5a4f]" href="/app/tap">Use Quick QR <span aria-hidden="true">↗</span></Link>
+          </div>
+
+          {notice && <p aria-live="polite" className="mt-4 rounded-xl bg-[#f5f4ef] px-4 py-3 text-sm text-black/75">{notice} <button className="ml-1 font-semibold underline underline-offset-4 focus-visible:outline-2" onClick={onRetry} type="button">Try again</button></p>}
+        </section>
+      </div>
     </main>
   );
 }
