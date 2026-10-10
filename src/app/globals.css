@@ -27,6 +27,26 @@ body {
   margin: 0;
 }
 
+/* The public route emits theme-color in the server-rendered head. Use it to paint the document
+   canvas before body content arrives, including overscroll and safe areas. */
+html:has(head > meta[name="theme-color"][content="#0D0D0D"]),
+html:has(head > meta[name="theme-color"][content="#0D0D0D"]) body {
+  background-color: #0d0d0d !important;
+  color-scheme: dark;
+}
+
+html:has(head > meta[name="theme-color"][content="#FFFFFF"]),
+html:has(head > meta[name="theme-color"][content="#FFFFFF"]) body {
+  background-color: #ffffff !important;
+  color-scheme: light;
+}
+
+html:has(head > meta[name="theme-color"][content="#F5F4EF"]),
+html:has(head > meta[name="theme-color"][content="#F5F4EF"]) body {
+  background-color: #f5f4ef !important;
+  color-scheme: light;
+}
+
 @keyframes connect-half-left {
   0% { opacity: 0; transform: translateX(-18px) rotate(-60deg); }
   65% { opacity: 1; transform: translateX(1px) rotate(-60deg); }

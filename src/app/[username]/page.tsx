@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
-import { isFullBleed, ProfileRenderer, profileTone } from "@/components/profile/profile-renderer";
+import { isFullBleed, ProfileRenderer, profileTone, resolvedBrowserThemeColor } from "@/components/profile/profile-renderer";
 import { resolveModeAccent } from "@/components/profile/appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
@@ -17,6 +18,54 @@ type PublicProfilePageProps = {
   params: Promise<{ username: string }>;
   searchParams: Promise<{ mode?: string; source?: string }>;
 };
+
+const FALLBACK_BROWSER_THEME_COLOR = "#F5F4EF";
+
+const readPublicProfileMode = cache(async (username: string, slug: ModeSlug) => {
+  try {
+    const supabase = await createClient();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, bio, is_published")
+      .eq("username", username)
+      .eq("is_published", true)
+      .maybeSingle();
+    if (profileError || !profile) return null;
+
+    const { data: mode, error: modeError } = await supabase.from("profile_modes")
+      .select("id, slug, label, is_enabled, settings, appearance, image_path")
+      .eq("profile_id", profile.id)
+      .eq("slug", slug)
+      .eq("is_enabled", true)
+      .maybeSingle();
+    if (modeError || !mode) return null;
+
+    return { profile, mode };
+  } catch {
+    return null;
+  }
+});
+
+function parseModeSlug(value?: string): ModeSlug | null {
+  return value === undefined || value === "personal" ? "personal"
+    : value === "event" || value === "business" ? value
+      : null;
+}
+
+export async function generateViewport({ params, searchParams }: PublicProfilePageProps): Promise<Viewport> {
+  const [{ username }, query] = await Promise.all([params, searchParams]);
+  const normalizedUsername = normalizeUsername(username);
+  const slug = parseModeSlug(query.mode);
+  const record = isAllowedUsername(normalizedUsername) && slug
+    ? await readPublicProfileMode(normalizedUsername, slug)
+    : null;
+  return {
+    themeColor: record
+      ? resolvedBrowserThemeColor({ slug: record.mode.slug as ModeSlug, appearance: record.mode.appearance as ProfileMode["appearance"] })
+      : FALLBACK_BROWSER_THEME_COLOR,
+    viewportFit: "cover",
+  };
+}
 
 type ConnectionState = {
   connection_id: string;
@@ -37,38 +86,26 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const [{ username: rawUsername }, query] = await Promise.all([params, searchParams]);
   const username = normalizeUsername(rawUsername);
   if (!isAllowedUsername(username)) notFound();
-  const slug = (query.mode ?? "personal") as ModeSlug;
-  if (!["personal", "event", "business"].includes(slug)) notFound();
+  const slug = parseModeSlug(query.mode);
+  if (!slug) notFound();
 
+  const record = await readPublicProfileMode(username, slug);
+  if (!record) notFound();
+  const { profile, mode: rawMode } = record;
   const supabase = await createClient();
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, username, display_name, bio, is_published")
-    .eq("username", username)
-    .eq("is_published", true)
-    .maybeSingle();
-  if (profileError || !profile) notFound();
-  const { data: publicCosmetics } = await supabase.from("passport_preferences")
-    .select("category,reward_id")
-    .eq("user_id", profile.id)
-    .in("category", ["profile_treatment", "accent", "profile_mark"]);
 
-  const { data: rawMode, error: modeError } = await supabase
-    .from("profile_modes")
-    .select("id, slug, label, is_enabled, settings, appearance, image_path")
-    .eq("profile_id", profile.id)
-    .eq("slug", slug)
-    .eq("is_enabled", true)
-    .maybeSingle();
-  if (modeError || !rawMode) notFound();
-
-  const { data: links, error: linksError } = await supabase
-    .from("profile_links")
-    .select("id, title, url, link_type, is_visible, sort_order")
-    .eq("profile_id", profile.id)
-    .eq("mode_id", rawMode.id)
-    .eq("is_visible", true)
-    .order("sort_order");
+  const [{ data: publicCosmetics }, { data: links, error: linksError }] = await Promise.all([
+    supabase.from("passport_preferences")
+      .select("category,reward_id")
+      .eq("user_id", profile.id)
+      .in("category", ["profile_treatment", "accent", "profile_mark"]),
+    supabase.from("profile_links")
+      .select("id, title, url, link_type, is_visible, sort_order")
+      .eq("profile_id", profile.id)
+      .eq("mode_id", rawMode.id)
+      .eq("is_visible", true)
+      .order("sort_order"),
+  ]);
   if (linksError) notFound();
 
   // Blocks are optional content: if they can't load, the profile still renders.
@@ -151,9 +188,10 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   // Full Bleed runs the photo to the phone's edges; the page takes on the profile's own background.
   const bleed = isFullBleed(mode);
   const pageTone = profileTone(mode);
+  const browserThemeColor = resolvedBrowserThemeColor(mode);
 
   return (
-    <main className={`${marketingFontClasses} min-h-dvh bg-[#f5f4ef] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:bg-[var(--page-bg)] max-sm:px-0 max-sm:py-0" : ""}`} style={bleed ? ({ "--page-bg": pageTone.bg } as React.CSSProperties) : undefined}>
+    <main data-public-profile-surface="true" data-public-profile-theme={mode.appearance.theme} data-public-profile-layout={mode.appearance.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:px-0 max-sm:py-0" : ""}`} style={{ "--page-bg": browserThemeColor } as React.CSSProperties}>
       <div className="relative mx-auto w-full max-w-[440px]">
         <header className={`mb-4 flex items-center justify-between px-2 ${bleed ? "max-sm:absolute max-sm:inset-x-0 max-sm:top-0 max-sm:z-20 max-sm:mb-0 max-sm:px-4 max-sm:pt-2 max-sm:text-[#f5f4ef] max-sm:[text-shadow:0_1px_12px_rgba(0,0,0,.35)]" : ""}`}>
           <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>

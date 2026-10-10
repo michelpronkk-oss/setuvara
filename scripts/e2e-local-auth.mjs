@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { validateFreshHome, validateHomeWithData } from "./e2e-app-home.mjs";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
@@ -199,6 +199,53 @@ async function signUpAndConfirm(browser, account, viewport = { width: 390, heigh
 async function expectNoHorizontalOverflow(page, label) {
   const size = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   assert(size.scroll <= size.client + 1, `${label} overflows horizontally (${size.scroll} > ${size.client})`);
+}
+
+const profileThemeColors = { dark: "#0D0D0D", light: "#FFFFFF", editorial: "#F5F4EF" };
+const asRgb = (hex) => `rgb(${[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)).join(", ")})`;
+
+async function assertPublicProfileTheme(page, username, mode, theme, label, refresh = false) {
+  const expected = profileThemeColors[theme];
+  assert(expected, `${label} uses a supported profile tone`);
+  const url = `${appUrl}/${username}${mode === "personal" ? "" : `?mode=${mode}`}`;
+  const response = await page.goto(url, { waitUntil: "domcontentloaded" });
+  assert.equal(response?.status(), 200, `${label} should load publicly`);
+  const html = await response.text();
+  const head = html.slice(0, html.indexOf("</head>"));
+  assert(head.includes(`name="theme-color" content="${expected}"`), `${label} should render its theme color in the initial server HTML head`);
+  assert(html.includes(`data-public-profile-theme="${theme}"`), `${label} should render its selected Mode theme before hydration`);
+  assert(html.includes(`--page-bg:${expected}`), `${label} should render its page surface tone before hydration`);
+
+  const snapshot = await page.evaluate(() => ({
+    themeColor: document.querySelector('meta[name="theme-color"]')?.getAttribute("content"),
+    viewport: document.querySelector('meta[name="viewport"]')?.getAttribute("content"),
+    profileTheme: document.querySelector("[data-public-profile-surface]")?.getAttribute("data-public-profile-theme"),
+    profileLayout: document.querySelector("[data-public-profile-surface]")?.getAttribute("data-public-profile-layout"),
+    htmlBackground: getComputedStyle(document.documentElement).backgroundColor,
+    bodyBackground: getComputedStyle(document.body).backgroundColor,
+    profileBackground: getComputedStyle(document.querySelector("main")).backgroundColor,
+    profilePaddingTop: getComputedStyle(document.querySelector("main")).paddingTop,
+    profilePaddingBottom: getComputedStyle(document.querySelector("main")).paddingBottom,
+  }));
+  assert.equal(snapshot.themeColor, expected, `${label} theme-color should be current`);
+  assert(snapshot.viewport?.includes("viewport-fit=cover"), `${label} should request safe-area coverage`);
+  assert.equal(snapshot.profileTheme, theme);
+  for (const [surface, color] of [["html", snapshot.htmlBackground], ["body", snapshot.bodyBackground], ["profile", snapshot.profileBackground]]) {
+    assert.equal(color, asRgb(expected), `${label} ${surface} background should match the active profile tone`);
+  }
+  if (mode === "personal" && theme === "dark" && page.viewportSize().width <= 390) {
+    assert.equal(snapshot.profileLayout, "full-bleed", `${label} should use the intended Full Bleed layout fixture`);
+    assert.equal(snapshot.profilePaddingTop, "0px", `${label} Full Bleed must reach the top viewport edge`);
+    assert.equal(snapshot.profilePaddingBottom, "0px", `${label} Full Bleed must not add bottom safe-area padding`);
+    const hero = await page.locator("article").first().boundingBox();
+    assert(hero && hero.x === 0 && hero.width === 390, `${label} Full Bleed photo surface should reach both phone edges`);
+  }
+  await expectNoHorizontalOverflow(page, label);
+  if (refresh) {
+    await page.reload();
+    assert.equal(await page.locator('meta[name="theme-color"]').getAttribute("content"), expected, `${label} should retain its theme after a direct Mode refresh`);
+  }
+  return snapshot;
 }
 
 async function createWebmFixture(page, frameColor = "#ff5a4f") {
@@ -854,7 +901,7 @@ try {
   await page.keyboard.press("Control+s");
   await waitSaved(page);
   await openSection(page, "Appearance");
-  await page.getByRole("button", { name: /Dark/ }).click();
+  await page.getByRole("button", { name: /Light/ }).click();
   await page.getByRole("button", { name: /Event Poster/ }).click();
   await page.keyboard.press("Control+s");
   await waitSaved(page);
@@ -876,6 +923,7 @@ try {
   await page.keyboard.press("Control+s");
   await waitSaved(page);
   await openSection(page, "Appearance");
+  await page.getByRole("button", { name: /Aa Editorial/ }).click();
   await page.getByRole("button", { name: /Editorial Business/ }).click();
   await page.keyboard.press("Control+s");
   await waitSaved(page);
@@ -926,6 +974,12 @@ try {
     assert.equal((await page.getByLabel("Custom accent colour").inputValue()).toUpperCase(), accent, `${mode} accent should persist after reloading the editor`);
     await assertEditorAccent(page, mode, accent);
   }
+  await setMode(page, "personal");
+  await openSection(page, "Appearance");
+  await page.getByRole("button", { name: /Full Bleed/ }).click();
+  await page.getByRole("button", { name: /Aa Dark/ }).click();
+  await waitSaved(page);
+  await setMode(page, "business");
   await page.setViewportSize({ width: 390, height: 844 });
   console.log("PASS Mode accent default, preset and custom colors, owner/visitor/connected preview, per-Mode isolation, and reload persistence");
 
@@ -1217,6 +1271,7 @@ try {
   await otherPage.getByRole("button", { name: "Business", exact: true }).click();
   await otherPage.getByRole("button", { name: "Connect", exact: true }).last().click();
   await waitForConnected(otherPage, "registered account 2 to account 1");
+  await assertPublicProfileTheme(otherPage, owner.username, "event", "light", "Connected visitor Event Mode");
   const registeredDetailHref = await otherPage.getByRole("link", { name: "View connection" }).getAttribute("href");
   assert.match(registeredDetailHref ?? "", /^\/app\/connections\/[0-9a-f-]+$/i);
   await otherPage.goto(`${appUrl}/app/connections`);
@@ -1579,6 +1634,49 @@ try {
   assert(confirmationWithBadCode.headers().location?.includes("/login?error=confirmation_failed"), "An invalid PKCE confirmation code should show the confirmation error");
   const rootDefault = await anonPage.goto(`${appUrl}/${owner.username}`); assert.equal(rootDefault?.status(), 200);
   const rootPersonal = await anonPage.goto(`${appUrl}/${owner.username}?mode=personal`); assert.equal(rootPersonal?.status(), 200);
+  const ownerTone = await assertPublicProfileTheme(page, owner.username, "personal", "dark", "Owner Personal Full Bleed");
+  const visitorTone = await assertPublicProfileTheme(anonPage, owner.username, "personal", "dark", "Logged-out Personal Full Bleed");
+  assert.equal(ownerTone.themeColor, visitorTone.themeColor, "Owner and visitor see the same Mode browser tone");
+  assert.equal(ownerTone.profileBackground, visitorTone.profileBackground);
+  await assertPublicProfileTheme(anonPage, owner.username, "event", "light", "Event Mode direct refresh", true);
+  await assertPublicProfileTheme(anonPage, owner.username, "business", "editorial", "Business Editorial Mode");
+  for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
+    await anonPage.setViewportSize({ width, height });
+    await assertPublicProfileTheme(anonPage, owner.username, "personal", "dark", `Personal public profile ${width}x${height}`);
+  }
+  const androidContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 3,
+    userAgent: "Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+  });
+  try {
+    await assertPublicProfileTheme(await androidContext.newPage(), owner.username, "personal", "dark", "Android Chrome mobile emulation");
+  } finally {
+    await androidContext.close();
+  }
+  const safariBrowser = await webkit.launch({ headless: true });
+  try {
+    const safariContext = await safariBrowser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 3,
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+    });
+    try {
+      await assertPublicProfileTheme(await safariContext.newPage(), owner.username, "personal", "dark", "iOS Safari WebKit mobile emulation");
+    } finally {
+      await safariContext.close();
+    }
+  } finally {
+    await safariBrowser.close();
+  }
+  const missingProfile = await anonPage.goto(`${appUrl}/not_a_real_setuvara_user`);
+  assert.equal(missingProfile?.status(), 404, "A missing username should remain a 404");
+  assert.equal(await anonPage.locator('meta[name="theme-color"]').getAttribute("content"), "#F5F4EF", "404 browser theme should fall back to Setuvara Paper");
+  console.log("PASS public browser theme-color, SSR first paint, Full Bleed, Mode-specific tones, owner/visitor/connected, refresh, overscroll surfaces, and responsive viewports");
   const legacyDefault = await anonContext.request.get(`${appUrl}/u/${owner.username}`, { maxRedirects: 0 }); assert.equal(legacyDefault.status(), 308);
   for (const bad of ["not_a_real_setuvara_user", "bad%25name"]) assert.equal((await anonContext.request.get(`${appUrl}/${bad}`)).status(), 404);
   console.log("PASS static routes, /auth/confirm error, health API, root profile, invalid username, and legacy redirect");

@@ -55,9 +55,14 @@ export function isFullBleed(mode: ProfileMode) {
 }
 
 /** Background and darkness of a Mode's theme, so a page can continue it past the card. */
-export function profileTone(mode: ProfileMode) {
+export function profileTone(mode: Pick<ProfileMode, "slug" | "appearance">) {
   const tone = tones[mode.appearance.theme] ?? (mode.slug === "personal" ? tones.dark : tones.light);
   return { bg: tone.bg, dark: tone.dark };
+}
+
+/** Single browser/page surface color derived from the same tone as the renderer. */
+export function resolvedBrowserThemeColor(mode: Pick<ProfileMode, "slug" | "appearance">): string {
+  return profileTone(mode).bg;
 }
 
 export function ProfileRenderer(props: ProfileRendererProps) {
