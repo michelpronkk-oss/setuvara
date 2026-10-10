@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
+import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { AppShell } from "@/components/app/app-shell";
+import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
+import { signHomeImage } from "@/lib/app/media";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./identity/actions";
 
@@ -12,20 +15,29 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (error || !userId) redirect("/login?next=/app");
 
-  const [{ data: profile }, requestHeaders] = await Promise.all([
+  const [{ data: profile }, { data: personal }, requestHeaders, billing] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", userId).maybeSingle(),
+    supabase.from("profile_modes").select("image_path").eq("profile_id", userId).eq("slug", "personal").maybeSingle(),
     headers(),
+    getViewerPlan(userId),
   ]);
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "setuvara.com";
-  const publicOrigin = /^(localhost|127\.0\.0\.1):(?:3000|3014)$/.test(host) ? `http://${host}` : "https://setuvara.com";
+  const publicOrigin = await getPublicOrigin(requestHeaders);
+  // Small signed thumbnail for the avatar. Width transform keeps the header light.
+  const avatarUrl = await signHomeImage(supabase, personal?.image_path, true);
 
   return (
-    <AppShell
-      displayName={profile?.display_name ?? "Your identity"}
-      publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}
-      signOut={signOut}
-    >
-      {children}
-    </AppShell>
+    <div className={marketingFontClasses}>
+      <AppShell
+        avatarUrl={avatarUrl}
+        canManageBilling={billing.canManageBilling}
+        displayName={profile?.display_name ?? "Your identity"}
+        plan={billing.plan}
+        publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}
+        signOut={signOut}
+        username={profile?.username ?? null}
+      >
+        {children}
+      </AppShell>
+    </div>
   );
 }

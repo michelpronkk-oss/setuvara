@@ -564,7 +564,10 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     setSlug(targetSlug);
     const query = new URLSearchParams({ mode: targetSlug });
     if (nextSection !== "home") query.set("section", nextSection);
-    window.history.replaceState(window.history.state, "", `/app/identity?${query.toString()}`);
+    // Let Next's native-history integration update the canonical URL as well.
+    // Passing its internal history state bypasses that integration, so a
+    // Server Action revalidation can restore the previously opened section.
+    window.history.replaceState(null, "", `/app/identity?${query.toString()}`);
     document.getElementById("editor-scroll")?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
   }, [flush, slug]);

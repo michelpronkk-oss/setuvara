@@ -1,80 +1,85 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import { Suspense } from "react";
 
+import { IdentityStage, type StageMode } from "@/components/app/home/identity-stage";
+import { PassportSection, PassportSkeleton } from "@/components/app/home/passport-section";
+import { PeopleSection, PeopleSkeleton } from "@/components/app/home/people-section";
+import type { ModeSlug } from "@/components/profile/types";
+import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
+import { signHomeImage } from "@/lib/app/media";
 import { createClient } from "@/lib/supabase/server";
 
-type RecentConnection = {
-  id: string;
-  user_id: string;
-  connected_user_id: string | null;
-  user_display_name_snapshot: string;
-  connected_display_name_snapshot: string;
-  guest_display_name: string | null;
-  created_at: string;
-};
+const ORDER: ModeSlug[] = ["personal", "event", "business"];
 
-export default async function AppHomePage() {
+export default async function AppHomePage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+  const query = await searchParams;
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (error || !userId) redirect("/login?next=/app");
+  const guestSessionToken = (await cookies()).get("sv-guest-session")?.value;
+  if (guestSessionToken) await supabase.rpc("claim_guest_connections", { p_session_token: guestSessionToken });
 
-  const [{ data: profile }, { data: connections }, { data: passport }] = await Promise.all([
-    supabase.from("profiles").select("username, display_name, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("connections").select("id,user_id,connected_user_id,user_display_name_snapshot,connected_display_name_snapshot,guest_display_name,created_at").order("created_at", { ascending: false }).limit(5),
-    supabase.rpc("get_passport_overview"),
+  // Identity is the only required source. People and Passport stream in behind their own boundaries.
+  const [{ data: profile }, { data: modeRows }, requestHeaders, billing] = await Promise.all([
+    supabase.from("profiles").select("username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
+    supabase.from("profile_modes").select("slug, label, is_enabled, settings, image_path").eq("profile_id", userId).order("sort_order"),
+    headers(),
+    getViewerPlan(userId),
   ]);
   if (!profile) redirect("/login?next=/app");
+  const publicOrigin = await getPublicOrigin(requestHeaders);
 
-  const latest = (connections ?? []) as RecentConnection[];
-  const people = latest.map((connection) => ({
-    id: connection.id,
-    name: connection.guest_display_name ?? (connection.user_id === userId ? connection.connected_display_name_snapshot : connection.user_display_name_snapshot),
-    date: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(connection.created_at)),
+  const modes: StageMode[] = await Promise.all(ORDER.map(async (slug) => {
+    const row = modeRows?.find((item) => item.slug === slug);
+    const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
+    const imageUrl = await signHomeImage(supabase, row?.image_path);
+    return { slug, enabled: row?.is_enabled ?? false, imageUrl, ...describeMode(slug, settings, profile.bio) };
   }));
-  const connectionCount = typeof passport === "object" && passport !== null && "connectionCount" in passport && typeof passport.connectionCount === "number" ? passport.connectionCount : latest.length;
-  const greeting = profile.display_name.trim().split(/\s+/)[0] || "there";
+  const initialMode = ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6 sm:py-10 lg:px-10 lg:py-12">
-      <section className="relative overflow-hidden rounded-[2rem] bg-[#0d0d0d] px-6 py-8 text-[#f5f4ef] sm:px-10 sm:py-11">
-        <div aria-hidden="true" className="absolute -right-16 -top-24 size-72 rounded-full border border-white/10 sm:right-0 sm:size-96" />
-        <div className="relative max-w-2xl">
-          <p className="text-[10px] font-bold tracking-[0.22em] text-[#ff827b]">YOUR SETUVARA, IN MOTION</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.065em] sm:text-6xl">Good to see you, {greeting}.</h1>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-white/60">One identity for all the ways you show up. Choose a Mode, then share the version that fits this moment.</p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link className="inline-flex min-h-12 items-center rounded-full bg-[#ff5a4f] px-5 text-sm font-semibold text-[#0d0d0d] transition-transform hover:-translate-y-0.5" href="/app/identity?mode=personal&section=share">Share your Setuvara <span aria-hidden="true" className="ml-2">↗</span></Link>
-            <Link className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-5 text-sm font-semibold text-white hover:bg-white/10" href="/app/identity?mode=personal&section=profile">Edit identity</Link>
-          </div>
-        </div>
-      </section>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="rounded-[1.7rem] border border-black/10 bg-white p-5 sm:p-7">
-          <div className="flex items-end justify-between gap-4">
-            <div><p className="text-[10px] font-bold tracking-[0.2em] text-black/40">YOUR PEOPLE</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.045em]">Latest connections</h2></div>
-            <Link className="inline-flex min-h-11 items-center text-xs font-semibold underline underline-offset-4" href="/app/connections">See all</Link>
-          </div>
-          {people.length ? <ul className="mt-5 divide-y divide-black/10">{people.slice(0, 4).map((person) => <li className="flex min-h-[68px] items-center gap-3 py-3" key={person.id}>
-            <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-[#f5f4ef] text-sm font-semibold">{person.name.slice(0, 1).toUpperCase()}</span>
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{person.name}</span><span className="text-xs text-black/45">{person.date}</span>
-          </li>)}</ul> : <div className="mt-5 rounded-2xl bg-[#f5f4ef] px-5 py-6"><p className="font-semibold">A little room for the people you meet.</p><p className="mt-1 max-w-md text-sm leading-6 text-black/55">When you connect in person, Setuvara helps you keep the context and find each other again.</p></div>}
-        </section>
-
-        <section className="flex flex-col rounded-[1.7rem] bg-[#ff5a4f] p-5 sm:p-7">
-          <p className="text-[10px] font-bold tracking-[0.2em]">PASSPORT</p><p className="mt-4 text-5xl font-semibold tracking-[-0.07em]">{connectionCount.toLocaleString()}</p><p className="mt-1 text-xs font-bold tracking-[0.18em]">CONNECTIONS KEPT</p>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-black/65">Your Passport keeps the milestones and places that make your network yours.</p>
-          <Link className="mt-auto inline-flex min-h-11 items-center self-start pt-5 text-xs font-semibold underline underline-offset-4" href="/app/passport">Open your Passport <span aria-hidden="true" className="ml-2">↗</span></Link>
-        </section>
+    <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-8 lg:grid lg:h-[calc(100dvh-76px)] lg:min-h-[680px] lg:grid-cols-[minmax(0,1.25fr)_minmax(400px,1fr)] lg:gap-6 lg:pt-1 min-[1800px]:gap-8">
+      <h1 className="sr-only">Your Setuvara</h1>
+      <IdentityStage
+        displayName={profile.display_name}
+        initialMode={initialMode}
+        hasRequestedMode={ORDER.includes(query.mode as ModeSlug)}
+        isPublished={profile.is_published}
+        modes={modes}
+        plan={billing.plan}
+        publicOrigin={publicOrigin}
+        username={profile.username}
+      />
+      <div className="mt-5 flex min-h-0 flex-col gap-6 lg:mt-0 min-[1800px]:gap-8">
+        <Suspense fallback={<PeopleSkeleton />}><PeopleSection userId={userId} /></Suspense>
+        <Suspense fallback={<PassportSkeleton />}><PassportSection /></Suspense>
       </div>
-
-      <section className="mt-6 rounded-[1.7rem] border border-black/10 bg-[#fbfaf7] p-5 sm:p-7">
-        <div className="flex flex-wrap items-center justify-between gap-5">
-          <div><p className="text-[10px] font-bold tracking-[0.2em] text-black/40">READY TO SHARE</p><h2 className="mt-2 text-xl font-semibold tracking-[-0.04em]">Pick the version for this moment.</h2><p className="mt-1 text-sm text-black/55">Your profile is {profile.is_published ? "live" : "still private"}. Each Mode has its own link.</p></div>
-          <div className="flex flex-wrap gap-2">{(["personal", "event", "business"] as const).map((mode) => <Link className="inline-flex min-h-11 items-center rounded-full border border-black/10 bg-white px-4 text-xs font-semibold capitalize hover:border-black/30" href={`/app/identity?mode=${mode}&section=share`} key={mode}>{mode} QR ↗</Link>)}</div>
-        </div>
-      </section>
-    </div>
+    </main>
   );
+}
+
+function describeMode(slug: ModeSlug, settings: Record<string, string | boolean>, personalBio: string) {
+  const s = (key: string) => (typeof settings[key] === "string" ? (settings[key] as string).trim() : "");
+  const join = (...parts: string[]) => parts.filter(Boolean).join(" · ");
+  if (slug === "event") {
+    return {
+      sub: join(s("eventName"), s("city")) || "Not set up",
+      line: s("hereToMeet") || join(s("eventName"), s("dateLabel"), s("city")) || "Add an event and city before you go.",
+      configured: Boolean(s("eventName") || s("hereToMeet")),
+    };
+  }
+  if (slug === "business") {
+    return {
+      sub: join(s("role"), s("company")) || "Not set up",
+      line: s("description") || join(s("role"), s("company"), s("city")) || "Add your role and company.",
+      configured: Boolean(s("role") || s("company")),
+    };
+  }
+  return {
+    sub: s("location") || "Personal",
+    line: personalBio.trim() || s("note") || "Add a note so people know who they just met.",
+    configured: Boolean(personalBio.trim() || s("note")),
+  };
 }

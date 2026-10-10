@@ -27,13 +27,14 @@ const localPublishableKey = values.get("PUBLISHABLE_KEY");
 const localServiceRoleKey = values.get("SERVICE_ROLE_KEY");
 assert(localUrl && new URL(localUrl).hostname === "127.0.0.1", "Supabase CLI must target local Setuvara only");
 assert(localPublishableKey, "Local Supabase publishable key is missing");
-assert(localServiceRoleKey, "Local Setuvara service key is required only to clean generated local E2E accounts");
+assert(localServiceRoleKey, "Local Setuvara server key is required for billing reads and E2E fixture cleanup");
 
 const appUrl = "http://127.0.0.1:3014";
 const env = {
   ...process.env,
   NEXT_PUBLIC_SUPABASE_URL: localUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: localPublishableKey,
+  SUPABASE_SERVICE_ROLE_KEY: localServiceRoleKey,
   PLAYWRIGHT_BROWSERS_PATH: resolve(root, ".playwright-browsers"),
   E2E_APP_URL: appUrl,
   E2E_MAILPIT_URL: "http://127.0.0.1:54324",

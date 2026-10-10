@@ -126,6 +126,29 @@ users or production keys. It also verifies notification preference RLS,
 single-use unsubscribe behavior, event idempotency, recap grouping, and
 recipient resolution from the confirmed Auth user at delivery time.
 
+The Home checks also cover real empty/progressed Connections and Passport,
+Free/Plus/Pro account states, remembered Modes, sharing and keyboard focus,
+and 360/390/430/1280/1440/1728/1920px layouts. Billing fixtures are local only;
+portal success/error navigation and native Share dispatch are tested at the
+HTTP/browser API boundaries without calling Dodo or opening an OS share sheet.
+The runner supplies the local server key in memory for server-side billing
+reads. QA screenshots stay in the ignored `.next/home-qa/` directory.
+
+## Signed-in Home
+
+`/app` uses desktop top navigation and mobile bottom navigation. Account,
+notification preferences and billing are in the avatar menu. `/app/identity`
+keeps its own full-screen editor. Home's Mode stage shares the current
+root-profile URL conventions with Identity, and remembers the last selected
+Mode; an explicit valid `?mode=` takes precedence on arrival.
+
+People and Passport stream behind separate loading boundaries and use the
+existing RLS-scoped Connections data and Passport RPC/reward registry. Plan
+state comes from the existing server-only billing service. Hosted Home media
+uses signed 96px avatar and 1600px stage transforms; local stacks without
+imgproxy use the ordinary signed Storage path. No schema or billing-provider
+behavior changes are required for this Home integration.
+
 ## Project structure
 
 ```text

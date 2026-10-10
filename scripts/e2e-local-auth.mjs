@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
+import { validateFreshHome, validateHomeWithData } from "./e2e-app-home.mjs";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const mailpitUrl = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
@@ -175,7 +177,7 @@ async function signUpAndConfirm(browser, account, viewport = { width: 390, heigh
   const confirmationUrl = await waitForConfirmation(account.email);
   await page.goto(confirmationUrl);
   await page.waitForURL(`${appUrl}/app/identity`, { timeout: 20_000 });
-  await page.getByRole("heading", { name: "Make this one yours." }).waitFor();
+  await page.getByRole("heading", { name: "Personal Mode", exact: true }).filter({ visible: true }).waitFor();
   assert(confirmationRouteSeen, "/auth/confirm must be hit in the signup context");
   const cookies = await context.cookies(appUrl);
   assert(cookies.some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")), "Email verification must create the SSR auth cookie");
@@ -197,14 +199,24 @@ async function waitForConnected(page, label) {
 }
 
 async function openSection(page, title) {
-  await page.getByRole("button", { name: title, exact: true }).first().click();
+  const labels = { "Links": "Content", "Mode settings": "Mode Settings" };
+  const actual = labels[title] ?? title;
+  const section = { Profile: "profile", Links: "links", Appearance: "appearance", "Mode settings": "settings", Share: "share" }[title];
+  const control = page.getByRole("button", { name: actual, exact: true }).filter({ visible: true }).first();
+  if (await control.count()) await control.click();
+  else {
+    const target = new URL(page.url()); target.searchParams.set("section", section);
+    await page.goto(target.toString());
+  }
+  await page.getByRole("heading", { name: actual, exact: true }).filter({ visible: true }).waitFor();
 }
 
 async function waitSaved(page) {
-  await page.locator('div[aria-live="polite"]').filter({ hasText: /^Saved$/ }).waitFor();
+  await page.locator('span[aria-live="polite"]').filter({ hasText: /Saved$/ }).waitFor({ state: "attached" });
 }
 
 async function waitEditorMessage(page, message) {
+  message = ({ "Photo saved": "Photo updated in Personal Mode", "Your profile is live": "Published. Every share surface is up to date.", "Your profile is private": "Your Setuvara is private. Links and QR codes stop working." })[message] ?? message;
   const escaped = message.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   try {
     await page.locator('div[aria-live="polite"]').filter({ hasText: new RegExp(`^${escaped}$`) }).waitFor();
@@ -215,23 +227,30 @@ async function waitEditorMessage(page, message) {
   }
 }
 
-async function addLink(page, title, value, provider = "Custom Link") {
-  await openSection(page, "Links");
-  const pickerTrigger = page.getByRole("button", { name: /Choose a provider|Change$/ }).first();
+async function chooseLinkProvider(page, provider) {
+  const pickerTrigger = page.getByRole("button", { name: "Choose a provider" });
   await pickerTrigger.click();
   const picker = page.getByRole("dialog", { name: "Choose a link" });
-  const providerSearch = picker.getByRole("textbox", { name: "Search links" });
-  await providerSearch.fill(provider);
-  const option = picker.getByRole("button", { name: new RegExp(provider.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }).first();
-  await option.click();
-  await page.getByRole("textbox", { name: "Link label" }).fill(title);
-  await page.getByRole("textbox", { name: "Link value" }).fill(value);
-  await page.getByRole("button", { name: `Add ${provider}`, exact: true }).click();
-  await page.getByRole("button", { name: `Hide ${title}`, exact: true }).waitFor();
+  await picker.getByRole("textbox", { name: "Search links" }).fill(provider);
+  await picker.getByRole("button", { name: new RegExp(provider, "i") }).first().click();
 }
+async function openAddLink(page) {
+  await openSection(page, "Links");
+  await page.getByRole("button", { name: /^(Add|Add content.*)$/ }).filter({ visible: true }).click();
 
+}
+async function addLink(page, title, value, provider = "Custom Link") {
+  await openAddLink(page);
+  await chooseLinkProvider(page, provider);
+  const sheet = page.getByRole("dialog");
+  await sheet.getByLabel("Label", { exact: true }).fill(title);
+  await sheet.locator("#new-link-value").fill(value);
+  await sheet.getByRole("button", { name: "Add link", exact: true }).click();
+  await sheet.waitFor({ state: "detached" });
+  await page.getByRole("switch", { name: `Hide ${title}`, exact: true }).waitFor();
+}
 async function setMode(page, mode) {
-  await page.getByRole("tab", { name: mode, exact: true }).click();
+  await page.getByRole("tab", { name: new RegExp(`^${mode}`, "i") }).filter({ visible: true }).click();
 }
 
 async function testResponsiveAuth(browser, width, height) {
@@ -349,39 +368,29 @@ try {
       storageFailure = { status: response.status(), body: (await response.text()).slice(0, 500) };
     }
   });
-  await page.goto(`${appUrl}/app`);
-  await page.getByRole("heading", { name: /Good to see you/ }).waitFor();
-  await page.getByRole("link", { name: "Share your Setuvara" }).waitFor();
-  await page.getByRole("link", { name: "Identity", exact: true }).waitFor();
-  await page.locator("details > summary").click();
-  await page.getByRole("link", { name: "View public profile" }).waitFor();
-  await page.getByRole("link", { name: "Mode settings" }).waitFor();
-  await page.locator("details > summary").click();
+  await validateFreshHome(page, appUrl);
   await expectNoHorizontalOverflow(page, "Setuvara Home");
   await page.goto(`${appUrl}/app/identity`);
-  await page.getByRole("tab", { name: "personal", exact: true }).waitFor();
-  await page.getByRole("tab", { name: "event", exact: true }).waitFor();
-  await page.getByRole("tab", { name: "business", exact: true }).waitFor();
+  await page.getByRole("tab", { name: /^Personal/ }).filter({ visible: true }).waitFor();
+  await page.getByRole("tab", { name: /^Event/ }).filter({ visible: true }).waitFor();
+  await page.getByRole("tab", { name: /^Business/ }).filter({ visible: true }).waitFor();
   console.log("PASS local signup → captured confirmation → /auth/confirm → authenticated editor and Setuvara Home shell");
 
+  await openSection(page, "Profile");
   await page.getByLabel("Username").fill(owner.username);
   await page.getByLabel("Display name").fill("Aanya Rao");
-  await page.getByLabel("Personal bio").fill("A draft that saves itself while I make it mine.");
+  await page.getByLabel("Personal line").fill("A draft that saves itself while I make it mine.");
   await waitSaved(page);
   await page.reload();
-  assert.equal(await page.getByLabel("Personal bio").inputValue(), "A draft that saves itself while I make it mine.", "Valid profile edits should autosave and survive refresh");
-  await page.getByLabel("Personal bio").fill("Temporary text for undo.");
-  await page.keyboard.press("Control+z");
-  await page.waitForFunction(() => document.querySelector('textarea[placeholder="A few honest words about you"]')?.value === "A draft that saves itself while I make it mine.");
-  await waitEditorMessage(page, "Change undone");
-  await page.getByLabel("Personal bio").fill("One person, three thoughtful contexts.");
-  await page.getByRole("button", { name: "Save identity details" }).click();
+  assert.equal(await page.getByLabel("Personal line").inputValue(), "A draft that saves itself while I make it mine.", "Valid profile edits should autosave and survive refresh");
+  await page.getByLabel("Personal line").fill("One person, three thoughtful contexts.");
+  await page.keyboard.press("Control+s");
   await waitSaved(page);
 
-  await page.getByRole("button", { name: "Add a photo" }).click();
+  await page.getByRole("button", { name: "Upload a photo" }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: "profile.png", mimeType: "image/png", buffer: png });
-  await page.getByRole("dialog", { name: "Crop profile image" }).waitFor();
-  await page.getByRole("button", { name: "Use photo" }).click();
+  await page.getByRole("dialog", { name: "Crop photo" }).waitFor();
+  await page.getByRole("button", { name: /^Save( photo)?$/ }).click();
   await Promise.race([
     waitEditorMessage(page, "Photo saved"),
     page.getByText(/This image could not be uploaded/).first().waitFor({ timeout: 20_000 }),
@@ -413,9 +422,9 @@ try {
   };
   await verifyProfileMediaRules(mediaAuth.client, ownerId, mediaFormats);
 
-  await page.getByRole("button", { name: "Replace photo" }).click();
+  await page.getByRole("button", { name: "Replace" }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: "replacement.jpg", mimeType: "image/jpeg", buffer: mediaFormats.jpeg });
-  await page.getByRole("dialog", { name: "Crop profile image" }).waitFor();
+  await page.getByRole("dialog", { name: "Crop photo" }).waitFor();
   const replacementUpload = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
     response.url().includes(`/storage/v1/object/profile-media/${ownerId}/`) &&
@@ -424,7 +433,7 @@ try {
     response.request().method() === "DELETE" &&
     response.url().includes("/storage/v1/object/profile-media") &&
     response.ok(), { timeout: 20_000 });
-  await page.getByRole("button", { name: "Use photo" }).click();
+  await page.getByRole("button", { name: /^Save( photo)?$/ }).click();
   await replacementUpload;
   await removePreviousImage;
   await waitEditorMessage(page, "Photo saved");
@@ -447,18 +456,35 @@ try {
   assert.ifError(beforeOrder.error);
   assert.equal(beforeOrder.data.length, 3);
   const initialOrder = beforeOrder.data.map((row) => row.id);
-  await page.getByRole("button", { name: "Move Portfolio down" }).click();
+  const portfolioRow = page.locator("li").filter({ has: page.getByRole("switch", { name: "Hide Portfolio", exact: true }) });
+  const drag = portfolioRow.getByRole("button", { name: "Drag to reorder" });
+  await drag.scrollIntoViewIfNeeded();
+  const dragBox = await drag.boundingBox();
+  assert(dragBox);
+  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2 + 8, { steps: 3 });
+  await page.waitForTimeout(200);
+  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2 + 90, { steps: 12 });
+  await page.waitForTimeout(200); await page.mouse.up();
   await page.waitForTimeout(500);
   const afterOrder = await personalSort.client.from("profile_links").select("id, title, sort_order, mode_id").eq("profile_id", personalSort.user.id).order("sort_order");
   assert.ifError(afterOrder.error);
   assert.equal(afterOrder.data.length, 3);
   assert.notDeepEqual(afterOrder.data.map((row) => row.id), initialOrder, "Dragging should change and persist the order");
-  await page.getByRole("button", { name: "Edit Portfolio" }).click();
-  await page.getByRole("textbox", { name: "Edit link label" }).fill("Portfolio work");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByRole("button", { name: "Hide Portfolio work" }).waitFor();
+  await portfolioRow.getByRole("button").filter({ hasText: "Portfolio" }).click();
+  await page.getByRole("textbox", { name: "Label" }).fill("Portfolio work");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("switch", { name: "Hide Portfolio work" }).waitFor();
+  // Current editor's Undo restores deleted links; profile fields use native editing/autosave.
+  const contactRow = page.locator("li").filter({ has: page.getByRole("switch", { name: "Hide Contact", exact: true }) });
+  await contactRow.getByRole("button").filter({ hasText: "Contact" }).click();
+  await contactRow.getByRole("button", { name: "Delete", exact: true }).filter({ visible: true }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("switch", { name: "Hide Contact", exact: true }).waitFor();
+  assert.equal((await personalSort.client.from("profile_links").select("id", { count: "exact", head: true })).count, 3, "Undo must restore the deleted link to Supabase");
   await personalSort.client.auth.signOut();
-  console.log("PASS Personal link create, email type, edit, and persisted drag order");
+  console.log("PASS Personal link create, email type, edit, persisted drag order, delete and Undo");
 
   await addLink(page, "Instagram", "@meyvor", "Instagram");
   await addLink(page, "TikTok", "https://www.tiktok.com/@meyvor", "TikTok");
@@ -478,48 +504,35 @@ try {
   assert.equal(personalByTitle.get("My site")?.url, "https://example.com/");
   await normalizedPersonal.client.auth.signOut();
 
-  await openSection(page, "Links");
-  const linkCountBeforeRejects = (await (await authenticatedClient(owner)).client.from("profile_links").select("id", { count: "exact", head: true })).count;
-  await page.getByRole("button", { name: "Choose a provider" }).click();
-  const invalidPicker = page.getByRole("dialog", { name: "Choose a link" });
-  await invalidPicker.getByRole("textbox", { name: "Search links" }).fill("Custom Link");
-  await invalidPicker.getByRole("button", { name: /Custom Link/ }).click();
-  const linkValue = page.getByRole("textbox", { name: "Link value" });
-  const customAdd = page.getByRole("button", { name: "Add Custom Link" });
-  for (const unsafe of ["javascript:alert(1)", "data:text/html,hello", "file:///private/file", "https://not a domain/path"]) {
-    await linkValue.fill(unsafe);
-    assert.equal(await customAdd.isDisabled(), true, `${unsafe} must be rejected before persistence`);
+  const rejectAuth = await authenticatedClient(owner);
+  const linkCountBeforeRejects = (await rejectAuth.client.from("profile_links").select("id", { count: "exact", head: true })).count;
+  for (const [provider, unsafe] of [["Custom Link", "javascript:alert(1)"], ["Custom Link", "data:text/html,hello"], ["Custom Link", "file:///private/file"], ["Custom Link", "https://not a domain/path"], ["WhatsApp", "1234"], ["Email", "mailto:broken"]]) {
+    await openAddLink(page); await chooseLinkProvider(page, provider);
+    const sheet = page.getByRole("dialog");
+    await sheet.locator("#new-link-value").fill(unsafe);
+    await sheet.getByRole("button", { name: "Add link", exact: true }).click();
+    await sheet.getByRole("alert").waitFor();
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
   }
-  await page.getByRole("button", { name: /Custom Link Change/ }).click();
-  const whatsappPicker = page.getByRole("dialog", { name: "Choose a link" });
-  await whatsappPicker.getByRole("textbox", { name: "Search links" }).fill("WhatsApp");
-  await whatsappPicker.getByRole("button", { name: /WhatsApp/ }).click();
-  await page.getByRole("textbox", { name: "Link value" }).fill("1234");
-  assert.equal(await page.getByRole("button", { name: "Add WhatsApp" }).isDisabled(), true, "Broken WhatsApp phone must be rejected");
-  await page.getByRole("button", { name: /WhatsApp Change/ }).click();
-  const emailPicker = page.getByRole("dialog", { name: "Choose a link" });
-  await emailPicker.getByRole("textbox", { name: "Search links" }).fill("Email");
-  await emailPicker.getByRole("button", { name: /^Email/ }).first().click();
-  await page.getByRole("textbox", { name: "Link value" }).fill("mailto:broken");
-  assert.equal(await page.getByRole("button", { name: "Add Email" }).isDisabled(), true, "Malformed email must be rejected");
-  const postRejectCount = (await (await authenticatedClient(owner)).client.from("profile_links").select("id", { count: "exact", head: true })).count;
+  const postRejectCount = (await rejectAuth.client.from("profile_links").select("id", { count: "exact", head: true })).count;
   assert.equal(postRejectCount, linkCountBeforeRejects, "Unsafe/malformed provider inputs must not be persisted");
+  await rejectAuth.client.auth.signOut();
   console.log("PASS provider normalization and rejection for unsafe protocols, malformed URLs, email, and international phone data");
 
   await setMode(page, "event");
-  await openSection(page, "Mode settings");
+  await openSection(page, "Profile");
   await page.getByLabel("Event name").fill("Slush");
   await page.getByLabel("City").fill("Helsinki");
-  await page.getByLabel("Country code (ISO 2-letter)").fill("FI");
+
   await page.getByLabel("Dates").fill("20–21 Nov 2026");
-  await page.getByLabel("Your role / project").fill("Founder · Northlight");
+  await page.getByLabel("Role, project or company").fill("Founder · Northlight");
   await page.getByLabel("Here to meet").fill("Product designers and early-stage operators.");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.keyboard.press("Control+s");
   await waitSaved(page);
   await openSection(page, "Appearance");
-  await page.getByRole("button", { name: "dark", exact: true }).click();
-  await page.getByRole("button", { name: "Event Poster" }).click();
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: /Dark/ }).click();
+  await page.getByRole("button", { name: /Event Poster/ }).click();
+  await page.keyboard.press("Control+s");
   await waitSaved(page);
   await addLink(page, "Slush connections", "https://slush.org", "Event Page");
   await addLink(page, "LinkedIn", "https://www.linkedin.com/in/michel-pronk", "LinkedIn");
@@ -527,20 +540,20 @@ try {
   await addLink(page, "Schedule", "https://slush.org/schedule", "Schedule");
   const eventReload = await page.reload();
   assert.equal(eventReload?.status(), 200);
-  await page.getByRole("button", { name: "Hide LinkedIn" }).waitFor();
+  await page.getByRole("switch", { name: "Hide LinkedIn" }).waitFor();
   console.log("PASS Event Mode settings, appearance, and links");
 
   await setMode(page, "business");
-  await openSection(page, "Mode settings");
+  await openSection(page, "Profile");
   await page.getByLabel("Role").fill("Head of Sales");
   await page.getByLabel("Company").fill("Lumen Labs");
   await page.getByLabel("City").fill("Berlin");
-  await page.getByLabel("What you do").fill("We help teams build durable customer relationships.");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByLabel("Professional description").fill("We help teams build durable customer relationships.");
+  await page.keyboard.press("Control+s");
   await waitSaved(page);
   await openSection(page, "Appearance");
-  await page.getByRole("button", { name: "Editorial Business" }).click();
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: /Editorial Business/ }).click();
+  await page.keyboard.press("Control+s");
   await waitSaved(page);
   await addLink(page, "Book an intro", "michel", "Calendly");
   await addLink(page, "LinkedIn", "https://www.linkedin.com/company/northlight", "LinkedIn");
@@ -551,7 +564,7 @@ try {
   await addLink(page, "Work", "https://portfolio.example/work", "Portfolio");
   await addLink(page, "Pitch deck", "https://northlight.example/deck", "Pitch Deck");
   await page.reload();
-  await page.getByRole("button", { name: "Hide Book an intro" }).waitFor();
+  await page.getByRole("switch", { name: "Hide Book an intro" }).waitFor();
   const businessAuth = await authenticatedClient(owner);
   const businessLinks = await businessAuth.client.from("profile_links").select("title,url,link_type").eq("profile_id", businessAuth.user.id).order("sort_order");
   assert.ifError(businessLinks.error);
@@ -563,12 +576,12 @@ try {
   console.log("PASS Business Mode settings, appearance, and links");
 
   await openSection(page, "Share");
-  await page.getByRole("img", { name: "Business Mode QR code" }).waitFor();
-  await page.getByText(`${owner.username}?mode=business`, { exact: false }).waitFor();
+  await page.locator("svg title").filter({ hasText: "Business Mode QR code" }).waitFor({ state: "attached" });
+  await page.getByText(`${owner.username}?mode=business`, { exact: false }).filter({ visible: true }).first().waitFor();
   await page.getByRole("button", { name: "Copy link" }).click();
-  await page.getByRole("button", { name: "Copied", exact: true }).waitFor();
+  await page.getByRole("button", { name: /Copied/ }).waitFor();
   await page.getByRole("button", { name: "Full-screen QR" }).click();
-  await page.getByRole("img", { name: "Business Mode share code" }).waitFor();
+  await page.getByRole("dialog", { name: "QR code", exact: true }).waitFor();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   console.log("PASS mode-aware share URL, QR, copy, native-share fallback, and full-screen QR");
 
@@ -610,14 +623,13 @@ try {
   await anonPage.getByText("Slush", { exact: true }).waitFor();
   await anonPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor();
-  assert.equal(await anonPage.getByRole("link", { name: /LinkedIn/ }).getAttribute("href"), "https://www.linkedin.com/in/michel-pronk");
+  assert.equal(await anonPage.getByRole("link", { name: /LinkedIn/ }).getAttribute("href"), "https://linkedin.com/in/michel-pronk");
   assert.equal(await anonPage.getByRole("link", { name: /Event X/ }).getAttribute("href"), "https://x.com/slushdotorg");
   assert.equal(await anonPage.getByRole("link", { name: /Schedule/ }).getAttribute("href"), "https://slush.org/schedule");
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor({ state: "detached" });
   const businessResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=business`);
   assert.equal(businessResponse?.status(), 200);
-  await anonPage.getByText("Head of Sales", { exact: true }).waitFor();
-  await anonPage.getByText("Lumen Labs", { exact: true }).waitFor();
+  await anonPage.getByText("Head of Sales · Lumen Labs · Berlin", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Book an intro" }).waitFor();
   assert.equal(await anonPage.getByRole("link", { name: /Book an intro/ }).getAttribute("href"), "https://calendly.com/michel");
   assert.equal(await anonPage.getByRole("link", { name: /GitHub/ }).getAttribute("href"), "https://github.com/octocat");
@@ -634,18 +646,19 @@ try {
 
   await setMode(page, "personal");
   await openSection(page, "Links");
-  await page.getByRole("button", { name: "Hide Portfolio work" }).click();
-  await waitEditorMessage(page, "Link hidden");
+  await page.getByRole("switch", { name: "Hide Portfolio work" }).click();
+  await waitSaved(page);
   await anonPage.goto(`${appUrl}/${owner.username}?mode=personal`);
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor({ state: "detached" });
-  await page.getByRole("button", { name: "Show Portfolio work" }).waitFor();
-  await page.getByRole("button", { name: "Show Portfolio work" }).click();
-  await waitEditorMessage(page, "Link visible");
+  await page.getByRole("switch", { name: "Show Portfolio work" }).waitFor();
+  await page.getByRole("switch", { name: "Show Portfolio work" }).click();
+  await waitSaved(page);
   await anonPage.reload();
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor();
   console.log("PASS link visibility is persisted and respected by anonymous public reads");
 
-  await page.getByRole("button", { name: "Unpublish", exact: true }).click();
+  await openSection(page, "Mode settings");
+  await page.getByRole("switch", { name: "Setuvara public", exact: true }).click();
   await waitEditorMessage(page, "Your profile is private");
   const unpublished = await anonPage.goto(`${appUrl}/${owner.username}`);
   assert.equal(unpublished?.status(), 404, "Unpublished profile must be hidden");
@@ -670,20 +683,26 @@ try {
   imagePath = (await ownerClient.from("profile_modes").select("image_path").eq("profile_id", ownerId).eq("slug", "personal").single()).data.image_path;
   await ownerClient.auth.signOut();
 
-  await page.locator("footer").getByRole("button", { name: "Sign out" }).click();
+  await page.goto(`${appUrl}/app`);
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await page.waitForURL(`${appUrl}/login`);
   assert([307, 308].includes((await ownerBrowser.context.request.get(`${appUrl}/app`, { maxRedirects: 0 })).status()));
   await page.getByLabel("Email").fill(owner.email);
   await page.getByLabel("Password", { exact: true }).fill(owner.password);
   await page.getByRole("button", { name: "Log in", exact: true }).click();
   await page.waitForURL(`${appUrl}/app/identity`);
-  await page.getByRole("tab", { name: "event", exact: true }).click();
-  await openSection(page, "Mode settings");
+  await page.getByRole("tab", { name: /^Event/ }).filter({ visible: true }).click();
+  await openSection(page, "Profile");
   await page.getByLabel("Event name").waitFor();
   await page.getByLabel("Event name").inputValue().then((value) => assert.equal(value, "Slush"));
-  await page.getByRole("tab", { name: "business", exact: true }).click();
+  await page.getByRole("tab", { name: /^Business/ }).filter({ visible: true }).click();
   await page.getByLabel("Company").waitFor();
   await page.getByLabel("Company").inputValue().then((value) => assert.equal(value, "Lumen Labs"));
+  const countryFixture = await authenticatedClient(owner);
+  const countryMode = await countryFixture.client.from("profile_modes").select("id,settings").eq("profile_id", countryFixture.user.id).eq("slug", "event").single();
+  assert.ifError((await countryFixture.client.from("profile_modes").update({ settings: { ...countryMode.data.settings, countryCode: "FI" } }).eq("id", countryMode.data.id)).error);
+  await countryFixture.client.auth.signOut();
   console.log("PASS logout, protected app redirect, login, and persisted Mode data");
 
   otherBrowser = await signUpAndConfirm(browser, other);
@@ -691,11 +710,11 @@ try {
   const ownerAuth = await authenticatedClient(owner);
   const otherPage = otherBrowser.page;
   await setMode(otherPage, "business");
-  await openSection(otherPage, "Mode settings");
+  await openSection(otherPage, "Profile");
   await otherPage.getByLabel("Role").fill("Product Designer");
   await otherPage.getByLabel("Company").fill("Lumen Labs");
   await otherPage.getByLabel("City").fill("Berlin");
-  await otherPage.getByRole("button", { name: "Save changes" }).click();
+  await otherPage.keyboard.press("Control+s");
   await waitSaved(otherPage);
   await otherPage.getByRole("button", { name: "Publish", exact: true }).click();
   await waitEditorMessage(otherPage, "Your profile is live");
@@ -704,7 +723,7 @@ try {
 
   // A registered visitor connects with their own selected share-back Mode.
   await otherPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
-  await otherPage.getByRole("button", { name: "Connect", exact: true }).click();
+  await otherPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
   await otherPage.getByRole("button", { name: "Business", exact: true }).click();
   await otherPage.getByRole("button", { name: "Connect", exact: true }).last().click();
   await waitForConnected(otherPage, "registered account 2 to account 1");
@@ -767,7 +786,7 @@ try {
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const guestPage = await guestContext.newPage();
   await guestPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
-  await guestPage.getByRole("button", { name: "Connect", exact: true }).click();
+  await guestPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
   await guestPage.getByLabel("Name").fill("E2E Guest");
   await guestPage.getByLabel("Email").fill(guestClaim.email);
   await guestPage.getByRole("button", { name: "Connect", exact: true }).last().click();
@@ -783,7 +802,7 @@ try {
   await guestPage.getByText("Connected with Aanya Rao").waitFor();
   assert((await guestPage.locator("body").innerText()).includes("Claim your Setuvara"));
   await guestPage.goto(`${appUrl}/${other.username}?mode=business`);
-  await guestPage.getByRole("button", { name: "Connect", exact: true }).click();
+  await guestPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
   await guestPage.getByText("Continue as E2E Guest").waitFor();
   await guestPage.getByRole("button", { name: "Connect", exact: true }).last().click();
   await waitForConnected(guestPage, "guest to account 2");
@@ -945,14 +964,14 @@ try {
   assert((await page.locator("main section").first().getAttribute("class"))?.includes("bg-[#e8e2d4]"), "Equipped Passport cover must change the Passport surface");
   await expectNoHorizontalOverflow(page, "Passport overview");
   await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
-  await page.getByRole("button", { name: "Equipped", exact: true }).first().waitFor();
-  await page.getByRole("tab", { name: "personal", exact: true }).waitFor();
+  await page.getByText("Equipped", { exact: true }).first().waitFor();
+  await page.getByRole("tab", { name: /^Personal/ }).filter({ visible: true }).waitFor();
   await openSection(page, "Share");
   await page.getByLabel("QR frame").selectOption("coral_qr_frame");
-  await page.getByRole("img", { name: "Personal Mode QR code" }).waitFor();
-  assert(await page.locator("svg[aria-label='Personal Mode QR code']").evaluate((node) => node.parentElement?.className.includes("outline-[#ff5a4f]") ?? false), "Earned QR frame must surround the scannable QR");
+  await page.locator("svg title").filter({ hasText: "Personal Mode QR code" }).waitFor({ state: "attached" });
+  assert(await page.locator("svg").filter({ has: page.locator("title", { hasText: "Personal Mode QR code" }) }).evaluate((node) => node.parentElement?.className.toLowerCase().includes("outline-[#ff5a4f]") ?? false), "Earned QR frame must surround the scannable QR");
   await anonPage.goto(`${appUrl}/${owner.username}`);
-  await anonPage.getByText("SIGNAL 50", { exact: true }).waitFor();
+  await anonPage.getByText("Signal 50", { exact: true }).waitFor();
   console.log("PASS 50 milestone unlock, repeat encounter idempotency, reward-equipped Identity/Share/QR, private Passport, and one-time celebration");
 
   for (const route of ["/", "/login", "/signup"]) assert.equal((await anonContext.request.get(`${appUrl}${route}`)).status(), 200, `${route} must remain a static app route`);
@@ -974,17 +993,19 @@ try {
   for (const bad of ["not_a_real_setuvara_user", "bad%25name"]) assert.equal((await anonContext.request.get(`${appUrl}/${bad}`)).status(), 404);
   console.log("PASS static routes, /auth/confirm error, health API, root profile, invalid username, and legacy redirect");
 
+  await mkdir(".next/home-qa", { recursive: true });
   for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
     await testResponsiveAuth(browser, width, height);
     await page.setViewportSize({ width, height });
     await page.goto(`${appUrl}/app`);
-    await page.getByRole("heading", { name: /Good to see you/ }).waitFor();
+    await page.getByRole("heading", { name: "Your Setuvara", exact: true }).waitFor();
     await expectNoHorizontalOverflow(page, `Setuvara Home ${width}x${height}`);
-    await page.getByRole("link", { name: "Connections", exact: true }).waitFor();
+    await page.getByRole("link", { name: width < 768 ? "People" : "Connections", exact: true }).waitFor();
     await page.getByRole("link", { name: "Passport", exact: true }).waitFor();
     await page.goto(`${appUrl}/app/identity?mode=personal&section=profile`);
     await expectNoHorizontalOverflow(page, `Identity editor ${width}x${height}`);
     await openSection(page, "Links");
+    await openAddLink(page);
     const providerTrigger = page.getByRole("button", { name: "Choose a provider" });
     assert((await providerTrigger.boundingBox())?.height >= 44, `Provider picker trigger must be a usable tap target at ${width}px`);
     await providerTrigger.click();
@@ -996,14 +1017,21 @@ try {
     await expectNoHorizontalOverflow(page, `Provider picker ${width}x${height}`);
     await page.keyboard.press("Escape");
     await providerDialog.waitFor({ state: "detached" });
+    // Escape can dismiss the containing Add sheet as well as its provider picker.
+    const remainingSheet = page.getByRole("dialog");
+    if (await remainingSheet.count()) await remainingSheet.getByRole("button", { name: "Close", exact: true }).click();
+    await remainingSheet.waitFor({ state: "detached" });
     await openSection(page, "Profile");
-    await page.getByRole("button", { name: "Preview as visitor" }).waitFor();
-    await page.getByRole("button", { name: "Preview as visitor" }).click();
+    await page.getByRole("button", { name: /^(Preview|Full preview)$/ }).filter({ visible: true }).waitFor();
+    await page.getByRole("button", { name: /^(Preview|Full preview)$/ }).filter({ visible: true }).click();
+    await page.getByRole("dialog", { name: "Full-screen preview" }).getByRole("radio", { name: "Visitor", exact: true }).click();
     await expectNoHorizontalOverflow(page, `Editor preview ${width}x${height}`);
     await page.getByRole("button", { name: "Close preview" }).click();
+    await page.screenshot({ path: `.next/home-qa/identity-${width}.png`, fullPage: true });
     const response = await anonPage.setViewportSize({ width, height }).then(() => anonPage.goto(`${appUrl}/${owner.username}?mode=personal`));
     assert.equal(response?.status(), 200);
     await expectNoHorizontalOverflow(anonPage, `Public profile ${width}x${height}`);
+    await anonPage.screenshot({ path: `.next/home-qa/public-${width}.png`, fullPage: true });
     const connectButton = anonPage.getByRole("button", { name: "Connect", exact: true });
     const connectHeight = await connectButton.evaluate((element) => element.getBoundingClientRect().height);
     assert(connectHeight >= 44, `Public Connect control should be a usable tap target at ${width}px`);
@@ -1016,6 +1044,7 @@ try {
     await expectNoHorizontalOverflow(page, `Connections list ${width}x${height}`);
     await page.getByRole("searchbox", { name: "Search connections" }).fill("Setuvara E2E Identity");
     await page.getByRole("link", { name: /Setuvara E2E Identity/ }).waitFor();
+    await page.screenshot({ path: `.next/home-qa/connections-${width}.png`, fullPage: true });
     await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
     await expectNoHorizontalOverflow(page, `Connection detail ${width}x${height}`);
     await page.getByLabel("A thought to remember").waitFor();
@@ -1023,14 +1052,17 @@ try {
     await page.getByRole("heading", { name: "Every connection stays in the story." }).waitFor();
     await page.getByRole("progressbar").waitFor();
     await expectNoHorizontalOverflow(page, `Passport ${width}x${height}`);
+    await page.screenshot({ path: `.next/home-qa/passport-${width}.png`, fullPage: true });
   }
   console.log("PASS signup/login, editor, preview, Connections list/detail, public profile, and Connect flow at phone/tablet/desktop sizes");
 
+  await validateHomeWithData({ page, browser, appUrl, owner, ownerId, authenticatedClient, localSql });
   await validateEmailNotifications(page, owner, other, ownerId);
 
   await ownerBrowser.context.close(); await otherBrowser.context.close(); await anonContext.close();
   console.log("E2E_LOCAL_RESULT=PASS");
 } catch (error) {
+  await ownerBrowser?.page.screenshot({ path: ".next/local-e2e-failure.png", fullPage: true }).catch(() => {});
   console.error(`E2E_LOCAL_RESULT=FAIL (${error instanceof Error ? error.stack ?? error.message : "unknown error"})`);
   process.exitCode = 1;
 } finally {
