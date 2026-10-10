@@ -26,7 +26,7 @@ Deno.test("global capabilities keep the network Free and make Pro inherit Plus",
     "profile.public", "profile.links", "profile.content", "share.link", "share.qr",
     "share.quick_qr", "share.tap", "tap.devices", "tap.connect_intent", "connections.core",
     "connections.guest_connect", "connections.private_memory", "passport.core",
-    "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
+    "passport.standard_progression", "soundtrack.core", "analytics.basic_7d", "wallet.core",
   ];
 
   for (const key of core) assert(free.includes(key), `${key} remains Free`);
@@ -39,6 +39,9 @@ Deno.test("global capabilities keep the network Free and make Pro inherit Plus",
   assert(!free.includes("analytics.history_30d"));
   assert(!plus.includes("analytics.csv_export"));
   assert(!pro.includes("domain.custom"));
+  assert(!free.includes("wallet.premium_appearance"));
+  assert(plus.includes("wallet.premium_appearance"));
+  assert(pro.includes("wallet.premium_appearance"));
   assert.equal(Object.keys(capabilityFlags("pro")).length, Object.keys(CAPABILITY_REGISTRY).length);
   assert.equal(resolveClientCapabilities("free").capabilities["analytics.csv_export"].state, "locked");
   assert.equal(getCapabilityAccess("pro", "domain.custom").state, "unavailable");

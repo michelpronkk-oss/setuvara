@@ -12,6 +12,7 @@ import { StatusBadge } from "./status-badge";
 const navigation = [
   { href: "/app", label: "Home", short: "Home" },
   { href: "/app/identity", label: "Identity", short: "Identity" },
+  { href: "/app/wallet", label: "Wallet", short: "Wallet" },
   { href: "/app/analytics", label: "Analytics", short: "Analytics" },
   { href: "/app/connections", label: "Connections", short: "People" },
   { href: "/app/passport", label: "Passport", short: "Passport" },
@@ -53,7 +54,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
 
       <div className="min-w-0 pb-[calc(78px+env(safe-area-inset-bottom))] md:pb-0" id="app-main" tabIndex={-1}>{children}</div>
 
-      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 bg-[#f5f4ef]/95 px-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2.5 md:hidden">
+      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden">
         {navigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="bottom" />)}
       </nav>
     </div>

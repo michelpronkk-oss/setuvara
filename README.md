@@ -35,6 +35,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
 - `npm run test:billing` tests the plan registry and subscription access rules.
+- `npm run test:wallet` tests pass models, provider fail-closed readiness, stable QR reuse, and Google signing.
 - `npm run test:analytics` tests plan-based analytics range and capability rules.
 - `supabase db lint --local` lints local SQL migrations.
 - `supabase test db` runs local database RLS and privilege checks.
@@ -135,6 +136,14 @@ HTTP/browser API boundaries without calling Dodo or opening an OS share sheet.
 The runner supplies the local server key in memory for server-side billing
 reads. QA screenshots stay in the ignored `.next/home-qa/` directory.
 
+## Setuvara Wallet
+
+`/app/wallet` prepares one identity-scoped Apple Wallet pass or Google Wallet
+Generic Pass from the current Equipped Mode and the existing Quick Share URL.
+Provider actions remain unavailable until server-side Apple or Google Wallet
+configuration is complete. Read [docs/wallet.md](docs/wallet.md) for provider
+setup, security boundaries, and local validation commands.
+
 ## Signed-in Home
 
 `/app` uses desktop top navigation and mobile bottom navigation. Account,
@@ -172,7 +181,9 @@ supabase/
 │   ├── 20261009140956_passport_policy_indexes.sql
 │   ├── 20261009143858_link_provider_types.sql
 │   ├── 20261009181057_setuvara_email_notifications.sql
-│   └── 20261009181121_setuvara_email_unsubscribe_user_index.sql
+│   ├── 20261009181121_setuvara_email_unsubscribe_user_index.sql
+│   ├── 20261010182039_wallet_pass_infrastructure.sql
+│   └── 20261010193000_wallet_registration_fk_index.sql
 ├── operations/          # Hosted-only Setuvara scheduler setup
 └── templates/           # Local Auth email template
 src/
@@ -187,8 +198,10 @@ src/
 ├── components/marketing/ # Shared marketing navigation, footer, and page primitives
 ├── components/profile/ # Shared profile renderer and normalized types
 ├── components/connections/ # Connect flow, connections list, private memory editor
+├── components/app/wallet/ # Owner Wallet surface
 └── lib/
     ├── links/          # Central provider registry and canonical normalization
+    ├── wallet/         # Server-only Apple/Google Wallet integration and pass models
     └── supabase/       # Browser, server, and session clients
 ```
 

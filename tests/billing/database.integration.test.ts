@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 import assert from "node:assert/strict";
 
 import { getPlanEntitlements } from "../../src/lib/billing/entitlements.ts";
+import { capabilityFlags } from "../../src/lib/billing/capabilities.ts";
 import { resolveBillingSnapshot, type ProviderSubscriptionRecord } from "../../src/lib/billing/state.ts";
 
 const supabaseUrl = Deno.env.get("SETUVARA_LOCAL_SUPABASE_URL");
@@ -133,7 +134,7 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       "share.link", "share.qr", "share.quick_qr", "share.tap", "tap.devices",
       "tap.connect_intent", "connections.core", "connections.guest_connect",
       "connections.private_memory", "passport.core", "passport.standard_progression",
-      "soundtrack.core", "analytics.basic_7d",
+      "soundtrack.core", "analytics.basic_7d", "wallet.core",
     ]);
     assertEquals((await readSnapshot(plus.id)).plan, "plus");
     assertEquals(getPlanEntitlements("plus"), [
@@ -144,7 +145,7 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       "connections.guest_connect", "connections.private_memory", "passport.core",
       "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
       "analytics.history_30d", "analytics.history_90d", "analytics.sources",
-      "analytics.modes", "analytics.conversion",
+      "analytics.modes", "analytics.conversion", "wallet.core", "wallet.premium_appearance",
     ]);
     assertEquals((await readSnapshot(pro.id)).plan, "pro");
     assertEquals(getPlanEntitlements("pro"), [
@@ -156,10 +157,18 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
       "analytics.history_30d", "analytics.history_90d", "analytics.sources",
       "analytics.modes", "analytics.conversion", "analytics.custom_range", "analytics.funnels",
-      "analytics.device_insights", "analytics.csv_export",
+      "analytics.device_insights", "analytics.csv_export", "wallet.core", "wallet.premium_appearance",
     ]);
     assertEquals((await readSnapshot(expired.id)).plan, "free");
     assertEquals((await readSnapshot(unknown.id)).plan, "free", "an unknown provider product with no plan mapping grants Free");
+
+    for (const [account, expectedPlan] of [[free, "free"], [plus, "plus"], [pro, "pro"]] as const) {
+      const databaseSnapshot = await readSnapshot(account.id);
+      assertEquals(databaseSnapshot.plan, expectedPlan, `${expectedPlan} plan is resolved from local subscription rows`);
+      const walletCapabilities = capabilityFlags(databaseSnapshot.plan);
+      assertEquals(walletCapabilities["wallet.core"], true, `${expectedPlan} includes standard Wallet`);
+      assertEquals(walletCapabilities["wallet.premium_appearance"], expectedPlan !== "free", `${expectedPlan} Wallet appearance entitlement follows the database-backed plan`);
+    }
 
     const anonRead = await anonymous.from("billing_subscriptions").select("dodo_subscription_id").limit(1);
     assertTruthy(anonRead.error, "anonymous clients cannot read private subscription rows");

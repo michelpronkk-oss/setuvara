@@ -58,8 +58,8 @@ export const CAPABILITY_REGISTRY = {
   "leads.capture": { label: "Lead capture", requiredPlan: "pro", availability: "future" },
   "integrations.access": { label: "Connected integrations", requiredPlan: "pro", availability: "future" },
   "webhooks.access": { label: "Webhooks", requiredPlan: "pro", availability: "future" },
-  "wallet.core": { label: "Standard Wallet eligibility", requiredPlan: "free", availability: "future" },
-  "wallet.premium_appearance": { label: "Premium Wallet appearance", requiredPlan: "plus", availability: "future" },
+  "wallet.core": { label: "Standard Wallet eligibility", requiredPlan: "free", availability: "live" },
+  "wallet.premium_appearance": { label: "Premium Wallet appearance", requiredPlan: "plus", availability: "live" },
 } as const satisfies Record<string, CapabilityDefinition>;
 
 export type CapabilityKey = keyof typeof CAPABILITY_REGISTRY;
