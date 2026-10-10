@@ -122,7 +122,7 @@ export default async function ConnectionsPage() {
   const signedUrlByPath = new Map((signedImages ?? []).flatMap((image) => image.path && image.signedUrl && !image.error ? [[image.path, image.signedUrl] as const] : []));
   const items: ConnectionListItem[] = drafts.map((item) => {
     const path = resolved.imagePathsByConnection.get(item.id);
-    return { ...item, imageUrl: path ? signedUrlByPath.get(path) ?? null : null };
+    return { ...item, imageUrl: path ? signedUrlByPath.get(path) ?? null : null, imageFocus: resolved.imageFocusByConnection.get(item.id) ?? null };
   });
 
   return (

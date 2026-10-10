@@ -34,7 +34,7 @@ const readPublicProfileMode = cache(async (username: string, slug: ModeSlug) => 
     if (profileError || !profile) return null;
 
     const { data: mode, error: modeError } = await supabase.from("profile_modes")
-      .select("id, slug, label, is_enabled, settings, appearance, image_path")
+      .select("id, slug, label, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y")
       .eq("profile_id", profile.id)
       .eq("slug", slug)
       .eq("is_enabled", true)

@@ -8,6 +8,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { isModeLayout, isValidAppearance } from "@/components/profile/appearance";
+import { focusPosition, modeFocus, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
@@ -78,7 +79,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [savedUsername, setSavedUsername] = useState(initialProfile.username);
   const [usernameCheck, setUsernameCheck] = useState<{ candidate: string; result: UsernameStatus } | null>(null);
   const [toastState, setToastState] = useState<{ id: number; text: string; action?: { label: string; run: () => void } } | null>(null);
-  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean } | null>(null);
+  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus } | null>(null);
   const [busyPhoto, setBusyPhoto] = useState(false);
 
   const supabase = useMemo(() => createClient(), []);
@@ -557,9 +558,9 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   }, [initialProfile.id, supabase]);
 
   const pickPhoto = useCallback(() => { photoTarget.current = mode.id; fileRef.current?.click(); }, [mode.id]);
-  const recropPhoto = useCallback(() => { if (mode.image_url) setCrop({ source: mode.image_url, modeId: mode.id, revoke: false }); }, [mode.id, mode.image_url]);
+  const recropPhoto = useCallback(() => { if (mode.image_url) setCrop({ source: mode.image_url, modeId: mode.id, revoke: false, focus: modeFocus(mode) }); }, [mode]);
 
-  const savePhoto = useCallback(async (modeId: string, blob: Blob) => {
+  const savePhoto = useCallback(async (modeId: string, blob: Blob, focus: PhotoFocus) => {
     setBusyPhoto(true);
     const target = modesRef.current.find((item) => item.id === modeId);
     const failure = await runNow(async () => {
@@ -567,11 +568,11 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       const path = `${initialProfile.id}/${crypto.randomUUID()}.webp`;
       const { error: uploadError } = await supabase.storage.from(MEDIA).upload(path, blob, { contentType: "image/webp", upsert: false });
       if (uploadError) return "The photo couldn’t be uploaded. Use a JPEG, PNG or WebP under 5 MB.";
-      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: path }).eq("id", modeId).eq("profile_id", initialProfile.id);
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: path, image_focus_x: focus.x, image_focus_y: focus.y }).eq("id", modeId).eq("profile_id", initialProfile.id);
       if (updateError) { await supabase.storage.from(MEDIA).remove([path]); return "The photo uploaded but couldn’t be attached."; }
       const { data: signed } = await supabase.storage.from(MEDIA).createSignedUrl(path, 3600);
       const previous = target.image_path;
-      patchMode(modeId, { image_path: path, image_url: signed?.signedUrl ?? URL.createObjectURL(blob) });
+      patchMode(modeId, { image_path: path, image_url: signed?.signedUrl ?? URL.createObjectURL(blob), image_focus_x: focus.x, image_focus_y: focus.y });
       await removeIfUnused(previous);
       return null;
     });
@@ -582,10 +583,10 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const removePhoto = useCallback(() => {
     const target = mode;
     if (!target.image_path) return;
-    const previous = { image_path: target.image_path, image_url: target.image_url };
-    patchMode(target.id, { image_path: null, image_url: null });
+    const previous = { image_path: target.image_path, image_url: target.image_url, image_focus_x: target.image_focus_x ?? null, image_focus_y: target.image_focus_y ?? null };
+    patchMode(target.id, { image_path: null, image_url: null, image_focus_x: null, image_focus_y: null });
     void runNow(async () => {
-      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null, image_focus_x: null, image_focus_y: null }).eq("id", target.id).eq("profile_id", initialProfile.id);
       if (updateError) { patchMode(target.id, previous); return "The photo couldn’t be removed."; }
       await removeIfUnused(previous.image_path);
       return null;
@@ -596,10 +597,12 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const from = modesRef.current.find((item) => item.slug === source);
     const target = mode;
     if (!from?.image_path || from.id === target.id) return;
-    const previous = { image_path: target.image_path, image_url: target.image_url };
-    patchMode(target.id, { image_path: from.image_path, image_url: from.image_url });
+    const previous = { image_path: target.image_path, image_url: target.image_url, image_focus_x: target.image_focus_x ?? null, image_focus_y: target.image_focus_y ?? null };
+    // The photo's face point travels with it, so it frames the same way in this Mode.
+    const focus = { image_focus_x: from.image_focus_x ?? null, image_focus_y: from.image_focus_y ?? null };
+    patchMode(target.id, { image_path: from.image_path, image_url: from.image_url, ...focus });
     void runNow(async () => {
-      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: from.image_path }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: from.image_path, ...focus }).eq("id", target.id).eq("profile_id", initialProfile.id);
       if (updateError) { patchMode(target.id, previous); return "That photo couldn’t be used here."; }
       await removeIfUnused(previous.image_path);
       return null;
@@ -757,13 +760,13 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       </nav>
 
       {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} />}
-      {crop && <CropDialog key={crop.source} busy={busyPhoto} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; fileRef.current?.click(); }} onSave={async (area) => {
+      {crop && <CropDialog key={crop.source} busy={busyPhoto} initialFocus={crop.focus} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; fileRef.current?.click(); }} onSave={async (area, focus) => {
         try {
           const blob = await cropToBlob(crop.source, area);
           const target = crop.modeId;
           if (crop.revoke) URL.revokeObjectURL(crop.source);
           setCrop(null);
-          await savePhoto(target, blob);
+          await savePhoto(target, blob, focus);
         } catch { toast("That photo couldn’t be prepared. Try a different file."); }
       }} source={crop.source} />}
 
@@ -857,7 +860,7 @@ function Avatar({ mode, name }: { mode: ProfileMode; name: string }) {
   return (
     <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#0D0D0D] font-display text-base font-bold text-[#F5F4EF]">
       {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
-      {mode.image_url ? <img alt="" className="absolute inset-0 size-full object-cover" src={mode.image_url} /> : (name.trim()[0] ?? "S").toUpperCase()}
+      {mode.image_url ? <img alt="" className="absolute inset-0 size-full object-cover" src={mode.image_url} style={{ objectPosition: focusPosition(modeFocus(mode), 1) }} /> : (name.trim()[0] ?? "S").toUpperCase()}
     </span>
   );
 }

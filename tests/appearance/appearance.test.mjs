@@ -24,6 +24,7 @@ before(async () => {
     stdin: {
       contents: `
         export * from "@/components/profile/appearance";
+        export * from "@/components/profile/photo-focus";
         export { ProfileRenderer, isFullBleed, profileTone } from "@/components/profile/profile-renderer";
         export { LAYOUTS } from "@/app/app/identity/editor-types";
         export { createElement } from "react";
@@ -169,6 +170,53 @@ describe("ProfileRenderer", () => {
       assert.equal(attr(html, "data-profile-mode"), slug);
       assert.equal(attr(html, "data-profile-layout"), m.appearance.layout);
       assert.equal(attr(html, "data-image-treatment"), m.appearance.imageTreatment);
+    }
+  });
+});
+
+describe("Photo focus", () => {
+  const frames = [4 / 5, 1, 4 / 3, 16 / 9, 3, 0.5];
+  const points = [0, 10, 15, 30, 50, 85, 100];
+
+  test("the focus point is inside every frame, at any aspect", () => {
+    for (const aspect of frames) for (const x of points) for (const y of points) {
+      const view = lib.visibleWindow({ x, y }, aspect);
+      assert.ok(view.x - 1e-9 <= x / 100 && x / 100 <= view.x + view.width + 1e-9, `x ${x} in ${aspect}`);
+      assert.ok(view.y - 1e-9 <= y / 100 && y / 100 <= view.y + view.height + 1e-9, `y ${y} in ${aspect}`);
+      assert.ok(Math.abs(view.width / view.height * lib.PHOTO_ASPECT - aspect) < 1e-9, "window keeps the frame's shape");
+    }
+  });
+
+  test("a face near the top stays in a wide band instead of being cut off", () => {
+    // The reported photo: a couple shot full length, faces about 15% down a 4:5 crop.
+    const view = lib.visibleWindow({ x: 50, y: 15 }, 16 / 9);
+    assert.equal(view.y, 0);
+    assert.equal(lib.focusPosition({ x: 50, y: 15 }, 16 / 9), "50% 0%");
+    // Centred when the photo allows it.
+    const middle = lib.visibleWindow({ x: 50, y: 50 }, 4 / 3);
+    assert.ok(Math.abs(middle.y + middle.height / 2 - 0.5) < 1e-9);
+  });
+
+  test("unknown frames fall back to the focus itself; missing values use the default", () => {
+    assert.equal(lib.focusPosition({ x: 40, y: 20 }), "40% 20%");
+    assert.deepEqual(lib.readFocus(null, undefined), lib.DEFAULT_FOCUS);
+    assert.deepEqual(lib.readFocus(120, -3), lib.DEFAULT_FOCUS);
+    assert.deepEqual(lib.modeFocus({ image_focus_x: 30, image_focus_y: 12 }), { x: 30, y: 12 });
+  });
+
+  test("every Mode and layout frames its photo on the saved focus", () => {
+    const focus = { image_focus_x: 50, image_focus_y: 15 };
+    const cases = [
+      [mode("personal", { layout: "full-bleed", imageTreatment: "compact" }, focus), 4 / 3],
+      [mode("event", { layout: "event-poster", imageTreatment: "full-bleed" }, focus), 4 / 3],
+      [mode("event", { layout: "conference-card", imageTreatment: "full-bleed" }, focus), 16 / 9],
+      [mode("business", { layout: "structured", imageTreatment: "full-bleed" }, focus), 16 / 9],
+      [mode("business", { layout: "editorial-business", imageTreatment: "full-bleed" }, focus), 4 / 3],
+    ];
+    for (const [item, aspect] of cases) {
+      const html = render(item);
+      assert.match(html, /data-photo-focus="50 15"/, `${item.slug} ${item.appearance.layout}`);
+      assert.ok(html.includes(`object-position:${lib.focusPosition({ x: 50, y: 15 }, aspect)}`), `${item.slug} ${item.appearance.layout} uses its frame`);
     }
   });
 });

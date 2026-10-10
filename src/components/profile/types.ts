@@ -45,6 +45,9 @@ export type ProfileMode = {
   appearance: ModeAppearance;
   image_path: string | null;
   image_url?: string | null;
+  /** Focus point inside the saved photo, 0–100. Null means the default (see photo-focus). */
+  image_focus_x?: number | null;
+  image_focus_y?: number | null;
   /** Who can start a new inbound Connection from this Mode. Absent means anyone. */
   connect_policy?: "anyone" | "direct_only" | "nobody";
   links: ProfileLink[];

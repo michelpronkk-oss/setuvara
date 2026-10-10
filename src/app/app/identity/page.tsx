@@ -30,7 +30,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
 
   const [profileResult, modesResult, linksResult, blocksResult, passportResult] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, connect_policy").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
     selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).order("sort_order")),
     supabase.rpc("get_passport_overview"),

@@ -7,11 +7,13 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, 
 import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
+import { FocusedPhoto } from "@/components/profile/focused-photo";
+import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 
-export type StageMode = { slug: ModeSlug; enabled: boolean; imageUrl: string | null; sub: string; line: string; configured: boolean; connectPolicy: ConnectPolicy };
+export type StageMode = { slug: ModeSlug; enabled: boolean; imageUrl: string | null; imageFocus: PhotoFocus; sub: string; line: string; configured: boolean; connectPolicy: ConnectPolicy };
 
 const NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
 const DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" };
@@ -72,8 +74,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       <section aria-label={`${NAMES[slug]} Mode`} className="relative h-[min(62dvh,470px)] overflow-hidden rounded-[28px] bg-[#0d0d0d] text-[#f5f4ef] md:h-[560px] lg:h-full lg:rounded-[30px] [clip-path:polygon(0_0,100%_0,100%_calc(100%-44px),calc(100%-25px)_100%,0_100%)] lg:[clip-path:polygon(0_0,100%_0,100%_calc(100%-64px),calc(100%-37px)_100%,0_100%)]">
         {hasPhoto ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- signed, resized Supabase URL */}
-            <img alt="" className="absolute inset-0 size-full object-cover object-top [animation:fade-in_320ms_ease-out]" decoding="async" fetchPriority="high" key={mode.slug} onError={() => setFailedImage(mode.imageUrl)} src={mode.imageUrl ?? undefined} />
+            <FocusedPhoto alt="" className="[animation:fade-in_320ms_ease-out]" fetchPriority="high" focus={mode.imageFocus} key={mode.slug} onError={() => setFailedImage(mode.imageUrl)} sizes="(min-width: 1024px) 60vw, 100vw" src={mode.imageUrl!} />
             <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(13,13,13,.96)_0%,rgba(13,13,13,.7)_30%,rgba(13,13,13,0)_62%),linear-gradient(to_bottom,rgba(13,13,13,.5)_0%,rgba(13,13,13,0)_18%)]" />
           </>
         ) : (

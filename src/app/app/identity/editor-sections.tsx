@@ -10,6 +10,8 @@ import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
 import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/brand";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import { FocusedPhoto } from "@/components/profile/focused-photo";
+import { modeFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, providerForLink, resolveStoredLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
@@ -63,8 +65,7 @@ export function HomeSection({ api }: { api: EditorApi }) {
       <div className="mt-8 grid grid-cols-2 gap-4">
         <button className="group relative row-span-2 flex min-h-[290px] flex-col justify-end overflow-hidden rounded-[22px] bg-[#0D0D0D] p-6 text-left text-[#F5F4EF]" onClick={() => api.go("profile")} type="button">
           {mode.image_url && <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
-            <img alt="" className="absolute inset-0 size-full object-cover opacity-55 transition duration-500 group-hover:scale-[1.03]" src={mode.image_url} />
+            <FocusedPhoto alt="" className="opacity-55 transition duration-500 group-hover:scale-[1.03]" focus={modeFocus(mode)} sizes="320px" src={mode.image_url} />
             <span className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D] via-[#0D0D0D]/50 to-transparent" />
           </>}
           <CardHead index={1} light />
@@ -159,8 +160,7 @@ function PhotoBlock({ api }: { api: EditorApi }) {
     <div className="flex items-start gap-5">
       <button aria-label={mode.image_url ? "Crop and position photo" : "Upload a photo"} className="relative h-[150px] w-[120px] shrink-0 overflow-hidden bg-[#E4E2DA] transition hover:brightness-95" onClick={mode.image_url ? api.recropPhoto : api.pickPhoto} style={{ clipPath: cutCorner(34), borderRadius: 18 }} type="button">
         {mode.image_url
-          // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL
-          ? <img alt={`${profile.display_name} in ${modeMeta[slug].name} Mode`} className="absolute inset-0 size-full object-cover" src={mode.image_url} />
+          ? <FocusedPhoto alt={`${profile.display_name} in ${modeMeta[slug].name} Mode`} focus={modeFocus(mode)} frameAspect={4 / 5} sizes="120px" src={mode.image_url} />
           : <span className="absolute inset-0 grid place-items-center"><span className="text-center"><span className="block font-display text-4xl font-extrabold text-black/25">{(profile.display_name.trim()[0] ?? "S").toUpperCase()}</span><span className="mt-1 block text-xs font-semibold text-black/55">Add photo</span></span></span>}
         {api.busyPhoto && <span className="absolute inset-0 grid place-items-center bg-white/70"><span className="size-6 animate-spin rounded-full border-2 border-black/20 border-t-black" /></span>}
       </button>

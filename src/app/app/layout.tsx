@@ -6,6 +6,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { AppShell } from "@/components/app/app-shell";
 import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
+import { readFocus } from "@/components/profile/photo-focus";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./identity/actions";
 
@@ -17,7 +18,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   const [{ data: profile }, { data: personal }, requestHeaders, billing] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("image_path").eq("profile_id", userId).eq("slug", "personal").maybeSingle(),
+    supabase.from("profile_modes").select("image_path, image_focus_x, image_focus_y").eq("profile_id", userId).eq("slug", "personal").maybeSingle(),
     headers(),
     getViewerPlan(userId),
   ]);
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className={marketingFontClasses}>
       <AppShell
+        avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
         avatarUrl={avatarUrl}
         canManageBilling={billing.canManageBilling}
         displayName={profile?.display_name ?? "Your identity"}

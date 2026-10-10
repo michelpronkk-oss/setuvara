@@ -68,6 +68,7 @@ export async function PeopleSection({ userId }: { userId: string }) {
   const peopleWithImages = await Promise.all(people.map(async (person) => ({
     ...person,
     imageUrl: await signHomeImage(supabase, resolved.imagePathsByConnection.get(person.id), true),
+    imageFocus: resolved.imageFocusByConnection.get(person.id) ?? null,
   })));
 
   return (
@@ -80,7 +81,7 @@ export async function PeopleSection({ userId }: { userId: string }) {
         {peopleWithImages.map((person) => (
           <li key={person.id}>
             <Link className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 border-b border-black/10 py-[11px] transition-colors hover:bg-black/[0.03] focus-visible:outline-2 lg:grid-cols-[48px_minmax(0,1fr)_auto] lg:gap-4 lg:py-[13px] min-[1800px]:py-[18px]" href={`/app/connections/${person.id}`}>
-              <ConnectionAvatar className="size-[42px] text-[15px] font-semibold lg:size-12 lg:text-[17px]" imageUrl={person.imageUrl} name={person.name} style={{ background: DOT[person.mode] }} />
+              <ConnectionAvatar className="size-[42px] text-[15px] font-semibold lg:size-12 lg:text-[17px]" imageFocus={person.imageFocus} imageUrl={person.imageUrl} name={person.name} style={{ background: DOT[person.mode] }} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate text-base font-semibold tracking-[-0.01em] lg:text-lg">{person.name}</span>
                 <span className="truncate text-[13px] text-black/70 lg:text-sm">{person.where}</span>
