@@ -26,6 +26,11 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 const progressionGuestEmails = [];
 let storageFailure = null;
 let imageSaved = false;
+let contentImageBlockId = "";
+let contentImagePath = "";
+let featureBlockId = "";
+let featureImagePath = "";
+let featureFallbackUrl = "";
 
 function localUserClient() {
   return createClient(supabaseUrl, publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -303,10 +308,13 @@ async function verifyProfileMediaRules(client, userId, imageFormats) {
   assert.ifError(cleanup.error, "Owner must be able to remove temporary MIME-policy test objects");
 }
 
-async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkIds, imagePath) {
+async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkIds, imagePath, blockIds = [], blockImagePath = "") {
   const ownerAuth = await authenticatedClient(ownerAccount);
   const otherAuth = await authenticatedClient(otherAccount);
   const otherClient = otherAuth.client;
+
+  const imageWithoutPath = await ownerAuth.client.from("profile_blocks").insert({ profile_id: ownerId, mode_id: modeIds[0], kind: "image", data: { alt: "Missing storage path" } });
+  assert(imageWithoutPath.error, "Database must reject Image blocks without an owner-scoped image path");
 
   const profileUpdate = await otherClient.from("profiles").update({ username: otherAccount.username, display_name: "Unauthorized", is_published: false }).eq("id", ownerId).select("id");
   assert.ifError(profileUpdate.error);
@@ -327,6 +335,23 @@ async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkI
   const linkDelete = await otherClient.from("profile_links").delete().eq("id", linkIds[0]).select("id");
   assert.ifError(linkDelete.error);
   assert.equal(linkDelete.data.length, 0, "Account 2 must not delete account 1 link");
+  for (const blockId of blockIds) {
+    const blockUpdate = await otherClient.from("profile_blocks").update({ data: { alt: "Unauthorized" } }).eq("id", blockId).select("id");
+    assert.ifError(blockUpdate.error);
+    assert.equal(blockUpdate.data.length, 0, "Account 2 must not update account 1 content blocks");
+    const blockDelete = await otherClient.from("profile_blocks").delete().eq("id", blockId).select("id");
+    assert.ifError(blockDelete.error);
+    assert.equal(blockDelete.data.length, 0, "Account 2 must not delete account 1 content blocks");
+  }
+  if (blockImagePath) {
+    const forbiddenBlockPath = `${ownerId}/${crypto.randomUUID()}.png`;
+    const forbiddenBlockUpload = await otherClient.storage.from("profile-media").upload(forbiddenBlockPath, png, { contentType: "image/png", upsert: false });
+    assert(forbiddenBlockUpload.error, "Account 2 must not upload into account 1 content media folder");
+    const forbiddenBlockDelete = await otherClient.storage.from("profile-media").remove([blockImagePath]);
+    assert.ifError(forbiddenBlockDelete.error);
+    const blockImage = await ownerAuth.client.storage.from("profile-media").download(blockImagePath);
+    assert.ifError(blockImage.error, "Account 2 must not delete account 1 content image");
+  }
   if (imagePath) {
     const forbiddenPath = `${ownerId}/unauthorized-${crypto.randomUUID()}.webp`;
     const forbiddenUpload = await otherClient.storage.from("profile-media").upload(forbiddenPath, png, { contentType: "image/png" });
@@ -447,6 +472,58 @@ try {
   assert.ifError(ownerImage.error, "Owner must be able to read the replacement photo");
   await mediaAuth.client.auth.signOut();
   console.log("PASS cropped upload, JPEG/PNG/WebP MIME allowlist, size/MIME rejection, replacement, old-object removal, and owner access");
+
+  // Content images use the same owner-scoped private bucket and renderer as the public profile.
+  await page.route("https://images.example.test/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: png }));
+  await openAddLink(page);
+  await page.getByRole("button", { name: /^Image/ }).click();
+  let imageDialog = page.getByRole("dialog").last();
+  await imageDialog.getByLabel("Upload profile image").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("not an image") });
+  await imageDialog.getByRole("alert").filter({ hasText: /Choose a JPEG, PNG or WebP/ }).waitFor();
+  await imageDialog.getByLabel("Upload profile image").setInputFiles({ name: "too-large.png", mimeType: "image/png", buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
+  await imageDialog.getByRole("alert").filter({ hasText: /smaller than 5 MB/ }).waitFor();
+  await imageDialog.getByLabel("Upload profile image").setInputFiles({ name: "content-photo.png", mimeType: "image/png", buffer: png });
+  await imageDialog.getByText("Image ready").waitFor();
+  await imageDialog.getByLabel("Describe the image").fill("A candid Setuvara E2E image");
+  await imageDialog.getByLabel("Caption").fill("A candid image block");
+  await imageDialog.getByRole("button", { name: "Add image", exact: true }).click();
+  await imageDialog.waitFor({ state: "detached" });
+
+  const contentAuth = await authenticatedClient(owner);
+  const contentImage = await contentAuth.client.from("profile_blocks").select("id, data, mode_id, is_visible").eq("profile_id", ownerId).eq("kind", "image").single();
+  assert.ifError(contentImage.error);
+  contentImageBlockId = contentImage.data.id;
+  contentImagePath = contentImage.data.data.image_path;
+  assert.match(contentImagePath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.png$`, "i"), "Image block must persist an owner-scoped random Storage path");
+  assert.equal(contentImage.data.mode_id, (await contentAuth.client.from("profile_modes").select("id").eq("profile_id", ownerId).eq("slug", "personal").single()).data.id, "Image content must stay inside the selected Mode");
+
+  featureFallbackUrl = "https://images.example.test/setuvara-link-preview.jpg";
+  const featureUrl = "https://example.com/setuvara-feature";
+  await page.route("**/api/link-preview?*", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ url: featureUrl, title: "Setuvara E2E Feature", description: "A local preview fixture.", image: featureFallbackUrl, siteName: "Example" }),
+  }));
+  await openAddLink(page);
+  await page.locator("#smart-paste").fill(featureUrl);
+  await page.getByRole("button", { name: /Feature it as a card/ }).click();
+  let featureDialog = page.getByRole("dialog").last();
+  await page.waitForFunction(() => document.querySelector("#block-title")?.value === "Setuvara E2E Feature");
+  assert.equal(await featureDialog.locator("img").last().getAttribute("src"), featureFallbackUrl, "Link metadata image should be the initial Featured Link image");
+  await featureDialog.getByLabel("Upload featured link image").setInputFiles({ name: "featured-custom.png", mimeType: "image/png", buffer: png });
+  await featureDialog.getByText("Image ready").waitFor();
+  assert.match(await featureDialog.locator("img").last().getAttribute("src"), /storage\/v1\/object\/sign\/profile-media\//, "Custom upload must override link preview in the editor renderer");
+  await featureDialog.getByRole("button", { name: "Add featured link", exact: true }).click();
+  await featureDialog.waitFor({ state: "detached" });
+  await page.unroute("**/api/link-preview?*");
+  const featureRow = await contentAuth.client.from("profile_blocks").select("id, data, mode_id").eq("profile_id", ownerId).eq("kind", "feature").single();
+  assert.ifError(featureRow.error);
+  featureBlockId = featureRow.data.id;
+  featureImagePath = featureRow.data.data.image_path;
+  assert.equal(featureRow.data.data.image, featureFallbackUrl, "Custom upload must not replace or erase the fetched link preview image");
+  assert.match(featureImagePath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.png$`, "i"));
+  await contentAuth.client.auth.signOut();
+  console.log("PASS Image block upload, Mode scoping, Featured Link metadata image, and custom-image priority");
 
   await addLink(page, "Portfolio", "https://example.test/portfolio", "Portfolio");
   await addLink(page, "Contact", "https://example.test/contact", "Contact Form");
@@ -617,9 +694,73 @@ try {
     assert(!directPublicRead.ok(), "Private profile-media must not be available through the public object URL");
     await mediaClient.auth.signOut();
   }
+  await anonPage.route("https://images.example.test/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: png }));
+  const publicContentImage = anonPage.locator('img[alt="A candid Setuvara E2E image"]');
+  await publicContentImage.waitFor();
+  assert.match(await publicContentImage.getAttribute("src"), /storage\/v1\/object\/sign\/profile-media\//, "Published public Image block must receive an authorized signed image URL");
+  const publicFeature = anonPage.locator(`a[href="https://example.com/setuvara-feature"]`);
+  await publicFeature.locator("img").waitFor();
+  assert.match(await publicFeature.locator("img").getAttribute("src"), /storage\/v1\/object\/sign\/profile-media\//, "Custom Featured Link image must render ahead of its metadata image publicly");
+
+  await openSection(page, "Links");
+  let featureEditorRow = page.locator("li").filter({ hasText: "Setuvara E2E Feature" });
+  await featureEditorRow.getByRole("button").nth(1).click();
+  let featureEditDialog = page.getByRole("dialog").last();
+  await featureEditDialog.getByRole("button", { name: "Replace image", exact: true }).click();
+  await featureEditDialog.getByLabel("Upload featured link image").setInputFiles({ name: "featured-replacement.jpg", mimeType: "image/jpeg", buffer: mediaFormats.jpeg });
+  await featureEditDialog.getByText("Image ready").waitFor();
+  await featureEditDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await featureEditDialog.waitFor({ state: "detached" });
+  await waitSaved(page);
+  const featureOwner = await authenticatedClient(owner);
+  const replacedFeature = await featureOwner.client.from("profile_blocks").select("data").eq("id", featureBlockId).single();
+  assert.ifError(replacedFeature.error);
+  const replacementFeatureImagePath = replacedFeature.data.data.image_path;
+  assert(replacementFeatureImagePath && replacementFeatureImagePath !== featureImagePath, "Featured Link replacement must save a fresh object path");
+  const removedFeatureUpload = await featureOwner.client.storage.from("profile-media").download(featureImagePath);
+  assert(removedFeatureUpload.error, "Replacing a Featured Link image must remove the unreferenced previous upload");
+  await featureOwner.client.auth.signOut();
+  await anonPage.reload();
+  await anonPage.locator(`a[href="https://example.com/setuvara-feature"] img`).waitFor();
+  assert.match(await anonPage.locator(`a[href="https://example.com/setuvara-feature"] img`).getAttribute("src"), /storage\/v1\/object\/sign\/profile-media\//, "Replacement Featured Link image should be public");
+
+  featureEditorRow = page.locator("li").filter({ hasText: "Setuvara E2E Feature" });
+  await featureEditorRow.getByRole("button").nth(1).click();
+  featureEditDialog = page.getByRole("dialog").last();
+  await featureEditDialog.getByRole("button", { name: "Remove uploaded image", exact: true }).click();
+  assert.equal(await featureEditDialog.locator("img").last().getAttribute("src"), featureFallbackUrl, "Removing a custom image must reveal the retained link-preview image in the editor");
+  await featureEditDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await featureEditDialog.waitFor({ state: "detached" });
+  await waitSaved(page);
+  const fallbackOwner = await authenticatedClient(owner);
+  const fallbackFeature = await fallbackOwner.client.from("profile_blocks").select("data").eq("id", featureBlockId).single();
+  assert.ifError(fallbackFeature.error);
+  assert.equal(fallbackFeature.data.data.image_path, null, "Removing custom media should clear only its object path");
+  assert.equal(fallbackFeature.data.data.image, featureFallbackUrl, "Removing custom media must preserve the fetched preview image");
+  const removedReplacement = await fallbackOwner.client.storage.from("profile-media").download(replacementFeatureImagePath);
+  assert(removedReplacement.error, "Removing custom Featured Link media must clean the unreferenced upload");
+  await fallbackOwner.client.auth.signOut();
+  await anonPage.reload();
+  const fallbackPublicImage = anonPage.locator(`a[href="https://example.com/setuvara-feature"] img`);
+  await fallbackPublicImage.waitFor();
+  assert.equal(await fallbackPublicImage.getAttribute("src"), featureFallbackUrl, "Public Feature should fall back to the retained link-preview image");
+
+  await page.getByRole("switch", { name: "Hide Image", exact: true }).click();
+  await waitSaved(page);
+  await anonPage.reload();
+  assert.equal(await anonPage.locator('img[alt="A candid Setuvara E2E image"]').count(), 0, "Hidden Image blocks must not render publicly");
+  const anonymousStorage = localUserClient();
+  const hiddenImageSigning = await anonymousStorage.storage.from("profile-media").createSignedUrl(contentImagePath, 60);
+  assert(hiddenImageSigning.error, "Anonymous visitors must not sign hidden Image block storage paths");
+  await page.getByRole("switch", { name: "Show Image", exact: true }).click();
+  await waitSaved(page);
+  await anonPage.reload();
+  await anonPage.locator('img[alt="A candid Setuvara E2E image"]').waitFor();
+  console.log("PASS public Image/Featured Link rendering, custom-image priority, replace/remove cleanup, metadata fallback, and block visibility");
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor({ state: "detached" });
   const eventResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=event`);
   assert.equal(eventResponse?.status(), 200);
+  assert.equal(await anonPage.locator('img[alt="A candid Setuvara E2E image"]').count(), 0, "Personal Mode content images must not appear in Event Mode");
   await anonPage.getByText("Slush", { exact: true }).waitFor();
   await anonPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor();
@@ -706,7 +847,7 @@ try {
   console.log("PASS logout, protected app redirect, login, and persisted Mode data");
 
   otherBrowser = await signUpAndConfirm(browser, other);
-  await testIsolation(owner, other, ownerId, modeIds, linkIds, imagePath);
+  await testIsolation(owner, other, ownerId, modeIds, linkIds, imagePath, [contentImageBlockId, featureBlockId], contentImagePath);
   const ownerAuth = await authenticatedClient(owner);
   const otherPage = otherBrowser.page;
   await setMode(otherPage, "business");
@@ -1073,6 +1214,15 @@ try {
     await page.goto(`${appUrl}/app/identity?mode=personal&section=profile`);
     await expectNoHorizontalOverflow(page, `Identity editor ${width}x${height}`);
     await openSection(page, "Links");
+    const imageBlockRow = page.locator("li").filter({ hasText: "A candid image block" });
+    await imageBlockRow.getByRole("button").nth(1).click();
+    const imageBlockDialog = page.getByRole("dialog").last();
+    const replaceImageButton = imageBlockDialog.getByRole("button", { name: "Replace image", exact: true });
+    assert((await replaceImageButton.boundingBox())?.height >= 44, `Image upload control must be a usable tap target at ${width}px`);
+    await imageBlockDialog.getByLabel("Upload profile image").waitFor();
+    await expectNoHorizontalOverflow(page, `Image block editor ${width}x${height}`);
+    await imageBlockDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await imageBlockDialog.waitFor({ state: "detached" });
     await openAddLink(page);
     const providerTrigger = page.getByRole("button", { name: "Choose a provider" });
     assert((await providerTrigger.boundingBox())?.height >= 44, `Provider picker trigger must be a usable tap target at ${width}px`);
@@ -1132,6 +1282,21 @@ try {
 
   await validateHomeWithData({ page, browser, appUrl, owner, ownerId, authenticatedClient, localSql });
   await validateEmailNotifications(page, owner, other, ownerId);
+
+  await page.goto(`${appUrl}/app/identity?mode=personal&section=links`);
+  const imageBlockRow = page.locator("li").filter({ hasText: "A candid image block" });
+  await imageBlockRow.getByRole("button").nth(1).click();
+  const imageBlockDialog = page.getByRole("dialog").last();
+  await imageBlockDialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await page.getByText("Image deleted", { exact: true }).waitFor();
+  const imageCleanupClient = await authenticatedClient(owner);
+  const deletedImageBlock = await imageCleanupClient.client.from("profile_blocks").select("id").eq("id", contentImageBlockId);
+  assert.ifError(deletedImageBlock.error);
+  assert.equal(deletedImageBlock.data.length, 0, "Deleting an Image block must remove its database row");
+  const deletedImageAsset = await imageCleanupClient.client.storage.from("profile-media").download(contentImagePath);
+  assert(deletedImageAsset.error, "Deleting an unreferenced Image block must remove its Storage object");
+  await imageCleanupClient.client.auth.signOut();
+  console.log("PASS deleted Image block cleanup and authenticated editor image controls at phone/tablet/desktop sizes");
 
   await ownerBrowser.context.close(); await otherBrowser.context.close(); await anonContext.close();
   console.log("E2E_LOCAL_RESULT=PASS");

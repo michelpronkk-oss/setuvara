@@ -29,6 +29,7 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
     case "video": return <VideoBlock accent={accent} accentInk={accentInk} data={data} id={block.id} tone={tone} />;
     case "music": return <MusicBlock accent={accent} accentInk={accentInk} block={block} tone={tone} />;
     case "feature": return <FeatureBlock data={data} tone={tone} />;
+    case "image": return <ImageBlock data={data} tone={tone} />;
     case "services": {
       const items = (data.items as { name?: string; detail?: string; price?: string }[] | undefined) ?? [];
       return (
@@ -268,9 +269,10 @@ function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: Pr
 }
 
 function FeatureBlock({ data, tone }: { data: Record<string, unknown>; tone: BlockTone }) {
-  const [imageFailed, setImageFailed] = useState(false);
+  const [failedImage, setFailedImage] = useState("");
   const url = str(data.url);
-  const image = str(data.image);
+  const image = str(data.image_url) || str(data.image);
+  const imageFailed = failedImage === image;
   let site = str(data.siteName);
   if (!site) { try { site = new URL(url).hostname.replace(/^www\./, ""); } catch { site = ""; } }
   return (
@@ -278,7 +280,7 @@ function FeatureBlock({ data, tone }: { data: Record<string, unknown>; tone: Blo
       {image && !imageFailed && (
         <span className="relative block aspect-[1.91/1] w-full overflow-hidden" style={{ background: tone.bg }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- third-party link preview image */}
-          <img alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.02]" loading="lazy" onError={() => setImageFailed(true)} referrerPolicy="no-referrer" src={image} />
+          <img alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.02]" loading="lazy" onError={() => setFailedImage(image)} referrerPolicy="no-referrer" src={image} />
         </span>
       )}
       <span className="block px-4 pb-4 pt-3.5">
@@ -288,5 +290,20 @@ function FeatureBlock({ data, tone }: { data: Record<string, unknown>; tone: Blo
         <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold">{str(data.cta) || "Open"} <span aria-hidden="true" className="transition group-hover:translate-x-0.5">↗</span></span>
       </span>
     </a>
+  );
+}
+
+function ImageBlock({ data, tone }: { data: Record<string, unknown>; tone: BlockTone }) {
+  const image = str(data.image_url);
+  const [failedImage, setFailedImage] = useState("");
+  const imageFailed = failedImage === image;
+  if (!image || imageFailed) return null;
+
+  return (
+    <figure className="overflow-hidden rounded-2xl" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
+      <img alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" decoding="async" loading="lazy" onError={() => setFailedImage(image)} src={image} />
+      {str(data.caption) && <figcaption className="px-4 py-3 text-[13px] leading-5" style={{ color: tone.sub }}>{str(data.caption)}</figcaption>}
+    </figure>
   );
 }

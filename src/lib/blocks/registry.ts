@@ -30,8 +30,14 @@ export const blockSchemas = {
     title: text(120).min(1, "Give this a title."),
     description: text(240).optional(),
     image: httpsImage,
+    image_path: z.string().trim().max(100).regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i).nullable().optional(),
     siteName: text(80).optional(),
     cta: text(30).optional(),
+  }),
+  image: z.object({
+    image_path: z.string().trim().max(100).regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i, "Upload a JPEG, PNG or WebP image."),
+    alt: text(180).min(1, "Describe the image for visitors."),
+    caption: text(240).optional(),
   }),
   services: z.object({
     heading: text(60).optional(),
@@ -55,6 +61,7 @@ export const BLOCKS: Record<BlockKind, BlockMeta> = {
   video: { kind: "video", name: "Video", hint: "YouTube, TikTok, Vimeo, Loom, Reels", icon: "M8 5.5v13l10.5-6.5L8 5.5Z" },
   music: { kind: "music", name: "Music", hint: "Spotify, YouTube Music, SoundCloud, Apple Music", icon: "M9 18.5a2.5 2.5 0 1 1-2.5-2.5c.4 0 .8.1 1 .2V5.8l11-2.3v11.9a2.5 2.5 0 1 1-2.5-2.4c.4 0 .7.1 1 .2V7.1L9 8.8v9.7Z" },
   feature: { kind: "feature", name: "Featured link", hint: "Big card with image, from any link", icon: "M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13Zm2 .5v7h12V6H6Zm0 9v1.5h8V15H6Z" },
+  image: { kind: "image", name: "Image", hint: "Add a photo or visual to this Mode", icon: "M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13ZM6 16.5l3.7-4.5 2.6 3.1 1.8-2.1 3.9 4.5V6H6v10.5ZM9.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" },
   services: { kind: "services", name: "Services", hint: "What you offer, with optional prices", icon: "M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h10v2H4v-2Z" },
   highlights: { kind: "highlights", name: "Highlights", hint: "Up to 3 numbers that prove it", icon: "M5 19V11h3v8H5Zm5.5 0V5h3v14h-3Zm5.5 0v-6h3v6h-3Z" },
   testimonial: { kind: "testimonial", name: "Testimonial", hint: "A quote from a client or partner", icon: "M5 17.5c0-4.3 1.9-7.5 5.2-9.5l1 1.6c-1.8 1.3-2.8 2.7-3 4.4H11V19H5v-1.5Zm8 0c0-4.3 1.9-7.5 5.2-9.5l1 1.6c-1.8 1.3-2.8 2.7-3 4.4H19V19h-6v-1.5Z" },
@@ -83,7 +90,8 @@ export function emptyBlock(kind: BlockKind): Record<string, unknown> {
     case "services": return { heading: "Services", items: [{ name: "", detail: "", price: "" }] };
     case "highlights": return { items: [{ value: "", label: "" }, { value: "", label: "" }] };
     case "testimonial": return { quote: "", author: "", role: "" };
-    case "feature": return { url: "", title: "", description: "", image: null, siteName: "", cta: "" };
+    case "feature": return { url: "", title: "", description: "", image: null, image_path: null, image_url: null, siteName: "", cta: "" };
+    case "image": return { image_path: null, image_url: null, alt: "", caption: "" };
     case "music": return { url: "", title: "", image: null };
     default: return { url: "", title: "" };
   }
@@ -130,6 +138,7 @@ export function blockSummary(block: Pick<ProfileBlock, "kind" | "data">): string
     }
     case "music": return str(data.title) || "Music";
     case "feature": return str(data.title) || "Featured link";
+    case "image": return str(data.caption) || "Image";
     case "services": return `${(data.items as unknown[] | undefined)?.length ?? 0} services`;
     case "highlights": return ((data.items as { value: string; label: string }[] | undefined) ?? []).map((item) => `${item.value} ${item.label}`).join(" · ") || "Highlights";
     case "testimonial": return str(data.author) ? `“${str(data.quote).slice(0, 40)}${str(data.quote).length > 40 ? "…" : ""}” · ${str(data.author)}` : "Testimonial";

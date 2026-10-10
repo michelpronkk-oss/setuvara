@@ -61,7 +61,12 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       image_url: signed?.signedUrl ?? null,
       links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
       // Blocks are optional: an older database without them still opens the editor.
-      blocks: readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)),
+      blocks: await Promise.all(readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)).map(async (block) => {
+        const path = typeof block.data.image_path === "string" ? block.data.image_path : null;
+        if (!path) return block;
+        const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(path, 3600);
+        return { ...block, data: { ...block.data, image_url: image?.signedUrl ?? null } };
+      })),
     };
   }));
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";

@@ -3,7 +3,7 @@
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
@@ -13,9 +13,12 @@ import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
 import type { BlockKind, ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type LinkPreview } from "@/lib/blocks/media";
 import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, validateBlock } from "@/lib/blocks/registry";
+import { removePendingContentImages } from "@/lib/blocks/storage";
 import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, normalizeProviderValue, providerForLink, resolveStoredLink, type LinkProvider, type LinkProviderId } from "@/lib/links/providers";
+import { createClient } from "@/lib/supabase/client";
 import { AddLinkPanel, DragHandle, LinkRow } from "./editor-sections";
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
+import { ContentImageControl } from "./content-image-control";
 import { BlockIcon, Card, Field, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
 type SheetState =
@@ -290,10 +293,18 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
   const [touched, setTouched] = useState<Set<string>>(() => new Set(block ? Object.keys(block.data) : []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [soundtrack, setSoundtrack] = useState(Boolean(block?.is_soundtrack));
+  const pendingImagePaths = useRef(new Set<string>());
+  const cleanupClient = useMemo(() => createClient(), []);
   const meta = BLOCKS[kind];
   const str = (key: string) => (typeof data[key] === "string" ? String(data[key]) : "");
   const set = (key: string, value: unknown) => { setData((current) => ({ ...current, [key]: value })); setTouched((current) => new Set(current).add(key)); setError(null); };
+  const closeSheet = () => { if (!saving && !imageUploading) onClose(); };
+
+  useEffect(() => () => {
+    void removePendingContentImages(cleanupClient, api.profile.id, pendingImagePaths.current);
+  }, [api.profile.id, cleanupClient]);
 
   const url = str("url").trim();
   const normalizedUrl = url && !/^https?:\/\//i.test(url) ? `https://${url}` : url;
@@ -315,10 +326,11 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
   const music = kind === "music" ? parseMusic(url) : null;
   const canSoundtrack = Boolean(music?.soundtrack) && (block?.is_visible ?? true);
   const currentSoundtrack = (api.mode.blocks ?? []).find((item) => item.is_soundtrack && item.id !== block?.id);
-  const previewBlock: ProfileBlock | null = check.ok ? { id: "preview", kind, data: check.data, is_visible: true, sort_order: 0 } : null;
+  const previewBlock: ProfileBlock | null = check.ok ? { id: "preview", kind, data: { ...check.data, ...(str("image_url") ? { image_url: str("image_url") } : {}) }, is_visible: true, sort_order: 0 } : null;
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
+    if (imageUploading) return;
     if (!check.ok) { setError(check.message); return; }
     setSaving(true);
     const options = kind === "music" ? { soundtrack: soundtrack && canSoundtrack } : {};
@@ -336,11 +348,11 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
     <Sheet
       footer={
         <div className="flex items-center justify-between gap-2">
-          {block ? <button className="min-h-11 rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#B42318]/[0.07]" onClick={() => { api.deleteBlock(block); onClose(); }} type="button">Delete</button> : <span />}
-          <div className="flex gap-2"><Pill onClick={onClose} variant="ghost">Cancel</Pill><Pill disabled={saving} onClick={() => void submit()} variant="ink">{saving ? "Saving…" : block ? "Save" : `Add ${meta.name.toLowerCase()}`}</Pill></div>
+          {block ? <button className="min-h-11 rounded-full px-3 text-sm font-semibold text-[#B42318] hover:bg-[#B42318]/[0.07] disabled:opacity-45" disabled={saving || imageUploading} onClick={() => { api.deleteBlock(block); onClose(); }} type="button">Delete</button> : <span />}
+          <div className="flex gap-2"><Pill disabled={saving || imageUploading} onClick={closeSheet} variant="ghost">Cancel</Pill><Pill disabled={saving || imageUploading} onClick={() => void submit()} variant="ink">{saving ? "Saving…" : imageUploading ? "Uploading…" : block ? "Save" : `Add ${meta.name.toLowerCase()}`}</Pill></div>
         </div>
       }
-      onClose={onClose}
+      onClose={closeSheet}
       title={<span className="flex items-center gap-3"><BlockIcon className="size-9 rounded-xl bg-[#0D0D0D] text-[#F5F4EF]" path={meta.icon} />{block ? `Edit ${meta.name.toLowerCase()}` : meta.name}</span>}
     >
       <form className="grid gap-4" onSubmit={submit}>
@@ -367,12 +379,29 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
           <Field hint="Optional" htmlFor="block-title" label="Title"><TextInput id="block-title" maxLength={120} onChange={(event) => set("title", event.target.value)} value={String(merged.title ?? "")} /></Field>
           <Field hint="Optional" htmlFor="block-caption" label="Caption"><TextInput id="block-caption" maxLength={160} onChange={(event) => set("caption", event.target.value)} placeholder="Shot on 16mm in Porto" value={str("caption")} /></Field>
         </>}
+        {(kind === "feature" || kind === "image") && <ContentImageControl
+          imagePath={str("image_path")}
+          label={kind === "image" ? "Profile image" : "Featured Link image"}
+          onBusyChange={setImageUploading}
+          onChange={(path, url) => {
+            if (path) pendingImagePaths.current.add(path);
+            set("image_path", path);
+            set("image_url", url);
+          }}
+          onRemove={kind === "feature" ? () => { set("image_path", null); set("image_url", null); } : undefined}
+          previewUrl={str("image_url") || (kind === "feature" && typeof merged.image === "string" ? merged.image : "")}
+          profileId={api.profile.id}
+        />}
+        {kind === "image" && <>
+          <Field htmlFor="block-image-alt" label="Describe the image"><TextInput autoFocus maxLength={180} id="block-image-alt" onChange={(event) => set("alt", event.target.value)} placeholder="A candid photo from the studio" value={str("alt")} /></Field>
+          <Field hint="Optional" htmlFor="block-image-caption" label="Caption"><TextArea className="min-h-[72px]" id="block-image-caption" maxLength={240} onChange={(event) => set("caption", event.target.value)} placeholder="A small note to go with the image" value={str("caption")} /></Field>
+        </>}
         {kind === "feature" && <>
           <Field htmlFor="block-title" label="Title"><TextInput id="block-title" maxLength={120} onChange={(event) => set("title", event.target.value)} value={String(merged.title ?? "")} /></Field>
           <Field hint="Optional" htmlFor="block-description" label="Description"><TextArea className="min-h-[80px]" id="block-description" maxLength={240} onChange={(event) => set("description", event.target.value)} value={String(merged.description ?? "")} /></Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field hint="Optional" htmlFor="block-cta" label="Button text"><TextInput id="block-cta" maxLength={30} onChange={(event) => set("cta", event.target.value)} placeholder="Read the case study" value={str("cta")} /></Field>
-            <Field hint={merged.image ? <button className="font-semibold underline" onClick={() => set("image", null)} type="button">Remove image</button> : "Optional"} htmlFor="block-site" label="Site name"><TextInput id="block-site" maxLength={80} onChange={(event) => set("siteName", event.target.value)} value={String(merged.siteName ?? "")} /></Field>
+            <Field hint="Optional" htmlFor="block-site" label="Site name"><TextInput id="block-site" maxLength={80} onChange={(event) => set("siteName", event.target.value)} value={String(merged.siteName ?? "")} /></Field>
           </div>
         </>}
         {kind === "services" && <>

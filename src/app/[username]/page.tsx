@@ -116,9 +116,13 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   }
   if (connectedState?.connection_id) viewerState = "visitor_connected";
   const identity = profile as ProfileIdentity;
-  const publicBlocks = readableBlocks(blockRows).map((block) => block.is_soundtrack
-    ? { ...block, data: { url: block.data.url } }
-    : block);
+  const publicBlocks = await Promise.all(readableBlocks(blockRows).map(async (block) => {
+    if (block.is_soundtrack) return { ...block, data: { url: block.data.url } };
+    const { image_path: imagePath, ...data } = block.data;
+    if (typeof imagePath !== "string") return { ...block, data };
+    const { data: signed } = await supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600);
+    return { ...block, data: { ...data, image_url: signed?.signedUrl ?? null } };
+  }));
   const mode: ProfileMode = {
     ...rawMode,
     slug: rawMode.slug as ModeSlug,

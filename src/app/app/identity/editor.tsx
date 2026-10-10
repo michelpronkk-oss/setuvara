@@ -8,6 +8,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
+import { removeContentImageIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
 import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
@@ -385,6 +386,11 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   // ---------- Blocks ----------
   const setBlocks = useCallback((modeId: string, blocks: ProfileBlock[]) => patchMode(modeId, { blocks }), [patchMode]);
   const blocksOf = (modeId: string) => modesRef.current.find((item) => item.id === modeId)?.blocks ?? [];
+  const signedBlockImage = useCallback(async (path: string | null | undefined) => {
+    if (!path) return null;
+    const { data } = await supabase.storage.from(MEDIA).createSignedUrl(path, 3600);
+    return data?.signedUrl ?? null;
+  }, [supabase]);
   /** Mirrors the database rule: one soundtrack per Mode, and making one clears the last. */
   const withSoundtrack = (blocks: ProfileBlock[], id: string, on: boolean) => blocks.map((item) => item.id === id ? { ...item, is_soundtrack: on } : on ? { ...item, is_soundtrack: false } : item);
 
@@ -398,19 +404,24 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       .insert({ profile_id: initialProfile.id, mode_id: target.id, kind, data: check.data, sort_order: sortOrder, is_visible: isVisible, ...(isSoundtrack ? { is_soundtrack: true } : {}) })
       .select("id, kind, data, is_visible, sort_order").single();
     if (insertError || !row) return { error: "That block couldn’t be added. Try again.", block: null };
-    const block = { ...row, is_soundtrack: isSoundtrack && kind === "music" && isVisible } as ProfileBlock;
+    const imageUrl = await signedBlockImage(typeof row.data.image_path === "string" ? row.data.image_path : null);
+    const block = { ...row, data: { ...row.data, ...(imageUrl ? { image_url: imageUrl } : {}) }, is_soundtrack: isSoundtrack && kind === "music" && isVisible } as ProfileBlock;
     const current = [...(modesRef.current.find((item) => item.id === target.id)?.blocks ?? []), block];
     setBlocks(target.id, block.is_soundtrack ? withSoundtrack(current, block.id, true) : current);
     return { error: null, block };
-  }, [initialProfile.id, setBlocks, supabase]);
+  }, [initialProfile.id, setBlocks, signedBlockImage, supabase]);
 
   const addBlock = useCallback(async (kind: BlockKind, data: Record<string, unknown>, options: { soundtrack?: boolean } = {}) => {
     let message: string | null = null;
     await runNow(async () => { message = (await insertBlock(mode, kind, data, true, Boolean(options.soundtrack))).error; return null; });
-    if (message) { setStatus("saved"); return message; }
+    if (message) {
+      setStatus("saved");
+      await removeContentImageIfUnused(supabase, initialProfile.id, typeof data.image_path === "string" ? data.image_path : null);
+      return message;
+    }
     toast(options.soundtrack ? `Soundtrack set for ${modeMeta[mode.slug].name} Mode` : `${BLOCKS[kind].name} added to ${modeMeta[mode.slug].name} Mode`);
     return null;
-  }, [insertBlock, mode, runNow, toast]);
+  }, [initialProfile.id, insertBlock, mode, runNow, supabase, toast]);
 
   const updateBlock = useCallback(async (block: ProfileBlock, data: Record<string, unknown>, options: { soundtrack?: boolean } = {}) => {
     const check = validateBlock(block.kind, data);
@@ -421,13 +432,18 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     await runNow(async () => {
       const { error: updateError } = await supabase.from("profile_blocks").update({ data: check.data, ...(soundtrack !== undefined ? { is_soundtrack: soundtrack } : {}) }).eq("id", block.id).eq("profile_id", initialProfile.id);
       if (updateError) { message = "That block couldn’t be saved. Try again."; return null; }
-      const updated = blocksOf(target.id).map((item) => item.id === block.id ? { ...item, data: check.data } : item);
+      const imageUrl = await signedBlockImage(typeof check.data.image_path === "string" ? check.data.image_path : null);
+      const updatedData = { ...check.data, ...(imageUrl ? { image_url: imageUrl } : {}) };
+      const updated = blocksOf(target.id).map((item) => item.id === block.id ? { ...item, data: updatedData } : item);
       setBlocks(target.id, soundtrack !== undefined ? withSoundtrack(updated, block.id, soundtrack) : updated);
+      const previousPath = typeof block.data.image_path === "string" ? block.data.image_path : null;
+      const nextPath = typeof check.data.image_path === "string" ? check.data.image_path : null;
+      if (previousPath !== nextPath) await removeContentImageIfUnused(supabase, initialProfile.id, previousPath);
       return null;
     });
     if (!message && soundtrack !== undefined) toast(soundtrack ? `Soundtrack set for ${modeMeta[target.slug].name} Mode` : `${modeMeta[target.slug].name} Mode has no soundtrack now`);
     return message;
-  }, [initialProfile.id, mode, runNow, setBlocks, supabase, toast]);
+  }, [initialProfile.id, mode, runNow, setBlocks, signedBlockImage, supabase, toast]);
 
   const setSoundtrack = useCallback((block: ProfileBlock, on: boolean) => {
     const target = mode;
@@ -477,6 +493,12 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       return null;
     }).then((failure) => {
       if (failure) return;
+      const imagePath = typeof block.data.image_path === "string" ? block.data.image_path : null;
+      if (imagePath) {
+        void removeContentImageIfUnused(supabase, initialProfile.id, imagePath);
+        toast(`${BLOCKS[block.kind].name} deleted`);
+        return;
+      }
       toast(`${block.is_soundtrack ? "Soundtrack" : BLOCKS[block.kind].name} deleted`, { label: "Undo", run: () => {
         void runNow(async () => {
           const result = await insertBlock(target, block.kind, block.data, block.is_visible, Boolean(block.is_soundtrack));
@@ -493,9 +515,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   // ---------- Photos ----------
   const removeIfUnused = useCallback(async (path: string | null) => {
-    if (!path || modesRef.current.some((item) => item.image_path === path)) return;
-    await supabase.storage.from(MEDIA).remove([path]);
-  }, [supabase]);
+    await removeContentImageIfUnused(supabase, initialProfile.id, path);
+  }, [initialProfile.id, supabase]);
 
   const pickPhoto = useCallback(() => { photoTarget.current = mode.id; fileRef.current?.click(); }, [mode.id]);
   const recropPhoto = useCallback(() => { if (mode.image_url) setCrop({ source: mode.image_url, modeId: mode.id, revoke: false }); }, [mode.id, mode.image_url]);
