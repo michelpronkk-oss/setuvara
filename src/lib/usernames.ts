@@ -42,6 +42,7 @@ export const reservedUsernames = [
   "robots.txt",
   "sitemap.xml",
   "manifest.json",
+  "connect",
 ] as const;
 
 const reservedUsernameSet = new Set<string>(reservedUsernames);

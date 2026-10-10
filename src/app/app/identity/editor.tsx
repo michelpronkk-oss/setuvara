@@ -10,6 +10,7 @@ import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
+import type { ConnectPolicy } from "@/lib/connections/access";
 import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import { isAllowedUsername } from "@/lib/usernames";
@@ -27,6 +28,7 @@ type EditorProps = {
   initialModes: ProfileMode[];
   initialMode: ModeSlug;
   initialSection: string;
+  initialShareIntent: "profile" | "in_person";
   publicOrigin: string;
   error?: string;
   saved?: string;
@@ -60,7 +62,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -269,6 +271,20 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     });
     if (failure) patchMode(current.id, { is_enabled: !enabled });
     else toast(enabled ? `${modeMeta[current.slug].name} Mode is live` : `${modeMeta[current.slug].name} Mode is off. Its link stops working.`);
+  }, [initialProfile.id, patchMode, runNow, slug, supabase, toast]);
+
+  const setConnectPolicy = useCallback(async (policy: ConnectPolicy) => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current) return;
+    const previous = current.connect_policy ?? "anyone";
+    if (previous === policy) return;
+    patchMode(current.id, { connect_policy: policy });
+    const failure = await runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_modes").update({ connect_policy: policy }).eq("id", current.id).eq("profile_id", initialProfile.id);
+      return updateError ? "Connection access couldn’t be saved. Try again." : null;
+    });
+    if (failure) patchMode(current.id, { connect_policy: previous });
+    else toast(policy === "anyone" ? `Anyone viewing ${modeMeta[current.slug].name} can connect` : policy === "direct_only" ? `${modeMeta[current.slug].name} is view-only until you share directly` : `${modeMeta[current.slug].name} is view-only`);
   }, [initialProfile.id, patchMode, runNow, slug, supabase, toast]);
 
   const setPublished = useCallback(async (published: boolean) => {
@@ -623,7 +639,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   const api: EditorApi = {
     profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto,
-    updateProfile, updateSetting, updateAppearance, setModeEnabled, setPublished,
+    updateProfile, updateSetting, updateAppearance, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
     pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,

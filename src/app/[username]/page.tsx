@@ -11,6 +11,7 @@ import { isFullBleed, ProfileRenderer, profileTone, resolvedBrowserThemeColor } 
 import { resolveModeAccent } from "@/components/profile/appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
+import { visitorPassCookie } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -153,6 +154,15 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     }
   }
   if (connectedState?.connection_id) viewerState = "visitor_connected";
+
+  // Connection Access is decided server-side for this exact profile and Mode.
+  // Query parameters and client state never authorize; only a valid pass does.
+  let canInitiateConnection = false;
+  if (!owner) {
+    const passToken = (await cookies()).get(visitorPassCookie(username, slug))?.value ?? null;
+    const { data: access } = await supabase.rpc("get_connect_access", { p_target_username: username, p_target_mode: slug, p_pass_token: passToken });
+    canInitiateConnection = access === true;
+  }
   const identity = profile as ProfileIdentity;
   const publicBlocks = await Promise.all(readableBlocks(blockRows).map(async (block) => {
     if (block.is_soundtrack) return { ...block, data: { url: block.data.url } };
@@ -206,7 +216,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
           connectionContext={connectedState?.context as ConnectionContext | undefined}
           connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
           guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
-          visitorAction={!owner ? <ConnectFlow
+          visitorAction={canInitiateConnection ? <ConnectFlow
             username={username}
             mode={slug}
             source={query.source ?? "direct"}

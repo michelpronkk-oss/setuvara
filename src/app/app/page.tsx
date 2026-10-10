@@ -8,6 +8,7 @@ import { PeopleSection, PeopleSkeleton } from "@/components/app/home/people-sect
 import type { ModeSlug } from "@/components/profile/types";
 import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
+import { parseConnectPolicy } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 
 const ORDER: ModeSlug[] = ["personal", "event", "business"];
@@ -24,7 +25,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   // Identity is the only required source. People and Passport stream in behind their own boundaries.
   const [{ data: profile }, { data: modeRows }, requestHeaders, billing] = await Promise.all([
     supabase.from("profiles").select("username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("slug, label, is_enabled, settings, image_path").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("slug, label, is_enabled, settings, image_path, connect_policy").eq("profile_id", userId).order("sort_order"),
     headers(),
     getViewerPlan(userId),
   ]);
@@ -35,7 +36,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
     const row = modeRows?.find((item) => item.slug === slug);
     const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
     const imageUrl = await signHomeImage(supabase, row?.image_path);
-    return { slug, enabled: row?.is_enabled ?? false, imageUrl, ...describeMode(slug, settings, profile.bio) };
+    return { slug, enabled: row?.is_enabled ?? false, imageUrl, connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
   }));
   const initialMode = ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 

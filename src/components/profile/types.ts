@@ -45,6 +45,8 @@ export type ProfileMode = {
   appearance: ModeAppearance;
   image_path: string | null;
   image_url?: string | null;
+  /** Who can start a new inbound Connection from this Mode. Absent means anyone. */
+  connect_policy?: "anyone" | "direct_only" | "nobody";
   links: ProfileLink[];
   /** Content blocks, in order. Absent where a surface doesn't load them. */
   blocks?: ProfileBlock[];

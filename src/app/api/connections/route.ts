@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { visitorPassCookie } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 
 const modeSchema = z.enum(["personal", "event", "business"]);
@@ -16,6 +17,7 @@ const requestSchema = z.object({
 }).strict();
 
 const guestCookieName = "sv-guest-session";
+const closedMessage = "Connections aren’t open from this Mode right now.";
 
 export async function POST(request: Request) {
   const requestUrl = new URL(request.url);
@@ -47,6 +49,9 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: claims } = await supabase.auth.getClaims();
     const userId = claims?.claims?.sub;
+    const cookieStore = await cookies();
+    // The database re-checks the target Mode's policy and this pass on every Connect.
+    const passToken = cookieStore.get(visitorPassCookie(parsed.data.username, parsed.data.mode))?.value ?? null;
 
     if (userId) {
       if (!parsed.data.shareBackMode) return Response.json({ error: "Choose a Mode to share back." }, { status: 400 });
@@ -56,12 +61,13 @@ export async function POST(request: Request) {
         p_share_back_mode: parsed.data.shareBackMode,
         p_request_id: parsed.data.requestId,
         p_source: parsed.data.source,
+        p_pass_token: passToken,
       });
+      if (error?.code === "42501") return Response.json({ error: closedMessage }, { status: 403 });
       if (error || !data) return Response.json({ error: "We couldn’t connect right now. Try again." }, { status: 400 });
       return Response.json({ connected: true, connectionId: data.connection_id, encounterId: data.encounter_id }, { status: 201 });
     }
 
-    const cookieStore = await cookies();
     let token = cookieStore.get(guestCookieName)?.value;
     let newSession = false;
     if (token) {
@@ -87,7 +93,9 @@ export async function POST(request: Request) {
       p_session_token: token,
       p_request_id: parsed.data.requestId,
       p_source: parsed.data.source,
+      p_pass_token: passToken,
     });
+    if (error?.code === "42501") return Response.json({ error: closedMessage }, { status: 403 });
     if (error || !data) return Response.json({ error: "We couldn’t connect right now. Check the details and try again." }, { status: 400 });
 
     if (newSession) {
