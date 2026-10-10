@@ -8,6 +8,28 @@ select ok(
 );
 
 select ok(
+  has_column_privilege('service_role', 'public.profiles', 'id', 'select'),
+  'server analytics can resolve a profile ID'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_class as relation
+    cross join lateral aclexplode(coalesce(relation.relacl, acldefault('r', relation.relowner))) as privilege
+    where relation.oid = 'public.profiles'::regclass
+      and privilege.grantee = 'service_role'::regrole
+      and privilege.privilege_type = 'SELECT'
+  ),
+  'server analytics does not receive table-level profile read access'
+);
+
+select ok(
+  not has_column_privilege('service_role', 'public.profiles', 'display_name', 'select'),
+  'server analytics cannot read profile content through this grant'
+);
+
+select ok(
   not has_table_privilege(role_name, 'private.product_analytics_events', privilege_name),
   format('%s has no %s privilege on analytics facts', role_name, privilege_name)
 )
