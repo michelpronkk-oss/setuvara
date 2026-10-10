@@ -8,6 +8,7 @@
     "e2e:soundtrack": "node scripts/e2e-soundtrack.mjs",
     "e2e:connection-access": "node scripts/e2e-connection-access.mjs",
     "e2e:connection-detail": "node scripts/e2e-connection-detail.mjs",
+    "e2e:tap": "node scripts/e2e-tap.mjs",
     "test:appearance": "node --test tests/appearance/appearance.test.mjs",
     "test:connections": "node --test tests/connections/relationship.test.mjs",
     "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs",

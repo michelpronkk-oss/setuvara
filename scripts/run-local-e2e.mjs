@@ -35,12 +35,13 @@ const env = {
   NEXT_PUBLIC_SUPABASE_URL: localUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: localPublishableKey,
   SUPABASE_SERVICE_ROLE_KEY: localServiceRoleKey,
+  NEXT_PUBLIC_APP_URL: appUrl,
   PLAYWRIGHT_BROWSERS_PATH: resolve(root, ".playwright-browsers"),
   E2E_APP_URL: appUrl,
   E2E_MAILPIT_URL: "http://127.0.0.1:54324",
 };
 const e2eEnv = { ...env, E2E_LOCAL_SERVICE_KEY: localServiceRoleKey };
-const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs"];
+const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs", "scripts/e2e-tap.mjs"];
 const requestedScript = process.env.E2E_LOCAL_SCRIPT;
 assert(!requestedScript || e2eScripts.includes(requestedScript), "E2E_LOCAL_SCRIPT must name a Setuvara local E2E script");
 

@@ -93,7 +93,7 @@ describe("profile location is not a meeting place", () => {
 });
 
 describe("sources in human language", () => {
-  for (const [source, label] of [["qr", "Scanned QR code"], ["link", "Shared link"], ["share", "Shared link"], ["native_share", "Shared link"], ["direct_share", "Connection Pass"], ["profile", "Profile visit"], ["direct", "Profile visit"]]) {
+  for (const [source, label] of [["qr", "Scanned QR code"], ["link", "Shared link"], ["share", "Shared link"], ["native_share", "Shared link"], ["direct_share", "Connection Pass"], ["tap", "Setuvara Tap"], ["profile", "Profile visit"], ["direct", "Profile visit"]]) {
     test(`${source} → ${label}`, () => assert.equal(lib.describeSource(source, false, "Rayzenni I").label, label));
   }
   test("perspective follows who shared", () => {
@@ -101,7 +101,7 @@ describe("sources in human language", () => {
     assert.equal(lib.describeSource("qr", true, "Rayzenni I").detail, "Rayzenni scanned your QR code");
   });
   test("no raw values or claims of a physical meeting", () => {
-    for (const source of ["qr", "link", "share", "native_share", "direct_share", "profile", "direct"]) {
+    for (const source of ["qr", "link", "share", "native_share", "direct_share", "tap", "profile", "direct"]) {
       const { label, detail } = lib.describeSource(source, false, "Ana");
       assert.doesNotMatch(`${label} ${detail}`, /native_share|direct_share|_|met in person|you met/i);
     }

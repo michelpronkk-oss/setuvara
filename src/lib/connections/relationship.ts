@@ -82,7 +82,7 @@ export type RelationshipInput = {
   now?: Date;
 };
 
-export type SourceKind = "qr" | "link" | "pass" | "profile";
+export type SourceKind = "qr" | "link" | "pass" | "tap" | "profile";
 export type Provenance = "viewer" | "confirmed" | "corrected" | "suggested";
 
 export type Suggestion = { value: string; reason: string; city?: string | null };
@@ -193,12 +193,13 @@ export function sourceKind(source: string): SourceKind {
   if (source === "qr") return "qr";
   if (source === "link" || source === "share" || source === "native_share") return "link";
   if (source === "direct_share") return "pass";
+  if (source === "tap") return "tap";
   return "profile";
 }
 
 /**
- * Human source wording. Never claims a physical meeting: a QR scan or a pass is
- * how the share happened, not proof of where two people were.
+ * Human source wording. A Tap/QR/pass source records the share surface only,
+ * not proof of physical presence or where two people were.
  */
 export function describeSource(source: string, viewerShared: boolean, name: string): { kind: SourceKind; label: string; detail: string } {
   const kind = sourceKind(source);
@@ -210,6 +211,8 @@ export function describeSource(source: string, viewerShared: boolean, name: stri
       return { kind, label: "Shared link", detail: viewerShared ? `${first} opened a link you shared` : `You opened a link ${first} shared` };
     case "pass":
       return { kind, label: "Connection Pass", detail: viewerShared ? `You shared a Connection Pass directly with ${first}` : `${first} shared a Connection Pass directly with you` };
+    case "tap":
+      return { kind, label: "Setuvara Tap", detail: viewerShared ? `You shared Setuvara Tap with ${first}` : `You opened ${first}’s Setuvara Tap` };
     default:
       return { kind, label: "Profile visit", detail: viewerShared ? `${first} connected from your profile` : `You connected from ${first}’s profile` };
   }

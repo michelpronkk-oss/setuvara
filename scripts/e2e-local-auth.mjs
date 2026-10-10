@@ -1230,7 +1230,8 @@ try {
   await page.getByLabel("Email").fill(owner.email);
   await page.getByLabel("Password", { exact: true }).fill(owner.password);
   await page.getByRole("button", { name: "Log in", exact: true }).click();
-  await page.waitForURL(`${appUrl}/app/identity`);
+  await page.waitForURL((url) => url.origin === appUrl && url.pathname === "/app");
+  await page.goto(`${appUrl}/app/identity`);
   await page.getByRole("tab", { name: /^Event/ }).filter({ visible: true }).click();
   await openSection(page, "Profile");
   await page.getByLabel("Event name").waitFor();
@@ -1296,11 +1297,17 @@ try {
   await otherPage.goto(`${appUrl}${registeredDetailHref}`);
   await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
   await otherPage.getByText("Founder · Northlight", { exact: true }).waitFor();
-  await otherPage.getByText("Helsinki", { exact: true }).first().waitFor();
-  assert.equal(await otherPage.getByText("Helsinki", { exact: true }).count(), 2, "Current Event location and historical meeting city should both remain visible");
+  const personPanel = otherPage.locator('aside[aria-label="About Aanya Rao"]');
+  assert.doesNotMatch(await personPanel.innerText(), /\bHelsinki\b/, "An Event Mode city is not presented as the person's persistent location");
+  const encounterMemory = otherPage.locator('section[aria-labelledby="memory-heading"]');
+  const encounterCity = encounterMemory.getByText("Helsinki", { exact: true });
+  await encounterCity.waitFor();
+  assert.equal(await encounterCity.count(), 1, "The shared Event snapshot's city appears once in the encounter context");
+  await encounterMemory.getByText("From Aanya’s Event Mode at the time", { exact: true }).waitFor();
   await otherPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
-  await otherPage.getByRole("link", { name: `@${owner.username}`, exact: true }).waitFor();
-  const eventModePhoto = otherPage.locator('img[alt="Aanya Rao · Event Mode"]');
+  await personPanel.getByText(`@${owner.username}`, { exact: true }).waitFor();
+  await personPanel.getByRole("link", { name: "View Aanya’s profile", exact: true }).waitFor();
+  const eventModePhoto = personPanel.locator('img[alt="Aanya Rao"]');
   await eventModePhoto.waitFor();
   assert.equal(await eventModePhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Event identity should fall back to the published Personal Mode photo");
   assert((await eventModePhoto.getAttribute("src"))?.includes(`/${imagePath}`), "Event Mode without its own image should use the counterpart's Personal photo");
@@ -1308,7 +1315,7 @@ try {
   assert.ifError((await ownerAuth.client.storage.from("profile-media").upload(ownerEventPhotoPath, png, { contentType: "image/png", upsert: false })).error);
   assert.ifError((await ownerAuth.client.from("profile_modes").update({ image_path: ownerEventPhotoPath }).eq("profile_id", ownerId).eq("slug", "event")).error);
   await otherPage.reload();
-  const eventSpecificPhoto = otherPage.locator('img[alt="Aanya Rao · Event Mode"]');
+  const eventSpecificPhoto = personPanel.locator('img[alt="Aanya Rao"]');
   await eventSpecificPhoto.waitFor();
   assert((await eventSpecificPhoto.getAttribute("src"))?.includes(`/${ownerEventPhotoPath}`), "Event Mode's own image should take precedence over Personal fallback");
   await mkdir(".next/home-qa", { recursive: true });
@@ -1322,7 +1329,9 @@ try {
   assert.ifError(rename.error);
   await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
   await otherPage.getByRole("heading", { name: "Aanya Rao Current", exact: true }).waitFor();
-  await otherPage.getByRole("link", { name: `@${temporaryUsername}`, exact: true }).waitFor();
+  const renamedPersonPanel = otherPage.locator('aside[aria-label="About Aanya Rao Current"]');
+  await renamedPersonPanel.getByText(`@${temporaryUsername}`, { exact: true }).waitFor();
+  await renamedPersonPanel.getByRole("link", { name: "View Aanya’s profile", exact: true }).waitFor();
   await otherPage.getByText("Slush", { exact: true }).waitFor();
   await otherPage.getByText("Founder · Northlight", { exact: true }).waitFor();
   const restoredName = await ownerAuth.client.from("profiles").update({ display_name: "Aanya Rao", username: owner.username }).eq("id", ownerId).select("id").single();
@@ -1330,8 +1339,9 @@ try {
 
   await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
   await page.getByText("Product Designer · Lumen Labs", { exact: true }).waitFor();
-  await page.getByText("Berlin", { exact: true }).waitFor();
-  const otherCounterpartPhoto = page.locator("section img");
+  const otherPersonPanel = page.locator('aside[aria-label^="About "]');
+  await otherPersonPanel.getByText("Based in Berlin", { exact: true }).waitFor();
+  const otherCounterpartPhoto = otherPersonPanel.locator("img");
   await otherCounterpartPhoto.waitFor();
   assert.equal(await otherCounterpartPhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Connection detail should show the registered counterpart's published Personal photo when the shared Business Mode has none");
   assert((await otherCounterpartPhoto.getAttribute("src"))?.includes(`/${otherPhotoPath}`), "Connection detail must fall back to the counterpart's Personal image, not the viewer's image");
@@ -1339,7 +1349,7 @@ try {
   assert.ifError((await otherAuth.client.storage.from("profile-media").upload(otherBusinessPhotoPath, png, { contentType: "image/png", upsert: false })).error);
   assert.ifError((await otherAuth.client.from("profile_modes").update({ image_path: otherBusinessPhotoPath }).eq("profile_id", otherId).eq("slug", "business")).error);
   await page.reload();
-  const businessSpecificPhoto = page.locator("section img");
+  const businessSpecificPhoto = otherPersonPanel.locator("img");
   await businessSpecificPhoto.waitFor();
   assert((await businessSpecificPhoto.getAttribute("src"))?.includes(`/${otherBusinessPhotoPath}`), "Business Mode's own image should take precedence over Personal fallback");
 
@@ -1352,7 +1362,7 @@ try {
   await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
   await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
   await otherPage.getByText("One person, three thoughtful contexts.", { exact: true }).waitFor();
-  await otherPage.locator('img[alt="Aanya Rao · Personal Mode"]').waitFor();
+  await otherPage.locator('aside[aria-label="About Aanya Rao"] img[alt="Aanya Rao"]').waitFor();
   await otherPage.goto(`${appUrl}/${owner.username}?mode=business&source=profile`);
   await otherPage.getByRole("button", { name: "Connect again", exact: true }).click();
   await otherPage.getByRole("button", { name: "Business", exact: true }).click();
@@ -1360,7 +1370,7 @@ try {
   await waitForConnected(otherPage, "registered account 2 sharing Business Mode");
   await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
   await otherPage.getByText("Head of Sales · Lumen Labs", { exact: true }).waitFor();
-  await otherPage.getByText("Berlin", { exact: true }).waitFor();
+  await otherPage.locator('aside[aria-label^="About "]').getByText("Based in Berlin", { exact: true }).waitFor();
   await otherPage.getByText("We help teams build durable customer relationships.", { exact: true }).waitFor();
   const disabledBusiness = await ownerAuth.client.from("profile_modes").update({ is_enabled: false }).eq("profile_id", ownerId).eq("slug", "business");
   assert.ifError(disabledBusiness.error);
@@ -1398,11 +1408,12 @@ try {
   assert.ifError(otherCannotReadContext.error);
   assert.equal(otherCannotReadContext.data?.length, 0, "Where You Met context is private to its author");
   await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
-  await otherPage.getByLabel("A thought to remember").waitFor();
-  assert.equal(await otherPage.getByLabel("A thought to remember").inputValue(), "", "Another participant must not see the owner's private note");
+  const otherMemorySection = otherPage.locator('section[aria-labelledby="memory-heading"]');
+  await otherMemorySection.getByRole("button", { name: /Add a note/ }).waitFor();
+  assert.equal(await otherMemorySection.locator("blockquote").filter({ hasText: "Private Setuvara E2E note" }).count(), 0, "Another participant must not see the owner's private note");
   assert.equal((await otherPage.locator("body").innerText()).includes("Messukeskus"), false, "Another participant must not see the owner's private Where You Met override");
   await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
-  await page.getByText(/Messukeskus/).waitFor();
+  await page.locator('section[aria-labelledby="memory-heading"]').getByText("Messukeskus, Helsinki", { exact: true }).waitFor();
   await page.goto(`${appUrl}/app/connections`);
   const search = page.getByRole("searchbox", { name: "Search connections" });
   for (const term of ["Slush", "Helsinki", "Messukeskus", "Lumen Labs"]) {
@@ -1474,7 +1485,7 @@ try {
   assert.ifError(thirdAccountCannotReadUnrelated.error);
   assert.equal(thirdAccountCannotReadUnrelated.data?.length, 0, "Claimed guest account cannot read unrelated account 1–2 connection");
   await guestClaimBrowser.page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
-  assert.equal(await guestClaimBrowser.page.getByLabel("A thought to remember").count(), 0, "An unrelated authenticated account cannot render another Connection's private controls");
+  assert.equal(await guestClaimBrowser.page.getByRole("button", { name: /Add a note/ }).count(), 0, "An unrelated authenticated account cannot render another Connection's private controls");
   const unrelatedPageText = await guestClaimBrowser.page.locator("body").innerText();
   assert.equal(unrelatedPageText.includes("Aanya Rao"), false, "An unrelated authenticated account cannot render counterpart identity for another Connection");
   assert.equal(unrelatedPageText.includes("Private Setuvara E2E note"), false, "An unrelated authenticated account cannot render another user's private note");
@@ -1756,7 +1767,7 @@ try {
     await page.screenshot({ path: `.next/home-qa/connections-${width}.png`, fullPage: true });
     await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
     await expectNoHorizontalOverflow(page, `Connection detail ${width}x${height}`);
-    await page.getByLabel("A thought to remember").waitFor();
+    await page.locator('section[aria-labelledby="memory-heading"] blockquote').filter({ hasText: "Private Setuvara E2E note" }).waitFor();
     await page.screenshot({ path: `.next/home-qa/connection-detail-${width}.png`, fullPage: true });
     await otherPage.setViewportSize({ width, height });
     await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);

@@ -15,8 +15,11 @@ export function isSameOriginJsonRequest(request: Request): boolean {
   const contentType = request.headers.get("content-type")?.split(";")[0]?.trim();
   if (!origin || contentType !== "application/json") return false;
   try {
-    return new URL(origin).origin === new URL(request.url).origin &&
-      new URL(origin).origin === getSetuvaraOrigin();
+    const parsedOrigin = new URL(origin);
+    // Next.js and trusted hosting proxies may rewrite request.url to an
+    // internal host. The browser Origin must be a canonical allowed origin;
+    // comparing it to that fixed Setuvara origin preserves the CSRF check.
+    return parsedOrigin.origin === origin && parsedOrigin.origin === getSetuvaraOrigin();
   } catch {
     return false;
   }
