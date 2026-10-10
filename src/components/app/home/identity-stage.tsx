@@ -8,8 +8,10 @@ import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
+import type { ConnectPolicy } from "@/lib/connections/access";
+import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 
-export type StageMode = { slug: ModeSlug; enabled: boolean; imageUrl: string | null; sub: string; line: string; configured: boolean };
+export type StageMode = { slug: ModeSlug; enabled: boolean; imageUrl: string | null; sub: string; line: string; configured: boolean; connectPolicy: ConnectPolicy };
 
 const NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
 const DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" };
@@ -202,14 +204,21 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
 }) {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [copyError, setCopyError] = useState(false);
+  const [intent, setIntent] = useState<"profile" | "in_person">("profile");
   const canShare = useSyncExternalStore(noSubscription, () => typeof navigator.share === "function", () => false);
-  const copied = copiedUrl === publicUrl(slug, "link");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panel = useRef<HTMLElement>(null);
   const close = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const mode = modes.find((item) => item.slug === slug) ?? modes[0];
   const offline = !isPublished || !mode.enabled;
+  // Direct share only Modes have two intents: the view-only profile, or a temporary Connection Pass.
+  const inPerson = intent === "in_person" && mode.connectPolicy === "direct_only";
+  const { pass, end: resetPass } = useConnectPass(slug, inPerson && !offline);
+  const passUrl = pass?.ok ? pass.url : null;
+  const linkUrl = inPerson ? passUrl : publicUrl(slug, "link");
+  const qrUrl = inPerson ? passUrl : publicUrl(slug, "qr");
+  const copied = Boolean(linkUrl) && copiedUrl === linkUrl;
 
   useEffect(() => {
     close.current?.focus();
@@ -229,7 +238,8 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   async function copy() {
-    const value = publicUrl(slug, "link");
+    const value = linkUrl;
+    if (!value) return;
     try {
       await navigator.clipboard.writeText(value); setCopiedUrl(value); setCopyError(false);
       if (timer.current) clearTimeout(timer.current);
@@ -237,7 +247,9 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
     } catch { setCopiedUrl(null); setCopyError(true); }
   }
   async function share() {
-    try { await navigator.share({ title: `${displayName} · ${NAMES[slug]} Mode`, url: publicUrl(slug, "native_share") }); } catch { /* dismissed */ }
+    const url = inPerson ? passUrl : publicUrl(slug, "native_share");
+    if (!url) return;
+    try { await navigator.share({ title: `${displayName} · ${NAMES[slug]} Mode`, url }); } catch { /* dismissed */ }
   }
 
   return (
@@ -246,7 +258,9 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
       <section aria-labelledby={titleId} aria-modal="true" className="relative flex max-h-[92dvh] w-full flex-col gap-4 overflow-y-auto rounded-t-[30px] bg-[#f5f4ef] px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-2.5 [animation:sheet-up_220ms_cubic-bezier(.2,.8,.2,1)] md:grid md:max-w-[780px] md:grid-cols-[300px_minmax(0,1fr)] md:gap-8 md:rounded-[30px] md:p-8" ref={panel} role="dialog">
         <span aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-black/20 md:hidden" />
         <div className="order-2 mx-auto w-[228px] rounded-[22px] bg-white p-3.5 md:order-none md:w-full md:p-5">
-          <QRCodeSVG aria-label={`${NAMES[slug]} Mode QR code`} bgColor="#FFFFFF" className="h-auto w-full" fgColor="#0D0D0D" imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={4} role="img" size={256} title={`${NAMES[slug]} Mode QR code`} value={publicUrl(slug, "qr")} />
+          {qrUrl
+            ? <QRCodeSVG aria-label={`${NAMES[slug]} Mode ${inPerson ? "Connect in person " : ""}QR code`} bgColor="#FFFFFF" className="h-auto w-full" data-share-intent={inPerson ? "in_person" : "profile"} data-qr-value={qrUrl} fgColor="#0D0D0D" imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={4} role="img" size={256} title={`${NAMES[slug]} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
+            : <div aria-live="polite" className="grid aspect-square w-full place-items-center px-4 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</div>}
         </div>
         <div className="contents md:flex md:min-w-0 md:flex-col md:gap-5">
           <div className="order-1 flex items-end justify-between gap-4 md:order-none md:items-start">
@@ -254,21 +268,38 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
             <button aria-label="Close" className="grid size-11 shrink-0 place-items-center rounded-full bg-black/[0.06] text-xl focus-visible:outline-2" onClick={onClose} ref={close} type="button">×</button>
           </div>
           <div className="order-1 md:order-none"><ModePicker modes={modes} onPick={onPick} slug={slug} variant="sheet" /></div>
+          {mode.connectPolicy === "direct_only" && <div className="order-1 md:order-none"><IntentPicker intent={inPerson ? "in_person" : "profile"} onPick={setIntent} /></div>}
           {offline
             ? <p className="order-3 rounded-2xl bg-[#ff5a4f]/[0.14] px-4 py-3 text-sm font-semibold md:order-none">{!isPublished ? "Your Setuvara is a draft, so this link won't open yet." : `${NAMES[slug]} Mode is off, so this link won't open.`} <Link className="underline underline-offset-4" href={`/app/identity?mode=${slug}&section=share`}>Fix in Identity</Link></p>
-            : <p className="order-3 hidden text-[15px] leading-[1.45] text-black/80 md:order-none md:block">{NOTES[slug]}</p>}
+            : inPerson
+              ? <p className="order-3 text-sm leading-[1.45] text-black/80 md:order-none md:text-[15px]">Anyone who scans or opens this can connect with your {NAMES[slug]} Mode{pass?.ok ? ` until ${passExpiryLabel(pass.expiresAt)}` : ""}. <button className="py-1 font-semibold underline underline-offset-4" onClick={() => void resetPass()} type="button">Reset pass</button></p>
+              : mode.connectPolicy === "anyone"
+                ? <p className="order-3 hidden text-[15px] leading-[1.45] text-black/80 md:order-none md:block">{NOTES[slug]}</p>
+                : <p className="order-3 text-sm leading-[1.45] text-black/80 md:order-none md:text-[15px]">View only. Your profile opens without Connect.</p>}
           <div className="order-4 flex min-h-[52px] items-center justify-between gap-3 rounded-[14px] bg-white py-1.5 pl-4 pr-1.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] md:order-none">
-            <span className="min-w-0 truncate font-label text-[13px]">{publicUrl(slug).replace(/^https?:\/\//, "")}</span>
-            <button aria-live="polite" className={`min-h-11 shrink-0 rounded-[10px] px-3.5 text-[13px] font-semibold focus-visible:outline-2 ${copied ? "bg-[#c7ff4a]" : "bg-black/[0.06]"}`} onClick={() => void copy()} type="button">{copied ? "Copied" : "Copy link"}</button>
+            <span className="min-w-0 truncate font-label text-[13px]">{inPerson ? (passUrl ? passUrl.replace(/^https?:\/\//, "").replace(/\/connect\/.+$/, "/connect/…") : "Connection Pass") : publicUrl(slug).replace(/^https?:\/\//, "")}</span>
+            <button aria-live="polite" className={`min-h-11 shrink-0 rounded-[10px] px-3.5 text-[13px] font-semibold focus-visible:outline-2 disabled:opacity-50 ${copied ? "bg-[#c7ff4a]" : "bg-black/[0.06]"}`} disabled={!linkUrl} onClick={() => void copy()} type="button">{copied ? "Copied" : "Copy link"}</button>
           </div>
           {copyError && <p className="order-5 text-sm" role="status">Copy is unavailable in this browser. Select the profile URL above to copy it.</p>}
           <div className="order-5 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2 md:order-none md:mt-auto">
-            {canShare && <button className="min-h-[52px] min-w-0 whitespace-nowrap rounded-full bg-[#ff5a4f] px-3 py-3 text-center text-sm font-semibold leading-5 text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => void share()} type="button">Share link</button>}
-            <Link aria-label="Open full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 whitespace-nowrap items-center justify-center rounded-full px-3 py-3 text-center text-sm font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share`}>Open QR screen</Link>
+            {canShare && <button className="min-h-[52px] min-w-0 whitespace-nowrap rounded-full bg-[#ff5a4f] px-3 py-3 text-center text-sm font-semibold leading-5 text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50" disabled={!linkUrl} onClick={() => void share()} type="button">Share link</button>}
+            <Link aria-label="Open full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 whitespace-nowrap items-center justify-center rounded-full px-3 py-3 text-center text-sm font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share${inPerson ? "&intent=in_person" : ""}`}>Open QR screen</Link>
           </div>
           <p className="sr-only">setuvara.com/{username}</p>
         </div>
       </section>
+    </div>
+  );
+}
+
+function IntentPicker({ intent, onPick }: { intent: "profile" | "in_person"; onPick: (intent: "profile" | "in_person") => void }) {
+  const options = [{ value: "profile", label: "Share profile" }, { value: "in_person", label: "Connect in person" }] as const;
+  return (
+    <div aria-label="What you are sharing" className="grid grid-cols-2 gap-1 rounded-[18px] bg-black/[0.06] p-1" role="radiogroup">
+      {options.map((option) => {
+        const on = option.value === intent;
+        return <button aria-checked={on} className={`min-h-12 rounded-[14px] px-2 text-sm font-semibold focus-visible:outline-2 ${on ? "bg-[#0d0d0d] text-[#f5f4ef]" : "text-[#0d0d0d]"}`} key={option.value} onClick={() => onPick(option.value)} role="radio" type="button">{option.label}</button>;
+      })}
     </div>
   );
 }

@@ -21,6 +21,15 @@ const notes: Record<PreviewState, string> = {
   connected: "Sample connection shown. Your real data is not changed.",
 };
 
+// Visitor preview shows the public link. A Connection Pass is never faked here.
+function previewNote(api: EditorApi, state: PreviewState) {
+  const policy = api.mode.connect_policy ?? "anyone";
+  if (state !== "visitor" || policy === "anyone") return notes[state];
+  return policy === "direct_only"
+    ? "Seen from your public link: view-only. Connect appears for people you share with directly."
+    : "Seen by any visitor. This Mode is view-only.";
+}
+
 function useSampleContext(mode: ProfileMode): ConnectionContext {
   return useMemo(() => {
     const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date()).replace(",", " ·");
@@ -51,7 +60,7 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
       selectedRewards={api.selectedRewards}
       sound="preview"
       viewerState={state === "owner" ? "owner" : state === "connected" ? "visitor_connected" : "visitor_unconnected"}
-      visitorAction={state === "visitor" ? visitorAction : undefined}
+      visitorAction={state === "visitor" && (mode.connect_policy ?? "anyone") === "anyone" ? visitorAction : undefined}
     />
   );
 }
@@ -71,7 +80,7 @@ export function PreviewPane({ api, previewState, setPreviewState }: { api: Edito
           </div>
         </div>
       </div>
-      <p className="mt-4 max-w-[340px] text-center text-[13px] leading-5 text-black/55">{notes[previewState]}</p>
+      <p className="mt-4 max-w-[340px] text-center text-[13px] leading-5 text-black/55">{previewNote(api, previewState)}</p>
       {offline && <p className="mt-2 max-w-[340px] text-center text-[12px] font-medium text-[#B42318]">{!api.profile.is_published ? "Draft: visitors can’t open your Setuvara until you publish." : `${modeMeta[api.slug].name} Mode is off, so its link doesn’t open.`}</p>}
     </div>
   );
@@ -100,7 +109,7 @@ export function FullPreview({ api, previewState, setPreviewState, onClose }: { a
       </div>
       <div className="mx-auto w-full max-w-[440px] px-2 pb-36 pt-2 sm:px-0 sm:pt-6">
         <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
-        <p className="mt-4 text-center text-[13px] text-black/55">{notes[previewState]}</p>
+        <p className="mt-4 text-center text-[13px] text-black/55">{previewNote(api, previewState)}</p>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-1.5 rounded-full bg-white p-1.5 shadow-[0_20px_50px_-20px_rgba(13,13,13,.6),inset_0_0_0_1px_rgba(13,13,13,.08)]">

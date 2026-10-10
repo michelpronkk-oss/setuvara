@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 import type { ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
+import { parseConnectPolicy } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 
 import { signOut } from "./actions";
@@ -11,7 +12,7 @@ import { IdentityEditor } from "./editor";
 import type { RewardCategory } from "@/lib/passport/rewards";
 
 type IdentityEditorPageProps = {
-  searchParams: Promise<{ mode?: string; section?: string; error?: string; saved?: string }>;
+  searchParams: Promise<{ mode?: string; section?: string; intent?: string; error?: string; saved?: string }>;
 };
 
 export default async function IdentityEditorPage({ searchParams }: IdentityEditorPageProps) {
@@ -29,7 +30,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
 
   const [profileResult, modesResult, linksResult, blocksResult, passportResult] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, connect_policy").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
     selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).order("sort_order")),
     supabase.rpc("get_passport_overview"),
@@ -58,6 +59,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       slug: mode.slug as ModeSlug,
       settings: mode.settings as Record<string, string | boolean>,
       appearance: mode.appearance as ProfileMode["appearance"],
+      connect_policy: parseConnectPolicy(mode.connect_policy),
       image_url: signed?.signedUrl ?? null,
       links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
       // Blocks are optional: an older database without them still opens the editor.
@@ -90,6 +92,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       initialModes={modes}
       initialProfile={profile}
       initialSection={query.section ?? "home"}
+      initialShareIntent={query.intent === "in_person" ? "in_person" : "profile"}
       unlockedRewards={(passport.rewards ?? []).map((reward) => reward.id)}
       selectedRewards={passport.preferences ?? {}}
       celebrationThreshold={unseenMilestone}

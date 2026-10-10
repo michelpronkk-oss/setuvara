@@ -13,6 +13,8 @@ import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, providerForLink, resolveStoredLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import type { ConnectPolicy } from "@/lib/connections/access";
+import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { LAYOUTS, MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
 import { Card, Counter, Field, MonoLabel, Pill, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper } from "./editor-ui";
 
@@ -42,7 +44,7 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
     profile: [profile.display_name || "Add your name", contextLine, mode.image_path ? "photo set" : "no photo yet"].filter(Boolean).join(" · "),
     links: [mode.blocks?.length ? `${mode.blocks.length} block${mode.blocks.length === 1 ? "" : "s"}` : "", mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : ""].filter(Boolean).join(" · ") || "Nothing added yet",
     appearance: `${cap(mode.appearance.theme)} · ${layoutLabel(mode)}`,
-    settings: `${mode.is_enabled ? "Mode is live" : "Mode is off"} · ${profile.is_published ? "public" : "draft"}`,
+    settings: `${mode.is_enabled ? "Mode is live" : "Mode is off"} · ${profile.is_published ? "public" : "draft"} · ${{ anyone: "anyone can connect", direct_only: "direct share only", nobody: "view-only" }[mode.connect_policy ?? "anyone"]}`,
     share: api.publicUrl(mode.slug).replace(/^https?:\/\//, ""),
   };
 }
@@ -524,6 +526,8 @@ export function SettingsSection({ api }: { api: EditorApi }) {
         </SettingRow>
       </Card>
 
+      <ConnectionAccess api={api} />
+
       {slug === "event" && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Card className="p-5 sm:p-6">
@@ -561,6 +565,38 @@ export function SettingsSection({ api }: { api: EditorApi }) {
 
       <AppearsIn api={api} />
     </div>
+  );
+}
+
+const CONNECT_OPTIONS: { value: ConnectPolicy; title: string; description: string }[] = [
+  { value: "anyone", title: "Anyone", description: "Anyone viewing this Mode can connect." },
+  { value: "direct_only", title: "Direct share only", description: "Your public profile stays view-only. Connect appears when you share directly." },
+  { value: "nobody", title: "Nobody", description: "This Mode is view-only." },
+];
+
+function ConnectionAccess({ api }: { api: EditorApi }) {
+  const policy = api.mode.connect_policy ?? "anyone";
+  const titleId = useId();
+  return (
+    <section aria-labelledby={titleId} className="mt-8">
+      <h2 className="text-[15px] font-semibold" id={titleId}>Connections</h2>
+      <p className="mb-3 mt-0.5 text-[13px] text-black/55">Who can connect from this Mode?</p>
+      <Card className="divide-y divide-black/[0.07] px-2 sm:px-3">
+        <div aria-labelledby={titleId} role="radiogroup">
+          {CONNECT_OPTIONS.map((option) => {
+            const on = option.value === policy;
+            return (
+              <button aria-checked={on} className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3.5 text-left focus-visible:outline-2 sm:px-4" key={option.value} onClick={() => void api.setConnectPolicy(option.value)} role="radio" type="button">
+                <span aria-hidden="true" className="grid size-[22px] shrink-0 place-items-center rounded-full" style={on ? { background: ink } : { boxShadow: "inset 0 0 0 1.5px rgba(13,13,13,.28)" }}>{on && <span className="size-2 rounded-full bg-white" />}</span>
+                <span className="min-w-0"><span className="block text-[15px] font-semibold">{option.title}</span><span className="mt-0.5 block text-[13px] leading-5 text-black/55">{option.description}</span></span>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+      {policy === "direct_only" && <p className="mt-3 text-[13px] text-black/50">Use Connect in person in Share to let someone connect for the next 24 hours. You can still connect with anyone who allows it.</p>}
+      {policy === "nobody" && <p className="mt-3 text-[13px] text-black/50">Existing connections stay. You can still connect with anyone who allows it.</p>}
+    </section>
   );
 }
 
@@ -619,16 +655,23 @@ export function ShareSection({ api }: { api: EditorApi }) {
   const { mode, slug, profile } = api;
   const [copied, setCopied] = useState(false);
   const [full, setFull] = useState(false);
+  const [intent, setIntent] = useState(api.initialShareIntent);
   const qrId = useId().replace(/:/g, "");
-  const linkUrl = api.publicUrl(slug, "link");
-  const qrUrl = api.publicUrl(slug, "qr");
-  const displayUrl = api.publicUrl(slug).replace(/^https?:\/\//, "");
   const offline = !profile.is_published || !mode.is_enabled;
+  const policy = mode.connect_policy ?? "anyone";
+  // Direct share only: Share profile stays view-only, Connect in person carries a temporary Connection Pass.
+  const inPerson = intent === "in_person" && policy === "direct_only";
+  const { pass, end: resetPass } = useConnectPass(slug, inPerson && !offline);
+  const passUrl = pass?.ok ? pass.url : null;
+  const linkUrl = inPerson ? passUrl : api.publicUrl(slug, "link");
+  const qrUrl = inPerson ? passUrl : api.publicUrl(slug, "qr");
+  const displayUrl = inPerson ? (passUrl ? passUrl.replace(/^https?:\/\//, "").replace(/\/connect\/.+$/, "/connect/…") : "Connection Pass") : api.publicUrl(slug).replace(/^https?:\/\//, "");
   const darkShare = api.selectedRewards.share_treatment === "signal_share" || api.selectedRewards.share_treatment === "network_share";
   const coralFrame = api.selectedRewards.qr_frame === "coral_qr_frame";
   const eventName = text(mode, "eventName");
 
   async function copy() {
+    if (!linkUrl) return;
     const ok = await copyText(linkUrl);
     setCopied(ok);
     api.toast(ok ? "Link copied" : "Copy didn’t work. Select the link instead.");
@@ -636,7 +679,8 @@ export function ShareSection({ api }: { api: EditorApi }) {
   }
 
   async function share() {
-    const url = api.publicUrl(slug, "native_share");
+    const url = inPerson ? passUrl : api.publicUrl(slug, "native_share");
+    if (!url) return;
     if (navigator.share) {
       try { await navigator.share({ title: `${profile.display_name} · ${modeMeta[slug].name} Mode`, url }); } catch { /* dismissed */ }
     } else await copy();
@@ -655,9 +699,11 @@ export function ShareSection({ api }: { api: EditorApi }) {
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
         <div className={`rounded-[24px] p-6 ${darkShare ? "bg-[#0D0D0D]" : "bg-[#0D0D0D]"} text-[#F5F4EF]`}>
-          <MonoLabel color={coral}>Sharing now · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
-          <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] bg-white p-5 ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} onClick={() => setFull(true)} type="button">
-            <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" fgColor={ink} id={qrId} imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={1} size={256} title={`${modeMeta[slug].name} Mode QR code`} value={qrUrl} />
+          <MonoLabel color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
+          <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] bg-white p-5 disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} disabled={!qrUrl} onClick={() => setFull(true)} type="button">
+            {qrUrl
+              ? <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" data-qr-value={qrUrl} data-share-intent={inPerson ? "in_person" : "profile"} fgColor={ink} id={qrId} imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={1} size={256} title={`${modeMeta[slug].name} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
+              : <span aria-live="polite" className="grid aspect-square w-full place-items-center px-3 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</span>}
           </button>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] text-white/70">
             <span>Download QR</span>
@@ -667,16 +713,19 @@ export function ShareSection({ api }: { api: EditorApi }) {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
+          {policy === "direct_only" && <Segmented full label="What you are sharing" onChange={setIntent} options={[{ value: "profile", label: "Share profile" }, { value: "in_person", label: "Connect in person" }]} value={inPerson ? "in_person" : "profile"} />}
+          {policy !== "anyone" && !inPerson && <p className="-mt-2 text-[13px] text-black/55">View only. Your profile opens without Connect.</p>}
+          {inPerson && <p className="-mt-2 text-[13px] leading-5 text-black/60">Anyone who scans or opens this can connect with your {modeMeta[slug].name} Mode{pass?.ok ? ` until ${passExpiryLabel(pass.expiresAt)}` : ""}. <button className="py-1 font-semibold text-black underline underline-offset-4" onClick={() => void resetPass()} type="button">Reset pass</button></p>}
           <div>
-            <p className="mb-2 text-sm font-semibold">Public link</p>
+            <p className="mb-2 text-sm font-semibold">{inPerson ? "Connection Pass link" : "Public link"}</p>
             <div className="flex min-h-[56px] items-center gap-2 rounded-2xl bg-white py-1.5 pl-4 pr-1.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]">
               <span className="min-w-0 flex-1 truncate font-label text-[13px]">{displayUrl}</span>
-              <Pill className="shrink-0" onClick={() => void copy()} variant="ink">{copied ? "Copied ✓" : "Copy link"}</Pill>
+              <Pill className="shrink-0" disabled={!linkUrl} onClick={() => void copy()} variant="ink">{copied ? "Copied ✓" : "Copy link"}</Pill>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 max-[380px]:grid-cols-1">
-            <Pill onClick={() => void share()} variant="coral">Share…</Pill>
-            <Pill onClick={() => setFull(true)}>Full-screen QR</Pill>
+            <Pill disabled={!linkUrl} onClick={() => void share()} variant="coral">Share…</Pill>
+            <Pill disabled={!qrUrl} onClick={() => setFull(true)}>Full-screen QR</Pill>
           </div>
           <div>
             <p className="mb-2 text-sm font-semibold">Share a different Mode instead</p>
@@ -688,7 +737,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
         </div>
       </div>
 
-      {full && <FullscreenQr dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void copy()} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={displayUrl} value={qrUrl} />}
+      {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void copy()} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={displayUrl} value={qrUrl} />}
     </div>
   );
 }
@@ -707,7 +756,7 @@ function RewardSelect({ api, category }: { api: EditorApi; category: RewardCateg
   );
 }
 
-function FullscreenQr({ value, url, name, subtitle, dark, onClose, onCopy }: { value: string; url: string; name: string; subtitle: string; dark: boolean; onClose: () => void; onCopy: () => void }) {
+function FullscreenQr({ value, url, name, subtitle, dark, onClose, onCopy, caption = "Scan to open my Setuvara" }: { value: string; url: string; name: string; subtitle: string; dark: boolean; onClose: () => void; onCopy: () => void; caption?: string }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -721,7 +770,7 @@ function FullscreenQr({ value, url, name, subtitle, dark, onClose, onCopy }: { v
       <div className="mt-7 w-full max-w-[320px] rounded-[28px] bg-white p-5 shadow-[0_30px_80px_-40px_rgba(13,13,13,.6)]">
         <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" fgColor={ink} imageSettings={{ src: markDataUri, height: 56, width: 56, excavate: true }} level="H" marginSize={1} size={300} value={value} />
       </div>
-      <p className="mt-6 text-[15px] font-semibold">Scan to open my Setuvara</p>
+      <p className="mt-6 text-[15px] font-semibold">{caption}</p>
       <p className="mt-1 font-label text-xs opacity-55">{url}</p>
       <div className="mt-7 flex gap-3"><button className="min-h-12 rounded-full px-6 text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_currentColor]" onClick={onCopy} type="button">Copy link</button><button className="min-h-12 rounded-full bg-[#FF5A4F] px-7 text-[15px] font-semibold text-[#0D0D0D]" onClick={onClose} type="button">Done</button></div>
     </div>

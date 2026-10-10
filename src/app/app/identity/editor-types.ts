@@ -1,6 +1,7 @@
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import type { LinkProvider } from "@/lib/links/providers";
 import type { RewardCategory } from "@/lib/passport/rewards";
+import type { ConnectPolicy } from "@/lib/connections/access";
 
 export type Section = "home" | "profile" | "links" | "appearance" | "settings" | "share";
 export type PreviewState = "owner" | "visitor" | "connected";
@@ -46,6 +47,9 @@ export type EditorApi = {
   updateSetting: (key: string, value: string) => void;
   updateAppearance: (patch: Partial<ModeAppearance>) => void;
   setModeEnabled: (enabled: boolean) => Promise<void>;
+  setConnectPolicy: (policy: ConnectPolicy) => Promise<void>;
+  /** Share intent requested by the URL (?intent=in_person), read once by Share. */
+  initialShareIntent: "profile" | "in_person";
   setPublished: (published: boolean) => Promise<void>;
   addLink: (provider: LinkProvider, title: string, value: string) => Promise<string | null>;
   editLink: (link: ProfileLink, title: string, value: string) => Promise<string | null>;
