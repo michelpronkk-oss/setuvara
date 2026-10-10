@@ -127,29 +127,36 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
 
     assertEquals((await readSnapshot(free.id)).plan, "free", "no billing row and editable user metadata resolve to Free");
     assertEquals((await readSnapshot(free.id)).canManageBilling, false);
+    assertEquals(getPlanEntitlements("free"), [
+      "identity.create", "identity.edit", "mode.personal", "mode.event", "mode.business",
+      "profile.public", "profile.links", "profile.content", "appearance.core",
+      "share.link", "share.qr", "share.quick_qr", "share.tap", "tap.devices",
+      "tap.connect_intent", "connections.core", "connections.guest_connect",
+      "connections.private_memory", "passport.core", "passport.standard_progression",
+      "soundtrack.core", "analytics.basic_7d",
+    ]);
     assertEquals((await readSnapshot(plus.id)).plan, "plus");
     assertEquals(getPlanEntitlements("plus"), [
-      "verified_badge",
-      "remove_setuvara_branding",
-      "premium_appearance",
-      "premium_profile_treatments",
-      "premium_share_qr",
-      "premium_passport_cosmetics",
+      "identity.create", "identity.edit", "identity.plus_badge",
+      "mode.personal", "mode.event", "mode.business", "profile.public", "profile.links",
+      "profile.content", "appearance.core", "share.link", "share.qr", "share.quick_qr",
+      "share.tap", "tap.devices", "tap.connect_intent", "connections.core",
+      "connections.guest_connect", "connections.private_memory", "passport.core",
+      "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
+      "analytics.history_30d", "analytics.history_90d", "analytics.sources",
+      "analytics.modes", "analytics.conversion",
     ]);
     assertEquals((await readSnapshot(pro.id)).plan, "pro");
     assertEquals(getPlanEntitlements("pro"), [
-      "verified_badge",
-      "remove_setuvara_branding",
-      "premium_appearance",
-      "premium_profile_treatments",
-      "premium_share_qr",
-      "premium_passport_cosmetics",
-      "custom_domain",
-      "advanced_analytics",
-      "advanced_actions",
-      "lead_capture",
-      "exports",
-      "integrations",
+      "identity.create", "identity.edit", "identity.plus_badge", "identity.pro_badge",
+      "mode.personal", "mode.event", "mode.business", "profile.public", "profile.links",
+      "profile.content", "appearance.core", "share.link", "share.qr", "share.quick_qr",
+      "share.tap", "tap.devices", "tap.connect_intent", "connections.core",
+      "connections.guest_connect", "connections.private_memory", "passport.core",
+      "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
+      "analytics.history_30d", "analytics.history_90d", "analytics.sources",
+      "analytics.modes", "analytics.conversion", "analytics.custom_range", "analytics.funnels",
+      "analytics.device_insights", "analytics.csv_export",
     ]);
     assertEquals((await readSnapshot(expired.id)).plan, "free");
     assertEquals((await readSnapshot(unknown.id)).plan, "free", "an unknown provider product with no plan mapping grants Free");
@@ -201,7 +208,7 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       { p_username: plus.username },
     );
     requireSuccess(publicPlusError, "Public Plus entitlement lookup failed.");
-    assertEquals(publicPlus, [{ verified_badge: true, remove_setuvara_branding: true }]);
+    assertEquals(publicPlus, [{ verified_badge: true, remove_setuvara_branding: false }]);
 
     const { data: hiddenProfileEntitlements, error: hiddenProfileError } = await anonymous.rpc(
       "get_public_profile_billing_entitlements",
@@ -277,6 +284,29 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
     requireSuccess(staleError, "Could not verify stale webhook handling.");
     assertEquals(staleResult, false, "a stale provider update is ignored");
     assertEquals((await readSnapshot(plus.id)).plan, "pro", "stale state cannot replace the newer canonical plan");
+
+    const downgradeSyncStartedAt = new Date(Date.now() + 4_000).toISOString();
+    const { data: downgradeResult, error: downgradeError } = await admin.rpc("sync_billing_subscription", {
+      p_user_id: plus.id,
+      p_dodo_subscription_id: plusRows.subscriptionId,
+      p_dodo_customer_id: plusRows.customerId,
+      p_dodo_product_id: "pdt_fixtureplus",
+      p_plan_code: "plus",
+      p_billing_interval: "monthly",
+      p_provider_status: "active",
+      p_provider_created_at: eventTime,
+      p_current_period_start: eventTime,
+      p_current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      p_cancel_at_next_billing_date: false,
+      p_cancelled_at: null,
+      p_past_due_ends_at: null,
+      p_provider_event_id: `downgrade_${eventId}`,
+      p_provider_event_at: eventTime,
+      p_sync_started_at: downgradeSyncStartedAt,
+    });
+    requireSuccess(downgradeError, "Could not verify the local plan downgrade path.");
+    assertEquals(downgradeResult, true, "a current provider downgrade is persisted");
+    assertEquals((await readSnapshot(plus.id)).plan, "plus", "downgrade removes Pro-only capabilities");
 
     const { data: eventRows, error: eventRowsError } = await admin.from("billing_webhook_events")
       .select("provider_event_id")

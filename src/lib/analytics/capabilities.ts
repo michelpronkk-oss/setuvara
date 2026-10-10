@@ -1,4 +1,5 @@
-import type { PlanCode } from "@/lib/billing/catalog";
+import type { PlanCode } from "../billing/catalog";
+import { hasCapability } from "../billing/capabilities";
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "custom";
 
@@ -14,42 +15,25 @@ export type AnalyticsCapabilities = {
   exports: boolean;
 };
 
-const CAPABILITIES: Record<PlanCode, AnalyticsCapabilities> = {
-  free: {
-    maxHistoryDays: 7,
-    availableRanges: ["7d"],
-    sourceBreakdown: false,
-    modeBreakdown: false,
-    deviceInsights: false,
-    conversion: false,
-    funnels: false,
-    customRange: false,
-    exports: false,
-  },
-  plus: {
-    maxHistoryDays: 90,
-    availableRanges: ["7d", "30d", "90d"],
-    sourceBreakdown: true,
-    modeBreakdown: true,
-    deviceInsights: false,
-    conversion: true,
-    funnels: false,
-    customRange: false,
-    exports: false,
-  },
-  pro: {
-    maxHistoryDays: 730,
-    availableRanges: ["7d", "30d", "90d", "custom"],
-    sourceBreakdown: true,
-    modeBreakdown: true,
-    deviceInsights: true,
-    conversion: true,
-    funnels: true,
-    customRange: true,
-    exports: true,
-  },
-};
-
+/** Analytics is a projection of the global capability registry, not a second plan matrix. */
 export function analyticsCapabilities(plan: PlanCode): AnalyticsCapabilities {
-  return CAPABILITIES[plan];
+  const customRange = hasCapability(plan, "analytics.custom_range");
+  const history90d = hasCapability(plan, "analytics.history_90d");
+  const history30d = hasCapability(plan, "analytics.history_30d");
+  const availableRanges: AnalyticsRange[] = ["7d"];
+  if (history30d) availableRanges.push("30d");
+  if (history90d) availableRanges.push("90d");
+  if (customRange) availableRanges.push("custom");
+
+  return {
+    maxHistoryDays: customRange ? 730 : history90d ? 90 : history30d ? 30 : 7,
+    availableRanges,
+    sourceBreakdown: hasCapability(plan, "analytics.sources"),
+    modeBreakdown: hasCapability(plan, "analytics.modes"),
+    deviceInsights: hasCapability(plan, "analytics.device_insights"),
+    conversion: hasCapability(plan, "analytics.conversion"),
+    funnels: hasCapability(plan, "analytics.funnels"),
+    customRange,
+    exports: hasCapability(plan, "analytics.csv_export"),
+  };
 }

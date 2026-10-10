@@ -20,7 +20,7 @@ $env:NEXT_PUBLIC_APP_URL = "http://localhost:3014"
 $stdoutPath = Join-Path $repoRoot ".next\hosted-billing-smoke-stdout.log"
 $stderrPath = Join-Path $repoRoot ".next\hosted-billing-smoke-stderr.log"
 $server = Start-Process -FilePath (Get-Command node).Source `
-  -ArgumentList @("node_modules/next/dist/bin/next", "dev", "-p", "3014") `
+  -ArgumentList @("node_modules/next/dist/bin/next", "dev", "--webpack", "-p", "3014") `
   -WorkingDirectory $repoRoot `
   -WindowStyle Hidden `
   -PassThru `

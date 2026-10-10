@@ -1,27 +1,20 @@
-import {
-  ENTITLEMENTS,
-  PLAN_ENTITLEMENTS,
-  type Entitlement,
-  type PlanCode,
-} from "./catalog";
+/** Compatibility exports backed by the single product capability registry. */
+export {
+  capabilityFlags as entitlementFlags,
+  getCapabilityAccess,
+  hasCapability as hasEntitlement,
+  listAvailableCapabilities as getPlanEntitlements,
+  resolveClientCapabilities,
+} from "./capabilities";
+export type { CapabilityKey as Entitlement } from "./capabilities";
 
-export function getPlanEntitlements(plan: PlanCode): readonly Entitlement[] {
-  return PLAN_ENTITLEMENTS[plan];
-}
+import { hasCapability } from "./capabilities";
+import type { PlanCode } from "./catalog";
 
-export function hasEntitlement(plan: PlanCode, entitlement: Entitlement): boolean {
-  return PLAN_ENTITLEMENTS[plan].includes(entitlement);
-}
-
-export function entitlementFlags(plan: PlanCode): Record<Entitlement, boolean> {
-  return Object.fromEntries(
-    ENTITLEMENTS.map((entitlement) => [entitlement, hasEntitlement(plan, entitlement)]),
-  ) as Record<Entitlement, boolean>;
-}
-
+/** Legacy public-profile projection; the badge means paid membership, not identity verification. */
 export function publicProfileEntitlements(plan: PlanCode) {
   return {
-    verifiedBadge: hasEntitlement(plan, "verified_badge"),
-    removeSetuvaraBranding: hasEntitlement(plan, "remove_setuvara_branding"),
+    memberBadge: hasCapability(plan, "identity.plus_badge") || hasCapability(plan, "identity.pro_badge"),
+    removeSetuvaraBranding: hasCapability(plan, "identity.remove_attribution"),
   } as const;
 }

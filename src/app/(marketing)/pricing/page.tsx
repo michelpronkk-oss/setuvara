@@ -1,12 +1,29 @@
-import { MarketingRoutePage } from "@/components/marketing/primitives";
+import { PricingPlans } from "@/components/marketing/pricing-plans";
+import { PUBLIC_PLAN_CATALOG } from "@/lib/billing/catalog";
+import { getViewerPlan } from "@/lib/app/viewer";
+import { createClient } from "@/lib/supabase/server";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
-  title: "Pricing",
-  description: "Setuvara pricing will be published here before paid plans begin.",
+  title: "Setuvara plans",
+  description: "Keep the Setuvara network open on Free. Add member status and deeper product analytics with Plus or Pro.",
   path: "/pricing",
 });
 
-export default function PricingPage() {
-  return <MarketingRoutePage eyebrow="Pricing" title="Clear pricing, when it’s time." description="Setuvara’s pricing will be published here before any paid plans begin. For now, create your identity and explore the product." note="No plan or price is being advertised on this page yet." />;
+export default async function PricingPage() {
+  const supabase = await createClient();
+  const { data: claims, error } = await supabase.auth.getClaims();
+  const userId = !error && typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
+  const billing = userId
+    ? await getViewerPlan(userId)
+    : { plan: "free" as const, canManageBilling: false, available: true };
+
+  return (
+    <PricingPlans
+      billingAvailable={billing.available}
+      currentPlan={billing.plan}
+      plans={PUBLIC_PLAN_CATALOG.map(({ code, displayName, monthlyPriceMinor, yearlyPriceMinor, capabilities }) => ({ code, displayName, monthlyPriceMinor, yearlyPriceMinor, capabilities }))}
+      signedIn={Boolean(userId)}
+    />
+  );
 }

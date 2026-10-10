@@ -101,10 +101,44 @@ after(async () => {
 });
 
 test("billing APIs enforce authenticated ownership and stop duplicate checkout before provider calls", async () => {
+  const catalogResponse = await fetch(`${appUrl}/api/billing/catalog`);
+  assert.equal(catalogResponse.status, 200, "public catalog is available");
+  const catalogBody = await catalogResponse.json();
+  assert.deepEqual(catalogBody.plans.map(({ code, monthlyPriceMinor, yearlyPriceMinor }) => [code, monthlyPriceMinor, yearlyPriceMinor]), [
+    ["free", 0, 0], ["plus", 699, 6900], ["pro", 1299, 12900],
+  ]);
+  const catalogSerialized = JSON.stringify(catalogBody);
+  assert.equal(catalogSerialized.includes("pdt_"), false, "provider product IDs are never public");
+  assert.equal(catalogSerialized.includes("DODO_PAYMENTS_"), false, "provider configuration is never public");
+
   const owner = await createAccount("active-owner", "plus");
+  const freeOwner = await createAccount("free-owner");
+  const proOwner = await createAccount("pro-owner", "pro");
   const other = await createAccount("other-user");
   const ownerCookie = await cookieFor(owner);
+  const freeCookie = await cookieFor(freeOwner);
+  const proCookie = await cookieFor(proOwner);
   const otherCookie = await cookieFor(other);
+
+  const unauthMe = await fetch(`${appUrl}/api/billing/me`);
+  assert.equal(unauthMe.status, 401, "billing state requires a confirmed authenticated user");
+
+  for (const fixture of [
+    { account: freeOwner, cookie: freeCookie, plan: "free", plusFeature: false, proFeature: false },
+    { account: owner, cookie: ownerCookie, plan: "plus", plusFeature: true, proFeature: false },
+    { account: proOwner, cookie: proCookie, plan: "pro", plusFeature: true, proFeature: true },
+  ]) {
+    const response = await fetch(`${appUrl}/api/billing/me`, { headers: { cookie: fixture.cookie } });
+    assert.equal(response.status, 200, `${fixture.plan} billing snapshot succeeds`);
+    const body = await response.json();
+    assert.equal(body.billing.plan, fixture.plan);
+    assert.equal(body.entitlements.plan, fixture.plan);
+    assert.equal(body.entitlements.capabilities["analytics.sources"].available, fixture.plusFeature);
+    assert.equal(body.entitlements.capabilities["analytics.csv_export"].available, fixture.proFeature);
+    assert.equal(body.entitlements.capabilities["domain.custom"].state, "unavailable");
+    assert.equal(JSON.stringify(body).includes("dodo_"), false, "provider identifiers never leave the server boundary");
+    assert.equal("currentPeriodEnd" in body.billing, false, "raw subscription dates are not exposed");
+  }
 
   const unauthCheckout = await fetch(`${appUrl}/api/billing/checkout`, {
     method: "POST",

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { nextPlanAfter } from "@/lib/billing/capabilities";
+import type { PlanCode } from "@/lib/billing/catalog";
 
-type Plan = "free" | "plus" | "pro";
+type Plan = PlanCode;
 type RangePreset = "7d" | "30d" | "90d";
 type DailyPoint = {
   date: string;
@@ -15,7 +17,11 @@ type AnalyticsData = {
   capabilities?: {
     historyDays?: number;
     availableRanges?: string[];
+    sourceBreakdown?: boolean;
+    modeBreakdown?: boolean;
+    deviceInsights?: boolean;
     conversion?: boolean;
+    funnels?: boolean;
     customRange?: boolean;
     exports?: boolean;
   };
@@ -123,13 +129,13 @@ export function AnalyticsDashboard() {
 
   const availablePresets = useMemo(() => {
     const configured = data?.capabilities?.availableRanges;
-    const allowed = configured ?? (data?.plan === "free" ? ["7d"] : ["7d", "30d", "90d"]);
+    const allowed = configured ?? ["7d"];
     return presets.filter((item) => allowed.includes(item.value));
-  }, [data?.capabilities?.availableRanges, data?.plan]);
-  const canUseCustom = data?.plan === "pro" && data.capabilities?.customRange === true;
+  }, [data?.capabilities?.availableRanges]);
+  const canUseCustom = data?.capabilities?.customRange === true;
   const plan = data?.plan ?? "free";
-  const targetPlan = plan === "free" ? "plus" : plan === "plus" ? "pro" : null;
-  const historyDays = data?.capabilities?.historyDays ?? (plan === "pro" ? 90 : 90);
+  const targetPlan = nextPlanAfter(plan);
+  const historyDays = data?.capabilities?.historyDays ?? 7;
   const rangeValid = !custom || (
     Boolean(customFrom && customTo)
     && customFrom <= customTo
@@ -196,7 +202,7 @@ export function AnalyticsDashboard() {
     setPortalBusy(false);
   }
 
-  const exportHref = data?.plan === "pro" && data.capabilities?.exports === true
+  const exportHref = data?.capabilities?.exports === true
     ? `/api/analytics/export?range=${appliedCustom ? "90d" : preset}${appliedCustom ? `&from=${encodeURIComponent(appliedCustom.from)}&to=${encodeURIComponent(appliedCustom.to)}` : ""}`
     : null;
 
@@ -240,23 +246,23 @@ export function AnalyticsDashboard() {
         </section>
 
         {zeroData ? <section className={`${panel} mt-4`}><p className="font-label text-[10px] uppercase tracking-[0.17em] text-black/50">A clear start</p><h2 className="mt-2 font-display text-2xl font-bold tracking-[-0.04em]">Your first signal is on its way.</h2><p className="mt-2 max-w-xl text-sm leading-6 text-black/65">When someone opens your profile or connects with you, the activity will appear here.</p></section>
-          : data.plan !== "free" && data.daily?.length ? <DailyChart data={data.daily} /> : null}
+          : (data.capabilities?.availableRanges?.length ?? 0) > 1 && data.daily?.length ? <DailyChart data={data.daily} /> : null}
 
         {data.comparison && (data.comparison.profileViewsDelta !== null || data.comparison.connectionsDelta !== null) && <div aria-label="Compared with the previous period" className="mt-3 grid gap-3 sm:grid-cols-2">
           {data.comparison.profileViewsDelta !== null && <ComparisonCard label="Profile views" value={data.comparison.profileViewsDelta} />}
           {data.comparison.connectionsDelta !== null && <ComparisonCard label="Connections" value={data.comparison.connectionsDelta} />}
         </div>}
 
-        {data.plan !== "free" && data.summary.conversionRate !== undefined && data.summary.conversionRate !== null && <section className={`${panel} mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
+        {data.capabilities?.conversion === true && data.summary.conversionRate !== undefined && data.summary.conversionRate !== null && <section className={`${panel} mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
           <div><p className="font-label text-[10px] uppercase tracking-[0.17em] text-black/50">From view to connection</p><h2 className="mt-1 font-display text-2xl font-bold tracking-[-0.04em]">Connection rate</h2><p className="mt-1 text-sm text-black/65">Connections compared with profile views.</p></div>
           <p className="font-display text-5xl font-bold leading-none tracking-[-0.06em] text-[#0d0d0d]">{formatPercent(data.summary.conversionRate)}</p>
         </section>}
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {data.plan !== "free" && data.sources && <Breakdown title="How people arrived" subtitle="Share source" items={data.sources.map((item) => ({ label: humanize(item.source), count: item.count }))} />}
-          {data.plan !== "free" && data.modes && <Breakdown title="The Mode they opened" subtitle="Profile views by Mode" items={data.modes.map((item) => ({ label: humanize(item.mode), count: item.count }))} />}
-          {data.plan === "pro" && data.funnel && <Breakdown title="From scan to connection" subtitle="Connection journey" items={data.funnel.map((item) => ({ label: humanize(item.step), count: item.count }))} />}
-          {data.plan === "pro" && data.deviceClasses && <Breakdown title="Where they opened it" subtitle="Device type" items={data.deviceClasses.map((item) => ({ label: humanize(item.device), count: item.count }))} />}
+          {data.capabilities?.sourceBreakdown === true && data.sources && <Breakdown title="How people arrived" subtitle="Share source" items={data.sources.map((item) => ({ label: humanize(item.source), count: item.count }))} />}
+          {data.capabilities?.modeBreakdown === true && data.modes && <Breakdown title="The Mode they opened" subtitle="Profile views by Mode" items={data.modes.map((item) => ({ label: humanize(item.mode), count: item.count }))} />}
+          {data.capabilities?.funnels === true && data.funnel && <Breakdown title="From scan to connection" subtitle="Connection journey" items={data.funnel.map((item) => ({ label: humanize(item.step), count: item.count }))} />}
+          {data.capabilities?.deviceInsights === true && data.deviceClasses && <Breakdown title="Where they opened it" subtitle="Device type" items={data.deviceClasses.map((item) => ({ label: humanize(item.device), count: item.count }))} />}
         </div>
 
         {exportHref && <div className="mt-4 flex flex-col gap-3 rounded-[22px] border border-black/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -414,7 +420,11 @@ function normalizeAnalytics(value: unknown): AnalyticsData | null {
     ...(capabilitiesRaw ? { capabilities: {
       ...(typeof capabilitiesRaw.historyDays === "number" ? { historyDays: capabilitiesRaw.historyDays } : {}),
       ...(Array.isArray(capabilitiesRaw.availableRanges) ? { availableRanges: capabilitiesRaw.availableRanges.filter((item): item is string => typeof item === "string") } : {}),
+      ...(typeof capabilitiesRaw.sourceBreakdown === "boolean" ? { sourceBreakdown: capabilitiesRaw.sourceBreakdown } : {}),
+      ...(typeof capabilitiesRaw.modeBreakdown === "boolean" ? { modeBreakdown: capabilitiesRaw.modeBreakdown } : {}),
+      ...(typeof capabilitiesRaw.deviceInsights === "boolean" ? { deviceInsights: capabilitiesRaw.deviceInsights } : {}),
       ...(typeof capabilitiesRaw.conversion === "boolean" ? { conversion: capabilitiesRaw.conversion } : {}),
+      ...(typeof capabilitiesRaw.funnels === "boolean" ? { funnels: capabilitiesRaw.funnels } : {}),
       ...(typeof capabilitiesRaw.customRange === "boolean" ? { customRange: capabilitiesRaw.customRange } : {}),
       ...(typeof capabilitiesRaw.exports === "boolean" ? { exports: capabilitiesRaw.exports } : {}),
     } } : {}),

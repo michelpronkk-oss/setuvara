@@ -1,9 +1,10 @@
 import "server-only";
 
-import type { Entitlement } from "./catalog";
+import type { CapabilityKey } from "./capabilities";
 import { createBillingAdminClient } from "./admin";
 import { createBillingPublicClient } from "./public-client";
-import { entitlementFlags, publicProfileEntitlements, hasEntitlement } from "./entitlements";
+import { publicProfileEntitlements } from "./entitlements";
+import { hasCapability, resolveClientCapabilities } from "./capabilities";
 import { resolveBillingSnapshot, type BillingSnapshot, type ProviderSubscriptionRecord } from "./state";
 
 export async function getUserBillingState(userId: string): Promise<BillingSnapshot> {
@@ -18,18 +19,18 @@ export async function getUserBillingState(userId: string): Promise<BillingSnapsh
   return resolveBillingSnapshot(records);
 }
 
-export async function getUserEntitlements(userId: string) {
-  const state = await getUserBillingState(userId);
-  return { plan: state.plan, entitlements: entitlementFlags(state.plan) };
+export async function getUserEntitlements(userId: string, knownState?: BillingSnapshot) {
+  const state = knownState ?? await getUserBillingState(userId);
+  return resolveClientCapabilities(state.plan);
 }
 
-export async function userHasEntitlement(userId: string, entitlement: Entitlement): Promise<boolean> {
+export async function userHasCapability(userId: string, capability: CapabilityKey): Promise<boolean> {
   const state = await getUserBillingState(userId);
-  return hasEntitlement(state.plan, entitlement);
+  return hasCapability(state.plan, capability);
 }
 
-export async function requireEntitlement(userId: string, entitlement: Entitlement): Promise<void> {
-  if (!(await userHasEntitlement(userId, entitlement))) {
+export async function requireCapability(userId: string, capability: CapabilityKey): Promise<void> {
+  if (!(await userHasCapability(userId, capability))) {
     throw new Error("billing_entitlement_required");
   }
 }
@@ -44,8 +45,10 @@ export async function getPublicProfileEntitlements(username: string) {
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
   return {
-    verifiedBadge: row.verified_badge === true,
-    removeSetuvaraBranding: row.remove_setuvara_branding === true,
+    memberBadge: row.verified_badge === true,
+    // Attribution removal is not shipped yet. Do not expose the legacy DB
+    // boolean as an entitlement until the feature is implemented.
+    removeSetuvaraBranding: false,
   } as const;
 }
 

@@ -10,7 +10,7 @@ try {
   const page = await context.newPage();
   const routes = [
     { path: "/", heading: "One identity. Every version of you.", title: "Setuvara | One identity. Every version of you." },
-    { path: "/pricing", heading: "Clear pricing, when it’s time.", title: "Pricing" },
+    { path: "/pricing", heading: "Keep the network open.", title: "Setuvara plans" },
     { path: "/events", heading: "Bring the right context into the room.", title: "Setuvara for Events" },
     { path: "/teams", heading: "A better introduction starts with people.", title: "Setuvara for Teams" },
   ];
@@ -27,6 +27,20 @@ try {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, `${route.path} should not overflow at phone width`);
   }
+
+  await page.goto(new URL("/pricing", appUrl).toString());
+  const planCards = page.locator("article");
+  assert.equal(await planCards.count(), 3, "Pricing shows Free, Plus, and Pro");
+  assert((await planCards.nth(0).innerText()).includes("$0"));
+  assert((await planCards.nth(1).innerText()).includes("$6.99"));
+  assert((await planCards.nth(2).innerText()).includes("$12.99"));
+  assert((await planCards.nth(1).innerText()).includes("30- and 90-day analytics history"));
+  assert((await planCards.nth(2).innerText()).includes("Download analytics as CSV"));
+  await page.getByRole("button", { name: "Yearly", exact: true }).click();
+  assert((await planCards.nth(1).innerText()).includes("$69"));
+  assert((await planCards.nth(2).innerText()).includes("$129"));
+  await page.getByRole("button", { name: "Monthly", exact: true }).click();
+  assert.equal(await page.getByRole("link", { name: "Create your identity", exact: true }).getAttribute("href"), "/signup?next=/app");
 
   await page.goto(new URL("/", appUrl).toString());
   for (const id of ["product", "modes", "share", "how", "remember", "connections", "passport", "events", "teams"]) {
@@ -52,6 +66,10 @@ try {
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Pricing" }).click();
   await page.waitForURL("**/pricing");
+  for (const card of await planCards.all()) {
+    const action = card.getByRole("link").last();
+    assert((await action.boundingBox())?.height >= 44, "Plan signup action should meet a usable tap target");
+  }
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport);

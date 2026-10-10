@@ -142,12 +142,12 @@ select is(
 select is(
   (select entitlements.verified_badge::text || ',' || entitlements.remove_setuvara_branding::text
    from public.get_public_profile_billing_entitlements((select username from billing_test_accounts where scenario = 'plus')) entitlements),
-  'true,true', 'an active Plus subscription grants only the intended public billing flags'
+  'true,false', 'an active Plus subscription grants a member badge but keeps attribution enabled'
 );
 select is(
   (select entitlements.verified_badge::text || ',' || entitlements.remove_setuvara_branding::text
    from public.get_public_profile_billing_entitlements((select username from billing_test_accounts where scenario = 'pro')) entitlements),
-  'true,true', 'an active Pro subscription grants the intended public billing flags'
+  'true,false', 'an active Pro subscription grants a member badge but keeps attribution enabled'
 );
 select is(
   (select entitlements.verified_badge::text || ',' || entitlements.remove_setuvara_branding::text

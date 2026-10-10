@@ -1,4 +1,5 @@
 import type { PlanCode } from "@/lib/billing/catalog";
+import { hasCapability } from "@/lib/billing/capabilities";
 
 // Status badge system (Round 02). Plus: 12-facet coral burst. Pro: two-layer champagne burst.
 // Shapes differ, so the badges survive grayscale and 14px. The Setuvara Mark has no data field yet, so it is not rendered.
@@ -17,8 +18,8 @@ export function StatusBadge({ plan, size = 20, surface = "light", className = ""
   surface?: "light" | "dark";
   className?: string;
 }) {
-  if (plan === "free") return null;
-  const copy = BADGE_COPY[plan];
+  if (!hasCapability(plan, "identity.plus_badge") && !hasCapability(plan, "identity.pro_badge")) return null;
+  const copy = plan === "pro" ? BADGE_COPY.pro : BADGE_COPY.plus;
   return (
     <svg aria-label={copy.label} className={`inline-block shrink-0 ${className}`} height={size} role="img" viewBox="0 0 100 100" width={size}>
       <title>{copy.title}</title>

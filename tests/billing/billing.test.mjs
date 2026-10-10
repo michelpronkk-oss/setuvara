@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
-import { ENTITLEMENTS, PUBLIC_PLAN_CATALOG, PLAN_ENTITLEMENTS } from "../../src/lib/billing/catalog.ts";
-import { entitlementFlags, getPlanEntitlements } from "../../src/lib/billing/entitlements.ts";
+import { PUBLIC_PLAN_CATALOG } from "../../src/lib/billing/catalog.ts";
+import { CAPABILITY_REGISTRY, capabilityFlags, getCapabilityAccess, listAvailableCapabilities, nextPlanAfter, resolveClientCapabilities } from "../../src/lib/billing/capabilities.ts";
 import { mapConfiguredProduct, productMatchesSetuvaraPrice } from "../../src/lib/billing/products.ts";
 import { resolveBillingSnapshot, subscriptionHasAccess } from "../../src/lib/billing/state.ts";
 import { isDodoEnvironmentAllowed } from "../../src/lib/billing/environment.ts";
@@ -12,13 +12,37 @@ Deno.test("billing catalog contains the configured USD plan prices", () => {
     ["plus", 699, 6900],
     ["pro", 1299, 12900],
   ]);
+  for (const plan of PUBLIC_PLAN_CATALOG) {
+    assert.deepEqual(plan.capabilities, listAvailableCapabilities(plan.code));
+  }
 });
 
-Deno.test("Pro inherits all Plus entitlements and adds only its own", () => {
-  assert(PLAN_ENTITLEMENTS.plus.every((item) => PLAN_ENTITLEMENTS.pro.includes(item)));
-  assert.equal(PLAN_ENTITLEMENTS.pro.length - PLAN_ENTITLEMENTS.plus.length, 6);
-  assert.deepEqual(getPlanEntitlements("free"), []);
-  assert.equal(Object.keys(entitlementFlags("pro")).length, ENTITLEMENTS.length);
+Deno.test("global capabilities keep the network Free and make Pro inherit Plus", () => {
+  const free = listAvailableCapabilities("free");
+  const plus = listAvailableCapabilities("plus");
+  const pro = listAvailableCapabilities("pro");
+  const core = [
+    "identity.create", "identity.edit", "mode.personal", "mode.event", "mode.business",
+    "profile.public", "profile.links", "profile.content", "share.link", "share.qr",
+    "share.quick_qr", "share.tap", "tap.devices", "tap.connect_intent", "connections.core",
+    "connections.guest_connect", "connections.private_memory", "passport.core",
+    "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
+  ];
+
+  for (const key of core) assert(free.includes(key), `${key} remains Free`);
+  assert(free.every((key) => plus.includes(key)));
+  assert(plus.every((key) => pro.includes(key)));
+  assert(plus.includes("analytics.history_30d"));
+  assert(plus.includes("analytics.history_90d"));
+  assert(pro.includes("analytics.custom_range"));
+  assert(pro.includes("analytics.csv_export"));
+  assert(!free.includes("analytics.history_30d"));
+  assert(!plus.includes("analytics.csv_export"));
+  assert(!pro.includes("domain.custom"));
+  assert.equal(Object.keys(capabilityFlags("pro")).length, Object.keys(CAPABILITY_REGISTRY).length);
+  assert.equal(resolveClientCapabilities("free").capabilities["analytics.csv_export"].state, "locked");
+  assert.equal(getCapabilityAccess("pro", "domain.custom").state, "unavailable");
+  assert.deepEqual([nextPlanAfter("free"), nextPlanAfter("plus"), nextPlanAfter("pro")], ["plus", "pro", null]);
 });
 
 Deno.test("subscription access follows verified provider status and grace windows", () => {

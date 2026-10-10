@@ -9,12 +9,12 @@ import { getUserBillingState } from "@/lib/billing/service";
  * Plan for the signed-in viewer, shared by the /app layout and Home in one request.
  * Billing is secondary on these surfaces: if it fails we show Free and never block /app.
  */
-export const getViewerPlan = cache(async (userId: string): Promise<{ plan: PlanCode; canManageBilling: boolean }> => {
+export const getViewerPlan = cache(async (userId: string): Promise<{ plan: PlanCode; canManageBilling: boolean; available: boolean }> => {
   try {
     const state = await getUserBillingState(userId);
-    return { plan: state.plan, canManageBilling: state.canManageBilling };
+    return { plan: state.plan, canManageBilling: state.canManageBilling, available: true };
   } catch {
-    return { plan: "free", canManageBilling: false };
+    return { plan: "free", canManageBilling: false, available: false };
   }
 });
 

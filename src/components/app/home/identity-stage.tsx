@@ -11,6 +11,7 @@ import type { ModeSlug } from "@/components/profile/types";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { PlanCode } from "@/lib/billing/catalog";
+import { hasCapability } from "@/lib/billing/capabilities";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 
@@ -51,6 +52,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   const shareButton = useRef<HTMLButtonElement>(null);
   const photoButton = useRef<HTMLButtonElement>(null);
   const mode = modes.find((item) => item.slug === slug) ?? modes[0];
+  const hasMemberBadge = hasCapability(plan, "identity.plus_badge") || hasCapability(plan, "identity.pro_badge");
   const live = isPublished && mode.enabled;
   const hasPhoto = Boolean(mode.imageUrl && mode.imageUrl !== failedImage);
   const publicUrl = useCallback((target: ModeSlug, source?: string) => {
@@ -103,7 +105,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <p className="font-label text-[10px] tracking-[0.14em] text-[#f5f4ef]/80 lg:hidden">{NAMES[slug].toUpperCase()} MODE</p>
             <p className="break-words font-display text-[clamp(36px,11vw,48px)] font-bold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] lg:text-[clamp(64px,5.6vw,112px)] lg:leading-[0.9]">
               {displayName}
-              {plan !== "free" && <span className="ml-[0.16em] inline-block align-[0.08em]"><StatusBadge className="lg:hidden" plan={plan} size={20} surface="dark" /><StatusBadge className="hidden lg:inline-block" plan={plan} size={30} surface="dark" /></span>}
+              {hasMemberBadge && <span className="ml-[0.16em] inline-block align-[0.08em]"><StatusBadge className="lg:hidden" plan={plan} size={20} surface="dark" /><StatusBadge className="hidden lg:inline-block" plan={plan} size={30} surface="dark" /></span>}
             </p>
             <p className="text-sm leading-[1.4] text-[#f5f4ef]/90 [text-wrap:pretty] lg:text-[19px]">{mode.line}</p>
             <p className="hidden truncate font-label text-[13px] text-[#f5f4ef]/70 lg:block">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
