@@ -357,5 +357,119 @@ select ok(
   'ordinary authenticated users cannot grant themselves paid plan state'
 );
 
+create temporary table analytics_empty_accounts (
+  scenario text primary key,
+  user_id uuid not null unique,
+  username text not null unique
+);
+
+insert into analytics_empty_accounts (scenario, user_id, username)
+select scenario, user_id,
+  'ae_' || pg_catalog.substr(pg_catalog.replace(user_id::text, '-', ''), 1, 18)
+from (
+  select scenarios.scenario, gen_random_uuid() as user_id
+  from (values ('plus'), ('pro')) as scenarios(scenario)
+) as generated;
+
+insert into auth.users (id, aud, role, email, raw_user_meta_data, email_confirmed_at, created_at, updated_at)
+select user_id, 'authenticated', 'authenticated', username || '@example.test',
+  pg_catalog.jsonb_build_object('username', username, 'display_name', 'Empty Analytics Test'),
+  pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp()
+from analytics_empty_accounts;
+
+insert into public.billing_customers (user_id, dodo_customer_id)
+select user_id, 'cus_empty' || pg_catalog.replace(user_id::text, '-', '')
+from analytics_empty_accounts;
+
+insert into public.billing_subscriptions (
+  dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id,
+  plan_code, billing_interval, provider_status, current_period_start,
+  current_period_end, last_provider_event_id, last_provider_event_at,
+  last_sync_started_at
+)
+select
+  'sub_empty' || pg_catalog.replace(accounts.user_id::text, '-', ''), accounts.user_id,
+  'cus_empty' || pg_catalog.replace(accounts.user_id::text, '-', ''), 'pdt_analyticsfixture',
+  accounts.scenario, 'monthly', 'active',
+  pg_catalog.statement_timestamp() - interval '1 day',
+  pg_catalog.statement_timestamp() + interval '1 year',
+  'analytics_empty_' || accounts.scenario,
+  pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp()
+from analytics_empty_accounts as accounts;
+
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'plus'), 'plus', '30d',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'summary'),
+  '{"profile_views":0,"qr_scans":0,"quick_qr_scans":0,"tap_scans":0,"connections":0}'::jsonb,
+  'empty Plus data returns zero summaries without an analytics error'
+);
+select is(
+  pg_catalog.jsonb_array_length(public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'plus'), 'plus', '30d',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'daily'),
+  30, 'empty Plus data returns its daily series'
+);
+select is(
+  (select pg_catalog.bool_and((entry.value ->> 'profile_views')::integer = 0)
+   from pg_catalog.jsonb_array_elements(public.get_profile_analytics(
+     (select user_id from analytics_empty_accounts where scenario = 'plus'), 'plus', '30d',
+     (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+     (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+   ) -> 'daily') as entry(value)),
+  true, 'empty Plus daily values are zero-filled'
+);
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'plus'), 'plus', '30d',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'sources'), '[]'::jsonb, 'empty Plus sources are an empty array'
+);
+
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'pro'), 'pro', 'custom',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'summary'),
+  '{"profile_views":0,"qr_scans":0,"quick_qr_scans":0,"tap_scans":0,"connections":0}'::jsonb,
+  'empty Pro data returns zero summaries without an analytics error'
+);
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'pro'), 'pro', 'custom',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'sources'), '[]'::jsonb, 'empty Pro sources are an empty array'
+);
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'pro'), 'pro', 'custom',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'modes'), '[]'::jsonb, 'empty Pro modes are an empty array'
+);
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'pro'), 'pro', 'custom',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'devices'), '[]'::jsonb, 'empty Pro device classes are an empty array'
+);
+select is(
+  (public.get_profile_analytics(
+    (select user_id from analytics_empty_accounts where scenario = 'pro'), 'pro', 'custom',
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date - 29,
+    (pg_catalog.statement_timestamp() at time zone 'UTC')::date
+  ) -> 'funnel'),
+  '[{"step":"profile_views","count":0},{"step":"shares","count":0},{"step":"connections","count":0}]'::jsonb,
+  'empty Pro funnel is a zero-filled sequence'
+);
+
 select * from finish();
 rollback;

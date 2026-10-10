@@ -1,7 +1,7 @@
 /** Browser E2E for Setuvara's Equipped, Quick QR, and physical Tap owner experience. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
@@ -115,6 +115,32 @@ async function quickLink(page) {
   return url.toString();
 }
 
+async function setQuickShareKeyMismatch() {
+  const { data: current, error: ensureError } = await user.rpc("ensure_quick_share_locator", {
+    p_nonce: `\\x${randomBytes(32).toString("hex")}`,
+    p_token_hash: `\\x${randomBytes(32).toString("hex")}`,
+  });
+  assert.ifError(ensureError);
+  assert.match(current?.token_hash ?? "", /^[a-f0-9]{64}$/);
+
+  const nonce = randomBytes(32);
+  const priorKey = randomBytes(32);
+  const token = createHmac("sha256", priorKey)
+    .update("setuvara-quick-share-v1\0", "utf8")
+    .update(userId.toLowerCase(), "utf8")
+    .update(nonce)
+    .digest("base64url");
+  const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
+  const { data, error } = await user.rpc("rotate_quick_share_locator", {
+    p_expected_token_hash: `\\x${current.token_hash}`,
+    p_nonce: `\\x${nonce.toString("hex")}`,
+    p_token_hash: `\\x${tokenHash}`,
+  });
+  assert.ifError(error);
+  assert.match(data?.token_hash ?? "", /^[a-f0-9]{64}$/);
+  return `${appUrl}/q/${token}`;
+}
+
 async function expectRedirect(context, url, expectedPath, expectedMode) {
   const response = await context.request.get(url, { maxRedirects: 0 });
   assert.equal(response.status(), 303, "Share locator must use a private internal redirect");
@@ -142,10 +168,27 @@ try {
   await setupPublishedIdentity();
   await page.goto(`${appUrl}/app/tap`);
   await page.getByRole("heading", { name: "Your Tap." }).waitFor();
-  const firstUrl = await quickLink(page);
-  const firstQr = await page.locator('svg[aria-label="Setuvara Quick QR"]').evaluate((svg) => svg.outerHTML);
+  let firstUrl = await quickLink(page);
+  let firstQr = await page.locator('svg[aria-label="Setuvara Quick QR"]').evaluate((svg) => svg.outerHTML);
   const visitor = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await expectRedirect(visitor, firstUrl, `/${account.username}`, "personal");
+
+  const oldKeyUrl = await setQuickShareKeyMismatch();
+  await expectRedirect(visitor, oldKeyUrl, `/${account.username}`, "personal");
+  await page.reload();
+  await page.getByText("Quick QR is unavailable. Your Equipped settings and devices can still be managed.").waitFor();
+  const createQuickButton = page.getByRole("button", { name: "Create new QR" });
+  await createQuickButton.waitFor();
+  assert.equal(await createQuickButton.isEnabled(), true, "Owner must be able to explicitly recover when the saved QR cannot be derived");
+  await createQuickButton.click();
+  await page.getByRole("button", { name: "Create new QR" }).last().click();
+  await page.getByText("Your previous Quick QR no longer opens. Use this new one.").waitFor();
+  firstUrl = await quickLink(page);
+  firstQr = await page.locator('svg[aria-label="Setuvara Quick QR"]').evaluate((svg) => svg.outerHTML);
+  assert.notEqual(firstUrl, oldKeyUrl, "Recovery must issue a fresh URL from the active key");
+  await expectRedirect(visitor, oldKeyUrl, "/q/unavailable");
+  await expectRedirect(visitor, firstUrl, `/${account.username}`, "personal");
+  console.log("PASS explicit owner-confirmed recovery after Quick QR signing-key mismatch");
 
   await modeButton(page, "Event").click();
   await page.getByText("Event is now equipped for viewing.").waitFor();
