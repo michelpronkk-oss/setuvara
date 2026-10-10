@@ -92,9 +92,12 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     await image.evaluate((img) => img.decode());
     assert(await image.evaluate((img) => img.naturalWidth > 0), "Home photo must load");
     assert.equal(await image.evaluate((img) => getComputedStyle(img).objectPosition), "50% 0%", "Home crop must keep the top of a portrait visible");
-    const fullPhoto = await page.getByRole("link", { name: "View full Personal Mode photo", exact: true }).getAttribute("href");
-    assert(fullPhoto === await image.getAttribute("src"), "Full photo must open the complete saved image");
+    await page.getByRole("button", { name: "View full Personal Mode photo", exact: true }).click();
+    const photoDialog = page.getByRole("dialog", { name: "Personal Mode full photo", exact: true });
+    const fullPhoto = await photoDialog.locator("img").getAttribute("src");
+    assert(fullPhoto === await image.getAttribute("src"), "Full photo viewer must use the complete saved image");
     assert.equal((await anon.request.get(fullPhoto)).status(), 200, "Full photo must load");
+    await photoDialog.getByRole("button", { name: "Close full photo" }).click();
 
     // Actual Mode state, URL precedence, remembered selection and keyboard radios.
     for (const slug of Object.keys(names)) {
@@ -228,7 +231,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
         await fit(page, `Share ${label} ${width}`);
         const panel = await page.getByRole("dialog").boundingBox();
         assert(panel.x >= 0 && panel.x + panel.width <= width + 1);
-        for (const action of [page.getByRole("dialog").getByRole("button", { name: "Share link", exact: true }), page.getByRole("dialog").getByRole("link", { name: "Full-screen QR and downloads", exact: true })]) {
+        for (const action of [page.getByRole("dialog").getByRole("button", { name: "Share link", exact: true }), page.getByRole("dialog").getByRole("link", { name: "Open full-screen QR and downloads", exact: true })]) {
           assert(await action.evaluate((node) => {
             const button = node.getBoundingClientRect();
             const range = document.createRange(); range.selectNodeContents(node);

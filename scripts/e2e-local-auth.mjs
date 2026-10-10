@@ -733,6 +733,38 @@ try {
   await otherPage.getByRole("link", { name: /Aanya Rao/ }).waitFor();
   const otherConnection = (await otherAuth.client.from("connections").select("id").eq("id", registeredDetailHref?.split("/").at(-1) ?? "").single()).data;
   assert(otherConnection, "Account 2 should see the registered relationship it created");
+  const ownerConnectionId = registeredDetailHref?.split("/").at(-1) ?? "";
+  await otherPage.goto(`${appUrl}${registeredDetailHref}`);
+  await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
+  await otherPage.getByText("Founder · Northlight", { exact: true }).waitFor();
+  await otherPage.getByText("Helsinki", { exact: true }).first().waitFor();
+  assert.equal(await otherPage.getByText("Helsinki", { exact: true }).count(), 2, "Current Event location and historical meeting city should both remain visible");
+  await otherPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
+  await otherPage.getByRole("link", { name: `@${owner.username}`, exact: true }).waitFor();
+  const eventModePhoto = otherPage.locator('img[alt="Aanya Rao · Event Mode"]');
+  await eventModePhoto.waitFor();
+  assert.equal(await eventModePhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Event identity should fall back to the published Personal Mode photo");
+  await mkdir(".next/home-qa", { recursive: true });
+  await otherPage.screenshot({ path: ".next/home-qa/connection-detail-event-photo.png", fullPage: true });
+
+  const historicalName = await ownerAuth.client.from("connections").select("user_display_name_snapshot").eq("id", ownerConnectionId).single();
+  assert.ifError(historicalName.error);
+  assert.equal(historicalName.data.user_display_name_snapshot, "Aanya Rao");
+  const temporaryUsername = `e2e_${suffix.slice(-10)}`;
+  const rename = await ownerAuth.client.from("profiles").update({ display_name: "Aanya Rao Current", username: temporaryUsername }).eq("id", ownerId).select("id").single();
+  assert.ifError(rename.error);
+  await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await otherPage.getByRole("heading", { name: "Aanya Rao Current", exact: true }).waitFor();
+  await otherPage.getByRole("link", { name: `@${temporaryUsername}`, exact: true }).waitFor();
+  await otherPage.getByText("Slush", { exact: true }).waitFor();
+  await otherPage.getByText("Founder · Northlight", { exact: true }).waitFor();
+  const restoredName = await ownerAuth.client.from("profiles").update({ display_name: "Aanya Rao", username: owner.username }).eq("id", ownerId).select("id").single();
+  assert.ifError(restoredName.error);
+
+  await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await page.getByText("Product Designer · Lumen Labs", { exact: true }).waitFor();
+  await page.getByText("Berlin", { exact: true }).waitFor();
+  assert.equal(await page.locator("section img").count(), 0, "A counterpart without a public image should keep the existing plain header treatment");
 
   // The reverse direction must reuse the same symmetric edge and append an encounter.
   await page.goto(`${appUrl}/${other.username}?mode=personal&source=link`);
@@ -740,7 +772,27 @@ try {
   await page.getByRole("button", { name: "Personal", exact: true }).click();
   await page.getByRole("button", { name: "Connect", exact: true }).last().click();
   await waitForConnected(page, "registered account 1 to account 2");
-  const ownerConnectionId = registeredDetailHref?.split("/").at(-1) ?? "";
+  await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
+  await otherPage.getByText("One person, three thoughtful contexts.", { exact: true }).waitFor();
+  await otherPage.locator('img[alt="Aanya Rao · Personal Mode"]').waitFor();
+  await otherPage.goto(`${appUrl}/${owner.username}?mode=business&source=profile`);
+  await otherPage.getByRole("button", { name: "Connect again", exact: true }).click();
+  await otherPage.getByRole("button", { name: "Business", exact: true }).click();
+  await otherPage.getByRole("button", { name: "Connect", exact: true }).last().click();
+  await waitForConnected(otherPage, "registered account 2 sharing Business Mode");
+  await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await otherPage.getByText("Head of Sales · Lumen Labs", { exact: true }).waitFor();
+  await otherPage.getByText("Berlin", { exact: true }).waitFor();
+  await otherPage.getByText("We help teams build durable customer relationships.", { exact: true }).waitFor();
+  const disabledBusiness = await ownerAuth.client.from("profile_modes").update({ is_enabled: false }).eq("profile_id", ownerId).eq("slug", "business");
+  assert.ifError(disabledBusiness.error);
+  await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
+  await otherPage.getByText("Head of Sales · Lumen Labs", { exact: true }).waitFor();
+  await otherPage.getByText("Slush", { exact: true }).waitFor();
+  const enabledBusiness = await ownerAuth.client.from("profile_modes").update({ is_enabled: true }).eq("profile_id", ownerId).eq("slug", "business");
+  assert.ifError(enabledBusiness.error);
   const { data: symmetricConnections, error: symmetricError } = await ownerAuth.client.from("connections").select("id")
     .or(`and(user_id.eq.${ownerId},connected_user_id.eq.${otherId}),and(user_id.eq.${otherId},connected_user_id.eq.${ownerId})`);
   assert.ifError(symmetricError);
@@ -749,8 +801,9 @@ try {
   const { data: registeredEncounters, error: registeredEncounterError } = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name,city")
     .eq("connection_id", ownerConnectionId).order("created_at");
   assert.ifError(registeredEncounterError);
-  assert.equal(registeredEncounters?.length, 2, "Reverse connect should add an Encounter to the existing Connection");
+  assert.equal(registeredEncounters?.length, 3, "Repeated connects should append Encounters to the existing Connection");
   assert.equal(registeredEncounters?.[0].event_name, "Slush", "Encounter keeps the originally shared Event snapshot");
+  assert.deepEqual(registeredEncounters?.map((item) => item.shared_mode_slug), ["event", "personal", "business"], "Connection history must preserve each shared Mode");
 
   const ownerNote = await ownerAuth.client.from("connection_notes").upsert({ connection_id: ownerConnectionId, user_id: ownerId, note: "Private Setuvara E2E note" }, { onConflict: "connection_id,user_id" });
   assert.ifError(ownerNote.error);
@@ -767,6 +820,12 @@ try {
   const otherCannotReadContext = await otherAuth.client.from("encounter_context").select("city,venue,event_label").eq("encounter_id", registeredEncounters[0].id).eq("user_id", ownerId);
   assert.ifError(otherCannotReadContext.error);
   assert.equal(otherCannotReadContext.data?.length, 0, "Where You Met context is private to its author");
+  await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await otherPage.getByLabel("A thought to remember").waitFor();
+  assert.equal(await otherPage.getByLabel("A thought to remember").inputValue(), "", "Another participant must not see the owner's private note");
+  assert.equal((await otherPage.locator("body").innerText()).includes("Messukeskus"), false, "Another participant must not see the owner's private Where You Met override");
+  await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  await page.getByText(/Messukeskus/).waitFor();
   await page.goto(`${appUrl}/app/connections`);
   const search = page.getByRole("searchbox", { name: "Search connections" });
   for (const term of ["Slush", "Helsinki", "Messukeskus", "Lumen Labs"]) {
@@ -817,6 +876,10 @@ try {
     .eq("user_id", ownerId).eq("connected_user_id", guestClaimAuth.user.id).maybeSingle();
   assert.ifError(claimEdgeError);
   assert(claimedEdge, "Verified signup should claim the guest edge as a registered relationship");
+  await page.goto(`${appUrl}/app/connections/${claimedEdge.id}`);
+  await page.getByRole("heading", { name: "E2E Guest", exact: true }).waitFor();
+  await page.getByText("Slush", { exact: true }).waitFor();
+  assert.equal(await page.locator("section img").count(), 0, "Claimed but unpublished guest identity should use its saved name without exposing a photo");
   const claimedEncounters = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name")
     .eq("connection_id", claimedEdge.id).order("created_at");
   assert.ifError(claimedEncounters.error);
@@ -833,6 +896,11 @@ try {
   const thirdAccountCannotReadUnrelated = await guestClaimAuth.client.from("connections").select("id").eq("id", ownerConnectionId);
   assert.ifError(thirdAccountCannotReadUnrelated.error);
   assert.equal(thirdAccountCannotReadUnrelated.data?.length, 0, "Claimed guest account cannot read unrelated account 1–2 connection");
+  await guestClaimBrowser.page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+  assert.equal(await guestClaimBrowser.page.getByLabel("A thought to remember").count(), 0, "An unrelated authenticated account cannot render another Connection's private controls");
+  const unrelatedPageText = await guestClaimBrowser.page.locator("body").innerText();
+  assert.equal(unrelatedPageText.includes("Aanya Rao"), false, "An unrelated authenticated account cannot render counterpart identity for another Connection");
+  assert.equal(unrelatedPageText.includes("Private Setuvara E2E note"), false, "An unrelated authenticated account cannot render another user's private note");
   assert.equal((await guestPage.request.get(`${appUrl}${guestDetailHref}`)).status(), 404, "Revoked guest sessions cannot continue reading guest details");
   await guestClaimBrowser.page.goto(`${appUrl}/app/connections`);
   await guestClaimBrowser.page.getByRole("link", { name: /Aanya Rao/ }).waitFor();
@@ -1048,6 +1116,12 @@ try {
     await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
     await expectNoHorizontalOverflow(page, `Connection detail ${width}x${height}`);
     await page.getByLabel("A thought to remember").waitFor();
+    await page.screenshot({ path: `.next/home-qa/connection-detail-${width}.png`, fullPage: true });
+    await otherPage.setViewportSize({ width, height });
+    await otherPage.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
+    await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
+    await expectNoHorizontalOverflow(otherPage, `Connection counterpart detail ${width}x${height}`);
+    await otherPage.screenshot({ path: `.next/home-qa/connection-counterpart-${width}.png`, fullPage: true });
     await page.goto(`${appUrl}/app/passport`);
     await page.getByRole("heading", { name: "Every connection stays in the story." }).waitFor();
     await page.getByRole("progressbar").waitFor();
