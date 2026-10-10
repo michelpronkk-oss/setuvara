@@ -41,8 +41,10 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   const [selected, setSelected] = useState<ModeSlug | null>(null);
   const slug = selected ?? (hasRequestedMode ? initialMode : saved ?? initialMode);
   const [sharing, setSharing] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const shareButton = useRef<HTMLButtonElement>(null);
+  const photoButton = useRef<HTMLButtonElement>(null);
   const mode = modes.find((item) => item.slug === slug) ?? modes[0];
   const live = isPublished && mode.enabled;
   const hasPhoto = Boolean(mode.imageUrl && mode.imageUrl !== failedImage);
@@ -61,6 +63,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   }, []);
   const openShare = (event: MouseEvent<HTMLButtonElement>) => { shareButton.current = event.currentTarget; setSharing(true); };
   const closeShare = useCallback(() => { setSharing(false); shareButton.current?.focus(); }, []);
+  const closePhoto = useCallback(() => { setViewingPhoto(false); photoButton.current?.focus(); }, []);
 
   return (
     <>
@@ -86,7 +89,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <span className="hidden lg:inline">{NAMES[slug].toUpperCase()} MODE · </span>{live ? "LIVE" : isPublished ? "MODE OFF" : "PRIVATE"}
           </span>
           <div className="flex shrink-0 items-center gap-2">
-            {hasPhoto && <a aria-label={`View full ${NAMES[slug]} Mode photo`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:text-sm" href={mode.imageUrl ?? undefined} rel="noreferrer" target="_blank">Full photo<span aria-hidden="true">↗</span></a>}
+            {hasPhoto && <button aria-label={`View full ${NAMES[slug]} Mode photo`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:text-sm" onClick={(event) => { photoButton.current = event.currentTarget; setViewingPhoto(true); }} type="button">View full photo<span aria-hidden="true">↗</span></button>}
             {live && <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:px-4 lg:text-sm" href={publicUrl(slug)} rel="noreferrer" target="_blank">View profile<span aria-hidden="true">↗</span></a>}
           </div>
         </div>
@@ -124,7 +127,34 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       </div>
 
       {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onPick={pick} publicUrl={publicUrl} slug={slug} username={username} />}
+      {viewingPhoto && mode.imageUrl && <FullPhotoViewer imageUrl={mode.imageUrl} modeName={NAMES[slug]} onClose={closePhoto} />}
     </>
+  );
+}
+
+function FullPhotoViewer({ imageUrl, modeName, onClose }: { imageUrl: string; modeName: string; onClose: () => void }) {
+  const closeButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButton.current?.focus();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
+  }, [onClose]);
+
+  return (
+    <div aria-label={`${modeName} Mode full photo`} aria-modal="true" className="fixed inset-0 z-[85] flex flex-col items-center justify-center bg-[#0d0d0d]/95 p-4 pb-[calc(16px+env(safe-area-inset-bottom))] text-[#f5f4ef] sm:p-6" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
+      <div className="mb-3 flex w-full max-w-6xl shrink-0 items-center justify-between gap-4">
+        <p className="font-label text-xs uppercase tracking-[0.14em]">{modeName} Mode · full photo</p>
+        <button aria-label="Close full photo" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/10 text-xl focus-visible:outline-2 focus-visible:outline-offset-2" onClick={onClose} ref={closeButton} type="button">×</button>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element -- display the original user-uploaded photo without cropping */}
+      <img alt={`${modeName} Mode profile photo`} className="max-h-[calc(100dvh-100px)] max-w-full object-contain" decoding="async" src={imageUrl} />
+    </div>
   );
 }
 
@@ -233,8 +263,8 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
           </div>
           {copyError && <p className="order-5 text-sm" role="status">Copy is unavailable in this browser. Select the profile URL above to copy it.</p>}
           <div className="order-5 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2 md:order-none md:mt-auto">
-            {canShare && <button className="min-h-[52px] min-w-0 rounded-full bg-[#ff5a4f] px-4 py-3 text-center text-[15px] font-semibold leading-5 text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => void share()} type="button">Share link</button>}
-            <Link aria-label="Full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 items-center justify-center rounded-full px-4 py-3 text-center text-[15px] font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share`}>QR &amp; downloads</Link>
+            {canShare && <button className="min-h-[52px] min-w-0 whitespace-nowrap rounded-full bg-[#ff5a4f] px-3 py-3 text-center text-sm font-semibold leading-5 text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => void share()} type="button">Share link</button>}
+            <Link aria-label="Open full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 whitespace-nowrap items-center justify-center rounded-full px-3 py-3 text-center text-sm font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share`}>Open QR screen</Link>
           </div>
           <p className="sr-only">setuvara.com/{username}</p>
         </div>
