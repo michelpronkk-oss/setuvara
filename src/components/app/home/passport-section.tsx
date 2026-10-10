@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { MILESTONES, PASSPORT_REWARDS } from "@/lib/passport/rewards";
+import { hasCapability } from "@/lib/billing/capabilities";
+import type { PlanCode } from "@/lib/billing/catalog";
 import { createClient } from "@/lib/supabase/server";
 
 type Overview = {
@@ -11,7 +13,7 @@ type Overview = {
 const CUT = "[clip-path:polygon(0_0,100%_0,100%_calc(100%-44px),calc(100%-25px)_100%,0_100%)]";
 const MAX_TICKS = 25;
 
-export async function PassportSection() {
+export async function PassportSection({ plan }: { plan: PlanCode }) {
   const { data, error } = await (await createClient()).rpc("get_passport_overview");
   if (error || !data) return <PassportFallback />;
   const overview = data as unknown as Overview;
@@ -24,6 +26,8 @@ export async function PassportSection() {
   const left = next ? next.threshold - count : 0;
   const unlocks = next ? PASSPORT_REWARDS.filter((reward) => reward.milestone === next.threshold).map((reward) => reward.name) : [];
   const stamp = [...(overview.stamps ?? [])].sort((a, b) => Date.parse(b.earnedAt) - Date.parse(a.earnedAt))[0];
+  const premiumFinish = hasCapability(plan, "passport.premium_treatment");
+  const finishColor = plan === "pro" ? "#C7FF4A" : "#FF5A4F";
   const copy = !next
     ? "Thousand Met. The highest V1 milestone, and your record keeps growing."
     : count === 0
@@ -32,7 +36,7 @@ export async function PassportSection() {
   const stats = [overview.cities && `${overview.cities} ${overview.cities === 1 ? "CITY" : "CITIES"}`, overview.events && `${overview.events} ${overview.events === 1 ? "EVENT" : "EVENTS"}`, overview.countries && `${overview.countries} ${overview.countries === 1 ? "COUNTRY" : "COUNTRIES"}`].filter(Boolean).join(" · ");
 
   return (
-    <Link aria-label={`Open your Passport. ${count} people met.${next ? ` ${left} to ${next.name}.` : ""}`} className={`flex flex-none flex-col gap-4 rounded-[26px] bg-[#e8e2d4] px-[22px] py-[22px] text-[#0d0d0d] transition-colors hover:bg-[#e2dbcb] focus-visible:outline-2 focus-visible:outline-offset-2 lg:gap-5 lg:px-7 lg:py-[26px] ${CUT}`} href="/app/passport">
+    <Link aria-label={`Open your Passport. ${count} people met.${next ? ` ${left} to ${next.name}.` : ""}`} className={`flex flex-none flex-col gap-4 rounded-[26px] bg-[#e8e2d4] px-[22px] py-[22px] text-[#0d0d0d] transition-colors hover:bg-[#e2dbcb] focus-visible:outline-2 focus-visible:outline-offset-2 lg:gap-5 lg:px-7 lg:py-[26px] ${CUT}`} data-passport-finish={premiumFinish ? plan : "standard"} href="/app/passport" style={premiumFinish ? { boxShadow: `inset 0 0 0 2px ${finishColor}` } : undefined}>
       <div className="flex items-center justify-between">
         <span className="font-label text-[11px] tracking-[0.16em] lg:text-xs">SETUVARA PASSPORT</span>
         <span className="flex gap-2 text-sm font-semibold">Open<span aria-hidden="true">→</span></span>

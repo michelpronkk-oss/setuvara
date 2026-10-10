@@ -59,7 +59,7 @@ const settings = {
   business: { role: "Founder", company: "Setuvara", city: "Amsterdam", description: "Identity, in person." },
 };
 const mode = (slug, appearance, extra = {}) => ({ id: slug, slug, label: slug, is_enabled: true, settings: settings[slug], appearance: { theme: "light", accent: "#FF5A4F", ...appearance }, image_path: "x", image_url: PHOTO, links, blocks: [], ...extra });
-const render = (m) => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: m, viewerState: "visitor_unconnected", sound: "off" }));
+const render = (m, plan = "free", sound = "off") => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: m, plan, viewerState: "visitor_unconnected", sound }));
 const attr = (html, name) => html.match(new RegExp(`${name}="([^"]*)"`))?.[1];
 
 describe("resolveAppearance", () => {
@@ -70,7 +70,7 @@ describe("resolveAppearance", () => {
       business: { theme: "light", accent: "#FFA600", layout: "editorial-business", imageTreatment: "compact" },
     };
     for (const [slug, appearance] of Object.entries(saved)) {
-      assert.deepEqual(lib.resolveAppearance({ slug, appearance }), { slug, ...appearance });
+      assert.deepEqual(lib.resolveAppearance({ slug, appearance }, "plus"), { slug, ...appearance });
     }
   });
 
@@ -90,6 +90,36 @@ describe("resolveAppearance", () => {
     assert.equal(lib.isValidAppearance("event", { ...look, layout: "full-bleed" }), false);
     assert.equal(lib.isValidAppearance("business", { ...look, layout: "event-poster" }), false);
     assert.equal(lib.isValidAppearance("event", { ...look, layout: "conference-card" }), true);
+  });
+
+  test("Plus presentation choices stay saved but fall back safely on Free", () => {
+    const saved = { theme: "editorial", accent: "#FF5A4F", layout: "full-bleed", imageTreatment: "portrait", qrStyle: "accent-frame" };
+    assert.equal(lib.resolveAppearance({ slug: "personal", appearance: saved }, "free").theme, "dark");
+    assert.equal(lib.resolveAppearance({ slug: "personal", appearance: saved }, "plus").theme, "editorial");
+    assert.equal(lib.resolveQrStyle({ appearance: saved }, "free"), "standard");
+    assert.equal(lib.resolveQrStyle({ appearance: saved }, "plus"), "accent-frame");
+    assert.equal(lib.resolveQrStyle({ appearance: saved }, "pro"), "accent-frame");
+    assert.equal(lib.isValidAppearance("personal", saved), true, "saved presentation choices remain valid through a downgrade");
+  });
+
+  test("the shared renderer shows the Editorial finish only for Plus and Pro", () => {
+    const m = mode("personal", { theme: "editorial", layout: "portrait-editorial", imageTreatment: "portrait" });
+    assert.equal(lib.profileTone(m, "free").bg, "#0D0D0D");
+    assert.equal(lib.profileTone(m, "plus").bg, "#F5F4EF");
+    assert.equal(lib.profileTone(m, "pro").bg, "#F5F4EF");
+    assert.equal(attr(render(m, "plus"), "data-profile-layout"), "portrait-editorial");
+  });
+
+  test("soundtrack remains available to Free while Plus styling is only a presentation finish", () => {
+    const soundtrack = { id: "track", kind: "music", data: { url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", title: "Private editor title" }, is_visible: true, is_soundtrack: true, sort_order: 0 };
+    const m = mode("personal", { theme: "dark", layout: "portrait-editorial", imageTreatment: "portrait" }, { blocks: [soundtrack] });
+    const freeHtml = render(m, "free", "live");
+    const plusHtml = render(m, "plus", "live");
+    assert.match(freeHtml, /data-soundtrack-player/);
+    assert.match(freeHtml, /data-sound-ui/);
+    assert.doesNotMatch(freeHtml, /spotify\.com|Private editor title/, "the public HTML keeps soundtrack metadata out of its rendered payload");
+    assert.doesNotMatch(freeHtml, /data-premium-sound="true"/);
+    assert.match(plusHtml, /data-premium-sound="true"/);
   });
 
   test("editor layout choices are exactly each Mode's renderable layouts", () => {

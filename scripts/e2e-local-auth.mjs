@@ -940,7 +940,8 @@ try {
   await page.keyboard.press("Control+s");
   await waitSaved(page);
   await openSection(page, "Appearance");
-  await page.getByRole("button", { name: /Aa Editorial/ }).click();
+  // This account is Free; Editorial is tested with the Plus account in e2e-analytics.
+  await page.getByRole("button", { name: "Dark theme" }).click();
   await page.getByRole("button", { name: /Editorial Business/ }).click();
   await page.keyboard.press("Control+s");
   await waitSaved(page);
@@ -994,7 +995,7 @@ try {
   await setMode(page, "personal");
   await openSection(page, "Appearance");
   await page.getByRole("button", { name: /Full Bleed/ }).click();
-  await page.getByRole("button", { name: /Aa Dark/ }).click();
+  await page.getByRole("button", { name: "Dark theme" }).click();
   await waitSaved(page);
   await setMode(page, "business");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1671,7 +1672,7 @@ try {
   assert.equal(ownerTone.themeColor, visitorTone.themeColor, "Owner and visitor see the same Mode browser tone");
   assert.equal(ownerTone.profileBackground, visitorTone.profileBackground);
   await assertPublicProfileTheme(anonPage, owner.username, "event", "light", "Event Mode direct refresh", true);
-  await assertPublicProfileTheme(anonPage, owner.username, "business", "editorial", "Business Editorial Mode");
+  await assertPublicProfileTheme(anonPage, owner.username, "business", "dark", "Business Dark Mode");
   for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
     await anonPage.setViewportSize({ width, height });
     await assertPublicProfileTheme(anonPage, owner.username, "personal", "dark", `Personal public profile ${width}x${height}`);

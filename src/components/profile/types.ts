@@ -34,6 +34,8 @@ export type ModeAppearance = {
   accent: string;
   layout: string;
   imageTreatment: "full-bleed" | "portrait" | "compact";
+  /** Saved through the existing appearance JSON; the paid frame falls back on Free. */
+  qrStyle?: "standard" | "accent-frame";
 };
 
 export type ProfileMode = {

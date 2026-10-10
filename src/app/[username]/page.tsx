@@ -9,11 +9,12 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { isFullBleed, ProfileRenderer, profileTone, resolvedBrowserThemeColor } from "@/components/profile/profile-renderer";
-import { resolveModeAccent } from "@/components/profile/appearance";
+import { resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
+import type { PlanCode } from "@/lib/billing/catalog";
 import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +46,8 @@ const readPublicProfileMode = cache(async (username: string, slug: ModeSlug) => 
       .maybeSingle();
     if (modeError || !mode) return null;
 
-    return { profile, mode };
+    const billing = await getUserBillingState(profile.id).catch(() => null);
+    return { profile, mode, plan: billing?.plan ?? "free" as PlanCode };
   } catch {
     return null;
   }
@@ -66,7 +68,7 @@ export async function generateViewport({ params, searchParams }: PublicProfilePa
     : null;
   return {
     themeColor: record
-      ? resolvedBrowserThemeColor({ slug: record.mode.slug as ModeSlug, appearance: record.mode.appearance as ProfileMode["appearance"] })
+      ? resolvedBrowserThemeColor({ slug: record.mode.slug as ModeSlug, appearance: record.mode.appearance as ProfileMode["appearance"] }, record.plan)
       : FALLBACK_BROWSER_THEME_COLOR,
     viewportFit: "cover",
   };
@@ -96,10 +98,10 @@ export default async function PublicProfilePage({ params, searchParams }: Public
 
   const record = await readPublicProfileMode(username, slug);
   if (!record) notFound();
-  const { profile, mode: rawMode } = record;
+  const { profile, mode: rawMode, plan } = record;
   const supabase = await createClient();
 
-  const [{ data: publicCosmetics }, { data: links, error: linksError }, memberTier] = await Promise.all([
+  const [{ data: publicCosmetics }, { data: links, error: linksError }] = await Promise.all([
     supabase.from("passport_preferences")
       .select("category,reward_id")
       .eq("user_id", profile.id)
@@ -110,10 +112,9 @@ export default async function PublicProfilePage({ params, searchParams }: Public
       .eq("mode_id", rawMode.id)
       .eq("is_visible", true)
       .order("sort_order"),
-    // Member status comes from the canonical billing resolution, never from profile data.
-    // Billing is secondary here: if it cannot be read, the profile renders without a badge.
-    getUserBillingState(profile.id).then((state) => memberTierForPlan(state.plan), () => null),
   ]);
+  // Member status and premium presentation come from canonical billing, never profile data.
+  const memberTier = memberTierForPlan(plan);
   if (linksError) notFound();
 
   // Blocks are optional content: if they can't load, the profile still renders.
@@ -223,12 +224,13 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   };
 
   // Full Bleed runs the photo to the phone's edges; the page takes on the profile's own background.
-  const bleed = isFullBleed(mode);
-  const pageTone = profileTone(mode);
-  const browserThemeColor = resolvedBrowserThemeColor(mode);
+  const bleed = isFullBleed(mode, plan);
+  const pageTone = profileTone(mode, plan);
+  const browserThemeColor = resolvedBrowserThemeColor(mode, plan);
+  const resolvedLook = resolveAppearance(mode, plan);
 
   return (
-    <main data-public-profile-surface="true" data-public-profile-theme={mode.appearance.theme} data-public-profile-layout={mode.appearance.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:px-0 max-sm:py-0" : ""}`} style={{ "--page-bg": browserThemeColor } as React.CSSProperties}>
+    <main data-public-profile-surface="true" data-public-profile-theme={resolvedLook.theme} data-public-profile-layout={resolvedLook.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:px-0 max-sm:py-0" : ""}`} style={{ "--page-bg": browserThemeColor } as React.CSSProperties}>
       <div className="relative mx-auto w-full max-w-[440px]">
         <header className={`mb-4 flex items-center justify-between px-2 ${bleed ? "max-sm:absolute max-sm:inset-x-0 max-sm:top-0 max-sm:z-20 max-sm:mb-0 max-sm:px-4 max-sm:pt-2 max-sm:text-[#f5f4ef] max-sm:[text-shadow:0_1px_12px_rgba(0,0,0,.35)]" : ""}`}>
           <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>
@@ -244,6 +246,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
           connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
           guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
           memberTier={memberTier}
+          plan={plan}
           visitorAction={canInitiateConnection ? <ConnectFlow
             username={username}
             mode={slug}

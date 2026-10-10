@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import { MILESTONES, PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import type { PlanCode } from "@/lib/billing/catalog";
+import { hasCapability } from "@/lib/billing/capabilities";
 
 type MilestoneRecord = { threshold: number; unlockedAt: string; seenAt: string | null };
 type StampRecord = { id: string; type: "milestone" | "event" | "city" | "country"; title: string; subtitle: string | null; countryCode: string | null; earnedAt: string };
@@ -16,7 +18,7 @@ export type PassportData = {
 const categoryNames: Record<RewardCategory, string> = { profile_treatment: "Profile treatment", accent: "Profile accent", share_treatment: "Share treatment", qr_frame: "QR frame", passport_cover: "Passport cover", passport_stamp_style: "Stamp style", profile_mark: "Profile mark" };
 const nextMilestone = (count: number) => MILESTONES.find((item) => item.threshold > count);
 
-export function PassportDashboard({ initialData, username, displayName, publicOrigin }: { initialData: PassportData; username: string; displayName: string; publicOrigin: string }) {
+export function PassportDashboard({ initialData, username, displayName, publicOrigin, plan }: { initialData: PassportData; username: string; displayName: string; publicOrigin: string; plan: PlanCode }) {
   const [data, setData] = useState(initialData);
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -34,6 +36,8 @@ export function PassportDashboard({ initialData, username, displayName, publicOr
   const lightCover = data.preferences.passport_cover === "paper_passport_cover" || data.preferences.passport_cover === "century_cover";
   const coverMuted = lightCover ? "text-black/55" : "text-white/55";
   const coverAccent = lightCover ? "text-[#83352f]" : "text-[#ff5a4f]";
+  const premiumFinish = hasCapability(plan, "passport.premium_treatment");
+  const finishColor = plan === "pro" ? "#C7FF4A" : "#FF5A4F";
   const latest = [...data.stamps].sort((a, b) => Date.parse(b.earnedAt) - Date.parse(a.earnedAt)).slice(0, 8);
   const profileUrl = `${publicOrigin}/${username}?mode=personal`;
 
@@ -49,7 +53,7 @@ export function PassportDashboard({ initialData, username, displayName, publicOr
   return (
     <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
-        <section className={`mt-5 overflow-hidden rounded-[2rem] p-6 sm:p-10 ${passportCoverClass}`}>
+        <section className={`mt-5 overflow-hidden rounded-[2rem] p-6 sm:p-10 ${passportCoverClass}`} data-passport-finish={premiumFinish ? plan : "standard"} style={premiumFinish ? { boxShadow: `inset 0 0 0 3px ${finishColor}` } : undefined}>
           <div className="flex flex-wrap items-start justify-between gap-6"><div><p className={`text-[10px] font-bold tracking-[0.24em] ${coverAccent}`}>SETUVARA PASSPORT</p><h1 className="mt-4 text-6xl font-semibold tracking-[-0.07em] sm:text-8xl">{data.connectionCount.toLocaleString()}</h1><p className={`mt-1 text-xs font-bold tracking-[0.2em] ${coverMuted}`}>UNIQUE CONNECTIONS</p></div><div className="w-full max-w-sm rounded-3xl border border-current/15 p-5 sm:mt-2"><p className={`text-[10px] font-bold tracking-[0.2em] ${coverMuted}`}>{next ? "NEXT MILESTONE" : "HIGHEST V1 MILESTONE"}</p><p className="mt-2 text-2xl font-semibold">{next ? `${next.threshold} · ${next.name}` : "Thousand Met"}</p><p className={`mt-1 text-sm ${coverMuted}`}>{next ? `${Math.max(0, next.threshold - data.connectionCount)} to go` : "Your record keeps growing."}</p><div aria-label={next ? `${data.connectionCount} of ${next.threshold} connections to next milestone` : "Highest V1 milestone reached"} aria-valuemax={100} aria-valuemin={0} aria-valuenow={Math.round(progress)} className={`mt-5 h-2 overflow-hidden rounded-full ${lightCover ? "bg-black/10" : "bg-white/15"}`} role="progressbar"><div className="h-full rounded-full bg-[#ff5a4f] transition-[width]" style={{ width: `${progress}%` }} /></div></div></div>
           <div className={`mt-9 grid grid-cols-3 gap-3 border-t pt-5 text-center sm:max-w-xl sm:text-left ${lightCover ? "border-black/15" : "border-white/15"}`}><Stat value={data.cities} label="Cities" light={lightCover} /><Stat value={data.events} label="Events" light={lightCover} /><Stat value={data.countries} label="Countries" light={lightCover} /></div>
         </section>

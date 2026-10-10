@@ -100,6 +100,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       selectedRewards={passport.preferences ?? {}}
       celebrationThreshold={unseenMilestone}
       memberTier={memberTierForPlan(viewer.plan)}
+      plan={viewer.plan}
       publicOrigin={publicOrigin}
       saved={query.saved}
       signOut={signOut}

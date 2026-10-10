@@ -58,6 +58,11 @@ async function createAccount(item) {
   contexts.push(context);
   const page = await context.newPage();
   page.on("pageerror", (error) => { throw new Error(`Runtime error on ${page.url()}: ${error.message}`); });
+  page.on("response", async (response) => {
+    if (response.url().includes("/rest/v1/profile_modes") && response.status() >= 400) {
+      console.error(`Local profile_modes write returned HTTP ${response.status()}: ${(await response.text()).slice(0, 400)}`);
+    }
+  });
   await page.goto(`${appUrl}/signup`);
   await page.getByLabel("Username").fill(item.username);
   await page.getByText("Available. It’s yours if you want it.").waitFor();
@@ -76,7 +81,7 @@ async function createAccount(item) {
   userIds.push(id);
   assert.ifError((await client.from("profiles").update({ is_published: true }).eq("id", id)).error);
   assert.ifError((await client.from("profile_modes").update({ is_enabled: true }).eq("profile_id", id).eq("slug", "personal")).error);
-  return { ...item, id, context, page };
+  return { ...item, id, context, page, client };
 }
 
 function setPlan(user, plan, status = "active") {
@@ -129,6 +134,18 @@ async function openAnalytics(page) {
   await page.waitForFunction(() => !document.querySelector("[aria-busy='true']"), null, { timeout: 15_000 });
 }
 
+async function waitForAppearance(user, predicate) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const rows = localSql(`select appearance from public.profile_modes where profile_id='${user.id}' and slug='personal';`);
+    if (predicate(rows[0]?.appearance ?? {})) return rows[0].appearance;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 150));
+  }
+  const saveStatus = (await user.page.locator("header").last().innerText()).replace(/\s+/g, " ").slice(0, 240);
+  await user.page.screenshot({ path: `${screenshots}/${user.role}-appearance-save-failure.png`, fullPage: true });
+  throw new Error(`Timed out waiting for the local ${user.role} Mode appearance to save; editor status: ${saveStatus}`);
+}
+
 async function shoot(page, name, sizes = [[390, 844], [768, 1024], [1440, 900]]) {
   for (const [width, height] of sizes) {
     await page.setViewportSize({ width, height });
@@ -169,24 +186,8 @@ try {
   setPlan(plus, "plus");
   setPlan(pro, "pro");
 
-  // ---------- API enforcement ----------
-  const anon = await browser.newContext();
-  assert.equal((await anon.request.get(`${appUrl}/api/analytics?range=7d`)).status(), 401);
-  assert.equal((await anon.request.get(`${appUrl}/api/analytics/export?range=7d`)).status(), 401);
-  await anon.close();
-  const status = async (user, path) => (await user.page.request.get(`${appUrl}${path}`)).status();
-  const custom = `range=custom&from=${isoDay(-29)}&to=${isoDay(0)}`;
-  for (const path of ["/api/analytics?range=30d", "/api/analytics?range=90d", `/api/analytics?${custom}`, `/api/analytics?range=7d&from=${isoDay(-6)}&to=${isoDay(0)}`, "/api/analytics?range=7d&mode=event", "/api/analytics?range=7d&source=qr", "/api/analytics?range=30d&plan=pro", "/api/analytics/export?range=7d"]) {
-    assert.equal(await status(free, path), 403, `Free cannot reach ${path}`);
-  }
-  for (const path of [`/api/analytics?${custom}`, `/api/analytics/export?range=30d`, `/api/analytics?${custom}&plan=pro`]) {
-    assert.equal(await status(plus, path), 403, `Plus cannot reach ${path}`);
-  }
-  assert.equal(await status(pro, `/api/analytics?range=custom&from=${isoDay(-730)}&to=${isoDay(0)}`), 403, "Pro is capped at 730 days");
-  assert.equal(await status(pro, "/api/analytics?range=7d&device=mobile"), 400);
-  console.log("PASS server enforcement: Free/Plus/Pro ranges, filters, export and spoofed plan params");
-
   // ---------- Zero data for every plan: 200, Day One, no NaN ----------
+  // Run before public-profile presentation checks, which correctly record profile views.
   for (const user of [free, plus, pro]) {
     const body = await (await user.page.request.get(`${appUrl}/api/analytics?range=7d`)).json();
     assert.equal(body.summary.profileViews + body.summary.connections + body.summary.qrScans + body.summary.quickQrScans + body.summary.tapScans, 0);
@@ -208,8 +209,74 @@ try {
   assert.equal(await free.page.getByRole("link", { name: "Show Quick QR" }).getAttribute("href"), "/app/tap");
   console.log("PASS zero data: Free, Plus and Pro show Day One on 200, never the error card");
 
+  // ---------- Plan-derived presentation and persistent choices ----------
+  await free.page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
+  const freeEditorial = free.page.getByRole("button", { name: "Editorial theme, included with Plus" });
+  await freeEditorial.click();
+  const appearancePaywall = free.page.getByRole("dialog");
+  await appearancePaywall.getByRole("heading", { name: "Editorial profile theme" }).waitFor();
+  await free.page.keyboard.press("Escape");
+  await appearancePaywall.waitFor({ state: "detached" });
+  assert.equal(await free.page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Editorial theme, included with Plus", "the appearance paywall returns focus to its trigger");
+
+  await plus.page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
+  await plus.page.getByRole("button", { name: "Editorial theme", exact: true }).click();
+  const plusAppearance = await waitForAppearance(plus, (value) => value.theme === "editorial");
+  assert.equal(plusAppearance.theme, "editorial", "Plus can save the Editorial theme");
+  const publicPlusAppearance = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await publicPlusAppearance.goto(`${appUrl}/${plus.username}`);
+  await publicPlusAppearance.locator('main[data-public-profile-theme="editorial"]').waitFor();
+  await publicPlusAppearance.close();
+
+  await free.page.goto(`${appUrl}/app/identity?mode=personal&section=share`);
+  await free.page.locator('[data-qr-treatment="standard"]').first().waitFor();
+  const freeQrValue = await free.page.locator("svg[data-qr-value]").getAttribute("data-qr-value");
+  assert.equal(new URL(freeQrValue).searchParams.get("source"), "qr", "the free QR keeps its canonical share target");
+  await free.page.getByRole("button", { name: "Accent frame · Plus" }).click();
+  await free.page.getByRole("dialog").getByRole("heading", { name: "Premium QR accent frame" }).waitFor();
+  await free.page.keyboard.press("Escape");
+  assert.equal(await free.page.locator("svg[data-qr-value]").getAttribute("data-qr-value"), freeQrValue, "locked styling cannot change the QR destination");
+
+  await plus.page.goto(`${appUrl}/app/identity?mode=personal&section=share`);
+  const plusQrValue = await plus.page.locator("svg[data-qr-value]").getAttribute("data-qr-value");
+  await plus.page.getByRole("button", { name: "Accent frame · Plus" }).click();
+  const plusQrAppearance = await waitForAppearance(plus, (value) => value.qrStyle === "accent-frame");
+  assert.equal(plusQrAppearance.qrStyle, "accent-frame", "Plus can save the frame in the existing Mode appearance JSON");
+  await plus.page.locator('[data-qr-treatment="accent-frame"]').first().waitFor();
+  assert.equal(await plus.page.locator("svg[data-qr-value]").getAttribute("data-qr-value"), plusQrValue, "the premium frame leaves QR modules and destination unchanged");
+
+  await plus.page.goto(`${appUrl}/app`);
+  await plus.page.getByRole("button", { name: "Share Personal Mode" }).click();
+  await plus.page.locator('[data-qr-treatment="accent-frame"]').first().waitFor();
+  assert.equal(await plus.page.locator("svg[data-qr-value]").getAttribute("data-qr-value"), plusQrValue, "the Home share sheet uses the same Plus frame and target");
+  await plus.page.getByRole("button", { name: "Close" }).click();
+
+  for (const [user, expectedFinish] of [[free, "standard"], [plus, "plus"], [pro, "pro"]]) {
+    await user.page.goto(`${appUrl}/app/passport`);
+    await user.page.locator(`[data-passport-finish="${expectedFinish}"]`).waitFor();
+  }
+  console.log("PASS plan presentation: Free paywalls, Plus persists Editorial and QR frame, Passport finish follows the resolved plan");
+
+  // ---------- API enforcement ----------
+  const anon = await browser.newContext();
+  assert.equal((await anon.request.get(`${appUrl}/api/analytics?range=7d`)).status(), 401);
+  assert.equal((await anon.request.get(`${appUrl}/api/analytics/export?range=7d`)).status(), 401);
+  await anon.close();
+  const status = async (user, path) => (await user.page.request.get(`${appUrl}${path}`)).status();
+  const custom = `range=custom&from=${isoDay(-29)}&to=${isoDay(0)}`;
+  for (const path of ["/api/analytics?range=30d", "/api/analytics?range=90d", `/api/analytics?${custom}`, `/api/analytics?range=7d&from=${isoDay(-6)}&to=${isoDay(0)}`, "/api/analytics?range=7d&mode=event", "/api/analytics?range=7d&source=qr", "/api/analytics?range=30d&plan=pro", "/api/analytics/export?range=7d"]) {
+    assert.equal(await status(free, path), 403, `Free cannot reach ${path}`);
+  }
+  for (const path of [`/api/analytics?${custom}`, `/api/analytics/export?range=30d`, `/api/analytics?${custom}&plan=pro`]) {
+    assert.equal(await status(plus, path), 403, `Plus cannot reach ${path}`);
+  }
+  assert.equal(await status(pro, `/api/analytics?range=custom&from=${isoDay(-730)}&to=${isoDay(0)}`), 403, "Pro is capped at 730 days");
+  assert.equal(await status(pro, "/api/analytics?range=7d&device=mobile"), 400);
+  console.log("PASS server enforcement: Free/Plus/Pro ranges, filters, export and spoofed plan params");
+
   // ---------- Free ----------
-  await free.page.getByLabel("Your plan: Free plan").filter({ visible: true }).waitFor();
+  await openAnalytics(free.page);
+  await free.page.locator("[data-plan-pill='free']:visible").waitFor();
   assert.equal(await free.page.locator("main [data-member-badge]").count(), 0, "Free has no paid member badge");
   let checkoutBody = null;
   await free.page.route("**/api/billing/checkout", async (route) => { checkoutBody = route.request().postDataJSON(); await route.fulfill({ status: 503, contentType: "application/json", body: "{}" }); });
@@ -246,6 +313,23 @@ try {
   await free.page.keyboard.press("Escape");
   assert.deepEqual(await publicBadge(free.username), [], "Free public profile has no member badge");
   console.log("PASS Free: 7D works, 30D/90D open Plus sheet, Custom opens Pro sheet, CTAs use canonical checkout");
+
+  // An owner can keep saved choices through a direct Data API write, but the renderer
+  // still resolves appearance from the server-derived Free plan.
+  const freeMode = await free.client.from("profile_modes").select("id,appearance").eq("profile_id", free.id).eq("slug", "personal").single();
+  assert.ifError(freeMode.error);
+  const freeFallbackTheme = "dark"; // Personal Mode's defined Free fallback.
+  const directPremiumWrite = await free.client.from("profile_modes").update({ appearance: { ...freeMode.data.appearance, theme: "editorial", qrStyle: "accent-frame" } }).eq("id", freeMode.data.id).select("appearance").single();
+  assert.ifError(directPremiumWrite.error);
+  const freePublicPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await freePublicPage.goto(`${appUrl}/${free.username}`);
+  await freePublicPage.locator(`main[data-public-profile-theme="${freeFallbackTheme}"]`).waitFor();
+  assert.equal(await freePublicPage.locator('main[data-public-profile-theme="editorial"]').count(), 0, "Direct appearance writes cannot grant the Plus public theme");
+  await freePublicPage.close();
+  await free.page.goto(`${appUrl}/app/identity?mode=personal&section=share`);
+  await free.page.locator('[data-qr-treatment="standard"]').first().waitFor();
+  assert.equal(await free.page.locator("svg[data-qr-value]").getAttribute("data-qr-value") !== null, true, "Free keeps a working standard QR after a direct premium-config write");
+  console.log("PASS Data API bypass: Free can retain saved premium choices, but server rendering stays on Free appearance and QR");
 
   // ---------- Plus ----------
   seedEvents(plus, 90, 30);
@@ -371,9 +455,25 @@ try {
   assert.deepEqual(await publicBadge(pro.username), [["plus", "Setuvara Plus member"]], "Pro → Plus shows the Plus badge");
   setPlan(plus, null);
   assert.deepEqual(await publicBadge(plus.username), [], "Plus → Free removes the badge");
+  const downgradedPlusProfile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await downgradedPlusProfile.goto(`${appUrl}/${plus.username}`);
+  await downgradedPlusProfile.locator('main[data-public-profile-theme="dark"]').waitFor();
+  await downgradedPlusProfile.close();
+  await plus.page.goto(`${appUrl}/app/identity?mode=personal&section=share`);
+  await plus.page.locator('[data-qr-treatment="standard"]').first().waitFor();
+  const savedPremiumAppearance = localSql(`select appearance from public.profile_modes where profile_id='${plus.id}' and slug='personal';`)[0].appearance;
+  assert.equal(savedPremiumAppearance.theme, "editorial", "downgrade preserves the saved Plus theme");
+  assert.equal(savedPremiumAppearance.qrStyle, "accent-frame", "downgrade preserves the saved Plus QR choice");
   await openAnalytics(plus.page);
-  await plus.page.getByLabel("Your plan: Free plan").filter({ visible: true }).waitFor();
+  await plus.page.locator("[data-plan-pill='free']:visible").waitFor();
   assert.equal((await plus.page.request.get(`${appUrl}/api/analytics?range=30d`)).status(), 403, "Downgraded Plus loses 30D server-side");
+  setPlan(plus, "plus");
+  const upgradedPlusProfile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await upgradedPlusProfile.goto(`${appUrl}/${plus.username}`);
+  await upgradedPlusProfile.locator('main[data-public-profile-theme="editorial"]').waitFor();
+  await upgradedPlusProfile.close();
+  await plus.page.goto(`${appUrl}/app/identity?mode=personal&section=share`);
+  await plus.page.locator('[data-qr-treatment="accent-frame"]').first().waitFor();
   setPlan(free, "plus");
   assert.deepEqual(await publicBadge(free.username), [["plus", "Setuvara Plus member"]], "Free → Plus adds the Plus badge");
   setPlan(free, "pro");

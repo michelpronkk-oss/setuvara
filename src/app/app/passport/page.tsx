@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { CelebrationClient, PassportDashboard, type PassportData } from "./passport-dashboard";
 import { createClient } from "@/lib/supabase/server";
+import { getViewerPlan } from "@/lib/app/viewer";
 
 export default async function PassportPage() {
   const supabase = await createClient();
@@ -12,14 +13,15 @@ export default async function PassportPage() {
   const { data: claims, error: authError } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (authError || !userId) redirect("/login?next=/app/passport");
-  const [{ data: profile }, { data: result, error }] = await Promise.all([
+  const [{ data: profile }, { data: result, error }, billing] = await Promise.all([
     supabase.from("profiles").select("username,display_name").eq("id", userId).maybeSingle(),
     supabase.rpc("get_passport_overview"),
+    getViewerPlan(userId),
   ]);
   if (!profile || error || !result) return <PassportError />;
   const data = result as unknown as PassportData;
   const unseen = data.milestones.filter((item) => !item.seenAt).at(-1);
-  return <><PassportDashboard initialData={data} username={profile.username} displayName={profile.display_name} publicOrigin={publicOrigin} /><CelebrationClient threshold={unseen?.threshold ?? null} name={unseen ? milestoneName(unseen.threshold) : null} /></>;
+  return <><PassportDashboard initialData={data} username={profile.username} displayName={profile.display_name} plan={billing.plan} publicOrigin={publicOrigin} /><CelebrationClient threshold={unseen?.threshold ?? null} name={unseen ? milestoneName(unseen.threshold) : null} /></>;
 }
 
 function milestoneName(threshold: number) {

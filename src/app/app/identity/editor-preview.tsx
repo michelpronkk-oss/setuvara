@@ -58,6 +58,7 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
       onEditMode={() => api.go("profile")}
       onShare={() => api.go("share")}
       profile={profile}
+      plan={api.plan}
       selectedRewards={api.selectedRewards}
       sound="preview"
       viewerState={state === "owner" ? "owner" : state === "connected" ? "visitor_connected" : "visitor_unconnected"}

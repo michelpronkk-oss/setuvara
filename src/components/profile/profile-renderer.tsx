@@ -9,6 +9,8 @@ import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtra
 import { MeetMark } from "@/components/marketing/brand";
 import { MemberBadge } from "@/components/app/status-badge";
 import type { MemberTier } from "@/lib/billing/member-badge";
+import type { PlanCode } from "@/lib/billing/catalog";
+import { hasCapability } from "@/lib/billing/capabilities";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { modeFocus } from "./photo-focus";
@@ -36,6 +38,8 @@ type ProfileRendererProps = {
   sound?: "live" | "preview" | "off";
   /** Paid member status resolved server-side from billing. One badge beside the name; null for Free. */
   memberTier?: MemberTier | null;
+  /** Server-resolved plan controls paid visual treatments while preserving saved choices. */
+  plan?: PlanCode;
 };
 
 /** Props each Mode's design receives: its appearance is already resolved for that Mode alone. */
@@ -58,29 +62,31 @@ const tones: Record<ResolvedAppearance["theme"], Tone> = {
 const modeLabel: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
 
 /** Whether a Mode renders the edge-to-edge Full Bleed photo layout. */
-export function isFullBleed(mode: ProfileMode) {
-  const look = resolveAppearance(mode);
+export function isFullBleed(mode: ProfileMode, plan: PlanCode = "free") {
+  const look = resolveAppearance(mode, plan);
   return look.slug === "personal" && Boolean(mode.image_url) && look.layout === "full-bleed";
 }
 
 /** Background and darkness of a Mode's theme, so a page can continue it past the card. */
-export function profileTone(mode: Pick<ProfileMode, "slug" | "appearance">) {
-  const tone = tones[resolveAppearance(mode).theme];
+export function profileTone(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free") {
+  const tone = tones[resolveAppearance(mode, plan).theme];
   return { bg: tone.bg, dark: tone.dark };
 }
 
 /** Single browser/page surface color derived from the same tone as the renderer. */
-export function resolvedBrowserThemeColor(mode: Pick<ProfileMode, "slug" | "appearance">): string {
-  return profileTone(mode).bg;
+export function resolvedBrowserThemeColor(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free"): string {
+  return profileTone(mode, plan).bg;
 }
 
 export function ProfileRenderer(props: ProfileRendererProps) {
   const { mode } = props;
+  const plan = props.plan ?? "free";
+  const premiumSoundtrack = hasCapability(plan, "soundtrack.premium_treatment");
   const isLive = props.sound !== "off" && props.sound !== "preview";
   const renderedMode = isLive
     ? { ...mode, blocks: mode.blocks?.filter((block) => !block.is_soundtrack) }
     : mode;
-  const profileProps = { ...props, mode: renderedMode, look: resolveAppearance(mode) };
+  const profileProps = { ...props, plan, mode: renderedMode, look: resolveAppearance(mode, plan) };
   const designs = { personal: PersonalProfile, event: EventProfile, business: BusinessProfile } as const;
   const Design = designs[profileProps.look.slug];
   const profile = <Design {...profileProps} />;
@@ -90,7 +96,7 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   // The public player only needs the URL. Keep editor-only titles/artwork out
   // of the public server payload while retaining the saved block in the editor.
   const playerBlock = isLive ? { ...track, data: { url: track.data.url } } : track;
-  return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
+  return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} premiumPresentation={premiumSoundtrack} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
 /** Member status beside the person's name: sized to the cap height, kept on the name's last line. */
@@ -100,7 +106,7 @@ function NameBadge({ tier }: { tier: MemberTier | null }) {
 }
 
 function PersonalProfile(props: ModeProfileProps) {
-  if (isFullBleed(props.mode)) return <PersonalBleed {...props} />;
+  if (isFullBleed(props.mode, props.plan)) return <PersonalBleed {...props} />;
   return <PersonalPortrait {...props} />;
 }
 

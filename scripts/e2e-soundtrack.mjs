@@ -18,9 +18,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321";
+const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const serviceKey = process.env.E2E_LOCAL_SERVICE_KEY;
 const shots = process.env.E2E_SCREENSHOTS;
 assert(new URL(appUrl).hostname === "127.0.0.1" && new URL(supabaseUrl).hostname === "127.0.0.1", "Soundtrack E2E runs against local Setuvara only");
+assert(publishableKey, "The local Setuvara publishable key is required for owner-scoped profile setup");
 assert(serviceKey, "E2E_LOCAL_SERVICE_KEY (local stack) is required to seed test profiles");
 if (shots) mkdirSync(shots, { recursive: true });
 
@@ -90,8 +92,15 @@ async function seedUploadedVideo(browser, userId) {
 
 async function seedUser(name, modes) {
   const username = `${name}${stamp}`.slice(0, 30);
-  const user = await admin("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email: `${username}@example.test`, password: "Soundtrack-test-1", email_confirm: true, user_metadata: { username, display_name: name[0].toUpperCase() + name.slice(1) } }) });
-  await admin(`/rest/v1/profiles?id=eq.${user.id}`, { method: "PATCH", body: JSON.stringify({ is_published: true }) });
+  const email = `${username}@example.test`;
+  const password = "Soundtrack-test-1";
+  const user = await admin("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { username, display_name: name[0].toUpperCase() + name.slice(1) } }) });
+  const owner = createClient(supabaseUrl, publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const signedIn = await owner.auth.signInWithPassword({ email, password });
+  assert.ifError(signedIn.error);
+  assert.equal(signedIn.data.user.id, user.id, "Fixture must use the authenticated owner to publish their own profile");
+  assert.ifError((await owner.from("profiles").update({ is_published: true }).eq("id", user.id)).error);
+  await owner.auth.signOut({ scope: "local" });
   const rows = await admin(`/rest/v1/profile_modes?profile_id=eq.${user.id}&select=id,slug`);
   for (const [slug, blocks] of Object.entries(modes)) {
     const mode = rows.find((row) => row.slug === slug);
@@ -100,7 +109,7 @@ async function seedUser(name, modes) {
       await admin("/rest/v1/profile_blocks", { method: "POST", body: JSON.stringify({ profile_id: user.id, mode_id: mode.id, sort_order: index, is_visible: true, ...block }) });
     }
   }
-  const seeded = { id: user.id, username, email: `${username}@example.test`, password: "Soundtrack-test-1" };
+  const seeded = { id: user.id, username, email, password };
   seededUsers.push(seeded);
   return seeded;
 }

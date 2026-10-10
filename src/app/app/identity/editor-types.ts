@@ -1,4 +1,6 @@
 import type { MemberTier } from "@/lib/billing/member-badge";
+import type { PlanCode } from "@/lib/billing/catalog";
+import type { CapabilityKey } from "@/lib/billing/capabilities";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import type { ModeLayout } from "@/components/profile/appearance";
 import type { LinkProvider } from "@/lib/links/providers";
@@ -48,9 +50,11 @@ export type EditorApi = {
   busyPhoto: boolean;
   /** Server-resolved member status, so the owner preview matches the public profile. */
   memberTier: MemberTier | null;
+  plan: PlanCode;
   updateProfile: (patch: Partial<EditableProfile>) => void;
   updateSetting: (key: string, value: string) => void;
   updateAppearance: (patch: Partial<ModeAppearance>) => void;
+  requestCapability: (capability: CapabilityKey) => void;
   setModeEnabled: (enabled: boolean) => Promise<void>;
   setConnectPolicy: (policy: ConnectPolicy) => Promise<void>;
   /** Share intent requested by the URL (?intent=in_person), read once by Share. */

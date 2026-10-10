@@ -140,24 +140,24 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
     assertEquals(getPlanEntitlements("plus"), [
       "identity.create", "identity.edit", "identity.plus_badge",
       "mode.personal", "mode.event", "mode.business", "profile.public", "profile.links",
-      "profile.content", "appearance.core", "share.link", "share.qr", "share.quick_qr",
+      "profile.content", "appearance.core", "appearance.premium", "share.link", "share.qr", "share.qr_premium", "share.quick_qr",
       "share.tap", "tap.devices", "tap.connect_intent", "connections.core",
       "connections.guest_connect", "connections.private_memory", "passport.core",
-      "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
+      "passport.standard_progression", "passport.premium_treatment", "soundtrack.core", "soundtrack.premium_treatment", "analytics.basic_7d",
       "analytics.history_30d", "analytics.history_90d", "analytics.sources",
-      "analytics.modes", "analytics.conversion", "wallet.core", "wallet.premium_appearance",
+      "analytics.modes", "analytics.conversion", "wallet.core",
     ]);
     assertEquals((await readSnapshot(pro.id)).plan, "pro");
     assertEquals(getPlanEntitlements("pro"), [
-      "identity.create", "identity.edit", "identity.plus_badge", "identity.pro_badge",
+      "identity.create", "identity.edit", "identity.pro_badge",
       "mode.personal", "mode.event", "mode.business", "profile.public", "profile.links",
-      "profile.content", "appearance.core", "share.link", "share.qr", "share.quick_qr",
+      "profile.content", "appearance.core", "appearance.premium", "share.link", "share.qr", "share.qr_premium", "share.quick_qr",
       "share.tap", "tap.devices", "tap.connect_intent", "connections.core",
       "connections.guest_connect", "connections.private_memory", "passport.core",
-      "passport.standard_progression", "soundtrack.core", "analytics.basic_7d",
+      "passport.standard_progression", "passport.premium_treatment", "soundtrack.core", "soundtrack.premium_treatment", "analytics.basic_7d",
       "analytics.history_30d", "analytics.history_90d", "analytics.sources",
       "analytics.modes", "analytics.conversion", "analytics.custom_range", "analytics.funnels",
-      "analytics.device_insights", "analytics.csv_export", "wallet.core", "wallet.premium_appearance",
+      "analytics.device_insights", "analytics.csv_export", "wallet.core",
     ]);
     assertEquals((await readSnapshot(expired.id)).plan, "free");
     assertEquals((await readSnapshot(unknown.id)).plan, "free", "an unknown provider product with no plan mapping grants Free");
@@ -165,9 +165,15 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
     for (const [account, expectedPlan] of [[free, "free"], [plus, "plus"], [pro, "pro"]] as const) {
       const databaseSnapshot = await readSnapshot(account.id);
       assertEquals(databaseSnapshot.plan, expectedPlan, `${expectedPlan} plan is resolved from local subscription rows`);
-      const walletCapabilities = capabilityFlags(databaseSnapshot.plan);
-      assertEquals(walletCapabilities["wallet.core"], true, `${expectedPlan} includes standard Wallet`);
-      assertEquals(walletCapabilities["wallet.premium_appearance"], expectedPlan !== "free", `${expectedPlan} Wallet appearance entitlement follows the database-backed plan`);
+      const planCapabilities = capabilityFlags(databaseSnapshot.plan);
+      assertEquals(planCapabilities["wallet.core"], true, `${expectedPlan} includes standard Wallet`);
+      assertEquals(planCapabilities["wallet.premium_appearance"], false, `${expectedPlan} cannot use Wallet presentation before the provider launch`);
+      const paid = expectedPlan !== "free";
+      for (const key of ["appearance.premium", "share.qr_premium", "passport.premium_treatment", "soundtrack.premium_treatment"] as const) {
+        assertEquals(planCapabilities[key], paid, `${expectedPlan} premium presentation matrix is database-plan-backed for ${key}`);
+      }
+      assertEquals(planCapabilities["identity.plus_badge"], expectedPlan === "plus", `${expectedPlan} receives only its matching member badge`);
+      assertEquals(planCapabilities["identity.pro_badge"], expectedPlan === "pro", `${expectedPlan} receives only its matching member badge`);
     }
 
     const anonRead = await anonymous.from("billing_subscriptions").select("dodo_subscription_id").limit(1);
@@ -182,6 +188,25 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
     });
     requireSuccess(signInError, "Could not authenticate the local normal-user billing fixture.");
     assertTruthy(signInData.session?.access_token, "local test account receives an authenticated session");
+
+    const { data: freePersonalMode, error: freePersonalModeError } = await owner.from("profile_modes")
+      .select("id,appearance")
+      .eq("profile_id", free.id)
+      .eq("slug", "personal")
+      .single();
+    requireSuccess(freePersonalModeError, "The authenticated owner could not read its own Personal Mode.");
+    const premiumAppearance = { ...(freePersonalMode.appearance as Record<string, unknown>), qrStyle: "accent-frame" };
+    const { data: savedPremiumAppearance, error: savePremiumAppearanceError } = await owner.from("profile_modes")
+      .update({ appearance: premiumAppearance })
+      .eq("id", freePersonalMode.id)
+      .select("appearance")
+      .single();
+    requireSuccess(savePremiumAppearanceError, "The existing appearance field should persist its curated QR frame for later upgrade reactivation.");
+    assertEquals((savedPremiumAppearance.appearance as Record<string, unknown>).qrStyle, "accent-frame");
+    const invalidQrStyle = await owner.from("profile_modes")
+      .update({ appearance: { ...premiumAppearance, qrStyle: "rainbow" } })
+      .eq("id", freePersonalMode.id);
+    assertTruthy(invalidQrStyle.error, "The database rejects QR appearance values outside the curated set.");
 
     const privateRead = await owner.from("billing_subscriptions").select("dodo_subscription_id").limit(1);
     assertTruthy(privateRead.error, "authenticated users cannot read provider subscription state");

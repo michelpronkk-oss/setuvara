@@ -1,4 +1,6 @@
 import type { ModeAppearance, ModeSlug, ProfileMode } from "./types";
+import { hasCapability } from "@/lib/billing/capabilities";
+import type { PlanCode } from "@/lib/billing/catalog";
 
 const DEFAULT_MODE_ACCENT = "#FF5A4F";
 const HEX_COLOR = /^#[\da-f]{6}$/i;
@@ -39,13 +41,17 @@ export function isModeLayout<S extends ModeSlug>(slug: S, layout: unknown): layo
  * The single place a Mode's look is decided. Each value is resolved against the Mode's own
  * options and defaults, so one Mode can never pick up another Mode's layout or treatment.
  */
-export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">): ResolvedAppearance {
+export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free"): ResolvedAppearance {
   const defaults = MODE_DEFAULTS[mode.slug];
   if (!defaults) throw new Error(`Unknown Mode: ${String(mode.slug)}`);
   const saved: Partial<ModeAppearance> = mode.appearance ?? {};
   return {
     slug: mode.slug,
-    theme: (MODE_THEMES as readonly unknown[]).includes(saved.theme) ? saved.theme! : defaults.theme,
+    // Keep the premium choice in storage, but render the Mode's safe default until the
+    // server-resolved plan includes it. This preserves the user's choice through downgrades.
+    theme: saved.theme === "editorial" && !hasCapability(plan, "appearance.premium")
+      ? defaults.theme
+      : (MODE_THEMES as readonly unknown[]).includes(saved.theme) ? saved.theme! : defaults.theme,
     layout: isModeLayout(mode.slug, saved.layout) ? saved.layout : defaults.layout,
     imageTreatment: (IMAGE_TREATMENTS as readonly unknown[]).includes(saved.imageTreatment) ? saved.imageTreatment! : defaults.imageTreatment,
     accent: resolveModeAccent(mode),
@@ -57,7 +63,15 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
   return (MODE_THEMES as readonly unknown[]).includes(appearance.theme)
     && HEX_COLOR.test(appearance.accent)
     && isModeLayout(slug, appearance.layout)
-    && (IMAGE_TREATMENTS as readonly unknown[]).includes(appearance.imageTreatment);
+    && (IMAGE_TREATMENTS as readonly unknown[]).includes(appearance.imageTreatment)
+    && (appearance.qrStyle === undefined || appearance.qrStyle === "standard" || appearance.qrStyle === "accent-frame");
+}
+
+/** Premium QR styling changes only the frame around a QR; its value and modules are untouched. */
+export function resolveQrStyle(mode: { appearance: Pick<ModeAppearance, "qrStyle"> }, plan: PlanCode = "free") {
+  return mode.appearance?.qrStyle === "accent-frame" && hasCapability(plan, "share.qr_premium")
+    ? "accent-frame"
+    : "standard";
 }
 
 /** Resolve the saved Mode accent, falling back to Setuvara's current coral default. */

@@ -182,7 +182,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
 
     // Database-backed paid states. Fixture IDs never leave the local test database.
     for (const plan of ["plus", "pro"]) {
-      const fixture = localSql(`insert into public.billing_subscriptions(dodo_subscription_id,user_id,dodo_customer_id,dodo_product_id,plan_code,billing_interval,provider_status,last_provider_event_id,last_provider_event_at,last_sync_started_at) values ('${subscriptionId}','${ownerId}','cus_localhome','pdt_localhome','${plan}','monthly','active','homefixture',now(),now()) on conflict (dodo_subscription_id) do update set plan_code=excluded.plan_code returning plan_code;`);
+      const fixture = localSql(`insert into public.billing_subscriptions(dodo_subscription_id,user_id,dodo_customer_id,dodo_product_id,plan_code,billing_interval,provider_status,current_period_end,last_provider_event_id,last_provider_event_at,last_sync_started_at) values ('${subscriptionId}','${ownerId}','cus_localhome','pdt_localhome','${plan}','monthly','active',now() + interval '30 days','homefixture',now(),now()) on conflict (dodo_subscription_id) do update set plan_code=excluded.plan_code,current_period_end=excluded.current_period_end returning plan_code;`);
       assert.equal(fixture[0]?.plan_code, plan);
       await page.goto(`${appUrl}/app?mode=personal`);
       const menu = await openMenu(page);

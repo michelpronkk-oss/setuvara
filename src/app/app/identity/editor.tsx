@@ -16,7 +16,10 @@ import type { ConnectPolicy } from "@/lib/connections/access";
 import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { MemberTier } from "@/lib/billing/member-badge";
+import type { PlanCode } from "@/lib/billing/catalog";
+import type { CapabilityKey } from "@/lib/billing/capabilities";
 import { isAllowedUsername } from "@/lib/usernames";
+import { FeaturePaywall } from "@/components/app/feature-paywall";
 import { CelebrationClient } from "../passport/passport-dashboard";
 import { createProviderLink, updateProviderLink } from "./actions";
 import { CropDialog, cropToBlob } from "./editor-crop";
@@ -40,6 +43,7 @@ type EditorProps = {
   selectedRewards: Partial<Record<RewardCategory, string>>;
   celebrationThreshold: number | null;
   memberTier: MemberTier | null;
+  plan: PlanCode;
 };
 
 type SaveStatus = "saved" | "pending" | "saving" | "error";
@@ -66,7 +70,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -81,6 +85,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [savedUsername, setSavedUsername] = useState(initialProfile.username);
   const [usernameCheck, setUsernameCheck] = useState<{ candidate: string; result: UsernameStatus } | null>(null);
   const [toastState, setToastState] = useState<{ id: number; text: string; action?: { label: string; run: () => void } } | null>(null);
+  const [paywallCapability, setPaywallCapability] = useState<CapabilityKey | null>(null);
   const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus } | null>(null);
   const [busyPhoto, setBusyPhoto] = useState(false);
 
@@ -644,9 +649,14 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     return `${publicOrigin}/${savedUsername}${suffix ? `?${suffix}` : ""}`;
   }, [publicOrigin, savedUsername]);
 
+  const requestCapability = useCallback((capability: CapabilityKey) => {
+    setPaywallCapability(capability);
+  }, []);
+  const closePaywall = useCallback(() => setPaywallCapability(null), []);
+
   const api: EditorApi = {
-    profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier,
-    updateProfile, updateSetting, updateAppearance, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
+    profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
+    updateProfile, updateSetting, updateAppearance, requestCapability, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
     pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
@@ -790,6 +800,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           </div>
         </div>
       )}
+      {paywallCapability && <FeaturePaywall capability={paywallCapability} onClose={closePaywall} />}
       <CelebrationClient name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} threshold={celebrationThreshold} />
     </div>
   );

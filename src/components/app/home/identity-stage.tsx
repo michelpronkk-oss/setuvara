@@ -9,13 +9,15 @@ import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
+import { resolveQrStyle } from "@/components/profile/appearance";
+import type { ModeAppearance } from "@/components/profile/types";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { hasCapability } from "@/lib/billing/capabilities";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 
-export type StageMode = { slug: ModeSlug; enabled: boolean; imageUrl: string | null; imageFocus: PhotoFocus; sub: string; line: string; configured: boolean; connectPolicy: ConnectPolicy };
+export type StageMode = { slug: ModeSlug; enabled: boolean; appearance: Pick<ModeAppearance, "accent" | "qrStyle">; imageUrl: string | null; imageFocus: PhotoFocus; sub: string; line: string; configured: boolean; connectPolicy: ConnectPolicy };
 
 const NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
 const DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" };
@@ -134,7 +136,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
         <Link className="inline-flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4" href="/app/tap">Quick QR &amp; Tap settings →</Link>
       </div>
 
-      {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onPick={pick} publicUrl={publicUrl} slug={slug} username={username} />}
+      {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onPick={pick} plan={plan} publicUrl={publicUrl} slug={slug} username={username} />}
       {viewingPhoto && mode.imageUrl && <FullPhotoViewer imageUrl={mode.imageUrl} modeName={NAMES[slug]} onClose={closePhoto} />}
     </>
   );
@@ -205,8 +207,8 @@ function ModePicker({ modes, slug, onPick, variant }: { modes: StageMode[]; slug
   );
 }
 
-function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, username, isPublished }: {
-  modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; onClose: () => void; publicUrl: (slug: ModeSlug, source?: string) => string; displayName: string; username: string; isPublished: boolean;
+function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, username, isPublished, plan }: {
+  modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; onClose: () => void; publicUrl: (slug: ModeSlug, source?: string) => string; displayName: string; username: string; isPublished: boolean; plan: PlanCode;
 }) {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [copyError, setCopyError] = useState(false);
@@ -224,6 +226,7 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
   const passUrl = pass?.ok ? pass.url : null;
   const linkUrl = inPerson ? passUrl : publicUrl(slug, "link");
   const qrUrl = inPerson ? passUrl : publicUrl(slug, "qr");
+  const qrStyle = inPerson ? "standard" : resolveQrStyle(mode, plan);
   const copied = Boolean(linkUrl) && copiedUrl === linkUrl;
 
   useEffect(() => {
@@ -267,7 +270,7 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
       <div aria-hidden="true" className="absolute inset-0 bg-[#0d0d0d]/55 [animation:fade-in_160ms_ease-out]" onClick={onClose} />
       <section aria-labelledby={titleId} aria-modal="true" className="relative flex max-h-[92dvh] w-full flex-col gap-4 overflow-y-auto rounded-t-[30px] bg-[#f5f4ef] px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-2.5 [animation:sheet-up_220ms_cubic-bezier(.2,.8,.2,1)] md:grid md:max-w-[780px] md:grid-cols-[300px_minmax(0,1fr)] md:gap-8 md:rounded-[30px] md:p-8" ref={panel} role="dialog">
         <span aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-black/20 md:hidden" />
-        <div className="order-2 mx-auto w-[228px] rounded-[22px] bg-white p-3.5 md:order-none md:w-full md:p-5">
+        <div className="order-2 mx-auto w-[228px] rounded-[22px] bg-white p-3.5 md:order-none md:w-full md:p-5" data-qr-treatment={qrStyle} style={qrStyle === "accent-frame" ? { boxShadow: `0 0 0 4px ${mode.appearance.accent}, 0 0 0 7px #F5F4EF` } : undefined}>
           {qrUrl
             ? <QRCodeSVG aria-label={`${NAMES[slug]} Mode ${inPerson ? "Connect in person " : ""}QR code`} bgColor="#FFFFFF" className="h-auto w-full" data-share-intent={inPerson ? "in_person" : "profile"} data-qr-value={qrUrl} fgColor="#0D0D0D" imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={4} role="img" size={256} title={`${NAMES[slug]} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
             : <div aria-live="polite" className="grid aspect-square w-full place-items-center px-4 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</div>}

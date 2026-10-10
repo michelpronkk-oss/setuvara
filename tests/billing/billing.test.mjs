@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { PUBLIC_PLAN_CATALOG } from "../../src/lib/billing/catalog.ts";
-import { CAPABILITY_REGISTRY, capabilityFlags, getCapabilityAccess, listAvailableCapabilities, nextPlanAfter, resolveClientCapabilities } from "../../src/lib/billing/capabilities.ts";
+import { CAPABILITY_REGISTRY, capabilityFlags, getCapabilityAccess, getPricingFeatureGroups, listAvailableCapabilities, nextPlanAfter, resolveClientCapabilities } from "../../src/lib/billing/capabilities.ts";
 import { mapConfiguredProduct, productMatchesSetuvaraPrice } from "../../src/lib/billing/products.ts";
 import { resolveBillingSnapshot, subscriptionHasAccess } from "../../src/lib/billing/state.ts";
 import { isDodoEnvironmentAllowed } from "../../src/lib/billing/environment.ts";
@@ -31,20 +31,39 @@ Deno.test("global capabilities keep the network Free and make Pro inherit Plus",
 
   for (const key of core) assert(free.includes(key), `${key} remains Free`);
   assert(free.every((key) => plus.includes(key)));
-  assert(plus.every((key) => pro.includes(key)));
+  assert(plus.filter((key) => key !== "identity.plus_badge").every((key) => pro.includes(key)));
   assert(plus.includes("analytics.history_30d"));
   assert(plus.includes("analytics.history_90d"));
+  for (const key of ["appearance.premium", "share.qr_premium", "passport.premium_treatment", "soundtrack.premium_treatment"]) {
+    assert(plus.includes(key), `${key} is a shipped Plus presentation capability`);
+  }
   assert(pro.includes("analytics.custom_range"));
   assert(pro.includes("analytics.csv_export"));
   assert(!free.includes("analytics.history_30d"));
   assert(!plus.includes("analytics.csv_export"));
   assert(!pro.includes("domain.custom"));
   assert(!free.includes("wallet.premium_appearance"));
-  assert(plus.includes("wallet.premium_appearance"));
-  assert(pro.includes("wallet.premium_appearance"));
+  assert(!plus.includes("wallet.premium_appearance"));
+  assert(!pro.includes("wallet.premium_appearance"));
+  assert(!pro.includes("identity.plus_badge"), "Pro replaces the Plus badge instead of receiving two badges");
+  assert(pro.includes("identity.pro_badge"));
   assert.equal(Object.keys(capabilityFlags("pro")).length, Object.keys(CAPABILITY_REGISTRY).length);
   assert.equal(resolveClientCapabilities("free").capabilities["analytics.csv_export"].state, "locked");
   assert.equal(getCapabilityAccess("pro", "domain.custom").state, "unavailable");
+  assert.equal(getCapabilityAccess("pro", "identity.plus_badge").state, "unavailable");
+  assert.deepEqual(getPricingFeatureGroups("pro").filter(({ id }) => id.endsWith("badge")).map(({ id }) => id), ["pro-badge"]);
+  assert(getPricingFeatureGroups("free").some(({ id }) => id === "share"), "Free pricing includes standard QR, Quick QR, and Tap");
+  assert(getPricingFeatureGroups("free").some(({ id }) => id === "network"), "Free pricing includes Connections and Passport");
+  assert(!getPricingFeatureGroups("free").some(({ id }) => id === "premium-presentation"));
+  assert(getPricingFeatureGroups("plus").some(({ id }) => id === "premium-presentation"));
+  assert(getPricingFeatureGroups("pro").some(({ id }) => id === "premium-presentation"), "Pro inherits Plus presentation treatments");
+  assert(!getPricingFeatureGroups("pro").some(({ id }) => id === "plus-badge"), "Pro has its own exclusive member badge");
+  assert(!getPricingFeatureGroups("plus").some(({ id }) => id === "analytics-custom-range"));
+  assert(getPricingFeatureGroups("pro").some(({ id }) => id === "analytics-custom-range"));
+  assert(!getPricingFeatureGroups("plus").some(({ id }) => id === "wallet"));
+  assert(!getPricingFeatureGroups("pro").some(({ id }) => id === "wallet"));
+  assert(Object.values(CAPABILITY_REGISTRY).every(({ pricing, availability }) => availability === "future" || pricing === null || Boolean(pricing.id && pricing.label)));
+  assert(Object.values(CAPABILITY_REGISTRY).every((item) => item.surface && item.enforcement && item.downgrade));
   assert.deepEqual([nextPlanAfter("free"), nextPlanAfter("plus"), nextPlanAfter("pro")], ["plus", "pro", null]);
 });
 
@@ -58,6 +77,10 @@ Deno.test("subscription access follows verified provider status and grace window
     past_due_ends_at: null,
   };
   assert(subscriptionHasAccess(active, Date.parse("2026-10-09T00:00:00.000Z")));
+  assert(!subscriptionHasAccess({ ...active, current_period_end: null }, Date.parse("2026-10-09T00:00:00.000Z")), "active state without a period end fails closed");
+  assert(!subscriptionHasAccess({ ...active, current_period_end: "not-a-date" }, Date.parse("2026-10-09T00:00:00.000Z")), "malformed active period end fails closed");
+  assert(!subscriptionHasAccess({ ...active, current_period_end: "2026-10-08T00:00:00.000Z" }, Date.parse("2026-10-09T00:00:00.000Z")), "stale active period end fails closed");
+  assert(!subscriptionHasAccess({ ...active, billing_interval: "weekly" }, Date.parse("2026-10-09T00:00:00.000Z")), "unknown billing cadence fails closed");
   assert(!subscriptionHasAccess({ ...active, provider_status: "on_hold" }));
   assert(!subscriptionHasAccess({ ...active, provider_status: "failed" }));
   assert(!subscriptionHasAccess({ ...active, provider_status: "cancelled" }));

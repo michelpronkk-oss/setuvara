@@ -18,6 +18,8 @@ type Status = "loading" | "ready" | "playing" | "blocked" | "unavailable";
 
 type SoundtrackApi = {
   status: Status;
+  /** Cosmetic tier treatment is derived from billing on the server; sound itself stays Free. */
+  premiumPresentation: boolean;
   /** The visitor wants sound (it may still be held for a video or a hidden tab). */
   on: boolean;
   /** First visit: show the Enter with sound / Continue muted choice. */
@@ -41,7 +43,7 @@ const AUDIO_PREVIEW: MusicMedia["provider"][] = ["apple_music", "deezer"];
 
 const noopSubscribe = () => () => {};
 
-export function SoundtrackProvider({ block, preview = false, children }: { block: ProfileBlock; preview?: boolean; children: ReactNode }) {
+export function SoundtrackProvider({ block, preview = false, premiumPresentation = false, children }: { block: ProfileBlock; preview?: boolean; premiumPresentation?: boolean; children: ReactNode }) {
   const media = useMemo(() => parseMusic(str(block.data.url))!, [block.data.url]);
   const owner = useId();
   const stored = useSyncExternalStore(preview ? noopSubscribe : soundPreferenceStore.subscribe, () => (preview ? null : readSoundPreference()), () => null);
@@ -238,13 +240,14 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
 
   const api = useMemo<SoundtrackApi>(() => ({
     status,
+    premiumPresentation,
     on,
     asking: hydrated && !decided && (preview || stored === null) && status !== "loading" && status !== "unavailable" && status !== "playing",
     waiting: on && !held && (status === "blocked" || (status === "ready" && !tapped && !preview)),
     soundOn,
     soundOff,
     continueMuted: soundOff,
-  }), [decided, held, hydrated, on, preview, soundOff, soundOn, status, stored, tapped]);
+  }), [decided, held, hydrated, on, premiumPresentation, preview, soundOff, soundOn, status, stored, tapped]);
 
   return (
     <SoundtrackContext.Provider value={api}>
@@ -268,9 +271,9 @@ export function SoundtrackCue({ tone, accent, accentInk, align = "left", classNa
   const visible = Boolean(api && api.status !== "loading" && api.status !== "unavailable");
   if (!api || !visible || !api.asking) return null;
   return (
-    <div className={`${className} flex ${align === "center" ? "justify-center" : "justify-start"} [animation:fade-in_.4s_ease-out]`} data-sound-ui>
+    <div className={`${className} flex ${align === "center" ? "justify-center" : "justify-start"} [animation:fade-in_.4s_ease-out]`} data-premium-sound={api.premiumPresentation ? "true" : undefined} data-sound-ui>
       <div className="flex flex-wrap items-center gap-2">
-        <button className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={api.soundOn} style={{ background: accent, color: accentInk }} type="button"><SpeakerIcon on className="size-[15px] shrink-0" />Enter with sound</button>
+        <button className={`inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${api.premiumPresentation ? "shadow-[0_0_0_2px_#FF5A4F,0_0_0_4px_rgba(255,90,79,.15)]" : ""}`} onClick={api.soundOn} style={{ background: accent, color: accentInk }} type="button"><SpeakerIcon on className="size-[15px] shrink-0" />Enter with sound</button>
         <button className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={api.continueMuted} style={{ background: tone.chip, boxShadow: `inset 0 0 0 1.5px ${tone.line}`, color: tone.ink }} type="button">Continue muted</button>
       </div>
     </div>
@@ -282,12 +285,12 @@ function SoundPill({ api }: { api: SoundtrackApi }) {
   const show = api.status !== "loading" && api.status !== "unavailable" && !api.asking;
   const playing = api.status === "playing";
   return (
-    <div aria-hidden={!show} className="pointer-events-none sticky bottom-0 z-30 h-0" data-sound-ui>
+    <div aria-hidden={!show} className="pointer-events-none sticky bottom-0 z-30 h-0" data-premium-sound={api.premiumPresentation ? "true" : undefined} data-sound-ui>
       <div className={`absolute bottom-[max(16px,env(safe-area-inset-bottom))] right-3 transition duration-300 ${show ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
         <button
           aria-label={api.waiting ? "Tap to play sound" : api.on ? "Sound on. Mute." : "Muted. Turn sound on."}
           aria-pressed={api.on}
-          className={`grid size-11 place-items-center rounded-full bg-[rgba(13,13,13,.68)] text-[#F5F4EF] shadow-[0_14px_36px_-16px_rgba(0,0,0,.7),inset_0_0_0_1px_rgba(245,244,239,.16)] backdrop-blur-xl transition active:scale-[.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF5A4F] ${show ? "pointer-events-auto" : ""}`}
+          className={`grid size-11 place-items-center rounded-full bg-[rgba(13,13,13,.68)] text-[#F5F4EF] shadow-[0_14px_36px_-16px_rgba(0,0,0,.7),inset_0_0_0_1px_rgba(245,244,239,.16)] backdrop-blur-xl transition active:scale-[.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF5A4F] ${api.premiumPresentation ? "ring-2 ring-[#FF5A4F] ring-offset-2 ring-offset-[#0D0D0D]" : ""} ${show ? "pointer-events-auto" : ""}`}
           onClick={api.on && !api.waiting ? api.soundOff : api.soundOn}
           tabIndex={show ? 0 : -1}
           title={api.waiting ? "Tap to play sound" : api.on ? "Sound on" : "Muted"}

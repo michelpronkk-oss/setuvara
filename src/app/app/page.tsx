@@ -26,7 +26,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   // Identity is the only required source. People and Passport stream in behind their own boundaries.
   const [{ data: profile }, { data: modeRows }, requestHeaders, billing] = await Promise.all([
     supabase.from("profiles").select("username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("slug, label, is_enabled, settings, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("slug, label, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
     headers(),
     getViewerPlan(userId),
   ]);
@@ -37,7 +37,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
     const row = modeRows?.find((item) => item.slug === slug);
     const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
     const imageUrl = await signHomeImage(supabase, row?.image_path);
-    return { slug, enabled: row?.is_enabled ?? false, imageUrl, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
+    return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
   }));
   const initialMode = ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 
@@ -56,7 +56,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
       />
       <div className="mt-5 flex min-h-0 flex-col gap-6 lg:mt-0 min-[1800px]:gap-8">
         <Suspense fallback={<PeopleSkeleton />}><PeopleSection userId={userId} /></Suspense>
-        <Suspense fallback={<PassportSkeleton />}><PassportSection /></Suspense>
+        <Suspense fallback={<PassportSkeleton />}><PassportSection plan={billing.plan} /></Suspense>
       </div>
     </main>
   );
