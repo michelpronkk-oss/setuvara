@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const MAX_JSON = 200_000;
 
-type SoundtrackSource = { src: string; title: string | null; artwork: string | null };
+type SoundtrackSource = { src: string };
 
 /**
  * Resolves the official preview clip for providers whose embeds can't be
@@ -36,7 +36,6 @@ async function json(url: string) {
 }
 
 const https = (value: unknown) => (typeof value === "string" && /^https:\/\//i.test(value) && value.length <= 1000 ? value : null);
-const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim().slice(0, 160) : null);
 
 async function apple(type: string, id: string, url: string): Promise<SoundtrackSource | null> {
   const country = /^https:\/\/music\.apple\.com\/([a-z]{2})\//.exec(url)?.[1] ?? "us";
@@ -44,8 +43,7 @@ async function apple(type: string, id: string, url: string): Promise<SoundtrackS
   const results = Array.isArray(data?.results) ? (data.results as Record<string, unknown>[]) : [];
   const song = results.find((item) => https(item.previewUrl));
   if (!song) return null;
-  const artist = text(song.artistName);
-  return { src: https(song.previewUrl)!, title: [text(song.trackName), artist].filter(Boolean).join(" · ") || null, artwork: https(song.artworkUrl100)?.replace("100x100", "300x300") ?? null };
+  return { src: https(song.previewUrl)! };
 }
 
 async function deezer(type: string, id: string): Promise<SoundtrackSource | null> {
@@ -54,7 +52,5 @@ async function deezer(type: string, id: string): Promise<SoundtrackSource | null
   const tracks = (data.tracks as { data?: Record<string, unknown>[] } | undefined)?.data ?? [];
   const track = type === "track" ? data : tracks.find((item) => https(item.preview));
   if (!track || !https(track.preview)) return null;
-  const album = (track.album ?? data) as Record<string, unknown>;
-  const artist = text((track.artist as Record<string, unknown> | undefined)?.name);
-  return { src: https(track.preview)!, title: [text(track.title), artist].filter(Boolean).join(" · ") || null, artwork: https(album.cover_medium) ?? https(data.picture_medium) ?? null };
+  return { src: https(track.preview)! };
 }

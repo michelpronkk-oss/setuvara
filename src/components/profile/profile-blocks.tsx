@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { useMediaFocus, useSoundtrack, useSoundtrackHost } from "@/components/profile/soundtrack";
+import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type MusicMedia, type VideoMedia } from "@/lib/blocks/media";
 import { createSoundCloudPlayer, createSpotifyPlayer, spotifyUri, watchYouTubeIframe, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
@@ -13,7 +13,7 @@ const str = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /** Renders a Mode's content blocks inside any profile layout. */
 export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7" }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string }) {
-  const visible = (blocks ?? []).filter((block) => block.is_visible);
+  const visible = (blocks ?? []).filter((block) => block.is_visible && !block.is_soundtrack);
   if (!visible.length) return null;
   return (
     <div className={`grid gap-3 text-left ${className}`}>
@@ -161,30 +161,16 @@ function TrackedVideo({ media, title, videoId, onClose }: { media: VideoMedia; t
 
 function MusicBlock({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string }) {
   const soundtrack = useSoundtrack();
-  const setHost = useSoundtrackHost();
   const url = str(block.data.url);
   // Stable across renders: tracked players are created once per link.
   const media = useMemo(() => parseMusic(url), [url]);
   if (!media) return null;
   const title = str(block.data.title) || `${MUSIC_PROVIDER_NAMES[media.provider]} player`;
-  const isSoundtrack = soundtrack?.blockId === block.id;
-
   let player: ReactNode;
   if (media.provider === "youtube_music") player = <YouTubeMusicCard accent={accent} accentInk={accentInk} block={block} media={media} tone={tone} />;
-  else if (isSoundtrack && soundtrack.hostsEmbed && soundtrack.status !== "unavailable") player = <div className="overflow-hidden rounded-2xl" ref={setHost ?? undefined} style={{ minHeight: media.height, background: tone.chip }} />;
-  else if (soundtrack && !isSoundtrack && (media.provider === "spotify" || media.provider === "soundcloud")) player = <TrackedMusic media={media} title={title} tone={tone} trackId={block.id} />;
+  else if (soundtrack && (media.provider === "spotify" || media.provider === "soundcloud")) player = <TrackedMusic media={media} title={title} tone={tone} trackId={block.id} />;
   else player = <MusicFrame media={media} title={title} tone={tone} untracked={soundtrack ? block.id : undefined} />;
-
-  if (!isSoundtrack) return player;
-  return (
-    <section className={`scroll-mt-24 rounded-[20px] transition-shadow duration-500 ${soundtrack.needsDirectTap ? "shadow-[0_0_0_3px_#FF5A4F]" : ""}`} id={`soundtrack-${block.id}`}>
-      <p className="mb-1.5 flex items-center gap-1.5 px-1 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>
-        <span aria-hidden="true" className={`size-1.5 rounded-full ${soundtrack.status === "playing" ? "[animation:sound-breathe_2.4s_ease-in-out_infinite]" : ""}`} style={{ background: soundtrack.status === "playing" ? "#FF5A4F" : tone.sub }} />
-        Profile soundtrack
-      </p>
-      {player}
-    </section>
-  );
+  return player;
 }
 
 /** The provider's own embed, exactly as before. Marked when a soundtrack needs to notice it playing. */
@@ -235,16 +221,13 @@ function TrackedMusic({ media, title, tone, trackId }: { media: MusicMedia; titl
  * is the soundtrack's own Sound on / off.
  */
 function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: ProfileBlock; media: MusicMedia; tone: BlockTone; accent: string; accentInk: string }) {
-  const soundtrack = useSoundtrack();
-  const setHost = useSoundtrackHost();
-  const isSoundtrack = soundtrack?.blockId === block.id && soundtrack.status !== "unavailable";
   const focus = useMediaFocus(`music:${block.id}`);
   const [open, setOpen] = useState(false);
   const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
   const frame = useRef<HTMLIFrameElement>(null);
   const title = str(block.data.title) || "YouTube Music";
   const cover = str(block.data.image) || media.artwork;
-  const playing = isSoundtrack ? soundtrack.status === "playing" : open;
+  const playing = open;
 
   useEffect(() => {
     const iframe = frame.current;
@@ -261,7 +244,6 @@ function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: Pr
   }, [focus, open]);
 
   const toggle = () => {
-    if (isSoundtrack) return soundtrack.on && !soundtrack.waiting ? soundtrack.soundOff() : soundtrack.soundOn();
     if (open) { setOpen(false); focus.release(); } else { focus.claim(); setOpen(true); }
   };
 
@@ -270,8 +252,7 @@ function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: Pr
       <div className="relative aspect-video w-[118px] shrink-0 overflow-hidden rounded-xl bg-[#0D0D0D]">
         {/* eslint-disable-next-line @next/next/no-img-element -- YouTube cover art */}
         {cover && <img alt="" className="absolute inset-0 size-full object-cover" loading="lazy" referrerPolicy="no-referrer" src={cover} />}
-        {isSoundtrack && <div className={`absolute inset-0 transition-opacity duration-500 ${playing || soundtrack.needsDirectTap ? "opacity-100" : "opacity-0"} ${soundtrack.needsDirectTap ? "" : "[&_iframe]:pointer-events-none"}`} ref={setHost ?? undefined} />}
-        {!isSoundtrack && open && <iframe allow="autoplay; encrypted-media" className="pointer-events-none absolute inset-0 size-full" ref={frame} referrerPolicy="strict-origin-when-cross-origin" src={`${media.embedUrl}${focus.active ? `&enablejsapi=1&origin=${encodeURIComponent(origin)}` : ""}`} title={title} />}
+        {open && <iframe allow="autoplay; encrypted-media" className="pointer-events-none absolute inset-0 size-full" ref={frame} referrerPolicy="strict-origin-when-cross-origin" src={`${media.embedUrl}${focus.active ? `&enablejsapi=1&origin=${encodeURIComponent(origin)}` : ""}`} title={title} />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-label text-[10px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>YouTube Music</p>

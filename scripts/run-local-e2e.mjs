@@ -40,6 +40,9 @@ const env = {
   E2E_MAILPIT_URL: "http://127.0.0.1:54324",
 };
 const e2eEnv = { ...env, E2E_LOCAL_SERVICE_KEY: localServiceRoleKey };
+const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs"];
+const requestedScript = process.env.E2E_LOCAL_SCRIPT;
+assert(!requestedScript || e2eScripts.includes(requestedScript), "E2E_LOCAL_SCRIPT must name a Setuvara local E2E script");
 
 await new Promise((resolveReady, reject) => {
   const probe = createServer();
@@ -78,7 +81,7 @@ try {
   assert.equal(health.status, 200, "Setuvara health endpoint must reach local Supabase");
   assert.deepEqual(await health.json(), { status: "connected" });
 
-  for (const script of ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs"]) {
+  for (const script of requestedScript ? [requestedScript] : e2eScripts) {
     const runner = spawn(process.execPath, [script], {
       cwd: root,
       env: e2eEnv,

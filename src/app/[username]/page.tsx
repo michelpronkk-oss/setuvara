@@ -116,6 +116,9 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   }
   if (connectedState?.connection_id) viewerState = "visitor_connected";
   const identity = profile as ProfileIdentity;
+  const publicBlocks = readableBlocks(blockRows).map((block) => block.is_soundtrack
+    ? { ...block, data: { url: block.data.url } }
+    : block);
   const mode: ProfileMode = {
     ...rawMode,
     slug: rawMode.slug as ModeSlug,
@@ -123,7 +126,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     appearance: rawMode.appearance as ProfileMode["appearance"],
     image_url: imageUrl,
     links: (links ?? []) as ProfileLink[],
-    blocks: readableBlocks(blockRows),
+    blocks: publicBlocks,
   };
 
   // Full Bleed runs the photo to the phone's edges; the page takes on the profile's own background.

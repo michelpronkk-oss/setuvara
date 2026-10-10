@@ -61,11 +61,19 @@ export function profileTone(mode: ProfileMode) {
 
 export function ProfileRenderer(props: ProfileRendererProps) {
   const { mode } = props;
-  const profile = mode.slug === "event" ? <EventProfile {...props} /> : mode.slug === "business" ? <BusinessProfile {...props} /> : <PersonalProfile {...props} />;
+  const isLive = props.sound !== "off" && props.sound !== "preview";
+  const renderedMode = isLive
+    ? { ...mode, blocks: mode.blocks?.filter((block) => !block.is_soundtrack) }
+    : mode;
+  const profileProps = { ...props, mode: renderedMode };
+  const profile = mode.slug === "event" ? <EventProfile {...profileProps} /> : mode.slug === "business" ? <BusinessProfile {...profileProps} /> : <PersonalProfile {...profileProps} />;
   // No soundtrack: the profile renders exactly as it always has, with no sound UI at all.
   const track = props.sound === "off" ? null : soundtrackBlock(mode);
   if (!track) return profile;
-  return <SoundtrackProvider block={track} key={`${mode.id}:${track.id}:${String(track.data.url)}`} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
+  // The public player only needs the URL. Keep editor-only titles/artwork out
+  // of the public server payload while retaining the saved block in the editor.
+  const playerBlock = isLive ? { ...track, data: { url: track.data.url } } : track;
+  return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
 function PersonalProfile(props: ProfileRendererProps) {
@@ -376,7 +384,7 @@ function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode
   );
 }
 
-const hasBlocks = (mode: ProfileMode) => Boolean(mode.blocks?.some((block) => block.is_visible));
+const hasBlocks = (mode: ProfileMode) => Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
 
 function EmptyLinks({ tone, text }: { tone: Tone; text: string }) {
   return <p className="mt-8 rounded-2xl px-4 py-4 text-[13px]" style={{ color: tone.sub, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>{text}</p>;

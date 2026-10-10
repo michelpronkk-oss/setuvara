@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import type { ProfileBlock } from "@/components/profile/types";
-import { MUSIC_PROVIDER_NAMES, parseMusic, type MusicMedia } from "@/lib/blocks/media";
+import { parseMusic, type MusicMedia } from "@/lib/blocks/media";
 import { mediaFocus, readSoundPreference, soundPreferenceStore, soundtrackFocus, writeSoundPreference } from "@/lib/soundtrack/focus";
 import { createAudioPlayer, createSoundCloudPlayer, createSpotifyPlayer, createYouTubePlayer, spotifyUri, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
 
@@ -17,12 +17,6 @@ import { createAudioPlayer, createSoundCloudPlayer, createSpotifyPlayer, createY
 type Status = "loading" | "ready" | "playing" | "blocked" | "unavailable";
 
 type SoundtrackApi = {
-  blockId: string;
-  media: MusicMedia;
-  title: string;
-  artwork: string | null;
-  /** Editor preview: never starts on its own and never touches the visitor's choice. */
-  preview: boolean;
   status: Status;
   /** The visitor wants sound (it may still be held for a video or a hidden tab). */
   on: boolean;
@@ -30,27 +24,16 @@ type SoundtrackApi = {
   asking: boolean;
   /** Sound is on but nothing plays yet: the browser is waiting for the visitor's tap. */
   waiting: boolean;
-  /** Playback needed a tap and the tap didn't reach the provider's player. */
-  needsDirectTap: boolean;
-  /** The soundtrack's own music block renders the provider player that plays it. */
-  hostsEmbed: boolean;
   soundOn: () => void;
   soundOff: () => void;
   continueMuted: () => void;
-  setCueInView: (inView: boolean) => void;
 };
 
 const SoundtrackContext = createContext<SoundtrackApi | null>(null);
-const SoundtrackHostContext = createContext<((element: HTMLElement | null) => void) | null>(null);
 
 /** The soundtrack of the Mode being rendered, or null when it has none. */
 export function useSoundtrack() {
   return useContext(SoundtrackContext);
-}
-
-/** Ref for the element the soundtrack's provider player lives in (inside its own music block). */
-export function useSoundtrackHost() {
-  return useContext(SoundtrackHostContext);
 }
 
 const str = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -69,16 +52,12 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
   const [choice, setChoice] = useState<boolean | null>(null);
   const on = choice ?? (!preview && stored === "on");
   const decided = choice !== null;
-  const [needsDirectTap, setNeedsDirectTap] = useState(false);
   const [host, setHost] = useState<HTMLElement | null>(null);
-  const [cueInView, setCueInView] = useState(false);
-  const [source, setSource] = useState<{ title: string | null; artwork: string | null } | null>(null);
 
   const player = useRef<Player | null>(null);
   const want = useRef(false);
   const playing = useRef(false);
   const pending = useRef<"play" | "pause" | null>(null);
-  const gestureTried = useRef(false);
   const [tapped, setTapped] = useState(false);
   const held = useSyncExternalStore(mediaFocus.subscribe, mediaFocus.busy, () => false);
   const timers = useRef({ blocked: 0, resume: 0 });
@@ -93,9 +72,8 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
       if (playing.current || !want.current) return;
       pending.current = null;
       setStatus("blocked");
-      if (gestureTried.current && !AUDIO_PREVIEW.includes(media.provider)) setNeedsDirectTap(true);
     }, 3500);
-  }, [media.provider]);
+  }, []);
 
   /** Plays or pauses to match: wanted, tab visible, nothing else playing. */
   const sync = useCallback(() => {
@@ -125,7 +103,6 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
       if (pending.current === "play") pending.current = null;
       playing.current = true;
       setStatus("playing");
-      setNeedsDirectTap(false);
       if (fromVisitor) {
         // Started from the provider's own play button: that's the visitor choosing it.
         setOn(true);
@@ -163,13 +140,12 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
     let cancelled = false;
     let created: Player | null = null;
     const handle = (event: PlayerEvent) => { if (!cancelled) onEvent(event); };
-    const title = str(block.data.title) || `${MUSIC_PROVIDER_NAMES[media.provider]} soundtrack`;
     const job: Promise<Player> = audioPreview
       ? fetch(`/api/soundtrack?url=${encodeURIComponent(media.url)}`)
-        .then((response) => (response.ok ? response.json() as Promise<{ src: string; title: string | null; artwork: string | null }> : Promise.reject(new Error("No preview"))))
-        .then((found) => { if (!cancelled) setSource({ title: found.title, artwork: found.artwork }); return createAudioPlayer(found.src, handle); })
+        .then((response) => (response.ok ? response.json() as Promise<{ src: string }> : Promise.reject(new Error("No preview"))))
+        .then((found) => createAudioPlayer(found.src, handle))
       : media.provider === "spotify" ? createSpotifyPlayer(host!, spotifyUri(media.type, media.id), media.height, handle)
-        : media.provider === "soundcloud" ? createSoundCloudPlayer(host!, media.embedUrl, media.height, title, handle)
+        : media.provider === "soundcloud" ? createSoundCloudPlayer(host!, media.embedUrl, media.height, "Setuvara soundtrack", handle)
           : createYouTubePlayer(host!, media.id, handle);
     job.then((ready) => {
       if (cancelled) { ready.destroy(); return; }
@@ -188,7 +164,7 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
       playing.current = false;
       pending.current = null;
     };
-  }, [audioPreview, block.data.title, host, media, onEvent, sync]);
+  }, [audioPreview, host, media, onEvent, sync]);
 
   // Step aside for videos and other music, come back shortly after they stop.
   useEffect(() => mediaFocus.subscribe(() => {
@@ -236,7 +212,6 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
       const target = event.target as Element | null;
       if (target?.closest("a, button, iframe, input, textarea, select, [data-media]")) return;
       if (!player.current || playing.current || mediaFocus.busy() || document.hidden) return;
-      gestureTried.current = true;
       setTapped(true);
       start(player.current);
     };
@@ -247,47 +222,35 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
   const soundOn = useCallback(() => {
     if (!preview) writeSoundPreference("on");
     setOn(true);
-    gestureTried.current = true;
     setTapped(true);
     mediaFocus.yield();
     soundtrackFocus.take(owner);
     window.clearTimeout(timers.current.resume);
     // Called from the visitor's tap, so the browser lets it play.
     if (player.current && !document.hidden) start(player.current);
-    if (needsDirectTap) document.getElementById(`soundtrack-${block.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [block.id, needsDirectTap, owner, preview, setOn, start]);
+  }, [owner, preview, setOn, start]);
 
   const soundOff = useCallback(() => {
     if (!preview) writeSoundPreference("off");
     setOn(false);
-    setNeedsDirectTap(false);
     sync();
   }, [preview, setOn, sync]);
 
   const api = useMemo<SoundtrackApi>(() => ({
-    blockId: block.id,
-    media,
-    title: str(block.data.title) || source?.title || `${MUSIC_PROVIDER_NAMES[media.provider]} track`,
-    artwork: str(block.data.image) || media.artwork || source?.artwork || null,
-    preview,
     status,
     on,
     asking: hydrated && !decided && (preview || stored === null) && status !== "loading" && status !== "unavailable" && status !== "playing",
     waiting: on && !held && (status === "blocked" || (status === "ready" && !tapped && !preview)),
-    needsDirectTap,
-    hostsEmbed: !audioPreview,
     soundOn,
     soundOff,
     continueMuted: soundOff,
-    setCueInView,
-  }), [audioPreview, block.data.image, block.data.title, block.id, decided, held, hydrated, media, needsDirectTap, on, preview, soundOff, soundOn, source, status, stored, tapped]);
+  }), [decided, held, hydrated, on, preview, soundOff, soundOn, status, stored, tapped]);
 
   return (
     <SoundtrackContext.Provider value={api}>
-      <SoundtrackHostContext.Provider value={setHost}>
-        {children}
-        <SoundPill api={api} hidden={cueInView} />
-      </SoundtrackHostContext.Provider>
+      {children}
+      {!audioPreview && <div aria-hidden="true" className="pointer-events-none fixed left-[-10000px] top-0 w-[300px] overflow-hidden opacity-0" data-soundtrack-player inert ref={setHost} style={{ height: media.height }} />}
+      <SoundPill api={api} />
     </SoundtrackContext.Provider>
   );
 }
@@ -297,97 +260,46 @@ export function SoundtrackProvider({ block, preview = false, children }: { block
 type CueTone = { ink: string; sub: string; chip: string; line: string; bg: string };
 
 /**
- * Sits with the person's name: the first-visit choice, then a quiet line
- * naming the track. Renders nothing when the Mode has no soundtrack.
+ * A first-visit sound choice within the identity composition. Never names or
+ * previews the provider, track, or artwork.
  */
 export function SoundtrackCue({ tone, accent, accentInk, align = "left", className = "mt-5" }: { tone: CueTone; accent: string; accentInk: string; align?: "left" | "center"; className?: string }) {
   const api = useSoundtrack();
-  const ref = useRef<HTMLDivElement>(null);
-  const setCueInView = api?.setCueInView;
   const visible = Boolean(api && api.status !== "loading" && api.status !== "unavailable");
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || !setCueInView || !visible) return;
-    const observer = new IntersectionObserver(([entry]) => setCueInView(entry.isIntersecting), { threshold: 0.6 });
-    observer.observe(element);
-    return () => { observer.disconnect(); setCueInView(false); };
-  }, [setCueInView, visible]);
-
-  if (!api || !visible) return null;
-  const playing = api.status === "playing";
-
-  if (api.asking) {
-    return (
-      <div className={`${className} [animation:sheet-up_.5s_cubic-bezier(.2,.8,.2,1)] text-left`} data-sound-ui ref={ref}>
-        <div className="rounded-[22px] p-3" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
-          <div className="flex items-center gap-3 px-0.5">
-            <Artwork accent={accent} accentInk={accentInk} size={44} src={api.artwork} />
-            <div className="min-w-0 flex-1">
-              <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{api.preview ? "Profile soundtrack · preview" : "Profile soundtrack"}</p>
-              <p className="mt-0.5 truncate text-[15px] font-semibold leading-snug" title={api.title}>{api.title}</p>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-[1.2fr_1fr] gap-2">
-            <button className="inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold transition active:scale-[.98]" onClick={api.soundOn} style={{ background: accent, color: accentInk }} type="button"><SpeakerIcon on className="size-[15px] shrink-0" />Enter with sound</button>
-            <button className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold transition active:scale-[.98]" onClick={api.continueMuted} style={{ boxShadow: `inset 0 0 0 1.5px ${tone.line}`, color: tone.ink }} type="button">Continue muted</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const blocked = api.waiting;
-  const label = blocked ? (api.needsDirectTap ? "Tap play on the track below" : "Tap to play soundtrack") : api.title;
+  if (!api || !visible || !api.asking) return null;
   return (
-    <div className={`${className} flex ${align === "center" ? "justify-center" : "justify-start"} [animation:fade-in_.4s_ease-out]`} data-sound-ui ref={ref}>
-      <button aria-label={blocked ? `${label}: ${api.title}` : api.on ? `Sound off: pause ${api.title}` : `Sound on: play ${api.title}`} aria-pressed={api.on} className="group inline-flex min-h-10 max-w-full items-center gap-2 rounded-full py-1 pl-1 pr-3.5 text-left text-[13px] font-semibold transition hover:opacity-85" onClick={api.on && !blocked ? api.soundOff : api.soundOn} style={{ background: tone.chip, color: tone.ink, boxShadow: `inset 0 0 0 1px ${tone.line}` }} type="button">
-        <Artwork accent={accent} accentInk={accentInk} size={32} src={api.artwork} />
-        <span className="min-w-0 truncate">{label}</span>
-        <span aria-hidden="true" className="ml-0.5 grid size-5 shrink-0 place-items-center" style={{ color: playing ? accent === tone.bg ? tone.ink : accent : tone.sub }}>
-          <SpeakerIcon className="size-4" on={api.on} />
-        </span>
-      </button>
+    <div className={`${className} flex ${align === "center" ? "justify-center" : "justify-start"} [animation:fade-in_.4s_ease-out]`} data-sound-ui>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={api.soundOn} style={{ background: accent, color: accentInk }} type="button"><SpeakerIcon on className="size-[15px] shrink-0" />Enter with sound</button>
+        <button className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition active:scale-[.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={api.continueMuted} style={{ background: tone.chip, boxShadow: `inset 0 0 0 1.5px ${tone.line}`, color: tone.ink }} type="button">Continue muted</button>
+      </div>
     </div>
   );
 }
 
-/** Small control that follows the visitor down the page, whenever the cue is out of view. */
-function SoundPill({ api, hidden }: { api: SoundtrackApi; hidden: boolean }) {
-  const show = api.status !== "loading" && api.status !== "unavailable" && !hidden;
+/** An icon-only control remains after the visitor makes a sound choice. */
+function SoundPill({ api }: { api: SoundtrackApi }) {
+  const show = api.status !== "loading" && api.status !== "unavailable" && !api.asking;
   const playing = api.status === "playing";
-  const label = api.on ? "Sound on" : "Sound off";
   return (
     <div aria-hidden={!show} className="pointer-events-none sticky bottom-0 z-30 h-0" data-sound-ui>
       <div className={`absolute bottom-[max(16px,env(safe-area-inset-bottom))] right-3 transition duration-300 ${show ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
         <button
-          aria-label={api.waiting ? `Tap to play soundtrack: ${api.title}` : api.on ? `Sound off: pause ${api.title}` : `Sound on: play ${api.title}`}
+          aria-label={api.waiting ? "Tap to play sound" : api.on ? "Sound on. Mute." : "Muted. Turn sound on."}
           aria-pressed={api.on}
-          className={`inline-flex min-h-11 items-center gap-2 rounded-full bg-[rgba(13,13,13,.62)] pl-3 pr-3.5 text-[12px] font-semibold text-[#F5F4EF] shadow-[0_14px_36px_-16px_rgba(0,0,0,.7),inset_0_0_0_1px_rgba(245,244,239,.14)] backdrop-blur-xl transition active:scale-[.97] ${show ? "pointer-events-auto" : ""}`}
+          className={`grid size-11 place-items-center rounded-full bg-[rgba(13,13,13,.68)] text-[#F5F4EF] shadow-[0_14px_36px_-16px_rgba(0,0,0,.7),inset_0_0_0_1px_rgba(245,244,239,.16)] backdrop-blur-xl transition active:scale-[.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF5A4F] ${show ? "pointer-events-auto" : ""}`}
           onClick={api.on && !api.waiting ? api.soundOff : api.soundOn}
           tabIndex={show ? 0 : -1}
+          title={api.waiting ? "Tap to play sound" : api.on ? "Sound on" : "Muted"}
           type="button"
         >
-          <span className="relative grid size-4 place-items-center">
+          <span aria-hidden="true" className="relative grid size-4 place-items-center">
             <SpeakerIcon className="size-4" on={api.on} />
+            {playing && <span className="absolute -right-1 -top-1 size-1.5 rounded-full bg-[#FF5A4F] [animation:sound-breathe_2.4s_ease-in-out_infinite]" />}
           </span>
-          <span>{api.waiting ? "Tap to play" : api.preview && !api.on ? "Preview sound" : label}</span>
-          {playing && <span aria-hidden="true" className="size-1.5 rounded-full bg-[#FF5A4F] [animation:sound-breathe_2.4s_ease-in-out_infinite]" />}
         </button>
       </div>
     </div>
-  );
-}
-
-function Artwork({ src, size, accent, accentInk }: { src: string | null; size: number; accent: string; accentInk: string }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <span className="relative grid shrink-0 place-items-center overflow-hidden rounded-full" style={{ width: size, height: size, background: accent, color: accentInk }}>
-      {src && !failed
-        // eslint-disable-next-line @next/next/no-img-element -- third-party cover art
-        ? <img alt="" className="absolute inset-0 size-full object-cover" onError={() => setFailed(true)} referrerPolicy="no-referrer" src={src} />
-        : <svg aria-hidden="true" className="size-[45%]" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18.5a2.5 2.5 0 1 1-2.5-2.5c.4 0 .8.1 1 .2V5.8l11-2.3v11.9a2.5 2.5 0 1 1-2.5-2.4c.4 0 .7.1 1 .2V7.1L9 8.8v9.7Z" /></svg>}
-    </span>
   );
 }
 

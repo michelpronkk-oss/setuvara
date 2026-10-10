@@ -67,6 +67,34 @@ const fakes = String.raw`
 (() => {
   window.__fake = [];
   const activated = () => navigator.userActivation.hasBeenActive;
+  // Audio previews use the browser Audio API rather than a provider iframe.
+  window.Audio = class {
+    constructor() {
+      this.listeners = {};
+      this.volume = 1;
+      this.currentTime = 0;
+      this.paused = true;
+      this.state = { kind: "audio", paused: true, plays: 0, src: "" };
+      window.__fake.push(this.state);
+    }
+    addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
+    emit(name) { (this.listeners[name] || []).forEach((fn) => fn()); }
+    set src(value) { this.state.src = value; }
+    get src() { return this.state.src; }
+    play() {
+      if (!activated()) return Promise.reject(new DOMException("User activation required", "NotAllowedError"));
+      this.paused = false; this.state.paused = false; this.state.plays++;
+      setTimeout(() => this.emit("playing"), 20);
+      return Promise.resolve();
+    }
+    pause() {
+      if (this.paused) return;
+      this.paused = true; this.state.paused = true;
+      setTimeout(() => this.emit("pause"), 20);
+    }
+    removeAttribute(name) { if (name === "src") this.src = ""; }
+    load() {}
+  };
   // Spotify iFrame API
   window.__spotify = { createController(el, opts, cb) {
     const iframe = document.createElement("iframe"); iframe.src = "about:blank"; iframe.style.height = opts.height + "px"; iframe.style.width = "100%"; iframe.dataset.fake = "spotify";
@@ -109,8 +137,6 @@ const scripts = {
   "https://w.soundcloud.com/player/api.js": "window.SC = window.__sc;",
 };
 
-const TONE = "data:audio/wav;base64," + Buffer.from(new Uint8Array(await (await import("node:fs/promises")).readFile(process.env.E2E_TONE ?? "/dev/null"))).toString("base64");
-
 async function newVisitor(browser, { mobile = true, preference = null, unavailable = false } = {}) {
   const context = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1280, height: 900 } });
   await context.addInitScript(fakes);
@@ -121,7 +147,7 @@ async function newVisitor(browser, { mobile = true, preference = null, unavailab
     if (route.request().resourceType() === "image") return route.fulfill({ status: 404, body: "" });
     return route.fulfill({ contentType: "text/html", body: "<body style='margin:0;background:#1c1c1c;color:#eee;font:12px sans-serif;display:grid;place-items:center;height:100vh'>provider embed</body>" });
   });
-  await context.route("**/api/soundtrack?**", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ src: TONE, title: "Preview clip · Test Artist", artwork: null }) }));
+  await context.route("**/api/soundtrack?**", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ src: "https://preview.test/audio.mp3" }) }));
   const page = await context.newPage();
   page.on("pageerror", (error) => { throw error; });
   return { context, page };
@@ -130,6 +156,19 @@ async function newVisitor(browser, { mobile = true, preference = null, unavailab
 const fake = (page, kind) => page.evaluate((k) => window.__fake.filter((item) => item.kind === k && !item.destroyed).map(({ paused, plays, uri, videoId, src, attached }) => ({ paused, plays, uri, videoId, src, attached })), kind);
 const call = (page, kind, index, method) => page.evaluate(([k, i, m]) => window.__fake.filter((item) => item.kind === k && !item.destroyed)[i][m](), [kind, index, method]);
 const soundUi = (page) => page.locator("[data-sound-ui]").count();
+async function assertNoSoundtrackCard(page, titles) {
+  assert.equal(await page.getByText("Profile soundtrack", { exact: true }).count(), 0, "No soundtrack metadata label appears publicly");
+  const [text, html] = await Promise.all([page.locator("body").innerText(), page.content()]);
+  for (const title of titles) {
+    assert.equal(text.includes(title), false, `Soundtrack title is hidden: ${title}`);
+    assert.equal(html.includes(title), false, `Soundtrack title is absent from the public page payload: ${title}`);
+  }
+}
+async function assertSourceMetadataAbsent(page, titles) {
+  const composition = page.locator("article").first();
+  const text = await composition.innerText();
+  for (const title of titles) assert.equal(text.includes(title), false, `Soundtrack title is hidden from the profile composition: ${title}`);
+}
 const shot = async (page, name, fullPage = false) => { if (shots) await page.screenshot({ path: `${shots}/${name}.png`, fullPage }); };
 async function until(check, message, timeout = 4000) {
   const end = Date.now() + timeout;
@@ -176,16 +215,26 @@ try {
   const enter = page.getByRole("button", { name: "Enter with sound" });
   await enter.waitFor();
   assert.equal(await page.getByRole("button", { name: "Continue muted" }).count(), 1);
+  await assertNoSoundtrackCard(page, ["Golden Hour · JVKE", "Spotify track", "Profile soundtrack"]);
+  await page.locator('iframe[title="A Moment Apart"]').waitFor();
   assert.equal((await fake(page, "spotify"))[0].paused, true, "Nothing plays before the visitor chooses");
   await shot(page, "02-first-visit-mobile");
-  await page.setViewportSize({ width: 360, height: 760 });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "No horizontal overflow at 360px");
-  await shot(page, "02b-first-visit-360");
-  await page.setViewportSize({ width: 390, height: 844 });
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `No horizontal overflow at ${width}px`);
+    for (const label of ["Enter with sound", "Continue muted"]) {
+      const bounds = await page.getByRole("button", { name: label }).boundingBox();
+      assert(bounds && bounds.height >= 44, `${label} remains an accessible tap target at ${width}px`);
+    }
+    if (width === 360) await shot(page, "02b-first-visit-360");
+    if (width === 430) await shot(page, "02c-first-visit-430");
+  }
   await enter.click();
   await until(async () => !(await fake(page, "spotify"))[0].paused, "Enter with sound starts the Spotify soundtrack");
   assert.equal(await page.evaluate(() => localStorage.getItem("setuvara:sound")), "on");
-  await page.getByRole("button", { name: /Sound off: pause Golden Hour/ }).first().waitFor();
+  await assertNoSoundtrackCard(page, ["Golden Hour · JVKE"]);
+  assert.equal(await page.getByRole("button", { name: "Enter with sound" }).count(), 0, "The entry choice disappears after Sound on");
+  await page.getByRole("button", { name: "Sound on. Mute." }).waitFor();
   await shot(page, "03-sound-on-mobile");
   console.log("PASS first visit choice + Spotify soundtrack");
 
@@ -224,23 +273,23 @@ try {
   console.log("PASS hidden tab pauses the soundtrack");
 
   // ---- Mute from the control, remembered across profiles and visits.
-  await page.getByRole("button", { name: /Sound off: pause Golden Hour/ }).last().click();
+  await page.getByRole("button", { name: "Sound on. Mute." }).click();
   await until(async () => (await fake(page, "spotify"))[0].paused, "Sound off pauses");
   assert.equal(await page.evaluate(() => localStorage.getItem("setuvara:sound")), "off");
   await page.reload();
-  await page.getByRole("button", { name: /Sound on: play Golden Hour/ }).first().waitFor();
+  await page.getByRole("button", { name: "Muted. Turn sound on." }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Enter with sound" }).count(), 0, "No prompt for a visitor who already chose");
   await page.waitForTimeout(600);
   assert.equal((await fake(page, "spotify"))[0].plays, 0, "Sound off is remembered: nothing starts");
   await shot(page, "05-returning-muted");
-  await page.getByRole("button", { name: /Sound on: play Golden Hour/ }).first().click();
+  await page.getByRole("button", { name: "Muted. Turn sound on." }).click();
   await until(async () => !(await fake(page, "spotify"))[0].paused, "Sound on from the cue plays");
   console.log("PASS mute/unmute and Sound off remembered");
 
   // ---- Sound on remembered: plays on the first tap the browser allows.
   await page.reload();
   await page.waitForTimeout(4200);
-  await page.getByRole("button", { name: /Tap to play soundtrack/ }).first().waitFor();
+  await page.getByRole("button", { name: "Tap to play sound" }).waitFor();
   await shot(page, "06-returning-sound-on-needs-tap");
   await page.locator("h1").first().click();
   await until(async () => !(await fake(page, "spotify"))[0].paused, "First tap on the page starts a remembered Sound on");
@@ -250,10 +299,10 @@ try {
   await page.goto(`${appUrl}/${owner.username}?mode=event`);
   await page.waitForTimeout(300);
   assert.equal((await fake(page, "spotify")).length, 0, "Previous Mode soundtrack is gone");
-  await page.getByRole("button", { name: /Nightcall/ }).first().waitFor();
+  await until(async () => (await fake(page, "youtube")).some((item) => !item.attached), "The event soundtrack player is created without a public track card");
+  await assertNoSoundtrackCard(page, ["Nightcall · Kavinsky", "YouTube Music"]);
   await page.locator("h1").first().click();
   await until(async () => (await fake(page, "youtube")).some((item) => !item.attached && !item.paused), "YouTube Music soundtrack plays with Sound on");
-  await page.getByText("Profile soundtrack", { exact: true }).scrollIntoViewIfNeeded();
   await shot(page, "07-event-youtube-music");
   console.log("PASS Mode switch + YouTube Music soundtrack");
 
@@ -264,21 +313,30 @@ try {
   await shot(desktop.page, "08-desktop-first-visit");
   await desktop.page.getByRole("button", { name: "Continue muted" }).click();
   assert.equal(await desktop.page.evaluate(() => localStorage.getItem("setuvara:sound")), "off");
-  await desktop.page.getByRole("button", { name: /Sound on: play Golden Hour/ }).first().waitFor();
+  await desktop.page.getByRole("button", { name: "Muted. Turn sound on." }).waitFor();
   await shot(desktop.page, "09-desktop-muted");
   await desktop.context.close();
   console.log("PASS desktop first visit + Continue muted");
 
   // ---- Apple Music, SoundCloud and Deezer soundtracks.
+  await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
   await page.goto(`${appUrl}/${clips.username}`);
-  await page.getByRole("button", { name: /Blinding Lights/ }).first().click();
-  await until(async () => (await page.getByRole("button", { name: /Sound off: pause Blinding Lights/ }).count()) > 0, "Apple Music soundtrack plays its preview");
+  await assertNoSoundtrackCard(page, ["Blinding Lights"]);
+  await page.getByRole("button", { name: "Enter with sound" }).click();
+  await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
+  await until(async () => (await fake(page, "audio")).some((item) => !item.paused), "Apple Music preview plays after the visitor's choice");
+  await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
   await page.goto(`${appUrl}/${clips.username}?mode=event`);
-  await page.getByRole("button", { name: /A Moment Apart/ }).first().click();
-  await until(async () => (await fake(page, "soundcloud")).some((item) => !item.paused), "SoundCloud soundtrack plays");
+  await assertNoSoundtrackCard(page, ["A Moment Apart"]);
+  await page.getByRole("button", { name: "Enter with sound" }).click();
+  await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
+  await until(async () => (await fake(page, "soundcloud")).some((item) => !item.paused), "SoundCloud soundtrack plays after the visitor's choice");
+  await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
   await page.goto(`${appUrl}/${clips.username}?mode=business`);
-  await page.getByRole("button", { name: /Harder, Better/ }).first().click();
-  await until(async () => (await page.getByRole("button", { name: /Sound off: pause Harder/ }).count()) > 0, "Deezer soundtrack plays its preview");
+  await assertNoSoundtrackCard(page, ["Harder, Better, Faster, Stronger"]);
+  await page.getByRole("button", { name: "Enter with sound" }).click();
+  await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
+  await until(async () => (await fake(page, "audio")).some((item) => !item.paused), "Deezer preview plays after the visitor's choice");
   await shot(page, "10-deezer-business");
   console.log("PASS Apple Music, SoundCloud and Deezer soundtracks");
   await context.close();
@@ -309,6 +367,8 @@ try {
     await ep.getByText("PROFILE SOUNDTRACK").first().waitFor();
     await ep.waitForTimeout(4000);
     assert.equal((await fake(ep, "spotify")).every((item) => item.plays === 0), true, "Editor preview never starts the soundtrack on its own");
+    await ep.getByRole("button", { name: "Enter with sound" }).waitFor();
+    await assertSourceMetadataAbsent(ep, ["Golden Hour · JVKE"]);
     await shot(ep, "12-editor-desktop");
     // Make the SoundCloud block the soundtrack instead.
     await ep.getByRole("button", { name: /A Moment Apart/ }).first().click();
