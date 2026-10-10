@@ -9,7 +9,7 @@ import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtra
 import { MeetMark } from "@/components/marketing/brand";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
-import { accentLuminance, inkOnAccent, resolveModeAccent } from "./appearance";
+import { accentLuminance, inkOnAccent, resolveAppearance, resolveModeAccent, type ResolvedAppearance } from "./appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
 
 type ProfileRendererProps = {
@@ -33,6 +33,9 @@ type ProfileRendererProps = {
   sound?: "live" | "preview" | "off";
 };
 
+/** Props each Mode's design receives: its appearance is already resolved for that Mode alone. */
+type ModeProfileProps = ProfileRendererProps & { look: ResolvedAppearance };
+
 type Tone = { bg: string; ink: string; sub: string; chip: string; line: string; dark: boolean };
 type ResolvedLink = { link: ProfileLink; name: string; url: string; display: string; external: boolean; providerId: string; icon: ReturnType<typeof providerForLink>["icon"] };
 
@@ -41,7 +44,7 @@ export const BOOKING_PROVIDERS = ["calendly", "cal_com", "booking_link", "calend
 /** The 60° cut that runs through the Setuvara mark, applied to hero corners. */
 const cutCorner = (size: number) => `polygon(0 0,100% 0,100% calc(100% - ${size}px),calc(100% - ${Math.round(size * 0.58)}px) 100%,0 100%)`;
 
-const tones: Record<ProfileMode["appearance"]["theme"], Tone> = {
+const tones: Record<ResolvedAppearance["theme"], Tone> = {
   dark: { bg: "#0D0D0D", ink: "#F5F4EF", sub: "rgba(245,244,239,.72)", chip: "#1C1C1C", line: "rgba(245,244,239,.16)", dark: true },
   light: { bg: "#FFFFFF", ink: "#0D0D0D", sub: "rgba(13,13,13,.62)", chip: "#F5F4EF", line: "rgba(13,13,13,.12)", dark: false },
   editorial: { bg: "#F5F4EF", ink: "#0D0D0D", sub: "rgba(13,13,13,.62)", chip: "#FFFFFF", line: "rgba(13,13,13,.14)", dark: false },
@@ -51,12 +54,13 @@ const modeLabel: Record<ModeSlug, string> = { personal: "Personal", event: "Even
 
 /** Whether a Mode renders the edge-to-edge Full Bleed photo layout. */
 export function isFullBleed(mode: ProfileMode) {
-  return mode.slug === "personal" && Boolean(mode.image_url) && mode.appearance.layout !== "portrait-editorial";
+  const look = resolveAppearance(mode);
+  return look.slug === "personal" && Boolean(mode.image_url) && look.layout === "full-bleed";
 }
 
 /** Background and darkness of a Mode's theme, so a page can continue it past the card. */
 export function profileTone(mode: Pick<ProfileMode, "slug" | "appearance">) {
-  const tone = tones[mode.appearance.theme] ?? (mode.slug === "personal" ? tones.dark : tones.light);
+  const tone = tones[resolveAppearance(mode).theme];
   return { bg: tone.bg, dark: tone.dark };
 }
 
@@ -71,8 +75,10 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   const renderedMode = isLive
     ? { ...mode, blocks: mode.blocks?.filter((block) => !block.is_soundtrack) }
     : mode;
-  const profileProps = { ...props, mode: renderedMode };
-  const profile = mode.slug === "event" ? <EventProfile {...profileProps} /> : mode.slug === "business" ? <BusinessProfile {...profileProps} /> : <PersonalProfile {...profileProps} />;
+  const profileProps = { ...props, mode: renderedMode, look: resolveAppearance(mode) };
+  const designs = { personal: PersonalProfile, event: EventProfile, business: BusinessProfile } as const;
+  const Design = designs[profileProps.look.slug];
+  const profile = <Design {...profileProps} />;
   // No soundtrack: the profile renders exactly as it always has, with no sound UI at all.
   const track = props.sound === "off" ? null : soundtrackBlock(mode);
   if (!track) return profile;
@@ -82,7 +88,7 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
-function PersonalProfile(props: ProfileRendererProps) {
+function PersonalProfile(props: ModeProfileProps) {
   if (isFullBleed(props.mode)) return <PersonalBleed {...props} />;
   return <PersonalPortrait {...props} />;
 }
@@ -91,21 +97,21 @@ function PersonalProfile(props: ProfileRendererProps) {
 const isIconLink = (item: ResolvedLink) => Boolean(item.icon) || ["email", "phone", "sms"].includes(item.providerId);
 
 /** Full Bleed: edge-to-edge photo that fades into a centred name and a row of round icons. */
-function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false }: ProfileRendererProps) {
-  const tone = tones[mode.appearance.theme] ?? tones.dark;
+function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false }: ModeProfileProps) {
+  const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = resolveModeAccent(mode);
-  const editorialName = mode.appearance.theme === "editorial" && accentLuminance(accent) < 0.55;
+  const accent = look.accent;
+  const editorialName = look.theme === "editorial" && accentLuminance(accent) < 0.55;
   const links = resolveLinks(mode.links);
   const icons = links.filter(isIconLink);
   const rows = links.filter((item) => !isIconLink(item));
-  const treatment = mode.appearance.imageTreatment;
+  const treatment = look.imageTreatment;
   const aspect = treatment === "compact" ? "aspect-[4/3]" : treatment === "portrait" ? "aspect-square" : "aspect-[4/5]";
   const meta = [setting(mode, "location"), setting(mode, "pronouns")].filter(Boolean).join(" · ");
   const mark = earnedMark(selectedRewards);
 
   return (
-    <article className={`relative isolate w-full overflow-hidden ${bleed ? "max-sm:rounded-none sm:rounded-[28px]" : "rounded-[28px]"} ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
+    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden ${bleed ? "max-sm:rounded-none sm:rounded-[28px]" : "rounded-[28px]"} ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
       <div className={`relative w-full ${aspect}`}>
         <Image alt={profile.display_name} className="object-cover" fill priority sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
         <div className="absolute inset-x-0 top-0 h-28" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.38), transparent)" }} />
@@ -163,22 +169,22 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
   );
 }
 
-function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
-  const tone = tones[mode.appearance.theme] ?? tones.dark;
+function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ModeProfileProps) {
+  const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = resolveModeAccent(mode);
-  const editorialName = mode.appearance.theme === "editorial" && accentLuminance(accent) < 0.55;
+  const accent = look.accent;
+  const editorialName = look.theme === "editorial" && accentLuminance(accent) < 0.55;
   const links = resolveLinks(mode.links);
-  const portrait = mode.appearance.layout === "portrait-editorial";
-  const heroHeight = { "full-bleed": portrait ? 340 : 400, portrait: portrait ? 300 : 330, compact: 190 }[mode.appearance.imageTreatment] ?? 340;
+  const portrait = look.layout === "portrait-editorial";
+  const heroHeight = { "full-bleed": portrait ? 340 : 400, portrait: portrait ? 300 : 330, compact: 190 }[look.imageTreatment];
   const meta = [setting(mode, "location"), setting(mode, "pronouns")].filter(Boolean).join(" · ");
   const mark = earnedMark(selectedRewards);
 
   return (
-    <article className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
+    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
       {mode.image_url ? (
         <div className="relative" style={{ height: heroHeight, margin: portrait ? "14px 14px 0" : 0 }}>
-          <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: portrait ? 22 : 0, clipPath: mode.appearance.imageTreatment === "compact" ? undefined : cutCorner(portrait ? 52 : 64) }}>
+          <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: portrait ? 22 : 0, clipPath: look.imageTreatment === "compact" ? undefined : cutCorner(portrait ? 52 : 64) }}>
             <Image alt={profile.display_name} className="object-cover" fill priority sizes="(max-width: 768px) 100vw, 440px" src={mode.image_url} unoptimized />
             {!portrait && <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tone.bg} 0%, ${hexAlpha(tone.bg, 0.55)} 22%, transparent 55%)` }} />}
           </div>
@@ -216,19 +222,21 @@ function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visito
   );
 }
 
-function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
-  const tone = tones[mode.appearance.theme] ?? tones.light;
+function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ModeProfileProps) {
+  const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = resolveModeAccent(mode);
+  const accent = look.accent;
   const bandInk = inkOnAccent(accent);
-  const poster = mode.appearance.layout !== "conference-card";
+  const poster = look.layout === "event-poster";
   const eventName = setting(mode, "eventName");
   const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
   const links = resolveLinks(mode.links);
-  const imageSize = mode.appearance.imageTreatment === "compact" ? { width: 72, height: 72 } : mode.appearance.imageTreatment === "full-bleed" ? { width: 120, height: 150 } : { width: 96, height: 120 };
+  // Event's own Full bleed: the photo spans the card under the event header, which stays on top.
+  const bleedPhoto = Boolean(mode.image_url) && look.imageTreatment === "full-bleed";
+  const imageSize = look.imageTreatment === "compact" ? { width: 72, height: 72 } : { width: 96, height: 120 };
 
   return (
-    <article className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
+    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
       <header className={`relative px-6 ${poster ? "pb-8 pt-6" : "pb-5 pt-5"}`} style={{ background: accent, color: bandInk, clipPath: cutCorner(poster ? 34 : 24) }}>
         <div className="flex items-start justify-between gap-3">
           <p className="font-label text-[10px] uppercase tracking-[0.16em]">{owner ? "Your Event Mode" : "Event Mode"}</p>
@@ -238,9 +246,15 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
         {where && <p className="mt-2 text-[13px] font-semibold">{where}</p>}
       </header>
 
-      <div className="px-6 pb-7 pt-6">
+      {bleedPhoto && (
+        <div className={`relative -mt-px w-full ${poster ? "aspect-[4/3]" : "aspect-[16/9]"}`} data-profile-photo="full-bleed" style={{ clipPath: cutCorner(poster ? 40 : 28) }}>
+          <Image alt={profile.display_name} className="object-cover" fill sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
+        </div>
+      )}
+
+      <div className={`px-6 pb-7 ${bleedPhoto ? "pt-5" : "pt-6"}`}>
         <div className="flex items-end gap-4">
-          {mode.image_url && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><Image alt={profile.display_name} className="object-cover" fill sizes="120px" src={mode.image_url} unoptimized /></div>}
+          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><Image alt={profile.display_name} className="object-cover" fill sizes="120px" src={mode.image_url} unoptimized /></div>}
           <div className="min-w-0 pb-1">
             <p className="break-words font-display text-[1.75rem] font-bold leading-[0.95] tracking-[-0.045em]">{profile.display_name}</p>
             {setting(mode, "role") && <p className="mt-1.5 text-[13px]" style={{ color: tone.sub }}>{setting(mode, "role")}</p>}
@@ -276,27 +290,35 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
   );
 }
 
-function BusinessProfile({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
-  const tone = tones[mode.appearance.theme] ?? tones.light;
+function BusinessProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ModeProfileProps) {
+  const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = resolveModeAccent(mode);
-  const structured = mode.appearance.layout !== "editorial-business";
+  const accent = look.accent;
+  const structured = look.layout === "structured";
+  // Business's own Full bleed: a wide photo across the card, under the brand row and above the name.
+  const bleedPhoto = Boolean(mode.image_url) && look.imageTreatment === "full-bleed";
   const all = resolveLinks(mode.links);
   const booking = all.find((item) => BOOKING_PROVIDERS.includes(item.providerId));
   const links = all.filter((item) => item !== booking);
   const facts = [["Role", setting(mode, "role")], ["Company", setting(mode, "company")], ["City", setting(mode, "city")]].filter((fact): fact is [string, string] => Boolean(fact[1]));
-  const imageSize = mode.appearance.imageTreatment === "compact" ? { width: 64, height: 64 } : mode.appearance.imageTreatment === "full-bleed" ? { width: 132, height: 164 } : { width: 104, height: 130 };
+  const imageSize = look.imageTreatment === "compact" ? { width: 64, height: 64 } : { width: 104, height: 130 };
 
   return (
-    <article className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink, boxShadow: tone.dark ? undefined : `inset 0 0 0 1px ${tone.line}` }}>
+    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink, boxShadow: tone.dark ? undefined : `inset 0 0 0 1px ${tone.line}` }}>
       <div className="px-6 pb-7 pt-6">
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-1.5"><MeetMark className="size-[18px]" /><span className="font-display text-[15px] font-bold tracking-[-0.04em]">setuvara</span></span>
           <span className="font-label text-[10px]" style={{ color: tone.sub }}>/{profile.username}</span>
         </div>
 
-        <div className={`mt-7 flex ${structured ? "items-end" : "flex-col items-start"} gap-4`}>
-          {mode.image_url && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><Image alt={profile.display_name} className="object-cover" fill sizes="132px" src={mode.image_url} unoptimized /></div>}
+        {bleedPhoto && (
+          <div className={`relative -mx-6 mt-5 ${structured ? "aspect-[16/9]" : "aspect-[4/3]"}`} data-profile-photo="full-bleed" style={{ clipPath: cutCorner(structured ? 28 : 40) }}>
+            <Image alt={profile.display_name} className="object-cover" fill sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
+          </div>
+        )}
+
+        <div className={`${bleedPhoto ? "mt-5" : "mt-7"} flex ${structured ? "items-end" : "flex-col items-start"} gap-4`}>
+          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><Image alt={profile.display_name} className="object-cover" fill sizes="132px" src={mode.image_url} unoptimized /></div>}
           <div className="min-w-0">
             {owner && <p className="mb-1.5 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent === "#F5F4EF" ? tone.sub : accent }}>Viewing your profile</p>}
             <h1 className={`break-words font-display font-extrabold leading-[0.92] tracking-[-0.05em] ${structured ? "text-[2.1rem]" : "text-[clamp(2.4rem,10vw,3.1rem)]"}`}>{profile.display_name}</h1>
@@ -390,6 +412,9 @@ function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode
     </section>
   );
 }
+
+/** Marks which Mode's design and resolved look rendered, for tests and debugging. */
+const lookData = (look: ResolvedAppearance) => ({ "data-profile-mode": look.slug, "data-profile-layout": look.layout, "data-image-treatment": look.imageTreatment });
 
 const hasBlocks = (mode: ProfileMode) => Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
 

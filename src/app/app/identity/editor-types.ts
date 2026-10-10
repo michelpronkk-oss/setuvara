@@ -1,4 +1,5 @@
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { ModeLayout } from "@/components/profile/appearance";
 import type { LinkProvider } from "@/lib/links/providers";
 import type { RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
@@ -25,7 +26,8 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
   business: { role: 80, company: 100, city: 80, description: 280 },
 };
 
-export const LAYOUTS: Record<ModeSlug, { value: string; label: string; note: string }[]> = {
+/** Labels for each Mode's layouts. Values come from MODE_LAYOUTS, the renderer's own list. */
+export const LAYOUTS: { [S in ModeSlug]: { value: ModeLayout<S>; label: string; note: string }[] } = {
   personal: [{ value: "full-bleed", label: "Full Bleed", note: "Edge-to-edge photo, round icons" }, { value: "portrait-editorial", label: "Portrait Editorial", note: "Framed portrait, quieter" }],
   event: [{ value: "event-poster", label: "Event Poster", note: "Big event header" }, { value: "conference-card", label: "Conference Card", note: "Compact badge header" }],
   business: [{ value: "structured", label: "Structured", note: "Role, company, city table" }, { value: "editorial-business", label: "Editorial Business", note: "Name-first, open layout" }],
