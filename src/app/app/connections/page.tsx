@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { ConnectionsList, type ConnectionListItem } from "@/components/connections/connections-list";
 import type { ModeSlug } from "@/components/profile/types";
+import { resolveConnectionProfiles } from "@/lib/app/media";
 import { createClient } from "@/lib/supabase/server";
 
 type ConnectionRow = {
@@ -81,7 +82,8 @@ export default async function ConnectionsPage() {
     searchableByConnection.set(encounter.connection_id, values);
   }
 
-  const items: ConnectionListItem[] = rows.map((connection) => {
+  const profileIdByConnection = new Map<string, string | null>();
+  const drafts = rows.map((connection) => {
     const latest = latestByConnection.get(connection.id);
     const isGuest = !connection.connected_user_id;
     const viewerIsSharedBy = latest?.shared_by_user_id === userId;
@@ -91,13 +93,15 @@ export default async function ConnectionsPage() {
     const displayName = otherProfile?.display_name ?? (isGuest ? guestName : viewerIsSharedBy ? (latest?.share_back_display_name ?? connection.connected_display_name_snapshot) : (latest?.shared_display_name ?? connection.user_display_name_snapshot));
     const context = latest ? contextMap.get(latest.id) : undefined;
     const mode = (viewerIsSharedBy ? latest?.share_back_mode_slug : latest?.shared_mode_slug) ?? latest?.shared_mode_slug ?? "personal";
+    const modeSlug = (mode === "event" || mode === "business" ? mode : "personal") as ModeSlug;
+    profileIdByConnection.set(connection.id, !isGuest && counterpartId !== userId ? counterpartId : null);
     return {
       id: connection.id,
       displayName,
       username: otherProfile?.username ?? null,
       role: viewerIsSharedBy ? latest?.share_back_role ?? null : latest?.shared_role ?? null,
       company: viewerIsSharedBy ? latest?.share_back_company ?? null : latest?.shared_company ?? null,
-      mode: (mode === "event" || mode === "business" ? mode : "personal") as ModeSlug,
+      mode: modeSlug,
       event: latest?.event_name ?? context?.event_label ?? null,
       city: context?.city ?? latest?.city ?? null,
       venue: context?.venue ?? null,
@@ -105,6 +109,20 @@ export default async function ConnectionsPage() {
       isGuest,
       searchText: searchableByConnection.get(connection.id)?.join(" ") ?? "",
     };
+  });
+  const resolved = await resolveConnectionProfiles(supabase, drafts.map((item) => ({
+    connectionId: item.id,
+    profileId: profileIdByConnection.get(item.id) ?? null,
+    mode: item.mode,
+  })));
+  const imagePaths = [...new Set(resolved.imagePathsByConnection.values())];
+  const { data: signedImages } = imagePaths.length
+    ? await supabase.storage.from("profile-media").createSignedUrls(imagePaths, 3600)
+    : { data: [] };
+  const signedUrlByPath = new Map((signedImages ?? []).flatMap((image) => image.path && image.signedUrl && !image.error ? [[image.path, image.signedUrl] as const] : []));
+  const items: ConnectionListItem[] = drafts.map((item) => {
+    const path = resolved.imagePathsByConnection.get(item.id);
+    return { ...item, imageUrl: path ? signedUrlByPath.get(path) ?? null : null };
   });
 
   return (

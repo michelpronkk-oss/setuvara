@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ModeSlug } from "@/components/profile/types";
+import { ConnectionAvatar } from "@/components/connections/connection-avatar";
 
 export type ConnectionListItem = {
   id: string;
@@ -16,6 +17,7 @@ export type ConnectionListItem = {
   venue: string | null;
   lastMet: string;
   isGuest: boolean;
+  imageUrl: string | null;
   searchText?: string;
 };
 
@@ -51,7 +53,7 @@ export function ConnectionsList({ items }: { items: ConnectionListItem[] }) {
       </div>
       <div className="mt-4 divide-y divide-black/10 rounded-[1.7rem] border border-black/10 bg-white px-5 sm:px-7">
         {filtered.map((item) => <Link className="group flex min-h-24 items-center gap-4 py-5 focus-visible:outline-2" href={`/app/connections/${item.id}`} key={item.id}>
-          <div aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full bg-[#f5f4ef] text-lg font-semibold">{item.displayName.slice(0, 1).toUpperCase()}</div>
+          <ConnectionAvatar className="size-12 bg-[#f5f4ef] text-lg font-semibold" imageUrl={item.imageUrl} name={item.displayName} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-semibold tracking-tight">{item.displayName}</p>
             {(item.role || item.company) && <p className="mt-0.5 truncate text-xs text-black/55">{[item.role, item.company].filter(Boolean).join(" · ")}</p>}

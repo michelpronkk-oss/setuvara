@@ -861,6 +861,11 @@ try {
   await waitEditorMessage(otherPage, "Your profile is live");
   const otherAuth = await authenticatedClient(other);
   const otherId = otherAuth.user.id;
+  const otherPhotoPath = `${otherId}/${crypto.randomUUID()}.png`;
+  const otherPhotoUpload = await otherAuth.client.storage.from("profile-media").upload(otherPhotoPath, png, { contentType: "image/png", upsert: false });
+  assert.ifError(otherPhotoUpload.error, "Account 2 can upload its own connection-photo fixture");
+  const otherPersonalMode = await otherAuth.client.from("profile_modes").update({ image_path: otherPhotoPath }).eq("profile_id", otherId).eq("slug", "personal").select("id").single();
+  assert.ifError(otherPersonalMode.error, "Account 2 can attach its own photo to Personal Mode");
 
   // A registered visitor connects with their own selected share-back Mode.
   await otherPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
@@ -875,6 +880,20 @@ try {
   const otherConnection = (await otherAuth.client.from("connections").select("id").eq("id", registeredDetailHref?.split("/").at(-1) ?? "").single()).data;
   assert(otherConnection, "Account 2 should see the registered relationship it created");
   const ownerConnectionId = registeredDetailHref?.split("/").at(-1) ?? "";
+  const ownerConnectionRow = otherPage.locator(`a[href="/app/connections/${ownerConnectionId}"]`);
+  const ownerConnectionPhoto = ownerConnectionRow.locator("img");
+  await ownerConnectionPhoto.waitFor();
+  assert.equal(await ownerConnectionPhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Connections list should show the registered counterpart's published profile photo");
+  assert((await ownerConnectionPhoto.getAttribute("src"))?.includes(`/profile-media/${ownerId}/`), "Connection avatar must resolve the counterpart's image, not the viewer's image");
+  await otherPage.goto(`${appUrl}/app`);
+  const homeConnectionRow = otherPage.locator(`a[href="/app/connections/${ownerConnectionId}"]`);
+  await homeConnectionRow.waitFor();
+  const homeConnectionPhoto = homeConnectionRow.locator("img");
+  await homeConnectionPhoto.waitFor({ state: "attached" });
+  await homeConnectionPhoto.scrollIntoViewIfNeeded();
+  await homeConnectionPhoto.evaluate((img) => img.decode());
+  assert.equal(await homeConnectionPhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Home People avatar should load the counterpart's published profile photo");
+  assert((await homeConnectionPhoto.getAttribute("src"))?.includes(`/profile-media/${ownerId}/`), "Home People avatar must resolve the registered counterpart's image");
   await otherPage.goto(`${appUrl}${registeredDetailHref}`);
   await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
   await otherPage.getByText("Founder · Northlight", { exact: true }).waitFor();
@@ -885,6 +904,14 @@ try {
   const eventModePhoto = otherPage.locator('img[alt="Aanya Rao · Event Mode"]');
   await eventModePhoto.waitFor();
   assert.equal(await eventModePhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Event identity should fall back to the published Personal Mode photo");
+  assert((await eventModePhoto.getAttribute("src"))?.includes(`/${imagePath}`), "Event Mode without its own image should use the counterpart's Personal photo");
+  const ownerEventPhotoPath = `${ownerId}/${crypto.randomUUID()}.png`;
+  assert.ifError((await ownerAuth.client.storage.from("profile-media").upload(ownerEventPhotoPath, png, { contentType: "image/png", upsert: false })).error);
+  assert.ifError((await ownerAuth.client.from("profile_modes").update({ image_path: ownerEventPhotoPath }).eq("profile_id", ownerId).eq("slug", "event")).error);
+  await otherPage.reload();
+  const eventSpecificPhoto = otherPage.locator('img[alt="Aanya Rao · Event Mode"]');
+  await eventSpecificPhoto.waitFor();
+  assert((await eventSpecificPhoto.getAttribute("src"))?.includes(`/${ownerEventPhotoPath}`), "Event Mode's own image should take precedence over Personal fallback");
   await mkdir(".next/home-qa", { recursive: true });
   await otherPage.screenshot({ path: ".next/home-qa/connection-detail-event-photo.png", fullPage: true });
 
@@ -905,7 +932,17 @@ try {
   await page.goto(`${appUrl}/app/connections/${ownerConnectionId}`);
   await page.getByText("Product Designer · Lumen Labs", { exact: true }).waitFor();
   await page.getByText("Berlin", { exact: true }).waitFor();
-  assert.equal(await page.locator("section img").count(), 0, "A counterpart without a public image should keep the existing plain header treatment");
+  const otherCounterpartPhoto = page.locator("section img");
+  await otherCounterpartPhoto.waitFor();
+  assert.equal(await otherCounterpartPhoto.evaluate((img) => img.complete && img.naturalWidth > 0), true, "Connection detail should show the registered counterpart's published Personal photo when the shared Business Mode has none");
+  assert((await otherCounterpartPhoto.getAttribute("src"))?.includes(`/${otherPhotoPath}`), "Connection detail must fall back to the counterpart's Personal image, not the viewer's image");
+  const otherBusinessPhotoPath = `${otherId}/${crypto.randomUUID()}.png`;
+  assert.ifError((await otherAuth.client.storage.from("profile-media").upload(otherBusinessPhotoPath, png, { contentType: "image/png", upsert: false })).error);
+  assert.ifError((await otherAuth.client.from("profile_modes").update({ image_path: otherBusinessPhotoPath }).eq("profile_id", otherId).eq("slug", "business")).error);
+  await page.reload();
+  const businessSpecificPhoto = page.locator("section img");
+  await businessSpecificPhoto.waitFor();
+  assert((await businessSpecificPhoto.getAttribute("src"))?.includes(`/${otherBusinessPhotoPath}`), "Business Mode's own image should take precedence over Personal fallback");
 
   // The reverse direction must reuse the same symmetric edge and append an encounter.
   await page.goto(`${appUrl}/${other.username}?mode=personal&source=link`);

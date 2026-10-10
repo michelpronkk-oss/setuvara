@@ -3,16 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { ConnectionMemoryEditor } from "@/components/connections/connection-memory-editor";
 import type { ModeSlug } from "@/components/profile/types";
+import { resolveConnectionProfiles, signHomeImage } from "@/lib/app/media";
 import { createClient } from "@/lib/supabase/server";
 
 type ConnectionDetailProps = { params: Promise<{ id: string }> };
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-type CurrentProfileMode = {
-  slug: ModeSlug;
-  is_enabled: boolean;
-  settings: Record<string, unknown>;
-  image_path: string | null;
-};
 
 export default async function ConnectionDetailPage({ params }: ConnectionDetailProps) {
   const { id } = await params;
@@ -29,9 +24,8 @@ export default async function ConnectionDetailPage({ params }: ConnectionDetailP
     .eq("id", id).maybeSingle();
   if (!connection) notFound();
   const counterpartId = connection.user_id === userId ? connection.connected_user_id : connection.user_id;
-  const [{ data: counterpart }, { data: currentModes }, { data: encounters }, { data: note }] = await Promise.all([
+  const [{ data: counterpart }, { data: encounters }, { data: note }] = await Promise.all([
     counterpartId ? supabase.from("profiles").select("id,username,display_name,bio").eq("id", counterpartId).eq("is_published", true).maybeSingle() : Promise.resolve({ data: null }),
-    counterpartId ? supabase.from("profile_modes").select("slug,is_enabled,settings,image_path").eq("profile_id", counterpartId).in("slug", ["personal", "event", "business"]) : Promise.resolve({ data: [] }),
     supabase.from("connection_encounters").select("id,connection_id,created_by_user_id,shared_by_user_id,shared_mode_slug,share_back_mode_slug,shared_display_name,shared_role,shared_company,share_back_display_name,share_back_role,share_back_company,event_name,city,date_label,source,created_at").eq("connection_id", id).order("created_at", { ascending: false }),
     supabase.from("connection_notes").select("note").eq("connection_id", id).eq("user_id", userId).maybeSingle(),
   ]);
@@ -46,9 +40,9 @@ export default async function ConnectionDetailPage({ params }: ConnectionDetailP
     : latest.shared_display_name ?? connection.user_display_name_snapshot;
   const displayName = counterpart?.display_name ?? (connection.connected_user_id ? snapshotName : connection.guest_display_name ?? connection.connected_display_name_snapshot);
   const mode = counterpartModeSlug(viewerIsSharedBy ? latest.share_back_mode_slug : latest.shared_mode_slug, latest.shared_mode_slug);
-  const modeRows = (currentModes ?? []) as unknown as CurrentProfileMode[];
-  const currentMode = modeRows.find((item) => item.slug === mode && item.is_enabled);
-  const personalMode = modeRows.find((item) => item.slug === "personal" && item.is_enabled);
+  const resolvedCounterpart = await resolveConnectionProfiles(supabase, [{ connectionId: id, profileId: counterpartId, mode }]);
+  const modeRows = counterpartId ? resolvedCounterpart.modesByProfile.get(counterpartId) : undefined;
+  const currentMode = modeRows?.get(mode);
   const currentSettings = currentMode?.settings ?? {};
   const role = readText(currentSettings, "role") ?? (viewerIsSharedBy ? latest.share_back_role : latest.shared_role);
   const company = readText(currentSettings, "company") ?? (viewerIsSharedBy ? latest.share_back_company : latest.shared_company);
@@ -58,9 +52,7 @@ export default async function ConnectionDetailPage({ params }: ConnectionDetailP
     ? [counterpart?.bio?.trim(), readText(currentSettings, "note")].filter(Boolean).join(" · ")
     : mode === "event" ? readText(currentSettings, "hereToMeet") : readText(currentSettings, "description");
   const latestContext = contextMap.get(latest.id);
-  const imagePaths = [...new Set([currentMode?.image_path, personalMode?.image_path].filter((path): path is string => Boolean(path)))];
-  const imageResults = await Promise.all(imagePaths.map((path) => supabase.storage.from("profile-media").createSignedUrl(path, 3600)));
-  const counterpartImageUrl = imageResults.find((result) => !result.error && result.data?.signedUrl)?.data?.signedUrl ?? null;
+  const counterpartImageUrl = await signHomeImage(supabase, resolvedCounterpart.imagePathsByConnection.get(id));
   const modeLabel = mode[0].toUpperCase() + mode.slice(1);
 
   return (
