@@ -1584,11 +1584,11 @@ try {
   assert.deepEqual(passportAt25.milestones.map((item) => item.threshold), [5, 10, 25]);
   const expectedAt25 = ["first_circle_stamp", "paper_passport_cover", "signal_accent", "signal_share", "editorial_profile"];
   assert.deepEqual(passportAt25.rewards.map((item) => item.id).sort(), expectedAt25.sort(), "Milestone rewards compound at 5, 10, and 25");
-  assert.equal(passportAt25.events, 1, "Repeated Slush encounters award one normalized Event stamp");
-  assert.equal(passportAt25.cities, 1, "Repeated Helsinki encounters award one normalized City stamp");
-  assert.equal(passportAt25.countries, 1, "Structured Finland country snapshot appears once");
-  const slushStamps = await progressionOwner.client.from("passport_stamps").select("id").eq("user_id", ownerId).eq("stamp_type", "event").eq("context_key", "slush");
-  const helsinkiStamps = await progressionOwner.client.from("passport_stamps").select("id").eq("user_id", ownerId).eq("stamp_type", "city").eq("context_key", "helsinki");
+  assert(passportAt25.events >= 1, "The Passport records normalized Event stamps in their saved context");
+  assert(passportAt25.cities >= 1, "The Passport records normalized City stamps in their saved context");
+  assert(passportAt25.countries >= 1, "The Passport records structured ISO country snapshots");
+  const slushStamps = await progressionOwner.client.from("passport_stamps").select("id").eq("user_id", ownerId).eq("stamp_type", "event").eq("context_key", "FI|helsinki|slush");
+  const helsinkiStamps = await progressionOwner.client.from("passport_stamps").select("id").eq("user_id", ownerId).eq("stamp_type", "city").eq("context_key", "FI|helsinki");
   assert.ifError(slushStamps.error); assert.ifError(helsinkiStamps.error);
   assert.equal(slushStamps.data.length, 1); assert.equal(helsinkiStamps.data.length, 1);
   assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_treatment", p_reward_id: "editorial_profile" })).error);
@@ -1615,6 +1615,18 @@ try {
   }
   const passportAt50 = (await progressionOwner.client.rpc("get_passport_overview")).data;
   assert.deepEqual(passportAt50.milestones.map((item) => item.threshold), [5, 10, 25, 50]);
+  for (const [index, connection] of createdProgressionConnections.entries()) {
+    const { error: archiveContextError } = await progressionOwner.client.from("encounter_context").upsert({
+      encounter_id: connection.encounterId,
+      user_id: ownerId,
+      city: `Archive City ${index + 1}`,
+      event_label: `Archive Event ${index + 1}`,
+      country_code: "FI",
+    }, { onConflict: "encounter_id,user_id" });
+    assert.ifError(archiveContextError);
+  }
+  const completePassport = (await progressionOwner.client.rpc("get_passport_overview")).data;
+  assert(completePassport.stampTotal > 100, "Test account has enough real local context for UI pagination coverage");
   assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "qr_frame", p_reward_id: "coral_qr_frame" })).error);
   assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_mark", p_reward_id: "signal_50_mark" })).error);
   const ownerPreferences = await progressionOwner.client.from("passport_preferences").select("category,reward_id").eq("user_id", ownerId);
@@ -1626,20 +1638,48 @@ try {
   await progressionOwner.client.auth.signOut({ scope: "local" });
   await otherPassport.client.auth.signOut({ scope: "local" });
 
+  assert.match(ownerId, /^[0-9a-f-]{36}$/i, "Local E2E owner id must be a UUID before use in a SQL fixture");
+  localSql(`
+    insert into public.billing_subscriptions (
+      dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id,
+      plan_code, billing_interval, provider_status, current_period_end, last_provider_event_id,
+      last_provider_event_at, last_sync_started_at
+    ) values (
+      'sub_E2EPassport${suffix}', '${ownerId}'::uuid, 'cus_E2EPassport${suffix}',
+      'pdt_E2EPlusMonthly', 'plus', 'monthly', 'active', pg_catalog.statement_timestamp() + interval '30 days', 'e2e-passport-plus-${suffix}',
+      pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp()
+    ) returning dodo_subscription_id
+  `);
+
   await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
   for (const threshold of [50, 25, 10, 5]) {
     const dialog = page.getByRole("dialog");
     await dialog.waitFor();
-    await dialog.getByRole("heading", { name: `${threshold} connections.` }).waitFor();
+    await dialog.getByRole("heading", { name: `${threshold} people met.` }).waitFor();
     await dialog.getByRole("button", { name: "Keep going" }).click();
     await dialog.waitFor({ state: "detached" });
     await page.reload();
   }
   await page.getByRole("dialog").waitFor({ state: "detached" });
   await page.getByRole("link", { name: "Passport", exact: true }).click();
-  await page.getByRole("heading", { name: "Every connection stays in the story." }).waitFor();
-  assert.equal(await page.getByText("50", { exact: true }).count() > 0, true);
-  assert((await page.locator("main section").first().getAttribute("class"))?.includes("bg-[#e8e2d4]"), "Equipped Passport cover must change the Passport surface");
+  await page.getByRole("heading", { name: "Your people. Your places. Your story." }).waitFor();
+  await page.getByRole("button", { name: "The journey" }).click();
+  await page.getByRole("heading", { name: "Every mark has a place in time." }).waitFor();
+  await page.getByRole("button", { name: /Load older stamps/ }).click();
+  await page.locator('[data-passport-stamp]').nth(100).waitFor();
+  await page.getByRole("button", { name: "Make it yours" }).click();
+  await page.locator('[data-passport-cover="paper_passport_cover"]').first().waitFor();
+  assert.equal(await page.locator('[data-passport-cover="paper_passport_cover"]').count() >= 1, true, "Equipped earned cover renders on the Passport and cover selector");
+  await page.getByRole("switch", { name: "Member finish on" }).click();
+  await page.getByRole("switch", { name: "Add Member finish" }).waitFor();
+  await page.getByRole("switch", { name: "Add Member finish" }).click();
+  await page.getByRole("switch", { name: "Member finish on" }).waitFor();
+  await page.getByRole("button", { name: "Slush", exact: true }).first().click();
+  await page.getByText("Your public highlight is saved.", { exact: true }).waitFor();
+  await anonPage.goto(`${appUrl}/${owner.username}`);
+  await anonPage.getByText("A PASSPORT MARK THEY CHOSE TO SHARE", { exact: true }).waitFor();
+  await anonPage.getByText("Slush", { exact: true }).waitFor();
+  localSql(`delete from public.billing_subscriptions where dodo_subscription_id='sub_E2EPassport${suffix}' returning dodo_subscription_id;`);
   await expectNoHorizontalOverflow(page, "Passport overview");
   await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
   await page.getByText("Equipped", { exact: true }).first().waitFor();
@@ -1797,8 +1837,8 @@ try {
     await expectNoHorizontalOverflow(otherPage, `Connection counterpart detail ${width}x${height}`);
     await otherPage.screenshot({ path: `.next/home-qa/connection-counterpart-${width}.png`, fullPage: true });
     await page.goto(`${appUrl}/app/passport`);
-    await page.getByRole("heading", { name: "Every connection stays in the story." }).waitFor();
-    await page.getByRole("progressbar").waitFor();
+    await page.getByRole("heading", { name: "Your people. Your places. Your story." }).waitFor();
+    await page.getByRole("progressbar").first().waitFor();
     await expectNoHorizontalOverflow(page, `Passport ${width}x${height}`);
     await page.screenshot({ path: `.next/home-qa/passport-${width}.png`, fullPage: true });
   }

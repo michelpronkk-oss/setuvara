@@ -15,6 +15,7 @@ import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
+import { PassportStamp, type PassportStampType } from "@/components/passport/passport-stamp";
 import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/server";
@@ -101,7 +102,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const { profile, mode: rawMode, plan } = record;
   const supabase = await createClient();
 
-  const [{ data: publicCosmetics }, { data: links, error: linksError }] = await Promise.all([
+  const [{ data: publicCosmetics }, { data: links, error: linksError }, { data: passportHighlight }] = await Promise.all([
     supabase.from("passport_preferences")
       .select("category,reward_id")
       .eq("user_id", profile.id)
@@ -112,6 +113,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
       .eq("mode_id", rawMode.id)
       .eq("is_visible", true)
       .order("sort_order"),
+    supabase.rpc("get_public_passport_featured_stamp", { p_username: username }),
   ]);
   // Member status and premium presentation come from canonical billing, never profile data.
   const memberTier = memberTierForPlan(plan);
@@ -228,6 +230,9 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const pageTone = profileTone(mode, plan);
   const browserThemeColor = resolvedBrowserThemeColor(mode, plan);
   const resolvedLook = resolveAppearance(mode, plan);
+  const sharedPassportStamp = passportHighlight && typeof passportHighlight === "object"
+    ? passportHighlight as { type: PassportStampType; title: string; subtitle: string | null; countryCode: string | null }
+    : null;
 
   return (
     <main data-public-profile-surface="true" data-public-profile-theme={resolvedLook.theme} data-public-profile-layout={resolvedLook.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:px-0 max-sm:py-0" : ""}`} style={{ "--page-bg": browserThemeColor } as React.CSSProperties}>
@@ -259,8 +264,18 @@ export default async function PublicProfilePage({ params, searchParams }: Public
             accent={resolveModeAccent(mode)}
           /> : undefined}
         />
+        {sharedPassportStamp && <aside aria-label="A Passport stamp they chose to share" className="mt-4 flex items-center gap-4 rounded-[24px] border border-black/10 bg-white/85 p-4 shadow-sm">
+          <PassportStamp type={sharedPassportStamp.type} title={sharedPassportStamp.title} subtitle={sharedPassportStamp.subtitle} status="earned" rotationKey={`${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`} />
+          <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] text-black/45">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/55">{sharedPassportStamp.subtitle}</p>}</div>
+        </aside>}
         <p className={`mt-5 text-center font-label text-[10px] tracking-wide text-black/40 ${bleed ? `max-sm:mt-0 max-sm:pb-8 ${pageTone.dark ? "max-sm:text-white/40" : ""}` : ""}`}>Your identity, your context. Shared with Setuvara.</p>
       </div>
     </main>
   );
+}
+
+function publicPassportStampTitle(stamp: { type: PassportStampType; title: string; countryCode: string | null }) {
+  if (stamp.type !== "country" || !stamp.countryCode) return stamp.title;
+  try { return new Intl.DisplayNames(["en"], { type: "region" }).of(stamp.countryCode) ?? stamp.title; }
+  catch { return stamp.title; }
 }

@@ -19,7 +19,26 @@ export default async function PassportPage() {
     getViewerPlan(userId),
   ]);
   if (!profile || error || !result) return <PassportError />;
-  const data = result as unknown as PassportData;
+  const overview = result as Partial<PassportData>;
+  const stamps = Array.isArray(overview.stamps) ? overview.stamps : [];
+  const data: PassportData = {
+    connectionCount: overview.connectionCount ?? 0,
+    cities: overview.cities ?? 0,
+    events: overview.events ?? 0,
+    countries: overview.countries ?? 0,
+    stampTotal: overview.stampTotal ?? stamps.length,
+    hasMoreStamps: overview.hasMoreStamps ?? stamps.length >= 100,
+    milestones: Array.isArray(overview.milestones) ? overview.milestones : [],
+    rewards: Array.isArray(overview.rewards) ? overview.rewards : [],
+    stamps,
+    preferences: overview.preferences ?? {},
+    presentation: overview.presentation ?? {
+      coverId: "standard",
+      memberFinishEnabled: null,
+      featuredStampId: null,
+      featuredStamp: null,
+    },
+  };
   const unseen = data.milestones.filter((item) => !item.seenAt).at(-1);
   return <><PassportDashboard initialData={data} username={profile.username} displayName={profile.display_name} plan={billing.plan} publicOrigin={publicOrigin} /><CelebrationClient threshold={unseen?.threshold ?? null} name={unseen ? milestoneName(unseen.threshold) : null} /></>;
 }
