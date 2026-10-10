@@ -8,7 +8,7 @@ import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { isFullBleed, ProfileRenderer, profileTone } from "@/components/profile/profile-renderer";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import { readableBlocks } from "@/lib/blocks/registry";
+import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -71,13 +71,13 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   if (linksError) notFound();
 
   // Blocks are optional content: if they can't load, the profile still renders.
-  const { data: blockRows } = await supabase
+  const { data: blockRows } = await selectBlocks("id, kind, data, is_visible, sort_order", (columns) => supabase
     .from("profile_blocks")
-    .select("id, kind, data, is_visible, sort_order")
+    .select(columns)
     .eq("profile_id", profile.id)
     .eq("mode_id", rawMode.id)
     .eq("is_visible", true)
-    .order("sort_order");
+    .order("sort_order"));
 
   let imageUrl: string | null = null;
   if (rawMode.image_path) {

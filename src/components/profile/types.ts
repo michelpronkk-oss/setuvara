@@ -25,6 +25,8 @@ export type ProfileBlock = {
   data: Record<string, unknown>;
   is_visible: boolean;
   sort_order: number;
+  /** This music block is the Mode's profile soundtrack (at most one per Mode). */
+  is_soundtrack?: boolean;
 };
 
 export type ModeAppearance = {

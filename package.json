@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "e2e:local": "node scripts/run-local-e2e.mjs",
+    "e2e:soundtrack": "node scripts/e2e-soundtrack.mjs",
     "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs",
     "test:billing:integration": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-billing-database.ps1",
     "smoke:billing:hosted": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-hosted-billing.ps1",

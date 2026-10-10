@@ -5,7 +5,7 @@
  */
 
 export type VideoProvider = "youtube" | "vimeo" | "tiktok" | "loom" | "instagram";
-export type MusicProvider = "spotify" | "apple_music" | "soundcloud";
+export type MusicProvider = "spotify" | "apple_music" | "soundcloud" | "youtube_music" | "deezer";
 
 export type VideoMedia = {
   provider: VideoProvider;
@@ -20,13 +20,21 @@ export type VideoMedia = {
 
 export type MusicMedia = {
   provider: MusicProvider;
+  /** track, album, playlist, artist, song… as the provider names it. */
+  type: string;
+  /** Provider id of the item (YouTube video id, Spotify id, Deezer id…). */
+  id: string;
   url: string;
   embedUrl: string;
   height: number;
+  /** Known without a network call (YouTube Music only). */
+  artwork: string | null;
+  /** Whether this link can be a profile soundtrack (a playable track, album or playlist). */
+  soundtrack: boolean;
 };
 
 export const VIDEO_PROVIDER_NAMES: Record<VideoProvider, string> = { youtube: "YouTube", vimeo: "Vimeo", tiktok: "TikTok", loom: "Loom", instagram: "Instagram" };
-export const MUSIC_PROVIDER_NAMES: Record<MusicProvider, string> = { spotify: "Spotify", apple_music: "Apple Music", soundcloud: "SoundCloud" };
+export const MUSIC_PROVIDER_NAMES: Record<MusicProvider, string> = { spotify: "Spotify", apple_music: "Apple Music", soundcloud: "SoundCloud", youtube_music: "YouTube Music", deezer: "Deezer" };
 
 function toUrl(input: string): URL | null {
   const value = input.trim();
@@ -48,7 +56,7 @@ export function parseVideo(input: string): VideoMedia | null {
   const h = host(url);
   const parts = url.pathname.split("/").filter(Boolean);
 
-  if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com" || h === "music.youtube.com") {
+  if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com") {
     let id: string | null = null;
     let vertical = false;
     if (h === "youtu.be") id = parts[0] ?? null;
@@ -110,21 +118,39 @@ export function parseMusic(input: string): MusicMedia | null {
     const clean = parts[0]?.startsWith("intl-") ? parts.slice(1) : parts;
     const [type, id] = clean[0] === "embed" ? clean.slice(1) : clean;
     if (!["track", "album", "playlist", "artist", "episode", "show"].includes(type ?? "") || !id || !/^[A-Za-z0-9]{10,32}$/.test(id)) return null;
-    return { provider: "spotify", url: `https://open.spotify.com/${type}/${id}`, embedUrl: `https://open.spotify.com/embed/${type}/${id}?utm_source=setuvara`, height: type === "track" || type === "episode" ? 152 : 352 };
+    return { provider: "spotify", type, id, url: `https://open.spotify.com/${type}/${id}`, embedUrl: `https://open.spotify.com/embed/${type}/${id}?utm_source=setuvara`, height: type === "track" || type === "episode" ? 152 : 352, artwork: null, soundtrack: ["track", "album", "playlist", "artist"].includes(type) };
   }
 
   if (h === "music.apple.com" || h === "embed.music.apple.com") {
     if (parts.length < 3 || !/^[a-z]{2}$/.test(parts[0])) return null;
     const path = `${url.pathname}${url.search}`;
     const song = url.searchParams.has("i") || parts[1] === "song";
-    return { provider: "apple_music", url: `https://music.apple.com${path}`, embedUrl: `https://embed.music.apple.com${path}`, height: song ? 175 : 450 };
+    const songId = url.searchParams.get("i") ?? (parts[1] === "song" ? parts.at(-1) : null);
+    const albumId = parts[1] === "album" ? parts.at(-1) : null;
+    const id = (song ? songId : albumId) ?? "";
+    return { provider: "apple_music", type: song ? "song" : parts[1], id, url: `https://music.apple.com${path}`, embedUrl: `https://embed.music.apple.com${path}`, height: song ? 175 : 450, artwork: null, soundtrack: /^\d{4,15}$/.test(id) };
   }
 
   if (h === "soundcloud.com" || h === "on.soundcloud.com") {
     if (!parts.length) return null;
     const canonical = `https://soundcloud.com/${parts.join("/")}`;
     const set = parts[1] === "sets";
-    return { provider: "soundcloud", url: canonical, embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(canonical)}&color=%23ff5a4f&auto_play=false&hide_related=true&show_comments=false&show_reposts=false&visual=false`, height: set ? 300 : 166 };
+    // A bare profile link plays the artist's tracks; short links resolve inside the player.
+    return { provider: "soundcloud", type: set ? "playlist" : parts.length > 1 ? "track" : "artist", id: parts.join("/"), url: canonical, embedUrl: `https://w.soundcloud.com/player/?url=${encodeURIComponent(canonical)}&color=%23ff5a4f&auto_play=false&hide_related=true&show_comments=false&show_reposts=false&visual=false`, height: set ? 300 : 166, artwork: null, soundtrack: true };
+  }
+
+  // YouTube Music tracks only: normal YouTube links stay video blocks.
+  if (h === "music.youtube.com") {
+    const id = parts[0] === "watch" ? url.searchParams.get("v") : null;
+    if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+    return { provider: "youtube_music", type: "track", id, url: `https://music.youtube.com/watch?v=${id}`, embedUrl: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&controls=0`, height: 96, artwork: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`, soundtrack: true };
+  }
+
+  if (h === "deezer.com" || h === "widget.deezer.com") {
+    const clean = parts.filter((part) => !/^[a-z]{2}(-[a-z]{2})?$/i.test(part) && part !== "widget" && part !== "dark" && part !== "light" && part !== "auto");
+    const [type, id] = clean;
+    if (!["track", "album", "playlist", "artist"].includes(type ?? "") || !id || !/^\d{1,15}$/.test(id)) return null;
+    return { provider: "deezer", type, id, url: `https://www.deezer.com/${type}/${id}`, embedUrl: `https://widget.deezer.com/widget/auto/${type}/${id}`, height: type === "track" ? 152 : 300, artwork: null, soundtrack: type !== "artist" };
   }
 
   return null;
@@ -140,6 +166,8 @@ export function oembedEndpoint(url: string): string | null {
   const music = parseMusic(url);
   if (music?.provider === "spotify") return `https://open.spotify.com/oembed?url=${encodeURIComponent(music.url)}`;
   if (music?.provider === "soundcloud") return `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(music.url)}`;
+  if (music?.provider === "youtube_music") return `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${music.id}`)}`;
+  if (music?.provider === "deezer") return `https://api.deezer.com/oembed?format=json&url=${encodeURIComponent(music.url)}`;
   return null;
 }
 

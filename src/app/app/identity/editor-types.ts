@@ -53,8 +53,10 @@ export type EditorApi = {
   deleteLink: (link: ProfileLink) => void;
   reorderLinks: (ordered: ProfileLink[]) => void;
   copyLinksFrom: (slug: ModeSlug) => Promise<void>;
-  addBlock: (kind: BlockKind, data: Record<string, unknown>) => Promise<string | null>;
-  updateBlock: (block: ProfileBlock, data: Record<string, unknown>) => Promise<string | null>;
+  addBlock: (kind: BlockKind, data: Record<string, unknown>, options?: { soundtrack?: boolean }) => Promise<string | null>;
+  updateBlock: (block: ProfileBlock, data: Record<string, unknown>, options?: { soundtrack?: boolean }) => Promise<string | null>;
+  /** Make a music block its Mode's soundtrack (replacing the last one), or remove that role. */
+  setSoundtrack: (block: ProfileBlock, on: boolean) => void;
   toggleBlock: (block: ProfileBlock) => void;
   deleteBlock: (block: ProfileBlock) => void;
   reorderBlocks: (ordered: ProfileBlock[]) => void;

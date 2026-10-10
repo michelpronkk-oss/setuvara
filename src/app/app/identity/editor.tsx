@@ -385,54 +385,73 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   // ---------- Blocks ----------
   const setBlocks = useCallback((modeId: string, blocks: ProfileBlock[]) => patchMode(modeId, { blocks }), [patchMode]);
   const blocksOf = (modeId: string) => modesRef.current.find((item) => item.id === modeId)?.blocks ?? [];
+  /** Mirrors the database rule: one soundtrack per Mode, and making one clears the last. */
+  const withSoundtrack = (blocks: ProfileBlock[], id: string, on: boolean) => blocks.map((item) => item.id === id ? { ...item, is_soundtrack: on } : on ? { ...item, is_soundtrack: false } : item);
 
-  const insertBlock = useCallback(async (target: ProfileMode, kind: BlockKind, data: Record<string, unknown>, isVisible = true) => {
+  const insertBlock = useCallback(async (target: ProfileMode, kind: BlockKind, data: Record<string, unknown>, isVisible = true, isSoundtrack = false) => {
     const check = validateBlock(kind, data);
     if (!check.ok) return { error: check.message, block: null };
     const existing = modesRef.current.find((item) => item.id === target.id)?.blocks ?? [];
     if (existing.length >= BLOCK_LIMIT) return { error: `A Mode can hold ${BLOCK_LIMIT} blocks. Remove one first.`, block: null };
     const sortOrder = existing.reduce((max, block) => Math.max(max, block.sort_order), -1) + 1;
     const { data: row, error: insertError } = await supabase.from("profile_blocks")
-      .insert({ profile_id: initialProfile.id, mode_id: target.id, kind, data: check.data, sort_order: sortOrder, is_visible: isVisible })
+      .insert({ profile_id: initialProfile.id, mode_id: target.id, kind, data: check.data, sort_order: sortOrder, is_visible: isVisible, ...(isSoundtrack ? { is_soundtrack: true } : {}) })
       .select("id, kind, data, is_visible, sort_order").single();
     if (insertError || !row) return { error: "That block couldn’t be added. Try again.", block: null };
-    const block = row as ProfileBlock;
-    setBlocks(target.id, [...(modesRef.current.find((item) => item.id === target.id)?.blocks ?? []), block]);
+    const block = { ...row, is_soundtrack: isSoundtrack && kind === "music" && isVisible } as ProfileBlock;
+    const current = [...(modesRef.current.find((item) => item.id === target.id)?.blocks ?? []), block];
+    setBlocks(target.id, block.is_soundtrack ? withSoundtrack(current, block.id, true) : current);
     return { error: null, block };
   }, [initialProfile.id, setBlocks, supabase]);
 
-  const addBlock = useCallback(async (kind: BlockKind, data: Record<string, unknown>) => {
+  const addBlock = useCallback(async (kind: BlockKind, data: Record<string, unknown>, options: { soundtrack?: boolean } = {}) => {
     let message: string | null = null;
-    await runNow(async () => { message = (await insertBlock(mode, kind, data)).error; return null; });
+    await runNow(async () => { message = (await insertBlock(mode, kind, data, true, Boolean(options.soundtrack))).error; return null; });
     if (message) { setStatus("saved"); return message; }
-    toast(`${BLOCKS[kind].name} added to ${modeMeta[mode.slug].name} Mode`);
+    toast(options.soundtrack ? `Soundtrack set for ${modeMeta[mode.slug].name} Mode` : `${BLOCKS[kind].name} added to ${modeMeta[mode.slug].name} Mode`);
     return null;
   }, [insertBlock, mode, runNow, toast]);
 
-  const updateBlock = useCallback(async (block: ProfileBlock, data: Record<string, unknown>) => {
+  const updateBlock = useCallback(async (block: ProfileBlock, data: Record<string, unknown>, options: { soundtrack?: boolean } = {}) => {
     const check = validateBlock(block.kind, data);
     if (!check.ok) return check.message;
     const target = mode;
+    const soundtrack = options.soundtrack !== undefined && options.soundtrack !== Boolean(block.is_soundtrack) ? options.soundtrack && block.is_visible : undefined;
     let message: string | null = null;
     await runNow(async () => {
-      const { error: updateError } = await supabase.from("profile_blocks").update({ data: check.data }).eq("id", block.id).eq("profile_id", initialProfile.id);
+      const { error: updateError } = await supabase.from("profile_blocks").update({ data: check.data, ...(soundtrack !== undefined ? { is_soundtrack: soundtrack } : {}) }).eq("id", block.id).eq("profile_id", initialProfile.id);
       if (updateError) { message = "That block couldn’t be saved. Try again."; return null; }
-      setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, data: check.data } : item));
+      const updated = blocksOf(target.id).map((item) => item.id === block.id ? { ...item, data: check.data } : item);
+      setBlocks(target.id, soundtrack !== undefined ? withSoundtrack(updated, block.id, soundtrack) : updated);
       return null;
     });
+    if (!message && soundtrack !== undefined) toast(soundtrack ? `Soundtrack set for ${modeMeta[target.slug].name} Mode` : `${modeMeta[target.slug].name} Mode has no soundtrack now`);
     return message;
-  }, [initialProfile.id, mode, runNow, setBlocks, supabase]);
+  }, [initialProfile.id, mode, runNow, setBlocks, supabase, toast]);
+
+  const setSoundtrack = useCallback((block: ProfileBlock, on: boolean) => {
+    const target = mode;
+    const before = blocksOf(target.id);
+    setBlocks(target.id, withSoundtrack(before, block.id, on));
+    void runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_blocks").update({ is_soundtrack: on }).eq("id", block.id).eq("profile_id", initialProfile.id);
+      if (updateError) { setBlocks(target.id, before); return "The soundtrack couldn’t be saved."; }
+      return null;
+    }).then((failure) => { if (!failure) toast(on ? `Soundtrack set for ${modeMeta[target.slug].name} Mode` : `${modeMeta[target.slug].name} Mode has no soundtrack now`); });
+  }, [initialProfile.id, mode, runNow, setBlocks, supabase, toast]);
 
   const toggleBlock = useCallback((block: ProfileBlock) => {
     const target = mode;
     const visible = !block.is_visible;
-    setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, is_visible: visible } : item));
+    // A hidden block can't be the soundtrack: the database clears it too.
+    const wasSoundtrack = Boolean(block.is_soundtrack);
+    setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, is_visible: visible, is_soundtrack: visible ? item.is_soundtrack : false } : item));
     void runNow(async () => {
       const { error: updateError } = await supabase.from("profile_blocks").update({ is_visible: visible }).eq("id", block.id).eq("profile_id", initialProfile.id);
-      if (updateError) { setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, is_visible: !visible } : item)); return "That block couldn’t be updated."; }
+      if (updateError) { setBlocks(target.id, blocksOf(target.id).map((item) => item.id === block.id ? { ...item, is_visible: !visible, is_soundtrack: wasSoundtrack } : item)); return "That block couldn’t be updated."; }
       return null;
-    });
-  }, [initialProfile.id, mode, runNow, setBlocks, supabase]);
+    }).then((failure) => { if (!failure && wasSoundtrack && !visible) toast(`Music hidden. ${modeMeta[target.slug].name} Mode has no soundtrack now`); });
+  }, [initialProfile.id, mode, runNow, setBlocks, supabase, toast]);
 
   const reorderBlocks = useCallback((ordered: ProfileBlock[]) => {
     const target = mode;
@@ -458,9 +477,9 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       return null;
     }).then((failure) => {
       if (failure) return;
-      toast(`${BLOCKS[block.kind].name} deleted`, { label: "Undo", run: () => {
+      toast(`${block.is_soundtrack ? "Soundtrack" : BLOCKS[block.kind].name} deleted`, { label: "Undo", run: () => {
         void runNow(async () => {
-          const result = await insertBlock(target, block.kind, block.data, block.is_visible);
+          const result = await insertBlock(target, block.kind, block.data, block.is_visible, Boolean(block.is_soundtrack));
           if (result.error || !result.block) return result.error ?? "That block couldn’t be restored.";
           const others = blocksOf(target.id).filter((item) => item.id !== result.block!.id);
           others.splice(Math.min(index, others.length), 0, result.block);
@@ -562,7 +581,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto,
     updateProfile, updateSetting, updateAppearance, setModeEnabled, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
-    addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks,
+    addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
     pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
   };
 

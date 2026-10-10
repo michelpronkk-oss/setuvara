@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { cookies } from "next/headers";
 
 import type { ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import { readableBlocks } from "@/lib/blocks/registry";
+import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { createClient } from "@/lib/supabase/server";
 
 import { signOut } from "./actions";
@@ -31,7 +31,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
-    supabase.from("profile_blocks").select("id, mode_id, kind, data, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
+    selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).order("sort_order")),
     supabase.rpc("get_passport_overview"),
   ]);
 
@@ -61,7 +61,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       image_url: signed?.signedUrl ?? null,
       links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
       // Blocks are optional: an older database without them still opens the editor.
-      blocks: readableBlocks((blocksResult.data ?? []).filter((block) => block.mode_id === mode.id)),
+      blocks: readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)),
     };
   }));
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";
