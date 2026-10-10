@@ -7,6 +7,7 @@ import { z } from "zod";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import { isModeLayout, isValidAppearance } from "@/components/profile/appearance";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
@@ -20,7 +21,7 @@ import { CropDialog, cropToBlob } from "./editor-crop";
 import { FullPreview, PreviewPane } from "./editor-preview";
 import { ContentSection } from "./editor-content";
 import { AppearanceSection, HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
-import { MODE_SLUGS, SECTIONS, SETTING_KEYS, LAYOUTS, type EditableProfile, type EditorApi, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
+import { MODE_SLUGS, SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
 import { modeMeta } from "./editor-ui";
 
 type EditorProps = {
@@ -242,7 +243,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       settings[key] = value.trim();
     }
     const appearance = current.appearance;
-    if (!validAppearance(current.slug, appearance)) return "That look isn’t available for this Mode.";
+    if (!isValidAppearance(current.slug, appearance)) return "That look isn’t available for this Mode.";
     const { error: updateError } = await supabase.from("profile_modes").update({ settings, appearance }).eq("id", modeId).eq("profile_id", initialProfile.id);
     return updateError ? `${modeMeta[current.slug].name} Mode couldn’t be saved. Try again.` : null;
   }, [initialProfile.id, supabase]);
@@ -256,7 +257,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   const updateAppearance = useCallback((patch: Partial<ModeAppearance>) => {
     const current = modesRef.current.find((item) => item.slug === slug);
-    if (!current) return;
+    // A layout only ever applies to the Mode it belongs to.
+    if (!current || (patch.layout !== undefined && !isModeLayout(current.slug, patch.layout))) return;
     patchMode(current.id, { appearance: { ...current.appearance, ...patch } });
     schedule(`mode:${current.id}`, saveModeTask(current.id));
   }, [patchMode, saveModeTask, schedule, slug]);
@@ -858,12 +860,5 @@ function Avatar({ mode, name }: { mode: ProfileMode; name: string }) {
       {mode.image_url ? <img alt="" className="absolute inset-0 size-full object-cover" src={mode.image_url} /> : (name.trim()[0] ?? "S").toUpperCase()}
     </span>
   );
-}
-
-function validAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  return ["light", "dark", "editorial"].includes(appearance.theme)
-    && /^#[\da-f]{6}$/i.test(appearance.accent)
-    && LAYOUTS[slug].some((layout) => layout.value === appearance.layout)
-    && ["full-bleed", "portrait", "compact"].includes(appearance.imageTreatment);
 }
 
