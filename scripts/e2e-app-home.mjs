@@ -91,6 +91,10 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     await image.waitFor();
     await image.evaluate((img) => img.decode());
     assert(await image.evaluate((img) => img.naturalWidth > 0), "Home photo must load");
+    assert.equal(await image.evaluate((img) => getComputedStyle(img).objectPosition), "50% 0%", "Home crop must keep the top of a portrait visible");
+    const fullPhoto = await page.getByRole("link", { name: "View full Personal Mode photo", exact: true }).getAttribute("href");
+    assert(fullPhoto === await image.getAttribute("src"), "Full photo must open the complete saved image");
+    assert.equal((await anon.request.get(fullPhoto)).status(), 200, "Full photo must load");
 
     // Actual Mode state, URL precedence, remembered selection and keyboard radios.
     for (const slug of Object.keys(names)) {
@@ -218,10 +222,20 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
         const nameBox = await page.getByRole("region", { name: "Personal Mode", exact: true }).getByText(name, { exact: true }).boundingBox();
         assert(nameBox && nameBox.x >= stageBox.x && nameBox.x + nameBox.width <= stageBox.x + stageBox.width + 1, "Name must fit the stage");
         assert(nameBox.y >= stageBox.y + 64 && nameBox.y + nameBox.height <= stageBox.y + stageBox.height, "Name must not overlap the status or escape the stage");
+        // Exercise both actions even on desktops without a native OS Share API.
+        await page.evaluate(() => { navigator.share = async () => {}; });
         await shareButton(page).click();
         await fit(page, `Share ${label} ${width}`);
         const panel = await page.getByRole("dialog").boundingBox();
         assert(panel.x >= 0 && panel.x + panel.width <= width + 1);
+        for (const action of [page.getByRole("dialog").getByRole("button", { name: "Share link", exact: true }), page.getByRole("dialog").getByRole("link", { name: "Full-screen QR and downloads", exact: true })]) {
+          assert(await action.evaluate((node) => {
+            const button = node.getBoundingClientRect();
+            const range = document.createRange(); range.selectNodeContents(node);
+            const text = range.getBoundingClientRect();
+            return button.height >= 44 && text.left >= button.left + 10 && text.right <= button.right - 10 && text.top >= button.top + 6 && text.bottom <= button.bottom - 6;
+          }), "Share action labels must fit with padding and no clipping");
+        }
         if (label === "short" && width === 390) await page.getByRole("dialog").screenshot({ path: `${screenshots}/share-mobile.png` });
         await page.keyboard.press("Escape");
         if (label !== "unbroken") await page.screenshot({ path: `${screenshots}/home-${label}-${width}.png`, fullPage: true });

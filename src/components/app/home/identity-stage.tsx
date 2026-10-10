@@ -45,6 +45,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   const shareButton = useRef<HTMLButtonElement>(null);
   const mode = modes.find((item) => item.slug === slug) ?? modes[0];
   const live = isPublished && mode.enabled;
+  const hasPhoto = Boolean(mode.imageUrl && mode.imageUrl !== failedImage);
   const publicUrl = useCallback((target: ModeSlug, source?: string) => {
     // Same URL format as the Identity editor's publicUrl().
     const query = new URLSearchParams();
@@ -64,10 +65,10 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   return (
     <>
       <section aria-label={`${NAMES[slug]} Mode`} className="relative h-[min(62dvh,470px)] overflow-hidden rounded-[28px] bg-[#0d0d0d] text-[#f5f4ef] md:h-[560px] lg:h-full lg:rounded-[30px] [clip-path:polygon(0_0,100%_0,100%_calc(100%-44px),calc(100%-25px)_100%,0_100%)] lg:[clip-path:polygon(0_0,100%_0,100%_calc(100%-64px),calc(100%-37px)_100%,0_100%)]">
-        {mode.imageUrl && mode.imageUrl !== failedImage ? (
+        {hasPhoto ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element -- signed, resized Supabase URL */}
-            <img alt="" className="absolute inset-0 size-full object-cover [animation:fade-in_320ms_ease-out]" decoding="async" fetchPriority="high" key={mode.slug} onError={() => setFailedImage(mode.imageUrl)} src={mode.imageUrl} />
+            <img alt="" className="absolute inset-0 size-full object-cover object-top [animation:fade-in_320ms_ease-out]" decoding="async" fetchPriority="high" key={mode.slug} onError={() => setFailedImage(mode.imageUrl)} src={mode.imageUrl ?? undefined} />
             <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(13,13,13,.96)_0%,rgba(13,13,13,.7)_30%,rgba(13,13,13,0)_62%),linear-gradient(to_bottom,rgba(13,13,13,.5)_0%,rgba(13,13,13,0)_18%)]" />
           </>
         ) : (
@@ -84,7 +85,10 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <span aria-hidden="true" className="size-2 rounded-full" style={{ background: live ? "#C7FF4A" : "rgba(245,244,239,.4)" }} />
             <span className="hidden lg:inline">{NAMES[slug].toUpperCase()} MODE · </span>{live ? "LIVE" : isPublished ? "MODE OFF" : "PRIVATE"}
           </span>
-          {live && <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0d0d0d]/50 px-4 text-[13px] font-semibold focus-visible:outline-2 lg:text-sm" href={publicUrl(slug)} rel="noreferrer" target="_blank">View profile<span aria-hidden="true">↗</span></a>}
+          <div className="flex shrink-0 items-center gap-2">
+            {hasPhoto && <a aria-label={`View full ${NAMES[slug]} Mode photo`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:text-sm" href={mode.imageUrl ?? undefined} rel="noreferrer" target="_blank">Full photo<span aria-hidden="true">↗</span></a>}
+            {live && <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:px-4 lg:text-sm" href={publicUrl(slug)} rel="noreferrer" target="_blank">View profile<span aria-hidden="true">↗</span></a>}
+          </div>
         </div>
 
         <div className="absolute inset-x-5 bottom-6 flex flex-col gap-6 lg:inset-x-9 lg:bottom-8 lg:gap-[26px]">
@@ -228,9 +232,9 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
             <button aria-live="polite" className={`min-h-11 shrink-0 rounded-[10px] px-3.5 text-[13px] font-semibold focus-visible:outline-2 ${copied ? "bg-[#c7ff4a]" : "bg-black/[0.06]"}`} onClick={() => void copy()} type="button">{copied ? "Copied" : "Copy link"}</button>
           </div>
           {copyError && <p className="order-5 text-sm" role="status">Copy is unavailable in this browser. Select the profile URL above to copy it.</p>}
-          <div className="order-5 flex gap-2.5 md:order-none md:mt-auto">
-            {canShare && <button className="min-h-[52px] flex-1 rounded-full bg-[#ff5a4f] text-[15px] font-semibold text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => void share()} type="button">Share link</button>}
-            <Link className={`flex min-h-[52px] flex-1 items-center justify-center rounded-full text-[15px] font-semibold focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share`}>Full-screen QR and downloads</Link>
+          <div className="order-5 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2 md:order-none md:mt-auto">
+            {canShare && <button className="min-h-[52px] min-w-0 rounded-full bg-[#ff5a4f] px-4 py-3 text-center text-[15px] font-semibold leading-5 text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => void share()} type="button">Share link</button>}
+            <Link aria-label="Full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 items-center justify-center rounded-full px-4 py-3 text-center text-[15px] font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share`}>QR &amp; downloads</Link>
           </div>
           <p className="sr-only">setuvara.com/{username}</p>
         </div>
