@@ -7,6 +7,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { isFullBleed, ProfileRenderer, profileTone } from "@/components/profile/profile-renderer";
+import { resolveModeAccent } from "@/components/profile/appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { createClient } from "@/lib/supabase/server";
@@ -162,7 +163,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
             guestSessionName={guestSessionName}
             alreadyConnected={Boolean(connectedState?.connection_id)}
             label={slug === "event" && typeof mode.settings.eventName === "string" && mode.settings.eventName.trim() ? `Connect at ${mode.settings.eventName.trim()}` : "Connect"}
-            tone={slug === "personal" ? "accent" : "ink"}
+            accent={resolveModeAccent(mode)}
           /> : undefined}
         />
         <p className={`mt-5 text-center font-label text-[10px] tracking-wide text-black/40 ${bleed ? `max-sm:mt-0 max-sm:pb-8 ${pageTone.dark ? "max-sm:text-white/40" : ""}` : ""}`}>Your identity, your context. Shared with Setuvara.</p>

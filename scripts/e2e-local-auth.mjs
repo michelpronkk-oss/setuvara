@@ -258,6 +258,80 @@ async function setMode(page, mode) {
   await page.getByRole("tab", { name: new RegExp(`^${mode}`, "i") }).filter({ visible: true }).click();
 }
 
+function cssRgb(hex) {
+  const value = /^#([\da-f]{6})$/i.exec(hex)?.[1];
+  assert(value, `Expected a six-digit hex color, received ${hex}`);
+  const channels = [0, 2, 4].map((index) => Number.parseInt(value.slice(index, index + 2), 16));
+  return `rgb(${channels.join(", ")})`;
+}
+
+async function setAccent(page, hex) {
+  const preset = new Map([
+    ["#FF5A4F", "Coral"],
+    ["#C7FF4A", "Lime"],
+    ["#AFCBFF", "Blue"],
+    ["#E8A6FF", "Lilac"],
+    ["#F5C66E", "Gold"],
+  ]).get(hex.toUpperCase());
+  if (preset) {
+    await page.getByRole("button", { name: `${preset} accent`, exact: true }).click();
+    return;
+  }
+
+  await page.getByLabel("Custom accent colour").evaluate((input, color) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (!setter) throw new Error("Could not set the custom accent input");
+    setter.call(input, color);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, hex);
+}
+
+async function assertEditorAccent(page, modeName, hex) {
+  const preview = page.getByLabel("Live preview");
+  const state = preview.getByRole("radiogroup", { name: "Preview as" });
+  const modeLabels = { personal: "Personal", event: "Event", business: "Business" };
+  const modeLabel = modeLabels[modeName];
+  const expected = cssRgb(hex);
+  const connectLabel = modeName === "event" ? "Connect at Slush" : "Connect";
+
+  await state.getByRole("radio", { name: "Owner", exact: true }).click();
+  const share = preview.getByRole("link", { name: `Share ${modeLabel} Mode`, exact: true });
+  await share.waitFor();
+  assert.equal(await preview.getByRole("button", { name: connectLabel, exact: true }).count(), 0, `${modeName} owner preview must not show a visitor Connect action`);
+
+  await state.getByRole("radio", { name: "Visitor", exact: true }).click();
+  const connect = preview.getByRole("button", { name: connectLabel, exact: true });
+  assert.equal(await connect.evaluate((element) => getComputedStyle(element).backgroundColor), expected, `${modeName} visitor Connect action should use its Mode accent`);
+
+  await state.getByRole("radio", { name: "Connected", exact: true }).click();
+  const metLabel = preview.getByText("You met", { exact: true });
+  assert.equal(await metLabel.evaluate((element) => getComputedStyle(element).color), expected, `${modeName} connected context should use its Mode accent`);
+  await state.getByRole("radio", { name: "Visitor", exact: true }).click();
+}
+
+async function setAndAssertAccent(page, mode, hex) {
+  await setMode(page, mode);
+  await openSection(page, "Appearance");
+  await setAccent(page, hex);
+  await assertEditorAccent(page, mode, hex);
+  await waitSaved(page);
+}
+
+async function assertPublicConnectAccent(page, username, mode, hex) {
+  const response = await page.goto(`${appUrl}/${username}?mode=${mode}`);
+  assert.equal(response?.status(), 200, `Published ${mode} profile should load for an anonymous visitor`);
+  const label = mode === "event" ? "Connect at Slush" : "Connect";
+  const expected = cssRgb(hex);
+  const trigger = page.getByRole("button", { name: label, exact: true });
+  assert.equal(await trigger.evaluate((element) => getComputedStyle(element).backgroundColor), expected, `${mode} public Connect action should use its saved Mode accent`);
+  await trigger.click();
+  const dialog = page.getByRole("dialog");
+  const submit = dialog.getByRole("button", { name: "Connect", exact: true });
+  assert.equal(await submit.evaluate((element) => getComputedStyle(element).backgroundColor), expected, `${mode} Connect flow submit should keep the Mode accent`);
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+}
+
 async function testResponsiveAuth(browser, width, height) {
   const context = await browser.newContext({ viewport: { width, height } });
   const page = await context.newPage();
@@ -399,6 +473,9 @@ try {
   await page.getByRole("tab", { name: /^Personal/ }).filter({ visible: true }).waitFor();
   await page.getByRole("tab", { name: /^Event/ }).filter({ visible: true }).waitFor();
   await page.getByRole("tab", { name: /^Business/ }).filter({ visible: true }).waitFor();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await assertEditorAccent(page, "personal", "#FF5A4F");
+  await page.setViewportSize({ width: 390, height: 844 });
   console.log("PASS local signup → captured confirmation → /auth/confirm → authenticated editor and Setuvara Home shell");
 
   await openSection(page, "Profile");
@@ -652,6 +729,36 @@ try {
   await businessAuth.client.auth.signOut();
   console.log("PASS Business Mode settings, appearance, and links");
 
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setAndAssertAccent(page, "personal", "#FF5A4F");
+  await setAndAssertAccent(page, "personal", "#AFCBFF");
+  const personalCustomAccent = "#7138D6";
+  await setAndAssertAccent(page, "personal", personalCustomAccent);
+  await setAndAssertAccent(page, "event", "#C7FF4A");
+  await setAndAssertAccent(page, "event", "#F5C66E");
+  const eventCustomAccent = "#1764B7";
+  await setAndAssertAccent(page, "event", eventCustomAccent);
+  await setAndAssertAccent(page, "business", "#AFCBFF");
+  await setAndAssertAccent(page, "business", "#E8A6FF");
+  const businessCustomAccent = "#D64A73";
+  await setAndAssertAccent(page, "business", businessCustomAccent);
+
+  for (const [mode, accent] of [["personal", personalCustomAccent], ["event", eventCustomAccent], ["business", businessCustomAccent]]) {
+    await setMode(page, mode);
+    await openSection(page, "Appearance");
+    assert.equal((await page.getByLabel("Custom accent colour").inputValue()).toUpperCase(), accent, `${mode} custom accent should remain isolated when switching Modes`);
+    await assertEditorAccent(page, mode, accent);
+  }
+  await page.reload();
+  for (const [mode, accent] of [["personal", personalCustomAccent], ["event", eventCustomAccent], ["business", businessCustomAccent]]) {
+    await setMode(page, mode);
+    await openSection(page, "Appearance");
+    assert.equal((await page.getByLabel("Custom accent colour").inputValue()).toUpperCase(), accent, `${mode} accent should persist after reloading the editor`);
+    await assertEditorAccent(page, mode, accent);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  console.log("PASS Mode accent default, preset and custom colors, owner/visitor/connected preview, per-Mode isolation, and reload persistence");
+
   await openSection(page, "Share");
   await page.locator("svg title").filter({ hasText: "Business Mode QR code" }).waitFor({ state: "attached" });
   await page.getByText(`${owner.username}?mode=business`, { exact: false }).filter({ visible: true }).first().waitFor();
@@ -668,9 +775,23 @@ try {
   await waitEditorMessage(page, "Your profile is live");
   const anonContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const anonPage = await anonContext.newPage();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const [mode, accent] of [
+    ["personal", "#FF5A4F"], ["personal", "#AFCBFF"], ["personal", personalCustomAccent],
+    ["event", "#C7FF4A"], ["event", "#F5C66E"], ["event", eventCustomAccent],
+    ["business", "#AFCBFF"], ["business", "#E8A6FF"], ["business", businessCustomAccent],
+  ]) {
+    await setAndAssertAccent(page, mode, accent);
+    await assertPublicConnectAccent(anonPage, owner.username, mode, accent);
+  }
+  await setMode(page, "personal");
+  await openSection(page, "Profile");
+  await page.setViewportSize({ width: 390, height: 844 });
+  console.log("PASS public Connect CTA uses each Mode’s Coral/Lime/Blue/Lilac/Gold/custom accent");
   const rootResponse = await anonPage.goto(`${appUrl}/${owner.username}`);
   assert.equal(rootResponse?.status(), 200, "Personal root profile must load for anonymous visitors");
   await anonPage.getByRole("heading", { name: "Aanya Rao" }).waitFor();
+  await assertPublicConnectAccent(anonPage, owner.username, "personal", personalCustomAccent);
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor();
   for (const [label, href] of [
     ["Instagram", "https://instagram.com/meyvor"],
@@ -760,6 +881,7 @@ try {
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor({ state: "detached" });
   const eventResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=event`);
   assert.equal(eventResponse?.status(), 200);
+  await assertPublicConnectAccent(anonPage, owner.username, "event", eventCustomAccent);
   assert.equal(await anonPage.locator('img[alt="A candid Setuvara E2E image"]').count(), 0, "Personal Mode content images must not appear in Event Mode");
   await anonPage.getByText("Slush", { exact: true }).waitFor();
   await anonPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
@@ -770,6 +892,7 @@ try {
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor({ state: "detached" });
   const businessResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=business`);
   assert.equal(businessResponse?.status(), 200);
+  await assertPublicConnectAccent(anonPage, owner.username, "business", businessCustomAccent);
   await anonPage.getByText("Head of Sales · Lumen Labs · Berlin", { exact: true }).waitFor();
   await anonPage.getByRole("link", { name: "Book an intro" }).waitFor();
   assert.equal(await anonPage.getByRole("link", { name: /Book an intro/ }).getAttribute("href"), "https://calendly.com/michel");

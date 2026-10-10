@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import { inkOnAccent, resolveModeAccent } from "@/components/profile/appearance";
 import type { ConnectionContext, ProfileMode } from "@/components/profile/types";
 import type { EditorApi, PreviewState } from "./editor-types";
 import { MODE_SLUGS } from "./editor-types";
@@ -35,9 +36,9 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
   const context = useSampleContext(mode);
   const eventName = typeof mode.settings.eventName === "string" ? mode.settings.eventName.trim() : "";
   const label = mode.slug === "event" && eventName ? `Connect at ${eventName}` : "Connect";
-  const ink = mode.slug !== "personal";
+  const accent = resolveModeAccent(mode);
   const visitorAction = (
-    <button className={`inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold ${ink ? "bg-[#0D0D0D] text-[#F5F4EF]" : "bg-[#FF5A4F] text-[#0D0D0D]"}`} onClick={() => setState("connected")} type="button">{label}</button>
+    <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold" onClick={() => setState("connected")} style={{ background: accent, color: inkOnAccent(accent) }} type="button">{label}</button>
   );
   return (
     <ProfileRenderer

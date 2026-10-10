@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { ModeSlug } from "@/components/profile/types";
+import { inkOnAccent } from "@/components/profile/appearance";
 
 type ShareBackMode = { slug: ModeSlug; label: string };
 
@@ -17,13 +18,13 @@ type ConnectFlowProps = {
   guestSessionName?: string | null;
   /** Visible trigger copy, e.g. "Connect at Slush" in Event Mode. */
   label?: string;
-  /** Ink suits Event and Business Modes; accent is the Personal default. */
-  tone?: "accent" | "ink";
+  /** Resolved from the active Mode's saved Appearance. */
+  accent: string;
 };
 
 const validSources = ["qr", "link", "share", "native_share", "profile", "direct"];
 
-export function ConnectFlow({ username, mode, source, registered, alreadyConnected = false, shareBackModes = [], guestSessionName = null, label = "Connect", tone = "accent" }: ConnectFlowProps) {
+export function ConnectFlow({ username, mode, source, registered, alreadyConnected = false, shareBackModes = [], guestSessionName = null, label = "Connect", accent }: ConnectFlowProps) {
   const router = useRouter();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -96,7 +97,7 @@ export function ConnectFlow({ username, mode, source, registered, alreadyConnect
 
   return (
     <>
-      <button className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold transition ${tone === "ink" ? "bg-[#0d0d0d] text-[#f5f4ef]" : "bg-[#ff5a4f] text-[#0d0d0d]"} hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d0d0d]`} onClick={() => setOpen(true)} ref={triggerRef} type="button">
+      <button className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d0d0d]" onClick={() => setOpen(true)} ref={triggerRef} style={{ background: accent, color: inkOnAccent(accent) }} type="button">
         {alreadyConnected ? "Connect again" : label}
       </button>
       {open && (
@@ -116,7 +117,7 @@ export function ConnectFlow({ username, mode, source, registered, alreadyConnect
                 </>
               )}
               {error && <p aria-live="assertive" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">{error}</p>}
-              <button className="min-h-12 w-full rounded-full bg-[#ff5a4f] px-6 text-sm font-semibold disabled:opacity-60" disabled={busy || (registered && shareBackModes.length === 0)} type="submit">{busy ? "Connecting…" : "Connect"}</button>
+              <button className="min-h-12 w-full rounded-full px-6 text-sm font-semibold disabled:opacity-60" disabled={busy || (registered && shareBackModes.length === 0)} style={{ background: accent, color: inkOnAccent(accent) }} type="submit">{busy ? "Connecting…" : "Connect"}</button>
             </form>
             {!registered && <p className="mt-4 text-center text-[11px] leading-5 text-black/50">No signup needed. You can claim your Setuvara after connecting.</p>}
             </>}

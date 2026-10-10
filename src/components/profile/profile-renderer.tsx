@@ -9,6 +9,7 @@ import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtra
 import { MeetMark } from "@/components/marketing/brand";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
+import { accentLuminance, inkOnAccent, resolveModeAccent } from "./appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
 
 type ProfileRendererProps = {
@@ -88,8 +89,8 @@ const isIconLink = (item: ResolvedLink) => Boolean(item.icon) || ["email", "phon
 function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false }: ProfileRendererProps) {
   const tone = tones[mode.appearance.theme] ?? tones.dark;
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = accentFor(mode, selectedRewards);
-  const editorialName = mode.appearance.theme === "editorial" && luminance(accent) < 0.55;
+  const accent = resolveModeAccent(mode);
+  const editorialName = mode.appearance.theme === "editorial" && accentLuminance(accent) < 0.55;
   const links = resolveLinks(mode.links);
   const icons = links.filter(isIconLink);
   const rows = links.filter((item) => !isIconLink(item));
@@ -114,7 +115,7 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
         <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
         <p className="mt-1.5 font-label text-[12px] tracking-[0.04em]" style={{ color: tone.sub }}>@{profile.username}</p>
         {(meta || profile.bio) && <p className="mx-auto mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
-        <SoundtrackCue accent={accent} accentInk={inkOn(accent)} align="center" className="mx-auto mt-4 max-w-[360px]" tone={tone} />
+        <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} align="center" className="mx-auto mt-4 max-w-[360px]" tone={tone} />
 
         {icons.length > 0 && (
           <ul aria-label="Links" className="mt-5 flex flex-wrap justify-center gap-2.5">
@@ -131,11 +132,11 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
         {setting(mode, "note") && <p className="mx-auto mt-5 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
 
         <div className="text-left">
-          <OwnerOrVisitorActions accent={accent} accentInk={inkOn(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
+          <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
           {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
         </div>
 
-        <ProfileBlocks accent={accent} accentInk={inkOn(accent)} blocks={mode.blocks} className="mt-6" tone={tone} />
+        <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} className="mt-6" tone={tone} />
 
         {rows.length > 0 && (
           <ul className="mt-6 grid gap-2.5 text-left">
@@ -160,8 +161,8 @@ function PersonalBleed({ profile, mode, viewerState, previewAsVisitor, visitorAc
 function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
   const tone = tones[mode.appearance.theme] ?? tones.dark;
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = accentFor(mode, selectedRewards);
-  const editorialName = mode.appearance.theme === "editorial" && luminance(accent) < 0.55;
+  const accent = resolveModeAccent(mode);
+  const editorialName = mode.appearance.theme === "editorial" && accentLuminance(accent) < 0.55;
   const links = resolveLinks(mode.links);
   const portrait = mode.appearance.layout === "portrait-editorial";
   const heroHeight = { "full-bleed": portrait ? 340 : 400, portrait: portrait ? 300 : 330, compact: 190 }[mode.appearance.imageTreatment] ?? 340;
@@ -187,9 +188,9 @@ function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visito
         <h1 className="break-words font-display text-[clamp(2.6rem,11vw,3.4rem)] font-extrabold leading-[0.9] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
         {(meta || profile.bio) && <p className="mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
         {setting(mode, "note") && <p className="mt-3 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
-        <SoundtrackCue accent={accent} accentInk={inkOn(accent)} className="mt-4" tone={tone} />
+        <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
 
-        <OwnerOrVisitorActions accent={accent} accentInk={inkOn(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
+        <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
         {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
 
         {links.length > 0 ? (
@@ -204,7 +205,7 @@ function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visito
             ))}
           </ul>
         ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
-        <ProfileBlocks accent={accent} accentInk={inkOn(accent)} blocks={mode.blocks} tone={tone} />
+        <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} tone={tone} />
       </div>
     </article>
   );
@@ -213,8 +214,8 @@ function PersonalPortrait({ profile, mode, viewerState, previewAsVisitor, visito
 function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
   const tone = tones[mode.appearance.theme] ?? tones.light;
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = accentFor(mode, selectedRewards);
-  const bandInk = inkOn(accent);
+  const accent = resolveModeAccent(mode);
+  const bandInk = inkOnAccent(accent);
   const poster = mode.appearance.layout !== "conference-card";
   const eventName = setting(mode, "eventName");
   const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
@@ -240,7 +241,7 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
             {setting(mode, "role") && <p className="mt-1.5 text-[13px]" style={{ color: tone.sub }}>{setting(mode, "role")}</p>}
           </div>
         </div>
-        <SoundtrackCue accent={accent} accentInk={inkOn(accent)} className="mt-4" tone={tone} />
+        <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
         {setting(mode, "hereToMeet") && (
           <div className="mt-5 border-t-2 pt-4" style={{ borderColor: tone.ink }}>
             <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>Here to meet</p>
@@ -264,7 +265,7 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
             ))}
           </ul>
         ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={eventName ? "No links shared in this Mode yet." : "Event Mode is ready when you are."} />}
-        <ProfileBlocks accent={accent} accentInk={inkOn(accent)} blocks={mode.blocks} tone={tone} />
+        <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} tone={tone} />
       </div>
     </article>
   );
@@ -273,7 +274,7 @@ function EventProfile({ profile, mode, viewerState, previewAsVisitor, visitorAct
 function BusinessProfile({ profile, mode, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ProfileRendererProps) {
   const tone = tones[mode.appearance.theme] ?? tones.light;
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = accentFor(mode, selectedRewards);
+  const accent = resolveModeAccent(mode);
   const structured = mode.appearance.layout !== "editorial-business";
   const all = resolveLinks(mode.links);
   const booking = all.find((item) => BOOKING_PROVIDERS.includes(item.providerId));
@@ -365,6 +366,7 @@ function OwnerOrVisitorActions({ owner, visitorAction, onShare, onEditMode, mode
 }
 
 function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode, tone }: { connectionContext?: ConnectionContext | null; connectionHref?: string; guestClaimHref?: string; mode: ProfileMode; tone: Tone }) {
+  const accent = resolveModeAccent(mode);
   const where = [connectionContext?.event, connectionContext?.city].filter(Boolean);
   return (
     <section aria-label="Connection status" className="mt-4">
@@ -374,7 +376,7 @@ function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode
       </div>
       {(where.length > 0 || connectionContext?.dateLabel) && (
         <div className="mt-3 rounded-2xl bg-[#0D0D0D] px-4 py-3.5 text-[#F5F4EF]" style={{ boxShadow: tone.dark ? "inset 0 0 0 1px rgba(245,244,239,.16)" : undefined }}>
-          <div className="flex justify-between font-label text-[9px] uppercase tracking-[0.14em]"><span style={{ color: mode.appearance.accent === "#F5F4EF" ? "#C7FF4A" : mode.appearance.accent }}>You met</span>{connectionContext?.mode && <span className="text-white/55">{connectionContext.mode} Mode shared</span>}</div>
+          <div className="flex justify-between font-label text-[9px] uppercase tracking-[0.14em]"><span style={{ color: accent === "#F5F4EF" ? "#C7FF4A" : accent }}>You met</span>{connectionContext?.mode && <span className="text-white/55">{connectionContext.mode} Mode shared</span>}</div>
           {where.length > 0 && <p className="mt-1.5 font-display text-xl font-bold tracking-[-0.03em]">{where[0]}{where[1] && <span className="ml-2 font-brand text-xs font-medium"><span className="mr-1.5 text-[#FF5A4F]">/</span>{where[1]}</span>}</p>}
           {connectionContext?.dateLabel && <p className="mt-1 text-[11px] text-white/60">{connectionContext.dateLabel}</p>}
         </div>
@@ -414,10 +416,6 @@ function setting(mode: ProfileMode, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function accentFor(mode: ProfileMode, rewards: Partial<Record<string, string>>) {
-  return rewards.accent === "signal_accent" ? "#FF5A4F" : mode.appearance.accent;
-}
-
 function earnedMark(rewards: Partial<Record<string, string>>) {
   return rewards.profile_mark === "signal_50_mark" ? "Signal 50" : rewards.profile_mark === "thousand_mark" ? "Thousand met" : null;
 }
@@ -426,18 +424,6 @@ function treatmentClass(rewards: Partial<Record<string, string>>) {
   if (rewards.profile_treatment === "editorial_profile" || rewards.profile_treatment === "century_profile") return "shadow-[inset_0_0_0_2px_rgba(255,90,79,.45)]";
   if (rewards.profile_treatment === "connector_treatment") return "shadow-[inset_0_0_0_1px_rgba(255,90,79,.45)]";
   return "";
-}
-
-function luminance(hex: string) {
-  const value = /^#([\da-f]{6})$/i.exec(hex)?.[1];
-  if (!value) return 0;
-  const [r, g, b] = [0, 2, 4].map((index) => parseInt(value.slice(index, index + 2), 16) / 255);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-/** Readable ink on top of an accent fill. */
-export function inkOn(hex: string) {
-  return luminance(hex) > 0.42 ? "#0D0D0D" : "#F5F4EF";
 }
 
 function hexAlpha(hex: string, alpha: number) {
