@@ -297,7 +297,7 @@ try {
   await visitor.close();
 } finally {
   await browser.close();
-  await user.auth.signOut().catch(() => {});
+  await user.auth.signOut({ scope: "local" }).catch(() => {});
   if (!userId) {
     const listed = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     userId = listed.data?.users?.find((item) => item.email === account.email)?.id ?? null;

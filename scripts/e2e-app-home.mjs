@@ -102,6 +102,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     // Actual Mode state, URL precedence, remembered selection and keyboard radios.
     for (const slug of Object.keys(names)) {
       await picker(page).getByRole("radio", { name: new RegExp(names[slug]) }).click();
+      assert.equal(await page.evaluate(() => window.localStorage.getItem("sv-home-mode")), slug, `${names[slug]} selection should be remembered`);
       await page.getByRole("region", { name: `${names[slug]} Mode`, exact: true }).waitFor();
       const stage = page.getByRole("region", { name: `${names[slug]} Mode`, exact: true });
       const settings = modes.find((mode) => mode.slug === slug).settings;
@@ -134,6 +135,8 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
       assert(await shareButton(page).evaluate((node) => node === document.activeElement));
     }
     await page.goto(`${appUrl}/app`);
+    assert.equal(new URL(page.url()).pathname, "/app", "Authenticated navigation should remain on Setuvara Home");
+    assert.equal(await page.evaluate(() => window.localStorage.getItem("sv-home-mode")), "business", "the last selected Mode should survive navigation");
     await picker(page).getByRole("radio", { name: /Business/, checked: true }).waitFor();
     await page.reload();
     await picker(page).getByRole("radio", { name: /Business/, checked: true }).waitFor();
@@ -216,7 +219,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
         await ready(page);
         await fit(page, `Home ${label} ${width}`);
         const nav = page.getByRole("navigation", { name: "Main navigation", exact: true }).filter({ visible: true });
-        assert.equal(await nav.getByRole("link").count(), 4);
+        assert.equal(await nav.getByRole("link").count(), 5);
         await nav.getByRole("link", { name: "Home", exact: true }).waitFor();
         const target = await shareButton(page).boundingBox();
         assert(target && target.height >= 44 && target.width >= 44, "Share touch target");
@@ -254,6 +257,6 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     page.off("pageerror", onError);
     page.off("console", onConsole);
     await anon.close();
-    await client.auth.signOut();
+    await client.auth.signOut({ scope: "local" });
   }
 }

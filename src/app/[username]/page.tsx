@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { after } from "next/server";
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
@@ -12,6 +13,7 @@ import { resolveModeAccent } from "@/components/profile/appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
+import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -127,6 +129,26 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const { data: claims } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   const owner = userId === profile.id;
+  if (!owner) {
+    const requestHeaders = await headers();
+    const userAgent = requestHeaders.get("user-agent");
+    const purpose = `${requestHeaders.get("purpose") ?? ""} ${requestHeaders.get("sec-purpose") ?? ""}`.toLowerCase();
+    const prefetch = requestHeaders.has("next-router-prefetch") || /prefetch|prerender/.test(purpose);
+    const crawler = /bot|crawler|spider|preview|facebookexternalhit|slackbot|whatsapp/i.test(userAgent ?? "");
+    if (!prefetch && !crawler) {
+      const source = query.source && isAnalyticsSource(query.source) ? query.source : "direct";
+      const deviceClass = classifyAnalyticsDevice(userAgent);
+      after(async () => {
+        await recordProductAnalyticsEvent({
+          eventName: "profile_viewed",
+          ownerProfileId: profile.id,
+          mode: isAnalyticsMode(slug) ? slug : null,
+          source,
+          deviceClass,
+        });
+      });
+    }
+  }
   let viewerState: "owner" | "visitor_unconnected" | "visitor_connected" = owner ? "owner" : "visitor_unconnected";
   let connectedState: ConnectionState | null = null;
   let guestSessionName: string | null = null;

@@ -12,6 +12,7 @@ import { StatusBadge } from "./status-badge";
 const navigation = [
   { href: "/app", label: "Home", short: "Home" },
   { href: "/app/identity", label: "Identity", short: "Identity" },
+  { href: "/app/analytics", label: "Analytics", short: "Analytics" },
   { href: "/app/connections", label: "Connections", short: "People" },
   { href: "/app/passport", label: "Passport", short: "Passport" },
 ] as const;
@@ -42,7 +43,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
           <MeetMark className="size-[22px] md:size-[26px]" />
           <span className="font-display text-[19px] font-bold tracking-[-0.03em] md:text-[21px]">setuvara</span>
         </Link>
-        <nav aria-label="Main navigation" className="hidden gap-1.5 md:flex">
+        <nav aria-label="Main navigation" className="hidden gap-0 md:flex lg:gap-1.5">
           {navigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
@@ -52,7 +53,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
 
       <div className="min-w-0 pb-[calc(78px+env(safe-area-inset-bottom))] md:pb-0" id="app-main" tabIndex={-1}>{children}</div>
 
-      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 bg-[#f5f4ef]/95 px-2.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur md:hidden">
+      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 bg-[#f5f4ef]/95 px-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2.5 md:hidden">
         {navigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="bottom" />)}
       </nav>
     </div>
@@ -64,13 +65,13 @@ function NavLink({ item, pathname, variant }: { item: (typeof navigation)[number
   const indicator = <span aria-hidden="true" className={`h-1 w-5 bg-[#ff5a4f] transition-opacity ${active ? "opacity-100" : "opacity-0"}`} style={{ clipPath: tick }} />;
   if (variant === "bottom") {
     return (
-      <Link aria-current={active ? "page" : undefined} className={`flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-xl text-[13px] focus-visible:outline-2 ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60"}`} href={item.href}>
+      <Link aria-current={active ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[11px] focus-visible:outline-2 sm:gap-1.5 sm:text-[13px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60"}`} href={item.href}>
         {indicator}{item.short}
       </Link>
     );
   }
   return (
-    <Link aria-current={active ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-[5px] rounded-full px-4 text-[15px] transition-colors focus-visible:outline-2 ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60 hover:text-black"}`} href={item.href}>
+    <Link aria-current={active ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-[5px] rounded-full px-2.5 text-[13px] transition-colors focus-visible:outline-2 lg:px-4 lg:text-[15px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60 hover:text-black"}`} href={item.href}>
       <span>{item.label}</span>{indicator}
     </Link>
   );

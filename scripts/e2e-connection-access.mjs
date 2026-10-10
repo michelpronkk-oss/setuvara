@@ -259,7 +259,9 @@ try {
   // ---- Expired, revoked and unknown passes fail closed but still land on the profile.
   {
     const { data: grant } = await admin.from("connection_share_grants").select("id").eq("profile_id", michel.id).is("revoked_at", null).single();
-    assert.ifError((await admin.from("connection_share_grants").update({ created_at: new Date(Date.now() - 25 * 36e5).toISOString(), expires_at: new Date(Date.now() - 36e5).toISOString() }).eq("id", grant.id)).error);
+    const expiresAt = Date.now() - 60 * 60_000;
+    const createdAt = expiresAt - 23 * 60 * 60_000;
+    assert.ifError((await admin.from("connection_share_grants").update({ created_at: new Date(createdAt).toISOString(), expires_at: new Date(expiresAt).toISOString() }).eq("id", grant.id)).error);
     const late = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await late.newPage();
     const response = await page.goto(passUrl);

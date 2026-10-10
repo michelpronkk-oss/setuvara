@@ -10,6 +10,7 @@
     "e2e:connection-detail": "node scripts/e2e-connection-detail.mjs",
     "e2e:tap": "node scripts/e2e-tap.mjs",
     "test:appearance": "node --test tests/appearance/appearance.test.mjs",
+    "test:analytics": "deno test --unstable-sloppy-imports tests/analytics/analytics.test.mjs",
     "test:connections": "node --test tests/connections/relationship.test.mjs",
     "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs",
     "test:billing:integration": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-billing-database.ps1",

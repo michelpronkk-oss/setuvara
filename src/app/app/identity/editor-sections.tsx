@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
+import { recordProfileShare } from "@/lib/analytics/client";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { ProviderMark } from "@/components/links/provider-mark";
@@ -675,6 +676,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
     const ok = await copyText(linkUrl);
     setCopied(ok);
     api.toast(ok ? "Link copied" : "Copy didn’t work. Select the link instead.");
+    if (ok && !inPerson && !offline) recordProfileShare(slug, "copy");
     if (ok) window.setTimeout(() => setCopied(false), 2000);
   }
 
@@ -682,7 +684,10 @@ export function ShareSection({ api }: { api: EditorApi }) {
     const url = inPerson ? passUrl : api.publicUrl(slug, "native_share");
     if (!url) return;
     if (navigator.share) {
-      try { await navigator.share({ title: `${profile.display_name} · ${modeMeta[slug].name} Mode`, url }); } catch { /* dismissed */ }
+      try {
+        await navigator.share({ title: `${profile.display_name} · ${modeMeta[slug].name} Mode`, url });
+        if (!inPerson && !offline) recordProfileShare(slug, "native_share");
+      } catch { /* dismissed */ }
     } else await copy();
   }
 
@@ -700,7 +705,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
         <div className={`rounded-[24px] p-6 ${darkShare ? "bg-[#0D0D0D]" : "bg-[#0D0D0D]"} text-[#F5F4EF]`}>
           <MonoLabel color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
-          <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] bg-white p-5 disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} disabled={!qrUrl} onClick={() => setFull(true)} type="button">
+          <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] bg-white p-5 disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }} type="button">
             {qrUrl
               ? <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" data-qr-value={qrUrl} data-share-intent={inPerson ? "in_person" : "profile"} fgColor={ink} id={qrId} imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={1} size={256} title={`${modeMeta[slug].name} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
               : <span aria-live="polite" className="grid aspect-square w-full place-items-center px-3 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</span>}
@@ -725,7 +730,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
           </div>
           <div className="grid grid-cols-2 gap-2 max-[380px]:grid-cols-1">
             <Pill disabled={!linkUrl} onClick={() => void share()} variant="coral">Share…</Pill>
-            <Pill disabled={!qrUrl} onClick={() => setFull(true)}>Full-screen QR</Pill>
+            <Pill disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }}>Full-screen QR</Pill>
           </div>
           <div>
             <p className="mb-2 text-sm font-semibold">Share a different Mode instead</p>

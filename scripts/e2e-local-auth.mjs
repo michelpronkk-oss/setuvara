@@ -75,7 +75,7 @@ async function validateEmailNotifications(page, ownerAccount, otherAccount, owne
   const otherUpdate = await otherAuth.client.from("notification_preferences").update({ product_updates: true }).eq("user_id", ownerId).select("user_id");
   assert.ifError(otherUpdate.error);
   assert.equal(otherUpdate.data.length, 0, "Another account cannot modify notification preferences");
-  await otherAuth.client.auth.signOut();
+  await otherAuth.client.auth.signOut({ scope: "local" });
 
   await productUpdates.uncheck();
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -140,7 +140,7 @@ async function validateEmailNotifications(page, ownerAccount, otherAccount, owne
     assert.ifError(suppressed.error);
     assert.equal(suppressed.data, true, "Local test claims should be safely closed without sending external email");
   }
-  await ownerAuth.client.auth.signOut();
+  await ownerAuth.client.auth.signOut({ scope: "local" });
   console.log("PASS notification preferences RLS, one-click unsubscribe, deduplicated outbox events, recap grouping, current recipient resolution, and safe local queue claims");
 }
 
@@ -607,8 +607,8 @@ async function testIsolation(ownerAccount, otherAccount, ownerId, modeIds, linkI
   const ownerLinks = await ownerAuth.client.from("profile_links").select("title, link_type, is_visible, sort_order").eq("profile_id", ownerId).order("sort_order");
   assert.ifError(ownerLinks.error);
   assert(ownerLinks.data.every((link) => link.title !== "Unauthorized"));
-  await ownerAuth.client.auth.signOut();
-  await otherClient.auth.signOut();
+  await ownerAuth.client.auth.signOut({ scope: "local" });
+  await otherClient.auth.signOut({ scope: "local" });
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -627,6 +627,22 @@ try {
     }
   });
   await validateFreshHome(page, appUrl);
+  const freeAnalyticsResponse = await page.request.get(`${appUrl}/api/analytics?range=7d`);
+  assert.equal(freeAnalyticsResponse.status(), 200, "Authenticated Free users can load their analytics summary");
+  const freeAnalytics = await freeAnalyticsResponse.json();
+  assert.equal(freeAnalytics.plan, "free");
+  assert.equal(freeAnalytics.capabilities.historyDays, 7);
+  assert.deepEqual(freeAnalytics.capabilities.availableRanges, ["7d"]);
+  assert.equal(freeAnalytics.capabilities.sourceBreakdown, false);
+  assert.equal(freeAnalytics.capabilities.modeBreakdown, false);
+  assert.equal(JSON.stringify(freeAnalytics).includes(owner.email), false, "Analytics responses must not contain account email");
+  assert.equal(JSON.stringify(freeAnalytics).includes(owner.username), false, "Analytics responses must not contain username or visitor data");
+  assert.equal((await page.request.get(`${appUrl}/api/analytics?range=30d`)).status(), 403, "Free users cannot request Plus history");
+  assert.equal((await page.request.get(`${appUrl}/api/analytics/export?range=7d`)).status(), 403, "Free users cannot export analytics");
+  await page.goto(`${appUrl}/app/analytics`);
+  await page.getByRole("heading", { name: "Analytics", exact: true }).waitFor();
+  await page.getByText("Your first signal is on its way.").waitFor();
+  await page.goto(`${appUrl}/app`);
   await expectNoHorizontalOverflow(page, "Setuvara Home");
   await page.goto(`${appUrl}/app/identity`);
   await page.getByRole("tab", { name: /^Personal/ }).filter({ visible: true }).waitFor();
@@ -706,7 +722,7 @@ try {
   assert(removedOriginal.error, "Replacing a photo must remove the previous owner-scoped object");
   const ownerImage = await mediaAuth.client.storage.from("profile-media").download(imagePath);
   assert.ifError(ownerImage.error, "Owner must be able to read the replacement photo");
-  await mediaAuth.client.auth.signOut();
+  await mediaAuth.client.auth.signOut({ scope: "local" });
   console.log("PASS cropped upload, JPEG/PNG/WebP MIME allowlist, size/MIME rejection, replacement, old-object removal, and owner access");
 
   // Content images use the same owner-scoped private bucket and renderer as the public profile.
@@ -816,7 +832,7 @@ try {
   featureImagePath = featureRow.data.data.image_path;
   assert.equal(featureRow.data.data.image, featureFallbackUrl, "Custom upload must not replace or erase the fetched link preview image");
   assert.match(featureImagePath, new RegExp(`^${ownerId}/[0-9a-f-]{36}\\.png$`, "i"));
-  await contentAuth.client.auth.signOut();
+  await contentAuth.client.auth.signOut({ scope: "local" });
   console.log("PASS Image block upload, Mode scoping, Featured Link metadata image, and custom-image priority");
 
   await addLink(page, "Portfolio", "https://example.test/portfolio", "Portfolio");
@@ -854,7 +870,7 @@ try {
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await page.getByRole("switch", { name: "Hide Contact", exact: true }).waitFor();
   assert.equal((await personalSort.client.from("profile_links").select("id", { count: "exact", head: true })).count, 3, "Undo must restore the deleted link to Supabase");
-  await personalSort.client.auth.signOut();
+  await personalSort.client.auth.signOut({ scope: "local" });
   console.log("PASS Personal link create, email type, edit, persisted drag order, delete and Undo");
 
   await addLink(page, "Instagram", "@meyvor", "Instagram");
@@ -873,7 +889,7 @@ try {
   assert.equal(personalByTitle.get("Spotify")?.url, "https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb");
   assert.equal(personalByTitle.get("YouTube")?.url, "https://youtube.com/@setuvara");
   assert.equal(personalByTitle.get("My site")?.url, "https://example.com/");
-  await normalizedPersonal.client.auth.signOut();
+  await normalizedPersonal.client.auth.signOut({ scope: "local" });
 
   const rejectAuth = await authenticatedClient(owner);
   const linkCountBeforeRejects = (await rejectAuth.client.from("profile_links").select("id", { count: "exact", head: true })).count;
@@ -887,7 +903,7 @@ try {
   }
   const postRejectCount = (await rejectAuth.client.from("profile_links").select("id", { count: "exact", head: true })).count;
   assert.equal(postRejectCount, linkCountBeforeRejects, "Unsafe/malformed provider inputs must not be persisted");
-  await rejectAuth.client.auth.signOut();
+  await rejectAuth.client.auth.signOut({ scope: "local" });
   console.log("PASS provider normalization and rejection for unsafe protocols, malformed URLs, email, and international phone data");
 
   await setMode(page, "event");
@@ -944,7 +960,7 @@ try {
   const phoneLink = businessLinks.data.find((link) => link.title === "Call sales");
   assert.equal(bookLink?.url, "https://calendly.com/michel");
   assert.equal(phoneLink?.url, "tel:+493012345678");
-  await businessAuth.client.auth.signOut();
+  await businessAuth.client.auth.signOut({ scope: "local" });
   console.log("PASS Business Mode settings, appearance, and links");
 
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -999,6 +1015,10 @@ try {
   await waitEditorMessage(page, "Your profile is live");
   const anonContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const anonPage = await anonContext.newPage();
+  assert.equal((await anonContext.request.get(`${appUrl}/api/analytics?range=7d`)).status(), 401, "Anonymous users cannot read profile analytics");
+  assert.equal((await anonContext.request.get(`${appUrl}/api/analytics/export?range=7d`)).status(), 401, "Anonymous users cannot export profile analytics");
+  assert.equal((await anonContext.request.get(`${appUrl}/api/internal/analytics`)).status(), 401, "Anonymous users cannot read internal aggregates");
+  assert.equal((await page.request.get(`${appUrl}/api/internal/analytics`)).status(), 404, "A normal signed-in user cannot discover internal analytics");
   await page.setViewportSize({ width: 1440, height: 900 });
   for (const [mode, accent] of [
     ["personal", "#FF5A4F"], ["personal", "#AFCBFF"], ["personal", personalCustomAccent],
@@ -1037,7 +1057,7 @@ try {
     const publicUrl = mediaClient.storage.from("profile-media").getPublicUrl(imagePath).data.publicUrl;
     const directPublicRead = await anonContext.request.get(publicUrl);
     assert(!directPublicRead.ok(), "Private profile-media must not be available through the public object URL");
-    await mediaClient.auth.signOut();
+    await mediaClient.auth.signOut({ scope: "local" });
   }
   await anonPage.route("https://images.example.test/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: png }));
   const publicContentImage = anonPage.locator("figure").filter({ hasText: "A candid image block" }).locator("img").first();
@@ -1066,7 +1086,7 @@ try {
   assert(replacementFeatureImagePath && replacementFeatureImagePath !== featureImagePath, "Featured Link replacement must save a fresh object path");
   const removedFeatureUpload = await featureOwner.client.storage.from("profile-media").download(featureImagePath);
   assert(removedFeatureUpload.error, "Replacing a Featured Link image must remove the unreferenced previous upload");
-  await featureOwner.client.auth.signOut();
+  await featureOwner.client.auth.signOut({ scope: "local" });
   await anonPage.reload();
   await anonPage.locator(`a[href="https://example.com/setuvara-feature"] img`).waitFor();
   assert.match(await anonPage.locator(`a[href="https://example.com/setuvara-feature"] img`).getAttribute("src"), /storage\/v1\/object\/sign\/profile-media\//, "Replacement Featured Link image should be public");
@@ -1086,7 +1106,7 @@ try {
   assert.equal(fallbackFeature.data.data.image, featureFallbackUrl, "Removing custom media must preserve the fetched preview image");
   const removedReplacement = await fallbackOwner.client.storage.from("profile-media").download(replacementFeatureImagePath);
   assert(removedReplacement.error, "Removing custom Featured Link media must clean the unreferenced upload");
-  await fallbackOwner.client.auth.signOut();
+  await fallbackOwner.client.auth.signOut({ scope: "local" });
   await anonPage.reload();
   const fallbackPublicImage = anonPage.locator(`a[href="https://example.com/setuvara-feature"] img`);
   await fallbackPublicImage.waitFor();
@@ -1135,7 +1155,7 @@ try {
   const publicVideoPath = localUserClient().storage.from("profile-media").getPublicUrl(contentVideoPath).data.publicUrl;
   assert(!(await anonContext.request.get(publicVideoPath)).ok(), "Private uploaded video must not be accessible via the public object URL");
   const videoOwner = await authenticatedClient(owner);
-  await videoOwner.client.auth.signOut();
+  await videoOwner.client.auth.signOut({ scope: "local" });
   await page.getByRole("switch", { name: "Hide Video", exact: true }).click();
   await waitSaved(page);
   await anonPage.reload();
@@ -1180,7 +1200,7 @@ try {
   assert.ifError((await modeAccess.client.from("profile_modes").update({ is_enabled: false }).eq("id", eventMode.id)).error);
   assert.equal((await anonPage.goto(`${appUrl}/${owner.username}?mode=event`))?.status(), 404, "Disabled Mode must be inaccessible to visitors");
   assert.ifError((await modeAccess.client.from("profile_modes").update({ is_enabled: true }).eq("id", eventMode.id)).error);
-  await modeAccess.client.auth.signOut();
+  await modeAccess.client.auth.signOut({ scope: "local" });
   console.log("PASS published Personal/Event/Business root profiles show only their Mode data and links");
 
   await setMode(page, "personal");
@@ -1220,7 +1240,7 @@ try {
   modeIds = modesResult.data.map((mode) => mode.id);
   linkIds = linksResult.data.map((link) => link.id);
   imagePath = (await ownerClient.from("profile_modes").select("image_path").eq("profile_id", ownerId).eq("slug", "personal").single()).data.image_path;
-  await ownerClient.auth.signOut();
+  await ownerClient.auth.signOut({ scope: "local" });
 
   await page.goto(`${appUrl}/app`);
   await page.getByRole("button", { name: "Account menu" }).click();
@@ -1242,7 +1262,7 @@ try {
   const countryFixture = await authenticatedClient(owner);
   const countryMode = await countryFixture.client.from("profile_modes").select("id,settings").eq("profile_id", countryFixture.user.id).eq("slug", "event").single();
   assert.ifError((await countryFixture.client.from("profile_modes").update({ settings: { ...countryMode.data.settings, countryCode: "FI" } }).eq("id", countryMode.data.id)).error);
-  await countryFixture.client.auth.signOut();
+  await countryFixture.client.auth.signOut({ scope: "local" });
   console.log("PASS logout, protected app redirect, login, and persisted Mode data");
 
   otherBrowser = await signUpAndConfirm(browser, other);
@@ -1495,9 +1515,9 @@ try {
   assert.equal(await guestClaimBrowser.page.locator('a[href^="/app/connections/"]').count(), 2, "Claimed guest should retain both profile Connections");
   const otherCannotClaim = await otherAuth.client.rpc("claim_guest_connections", { p_session_token: guestToken.value });
   assert(otherCannotClaim.error || otherCannotClaim.data?.claimed_connections === 0, "Another user cannot claim an unrelated guest session");
-  await ownerAuth.client.auth.signOut();
-  await otherAuth.client.auth.signOut();
-  await guestClaimAuth.client.auth.signOut();
+  await ownerAuth.client.auth.signOut({ scope: "local" });
+  await otherAuth.client.auth.signOut({ scope: "local" });
+  await guestClaimAuth.client.auth.signOut({ scope: "local" });
   await guestContext.close();
   console.log("PASS guest Connect, private email, HttpOnly session, confirmation claim, and Encounter preservation");
   console.log("PASS account 2 cannot change account 1 profile, Modes, links, media, notes, or Where You Met context");
@@ -1601,8 +1621,8 @@ try {
   assert.ifError(anonPreferences.error);
   assert(anonPreferences.data.every((item) => ["profile_treatment", "accent", "profile_mark"].includes(item.category)), "Anonymous reads expose only the explicitly selected public cosmetics");
   assert.equal(anonPreferences.data.find((item) => item.category === "profile_mark")?.reward_id, "signal_50_mark");
-  await progressionOwner.client.auth.signOut();
-  await otherPassport.client.auth.signOut();
+  await progressionOwner.client.auth.signOut({ scope: "local" });
+  await otherPassport.client.auth.signOut({ scope: "local" });
 
   await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
   for (const threshold of [50, 25, 10, 5]) {
@@ -1819,7 +1839,7 @@ try {
     await waitForDeletedMedia(imageCleanupClient.client, blockId, mediaPath, `${slug} Image`);
     await page.getByText("Image deleted", { exact: true }).waitFor();
   }
-  await imageCleanupClient.client.auth.signOut();
+  await imageCleanupClient.client.auth.signOut({ scope: "local" });
   console.log("PASS deleted Image block cleanup and authenticated editor image controls at phone/tablet/desktop sizes");
 
   await ownerBrowser.context.close(); await otherBrowser.context.close(); await anonContext.close();

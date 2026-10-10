@@ -350,7 +350,7 @@ async function testAccountIsolation(browser, owner, other, ownerDevice) {
   } finally {
     await anonContext.close();
   }
-  await anon.auth.signOut();
+  await anon.auth.signOut({ scope: "local" });
   console.log("PASS second-account RLS/API isolation and anonymous Tap management denial");
 }
 
@@ -572,7 +572,7 @@ try {
     localSql(`delete from public.tap_devices where id = '${claimFixtureId}'::uuid and label = 'Synthetic local claim fixture'`);
   }
   for (const account of [owner, other]) {
-    if (account?.client) await account.client.auth.signOut().catch(() => {});
+    if (account?.client) await account.client.auth.signOut({ scope: "local" }).catch(() => {});
   }
   // Look up only the freshly generated local E2E addresses to also clean up a
   // signup that succeeded before a later browser confirmation assertion failed.

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
+import { recordProfileShare } from "@/lib/analytics/client";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { StatusBadge } from "@/components/app/status-badge";
@@ -245,6 +246,7 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value); setCopiedUrl(value); setCopyError(false);
+      if (!inPerson && !offline) recordProfileShare(slug, "copy");
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopiedUrl(null), 2000);
     } catch { setCopiedUrl(null); setCopyError(true); }
@@ -252,7 +254,10 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
   async function share() {
     const url = inPerson ? passUrl : publicUrl(slug, "native_share");
     if (!url) return;
-    try { await navigator.share({ title: `${displayName} · ${NAMES[slug]} Mode`, url }); } catch { /* dismissed */ }
+    try {
+      await navigator.share({ title: `${displayName} · ${NAMES[slug]} Mode`, url });
+      if (!inPerson && !offline) recordProfileShare(slug, "native_share");
+    } catch { /* dismissed */ }
   }
 
   return (

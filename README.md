@@ -35,6 +35,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 - `npm run start` serves the production build.
 - `npm run lint` runs ESLint.
 - `npm run test:billing` tests the plan registry and subscription access rules.
+- `npm run test:analytics` tests plan-based analytics range and capability rules.
 - `supabase db lint --local` lints local SQL migrations.
 - `supabase test db` runs local database RLS and privilege checks.
 - `npm run e2e:local` runs local signup, email confirmation, the three-Mode

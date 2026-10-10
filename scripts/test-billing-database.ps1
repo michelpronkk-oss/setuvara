@@ -75,7 +75,7 @@ try {
   $stdoutPath = Join-Path $repoRoot ".next\billing-route-test-stdout.log"
   $stderrPath = Join-Path $repoRoot ".next\billing-route-test-stderr.log"
   $testServer = Start-Process -FilePath $nodePath `
-    -ArgumentList @("node_modules/next/dist/bin/next", "dev", "-p", "3014") `
+    -ArgumentList @("node_modules/next/dist/bin/next", "dev", "--webpack", "-p", "3014") `
     -WorkingDirectory $repoRoot `
     -WindowStyle Hidden `
     -PassThru `
