@@ -2,13 +2,17 @@
 
 import { useState, type CSSProperties } from "react";
 
+import { DEFAULT_FOCUS, focusPosition, type PhotoFocus } from "@/components/profile/photo-focus";
+
 export function ConnectionAvatar({
   imageUrl,
+  imageFocus,
   name,
   className,
   style,
 }: {
   imageUrl: string | null;
+  imageFocus?: PhotoFocus | null;
   name: string;
   className: string;
   style?: CSSProperties;
@@ -20,7 +24,7 @@ export function ConnectionAvatar({
     <span aria-hidden="true" className={`relative grid shrink-0 place-items-center overflow-hidden rounded-full ${className}`} style={style}>
       {initial}
       {/* eslint-disable-next-line @next/next/no-img-element -- private, RLS-authorized signed connection photo */}
-      {imageUrl && imageUrl !== failedUrl && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => setFailedUrl(imageUrl)} src={imageUrl} />}
+      {imageUrl && imageUrl !== failedUrl && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => setFailedUrl(imageUrl)} src={imageUrl} style={{ objectPosition: focusPosition(imageFocus ?? DEFAULT_FOCUS, 1) }} />}
     </span>
   );
 }

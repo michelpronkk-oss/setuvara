@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { MeetMark } from "@/components/marketing/brand";
 import type { PlanCode } from "@/lib/billing/catalog";
+import { DEFAULT_FOCUS, focusPosition, type PhotoFocus } from "@/components/profile/photo-focus";
 import { StatusBadge } from "./status-badge";
 
 const navigation = [
@@ -18,11 +19,12 @@ const navigation = [
 // The 60° tick that marks the current destination. Same angle as the Meet mark cut.
 const tick = "polygon(2.3px 0,100% 0,calc(100% - 2.3px) 100%,0 100%)";
 
-export function AppShell({ children, displayName, username, avatarUrl, plan, canManageBilling, publicProfileUrl, signOut }: {
+export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut }: {
   children: ReactNode;
   displayName: string;
   username: string | null;
   avatarUrl: string | null;
+  avatarFocus?: PhotoFocus;
   plan: PlanCode;
   canManageBilling: boolean;
   publicProfileUrl: string | null;
@@ -44,7 +46,7 @@ export function AppShell({ children, displayName, username, avatarUrl, plan, can
           {navigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
-          <AccountMenu avatarUrl={avatarUrl} canManageBilling={canManageBilling} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
+          <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} canManageBilling={canManageBilling} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
         </div>
       </header>
 
@@ -74,8 +76,8 @@ function NavLink({ item, pathname, variant }: { item: (typeof navigation)[number
   );
 }
 
-function AccountMenu({ displayName, username, avatarUrl, plan, canManageBilling, publicProfileUrl, signOut }: {
-  displayName: string; username: string | null; avatarUrl: string | null; plan: PlanCode; canManageBilling: boolean; publicProfileUrl: string | null; signOut: () => Promise<void>;
+function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut }: {
+  displayName: string; username: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; plan: PlanCode; canManageBilling: boolean; publicProfileUrl: string | null; signOut: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -121,14 +123,14 @@ function AccountMenu({ displayName, username, avatarUrl, plan, canManageBilling,
   return (
     <div className="relative" ref={root}>
       <button aria-controls={open ? menuId : undefined} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu" className={`flex min-h-11 items-center gap-2.5 rounded-full py-1 pl-1 pr-1 focus-visible:outline-2 md:pr-2.5 ${open ? "bg-black/[0.06]" : "hover:bg-black/[0.04]"}`} onClick={() => setOpen((value) => !value)} ref={trigger} type="button">
-        <Avatar name={displayName} size="size-9" url={avatarUrl} />
+        <Avatar focus={avatarFocus} name={displayName} size="size-9" url={avatarUrl} />
         <span className="hidden max-w-40 truncate text-sm font-semibold md:block">{first}</span>
         <svg aria-hidden="true" className="hidden md:block" height="12" viewBox="0 0 12 12" width="12"><path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
       </button>
       {open && (
         <div aria-label="Account" className="absolute right-0 top-[calc(100%+8px)] z-50 flex max-h-[calc(100dvh-96px)] w-[min(316px,calc(100vw-32px))] flex-col overflow-y-auto rounded-[22px] bg-white p-2 shadow-[0_24px_60px_-20px_rgba(13,13,13,.35),0_0_0_1px_rgba(13,13,13,.08)] [animation:fade-in_120ms_ease-out]" id={menuId} role="menu">
           <div className="flex items-center gap-3 px-3 pb-4 pt-3.5">
-            <Avatar name={displayName} size="size-12" url={avatarUrl} />
+            <Avatar focus={avatarFocus} name={displayName} size="size-12" url={avatarUrl} />
             <div className="min-w-0"><p className="truncate text-base font-semibold">{displayName}</p>{username && <p className="truncate font-label text-xs text-black/65">setuvara.com/{username}</p>}</div>
           </div>
           <div className="mx-1 mb-1.5 flex items-center justify-between gap-3 rounded-[14px] bg-[#f5f4ef] px-3.5 py-3">
@@ -149,14 +151,14 @@ function AccountMenu({ displayName, username, avatarUrl, plan, canManageBilling,
   );
 }
 
-export function Avatar({ url, name, size }: { url: string | null; name: string; size: string }) {
+export function Avatar({ url, name, size, focus }: { url: string | null; name: string; size: string; focus?: PhotoFocus }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const initial = name.trim().slice(0, 1).toUpperCase() || "S";
   return (
     <span aria-hidden="true" className={`relative grid ${size} shrink-0 place-items-center overflow-hidden rounded-full bg-[#0d0d0d] text-sm font-semibold text-[#f5f4ef]`}>
       {initial}
       {/* eslint-disable-next-line @next/next/no-img-element -- signed Supabase URL, already resized */}
-      {url && url !== failedUrl && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" onError={() => setFailedUrl(url)} src={url} />}
+      {url && url !== failedUrl && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" onError={() => setFailedUrl(url)} src={url} style={{ objectPosition: focusPosition(focus ?? DEFAULT_FOCUS, 1) }} />}
     </span>
   );
 }

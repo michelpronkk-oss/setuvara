@@ -1,14 +1,15 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
+import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { PhotoGlow } from "@/components/profile/photo-glow";
 import { ProfileBlocks } from "@/components/profile/profile-blocks";
 import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MeetMark } from "@/components/marketing/brand";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
+import { modeFocus } from "./photo-focus";
 import { accentLuminance, inkOnAccent, resolveAppearance, resolveModeAccent, type ResolvedAppearance } from "./appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
 
@@ -107,13 +108,14 @@ function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, vis
   const rows = links.filter((item) => !isIconLink(item));
   const treatment = look.imageTreatment;
   const aspect = treatment === "compact" ? "aspect-[4/3]" : treatment === "portrait" ? "aspect-square" : "aspect-[4/5]";
+  const frameAspect = treatment === "compact" ? 4 / 3 : treatment === "portrait" ? 1 : 4 / 5;
   const meta = [setting(mode, "location"), setting(mode, "pronouns")].filter(Boolean).join(" · ");
   const mark = earnedMark(selectedRewards);
 
   return (
     <article {...lookData(look)} className={`relative isolate w-full overflow-hidden ${bleed ? "max-sm:rounded-none sm:rounded-[28px]" : "rounded-[28px]"} ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
       <div className={`relative w-full ${aspect}`}>
-        <Image alt={profile.display_name} className="object-cover" fill priority sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
+        <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={frameAspect} priority sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} />
         <div className="absolute inset-x-0 top-0 h-28" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.38), transparent)" }} />
         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tone.bg} 0%, ${hexAlpha(tone.bg, 0.92)} 14%, ${hexAlpha(tone.bg, 0.45)} 32%, transparent 52%)` }} />
         {!bleed && <TopBar tone={tone} label="PERSONAL" overlay />}
@@ -185,7 +187,7 @@ function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, 
       {mode.image_url ? (
         <div className="relative" style={{ height: heroHeight, margin: portrait ? "14px 14px 0" : 0 }}>
           <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: portrait ? 22 : 0, clipPath: look.imageTreatment === "compact" ? undefined : cutCorner(portrait ? 52 : 64) }}>
-            <Image alt={profile.display_name} className="object-cover" fill priority sizes="(max-width: 768px) 100vw, 440px" src={mode.image_url} unoptimized />
+            <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} priority sizes="(max-width: 768px) 100vw, 440px" src={mode.image_url} />
             {!portrait && <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tone.bg} 0%, ${hexAlpha(tone.bg, 0.55)} 22%, transparent 55%)` }} />}
           </div>
           <TopBar tone={tone} label="PERSONAL" overlay />
@@ -248,13 +250,13 @@ function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visi
 
       {bleedPhoto && (
         <div className={`relative -mt-px w-full ${poster ? "aspect-[4/3]" : "aspect-[16/9]"}`} data-profile-photo="full-bleed" style={{ clipPath: cutCorner(poster ? 40 : 28) }}>
-          <Image alt={profile.display_name} className="object-cover" fill sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
+          <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={poster ? 4 / 3 : 16 / 9} sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} />
         </div>
       )}
 
       <div className={`px-6 pb-7 ${bleedPhoto ? "pt-5" : "pt-6"}`}>
         <div className="flex items-end gap-4">
-          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><Image alt={profile.display_name} className="object-cover" fill sizes="120px" src={mode.image_url} unoptimized /></div>}
+          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={imageSize.width / imageSize.height} sizes="120px" src={mode.image_url} /></div>}
           <div className="min-w-0 pb-1">
             <p className="break-words font-display text-[1.75rem] font-bold leading-[0.95] tracking-[-0.045em]">{profile.display_name}</p>
             {setting(mode, "role") && <p className="mt-1.5 text-[13px]" style={{ color: tone.sub }}>{setting(mode, "role")}</p>}
@@ -313,12 +315,12 @@ function BusinessProfile({ profile, mode, look, viewerState, previewAsVisitor, v
 
         {bleedPhoto && (
           <div className={`relative -mx-6 mt-5 ${structured ? "aspect-[16/9]" : "aspect-[4/3]"}`} data-profile-photo="full-bleed" style={{ clipPath: cutCorner(structured ? 28 : 40) }}>
-            <Image alt={profile.display_name} className="object-cover" fill sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} unoptimized />
+            <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={structured ? 16 / 9 : 4 / 3} sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} />
           </div>
         )}
 
         <div className={`${bleedPhoto ? "mt-5" : "mt-7"} flex ${structured ? "items-end" : "flex-col items-start"} gap-4`}>
-          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><Image alt={profile.display_name} className="object-cover" fill sizes="132px" src={mode.image_url} unoptimized /></div>}
+          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={imageSize.width / imageSize.height} sizes="132px" src={mode.image_url} /></div>}
           <div className="min-w-0">
             {owner && <p className="mb-1.5 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent === "#F5F4EF" ? tone.sub : accent }}>Viewing your profile</p>}
             <h1 className={`break-words font-display font-extrabold leading-[0.92] tracking-[-0.05em] ${structured ? "text-[2.1rem]" : "text-[clamp(2.4rem,10vw,3.1rem)]"}`}>{profile.display_name}</h1>
