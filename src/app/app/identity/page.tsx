@@ -6,6 +6,8 @@ import type { ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/comp
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { parseConnectPolicy } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
+import { getViewerPlan } from "@/lib/app/viewer";
+import { memberTierForPlan } from "@/lib/billing/member-badge";
 
 import { signOut } from "./actions";
 import { IdentityEditor } from "./editor";
@@ -28,12 +30,13 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
   const guestSessionToken = (await cookies()).get("sv-guest-session")?.value;
   if (guestSessionToken) await supabase.rpc("claim_guest_connections", { p_session_token: guestSessionToken });
 
-  const [profileResult, modesResult, linksResult, blocksResult, passportResult] = await Promise.all([
+  const [profileResult, modesResult, linksResult, blocksResult, passportResult, viewer] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
     selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).order("sort_order")),
     supabase.rpc("get_passport_overview"),
+    getViewerPlan(userId),
   ]);
 
   if (profileResult.error || modesResult.error || linksResult.error || !profileResult.data || !modesResult.data?.length) {
@@ -96,6 +99,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       unlockedRewards={(passport.rewards ?? []).map((reward) => reward.id)}
       selectedRewards={passport.preferences ?? {}}
       celebrationThreshold={unseenMilestone}
+      memberTier={memberTierForPlan(viewer.plan)}
       publicOrigin={publicOrigin}
       saved={query.saved}
       signOut={signOut}

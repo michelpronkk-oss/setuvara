@@ -7,6 +7,8 @@ import { PhotoGlow } from "@/components/profile/photo-glow";
 import { ProfileBlocks } from "@/components/profile/profile-blocks";
 import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MeetMark } from "@/components/marketing/brand";
+import { MemberBadge } from "@/components/app/status-badge";
+import type { MemberTier } from "@/lib/billing/member-badge";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { modeFocus } from "./photo-focus";
@@ -32,6 +34,8 @@ type ProfileRendererProps = {
    * visitor's choice alone. "off" (thumbnails): no soundtrack at all.
    */
   sound?: "live" | "preview" | "off";
+  /** Paid member status resolved server-side from billing. One badge beside the name; null for Free. */
+  memberTier?: MemberTier | null;
 };
 
 /** Props each Mode's design receives: its appearance is already resolved for that Mode alone. */
@@ -89,6 +93,12 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
+/** Member status beside the person's name: sized to the cap height, kept on the name's last line. */
+function NameBadge({ tier }: { tier: MemberTier | null }) {
+  if (!tier) return null;
+  return <span className="ml-[0.16em] inline-block align-[0.06em] leading-none"><MemberBadge className="size-[0.5em] min-h-4 min-w-4" size={22} tier={tier} /></span>;
+}
+
 function PersonalProfile(props: ModeProfileProps) {
   if (isFullBleed(props.mode)) return <PersonalBleed {...props} />;
   return <PersonalPortrait {...props} />;
@@ -98,7 +108,7 @@ function PersonalProfile(props: ModeProfileProps) {
 const isIconLink = (item: ResolvedLink) => Boolean(item.icon) || ["email", "phone", "sms"].includes(item.providerId);
 
 /** Full Bleed: edge-to-edge photo that fades into a centred name and a row of round icons. */
-function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false }: ModeProfileProps) {
+function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false, memberTier = null }: ModeProfileProps) {
   const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
@@ -125,7 +135,7 @@ function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, vis
         <PhotoGlow dark={tone.dark} src={mode.image_url!} />
         <div className="relative px-6">
         {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? "Viewing your profile" : mark}</p>}
-        <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
+        <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
         <p className="mt-1.5 font-label text-[12px] tracking-[0.04em]" style={{ color: tone.sub }}>@{profile.username}</p>
         {(meta || profile.bio) && <p className="mx-auto mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
         <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} align="center" className="mx-auto mt-4 max-w-[360px]" tone={tone} />
@@ -171,7 +181,7 @@ function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, vis
   );
 }
 
-function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ModeProfileProps) {
+function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null }: ModeProfileProps) {
   const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
@@ -198,7 +208,7 @@ function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, 
 
       <div className={`relative px-6 pb-7 ${mode.image_url && !portrait ? "-mt-16" : "pt-4"}`}>
         {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? "Viewing your profile · Personal Mode" : mark}</p>}
-        <h1 className="break-words font-display text-[clamp(2.6rem,11vw,3.4rem)] font-extrabold leading-[0.9] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}</h1>
+        <h1 className="break-words font-display text-[clamp(2.6rem,11vw,3.4rem)] font-extrabold leading-[0.9] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
         {(meta || profile.bio) && <p className="mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
         {setting(mode, "note") && <p className="mt-3 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
         <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
@@ -224,7 +234,7 @@ function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, 
   );
 }
 
-function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ModeProfileProps) {
+function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null }: ModeProfileProps) {
   const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
@@ -258,7 +268,7 @@ function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visi
         <div className="flex items-end gap-4">
           {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={imageSize.width / imageSize.height} sizes="120px" src={mode.image_url} /></div>}
           <div className="min-w-0 pb-1">
-            <p className="break-words font-display text-[1.75rem] font-bold leading-[0.95] tracking-[-0.045em]">{profile.display_name}</p>
+            <p className="break-words font-display text-[1.75rem] font-bold leading-[0.95] tracking-[-0.045em]">{profile.display_name}<NameBadge tier={memberTier} /></p>
             {setting(mode, "role") && <p className="mt-1.5 text-[13px]" style={{ color: tone.sub }}>{setting(mode, "role")}</p>}
           </div>
         </div>
@@ -292,7 +302,7 @@ function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visi
   );
 }
 
-function BusinessProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {} }: ModeProfileProps) {
+function BusinessProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null }: ModeProfileProps) {
   const tone = tones[look.theme];
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
@@ -323,7 +333,7 @@ function BusinessProfile({ profile, mode, look, viewerState, previewAsVisitor, v
           {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={imageSize.width / imageSize.height} sizes="132px" src={mode.image_url} /></div>}
           <div className="min-w-0">
             {owner && <p className="mb-1.5 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent === "#F5F4EF" ? tone.sub : accent }}>Viewing your profile</p>}
-            <h1 className={`break-words font-display font-extrabold leading-[0.92] tracking-[-0.05em] ${structured ? "text-[2.1rem]" : "text-[clamp(2.4rem,10vw,3.1rem)]"}`}>{profile.display_name}</h1>
+            <h1 className={`break-words font-display font-extrabold leading-[0.92] tracking-[-0.05em] ${structured ? "text-[2.1rem]" : "text-[clamp(2.4rem,10vw,3.1rem)]"}`}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
           </div>
         </div>
 

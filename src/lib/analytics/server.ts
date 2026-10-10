@@ -39,8 +39,10 @@ function dailyRows(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     const row = record(item);
-    const date = row.date ?? row.day;
-    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+    // The RPC builds days from a timestamp series, so dates arrive as "YYYY-MM-DD 00:00:00".
+    const raw = row.date ?? row.day;
+    const date = typeof raw === "string" ? /^(\d{4}-\d{2}-\d{2})(?:[ T]00:00:00(?:\.0+)?)?$/.exec(raw)?.[1] : undefined;
+    if (!date) return [];
     return [{
       date,
       profileViews: numberAt(row, "profileViews", "profile_views", "views"),

@@ -1,3 +1,4 @@
+import type { MemberTier } from "@/lib/billing/member-badge";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import type { ModeLayout } from "@/components/profile/appearance";
 import type { LinkProvider } from "@/lib/links/providers";
@@ -45,6 +46,8 @@ export type EditorApi = {
   unlockedRewards: string[];
   selectedRewards: Partial<Record<RewardCategory, string>>;
   busyPhoto: boolean;
+  /** Server-resolved member status, so the owner preview matches the public profile. */
+  memberTier: MemberTier | null;
   updateProfile: (patch: Partial<EditableProfile>) => void;
   updateSetting: (key: string, value: string) => void;
   updateAppearance: (patch: Partial<ModeAppearance>) => void;
