@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   async headers() {
     const noIndex = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
     return [
+      { source: "/app", headers: noIndex },
+      { source: "/app/:path*", headers: noIndex },
       { source: "/api/:path*", headers: noIndex },
       { source: "/auth/:path*", headers: noIndex },
       { source: "/connect/:path*", headers: noIndex },
