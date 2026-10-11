@@ -621,6 +621,71 @@ let imagePath = "";
 try {
   ownerBrowser = await signUpAndConfirm(browser, owner);
   const page = ownerBrowser.page;
+  const ownerLocaleAuth = await authenticatedClient(owner);
+  ownerId = ownerLocaleAuth.user.id;
+  await page.goto(`${appUrl}/app/settings/language`);
+  await page.getByRole("heading", { level: 1, name: "Language", exact: true }).waitFor();
+  const languageToggle = page.locator('[aria-label="Language"]');
+  await languageToggle.getByRole("button", { name: "Nederlands", exact: true }).click();
+  await page.getByRole("heading", { level: 1, name: "Taal", exact: true }).waitFor();
+  const savedDutchPreference = await ownerLocaleAuth.client.from("account_preferences").select("preferred_locale, region_code").eq("user_id", ownerId).single();
+  assert.ifError(savedDutchPreference.error);
+  assert.equal(savedDutchPreference.data.preferred_locale, "nl", "Authenticated Dutch choice should persist in the account preference");
+  assert.equal(savedDutchPreference.data.region_code, null, "Choosing a language must not infer or change region");
+  await ownerBrowser.context.addCookies([{ name: "sv-locale", value: "en", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
+  await page.reload();
+  await page.getByRole("heading", { level: 1, name: "Taal", exact: true }).waitFor();
+  assert.equal(await page.locator('[aria-label="Language"] button[aria-pressed="true"]').innerText(), "Nederlands", "Saved account language takes precedence over a conflicting locale cookie");
+  await page.locator('[aria-label="Language"]').getByRole("button", { name: "English", exact: true }).click();
+  await page.getByRole("heading", { level: 1, name: "Language", exact: true }).waitFor();
+  const savedEnglishPreference = await ownerLocaleAuth.client.from("account_preferences").select("preferred_locale").eq("user_id", ownerId).single();
+  assert.ifError(savedEnglishPreference.error);
+  assert.equal(savedEnglishPreference.data.preferred_locale, "en", "Returning to English should persist the account preference");
+  const dutchGuestContext = await browser.newContext({ extraHTTPHeaders: { "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" } });
+  const dutchGuestPage = await dutchGuestContext.newPage();
+  await dutchGuestPage.goto(`${appUrl}/signup`);
+  assert.match(await dutchGuestPage.locator("html").getAttribute("lang"), /^nl(?:-|$)/, "Guest Accept-Language should select the supported Dutch locale");
+  await dutchGuestContext.addCookies([{ name: "sv-locale", value: "en", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
+  await dutchGuestPage.goto(`${appUrl}/signup`);
+  assert.equal(await dutchGuestPage.locator("html").getAttribute("lang"), "en", "Guest locale cookie should take precedence over Accept-Language");
+  await dutchGuestContext.addCookies([{ name: "sv-locale", value: "fr", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
+  await dutchGuestPage.goto(`${appUrl}/login`);
+  assert.match(await dutchGuestPage.locator("html").getAttribute("lang"), /^nl(?:-|$)/, "Unsupported locale cookies should fall back to supported Accept-Language");
+  await dutchGuestContext.close();
+
+  await page.goto(`${appUrl}/app/context`);
+  await page.getByRole("heading", { name: "Where are you meeting people?" }).waitFor();
+  await page.getByLabel("Name this context").fill("E2E Founder Event");
+  await page.getByLabel("City (optional)").fill("München");
+  await page.getByLabel("Country (optional)").fill("de");
+  await page.getByRole("button", { name: "Set active context", exact: true }).click();
+  await page.locator('p[aria-live="polite"]').filter({ hasText: "Active now" }).waitFor();
+  const eventContext = await ownerLocaleAuth.client.from("live_contexts").select("id, context_type, city, country_code, is_active").eq("owner_user_id", ownerId).eq("label", "E2E Founder Event").single();
+  assert.ifError(eventContext.error);
+  assert.equal(eventContext.data.context_type, "event");
+  assert.equal(eventContext.data.city, "München", "Unicode city names should persist exactly as entered");
+  assert.equal(eventContext.data.country_code, "DE", "Country codes should normalize to ISO alpha-2 uppercase");
+  assert.equal(eventContext.data.is_active, true);
+  await page.getByRole("button", { name: "End context", exact: true }).click();
+  await page.locator('p[aria-live="polite"]').filter({ hasText: "Live Context ended." }).waitFor();
+
+  await page.getByLabel("Name this context").fill("E2E Context Without Place");
+  await page.getByLabel("City (optional)").fill("");
+  await page.getByLabel("Country (optional)").fill("");
+  await page.getByLabel("Venue (optional)").fill("");
+  await page.getByRole("button", { name: "Set active context", exact: true }).click();
+  await page.locator('p[aria-live="polite"]').filter({ hasText: "Active now" }).waitFor();
+  const locationlessContext = await ownerLocaleAuth.client.from("live_contexts").select("id, city, country_code, venue, is_active").eq("owner_user_id", ownerId).eq("label", "E2E Context Without Place").single();
+  assert.ifError(locationlessContext.error);
+  assert.equal(locationlessContext.data.city, null, "Live Context may be set without a city");
+  assert.equal(locationlessContext.data.country_code, null, "Live Context may be set without a country");
+  assert.equal(locationlessContext.data.venue, null, "Live Context may be set without a venue");
+  assert.equal(locationlessContext.data.is_active, true);
+  await page.getByRole("button", { name: "End context", exact: true }).click();
+  await page.locator('p[aria-live="polite"]').filter({ hasText: "Live Context ended." }).waitFor();
+  await ownerLocaleAuth.client.auth.signOut({ scope: "local" });
+  console.log("PASS account locale precedence, guest locale fallback, region independence, Live Context normalization, optional location, and owner-only persistence");
+
   page.on("response", async (response) => {
     if (response.url().includes("/storage/v1/object/profile-media/") && !response.ok()) {
       storageFailure = { status: response.status(), body: (await response.text()).slice(0, 500) };
@@ -1270,6 +1335,19 @@ try {
   otherBrowser = await signUpAndConfirm(browser, other);
   await testIsolation(owner, other, ownerId, modeIds, linkIds, imagePath, [contentImageBlockId, eventImageBlockId, businessImageBlockId, contentVideoBlockId, featureBlockId], contentImagePath, [eventImagePath, businessImagePath]);
   const ownerAuth = await authenticatedClient(owner);
+  const ownerShareContext = await ownerAuth.client.rpc("set_active_live_context", {
+    p_context_type: "event",
+    p_label: "Slush",
+    p_expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+    p_venue: null,
+    p_city: "Helsinki",
+    p_country_code: "FI",
+    p_starts_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    p_source: "manual",
+    p_is_saved: false,
+  });
+  assert.ifError(ownerShareContext.error, "An owner may explicitly set their Event Live Context for the upcoming share");
+  const ownerShareContextId = ownerShareContext.data;
   const otherPage = otherBrowser.page;
   await setMode(otherPage, "business");
   await openSection(otherPage, "Profile");
@@ -1324,8 +1402,33 @@ try {
   const encounterMemory = otherPage.locator('section[aria-labelledby="memory-heading"]');
   const encounterCity = encounterMemory.getByText("Helsinki", { exact: true });
   await encounterCity.waitFor();
-  assert.equal(await encounterCity.count(), 1, "The shared Event snapshot's city appears once in the encounter context");
-  await encounterMemory.getByText("From Aanya’s Event Mode at the time", { exact: true }).waitFor();
+  assert.equal(await encounterCity.count(), 1, "The explicitly shared Live Context city appears once in the encounter context");
+  await encounterMemory.getByText("From your Live Context at the time", { exact: true }).waitFor();
+  const immutableLiveContext = await ownerAuth.client.from("connection_encounters")
+    .select("live_context_label_snapshot,live_context_city_snapshot,live_context_country_code_snapshot,event_name,city,date_label,country_code")
+    .eq("connection_id", ownerConnectionId).order("created_at").limit(1).single();
+  assert.ifError(immutableLiveContext.error);
+  assert.equal(immutableLiveContext.data.live_context_label_snapshot, "Slush");
+  assert.equal(immutableLiveContext.data.live_context_city_snapshot, "Helsinki");
+  assert.equal(immutableLiveContext.data.live_context_country_code_snapshot, "FI");
+  assert.equal(immutableLiveContext.data.event_name, null, "Mode event labels are not written into encounter context fields");
+  assert.equal(immutableLiveContext.data.city, null, "Mode city is not used as encounter context");
+  assert.equal(immutableLiveContext.data.date_label, null, "Mode date labels are not used as encounter context");
+  assert.equal(immutableLiveContext.data.country_code, null, "Mode country is not used as encounter context");
+  assert(ownerShareContextId, "The context used for the share should have a persisted owner row");
+  const editedShareContext = await ownerAuth.client.from("live_contexts").update({ label: "Changed after the Connection", city: "Amsterdam" }).eq("id", ownerShareContextId).select("id").single();
+  assert.ifError(editedShareContext.error);
+  const deletedShareContext = await ownerAuth.client.from("live_contexts").delete().eq("id", ownerShareContextId).select("id").single();
+  assert.ifError(deletedShareContext.error);
+  const immutableAfterDelete = await ownerAuth.client.from("connection_encounters")
+    .select("live_context_label_snapshot,live_context_city_snapshot")
+    .eq("connection_id", ownerConnectionId).order("created_at").limit(1).single();
+  assert.ifError(immutableAfterDelete.error);
+  assert.equal(immutableAfterDelete.data.live_context_label_snapshot, "Slush", "Updating and deleting a Live Context cannot rewrite its encounter snapshot");
+  assert.equal(immutableAfterDelete.data.live_context_city_snapshot, "Helsinki");
+  await otherPage.reload();
+  await encounterMemory.getByText("Helsinki", { exact: true }).waitFor();
+  assert.equal(await encounterMemory.getByText("Amsterdam", { exact: true }).count(), 0, "The Connection detail continues showing the immutable context after source deletion");
   await otherPage.getByText("Product designers and early-stage operators.", { exact: true }).waitFor();
   await personPanel.getByText(`@${owner.username}`, { exact: true }).waitFor();
   await personPanel.getByRole("link", { name: "View Aanya’s profile", exact: true }).waitFor();
@@ -1407,11 +1510,17 @@ try {
   assert.ifError(symmetricError);
   assert.equal(symmetricConnections?.length, 1, "The registered pair must have exactly one symmetric Connection");
   assert.equal(symmetricConnections?.[0].id, ownerConnectionId);
-  const { data: registeredEncounters, error: registeredEncounterError } = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name,city")
+  const { data: registeredEncounters, error: registeredEncounterError } = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name,city,date_label,country_code,live_context_label_snapshot,live_context_city_snapshot,live_context_country_code_snapshot")
     .eq("connection_id", ownerConnectionId).order("created_at");
   assert.ifError(registeredEncounterError);
   assert.equal(registeredEncounters?.length, 3, "Repeated connects should append Encounters to the existing Connection");
-  assert.equal(registeredEncounters?.[0].event_name, "Slush", "Encounter keeps the originally shared Event snapshot");
+  assert.equal(registeredEncounters?.[0].event_name, null, "Mode event labels are not recorded as encounter context");
+  assert.equal(registeredEncounters?.[0].city, null, "Mode city is not recorded as encounter context");
+  assert.equal(registeredEncounters?.[0].date_label, null, "Mode dates are not recorded as encounter context");
+  assert.equal(registeredEncounters?.[0].country_code, null, "Mode country is not recorded as encounter context");
+  assert.equal(registeredEncounters?.[0].live_context_label_snapshot, "Slush", "The explicitly active Live Context is snapshotted instead");
+  assert.equal(registeredEncounters?.[0].live_context_city_snapshot, "Helsinki");
+  assert.equal(registeredEncounters?.[0].live_context_country_code_snapshot, "FI");
   assert.deepEqual(registeredEncounters?.map((item) => item.shared_mode_slug), ["event", "personal", "business"], "Connection history must preserve each shared Mode");
 
   const ownerNote = await ownerAuth.client.from("connection_notes").upsert({ connection_id: ownerConnectionId, user_id: ownerId, note: "Private Setuvara E2E note" }, { onConflict: "connection_id,user_id" });
@@ -1488,13 +1597,15 @@ try {
   assert(claimedEdge, "Verified signup should claim the guest edge as a registered relationship");
   await page.goto(`${appUrl}/app/connections/${claimedEdge.id}`);
   await page.getByRole("heading", { name: "E2E Guest", exact: true }).waitFor();
-  await page.getByText("Slush", { exact: true }).waitFor();
+  assert.equal(await page.getByText("Slush", { exact: true }).count(), 0, "An Event Mode label without active Live Context is not presented as the place the guest met the owner");
   assert.equal(await page.locator("section img").count(), 0, "Claimed but unpublished guest identity should use its saved name without exposing a photo");
-  const claimedEncounters = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name")
+  const claimedEncounters = await ownerAuth.client.from("connection_encounters").select("id,shared_mode_slug,event_name,city,live_context_id_snapshot")
     .eq("connection_id", claimedEdge.id).order("created_at");
   assert.ifError(claimedEncounters.error);
   assert.equal(claimedEncounters.data?.length, 1, "Guest claim must preserve the encounter with account 1");
-  assert.equal(claimedEncounters.data?.find((encounter) => encounter.event_name)?.event_name, "Slush");
+  assert.equal(claimedEncounters.data?.[0].event_name, null, "Mode event names are not encounter facts");
+  assert.equal(claimedEncounters.data?.[0].city, null, "Mode cities are not encounter facts");
+  assert.equal(claimedEncounters.data?.[0].live_context_id_snapshot, null, "An inactive context is not attached to a new guest Connection");
   const claimedOtherEdge = await otherAuth.client.from("connections").select("id,connected_user_id")
     .eq("user_id", otherId).eq("connected_user_id", guestClaimAuth.user.id).maybeSingle();
   assert.ifError(claimedOtherEdge.error);
@@ -1544,6 +1655,18 @@ try {
   assert(directGrantAttempt.error, "Normal clients cannot grant themselves rewards through Data API");
 
   async function addProgressionGuest(index) {
+    const activeContext = await progressionOwner.client.rpc("set_active_live_context", {
+      p_context_type: "event",
+      p_label: `Archive Event ${index}`,
+      p_expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      p_venue: null,
+      p_city: `Archive City ${index}`,
+      p_country_code: "FI",
+      p_starts_at: new Date(Date.now() - 60 * 1000).toISOString(),
+      p_source: "manual",
+      p_is_saved: false,
+    });
+    assert.ifError(activeContext.error, `Progression fixture ${index} must use an explicit Event Live Context`);
     const email = `e2e-progress-${suffix}-${index}@example.test`;
     progressionGuestEmails.push(email);
     const response = await fetch(`${appUrl}/api/connections`, {
@@ -1615,18 +1738,8 @@ try {
   }
   const passportAt50 = (await progressionOwner.client.rpc("get_passport_overview")).data;
   assert.deepEqual(passportAt50.milestones.map((item) => item.threshold), [5, 10, 25, 50]);
-  for (const [index, connection] of createdProgressionConnections.entries()) {
-    const { error: archiveContextError } = await progressionOwner.client.from("encounter_context").upsert({
-      encounter_id: connection.encounterId,
-      user_id: ownerId,
-      city: `Archive City ${index + 1}`,
-      event_label: `Archive Event ${index + 1}`,
-      country_code: "FI",
-    }, { onConflict: "encounter_id,user_id" });
-    assert.ifError(archiveContextError);
-  }
   const completePassport = (await progressionOwner.client.rpc("get_passport_overview")).data;
-  assert(completePassport.stampTotal > 100, "Test account has enough real local context for UI pagination coverage");
+  assert(completePassport.stampTotal > 100, "Explicit Event Live Context fixtures should provide enough local stamps for UI pagination coverage");
   assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "qr_frame", p_reward_id: "coral_qr_frame" })).error);
   assert.ifError((await progressionOwner.client.rpc("set_passport_reward", { p_category: "profile_mark", p_reward_id: "signal_50_mark" })).error);
   const ownerPreferences = await progressionOwner.client.from("passport_preferences").select("category,reward_id").eq("user_id", ownerId);

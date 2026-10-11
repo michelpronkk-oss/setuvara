@@ -34,7 +34,7 @@ export function ConnectionDetail({ model, photoUrl, viewerId }: Props) {
 
   const encounters = model.encounters.map((item) => ({ ...item, memory: memories.has(item.id) ? memories.get(item.id) ?? null : item.memory }));
   // The Where card shows the latest moment Setuvara or the viewer can place; otherwise the first.
-  const placed = [...encounters].reverse().find((item) => item.known || item.memory);
+  const placed = [...encounters].reverse().find((item) => item.liveContext || item.known || item.memory);
   const whereEncounter = placed ?? encounters[0];
   const editingEncounter = encounters.find((item) => item.id === editing) ?? null;
 
@@ -220,7 +220,8 @@ function OriginCard({ model, timeZone }: { model: RelationshipModel; timeZone: s
       <MeetMark className="pointer-events-none absolute -right-10 -top-12 size-56 text-[#f5f4ef] opacity-[0.05] sm:size-72" />
       <p className="relative font-label text-[11px] uppercase tracking-[0.16em] text-[#f5f4ef]/60">The connection</p>
       <h2 className="relative mt-2.5 max-w-[22ch] font-display text-[30px] font-bold leading-[1.02] tracking-[-0.045em] sm:text-[40px] xl:text-[46px]" id="origin-heading">{origin.headline}</h2>
-      {origin.event && <p className="relative mt-2 text-[15px] text-[#f5f4ef]/75">{[origin.event, origin.eventCity].filter(Boolean).join(" · ")}<span className="text-[#f5f4ef]/50"> · from {first?.known?.from}</span></p>}
+      {first?.liveContext && <p className="relative mt-2 text-[15px] text-[#f5f4ef]/75">{[first.liveContext.label, first.liveContext.venue, first.liveContext.city].filter(Boolean).join(" · ")}<span className="text-[#f5f4ef]/50"> · Live Context at the time</span></p>}
+      {!first?.liveContext && first?.legacyModeSnapshot && <p className="relative mt-2 text-[13px] text-[#f5f4ef]/55">Mode snapshot from that time: {[first.legacyModeSnapshot.event, first.legacyModeSnapshot.city, first.legacyModeSnapshot.dateLabel].filter(Boolean).join(" · ")}</p>}
       <dl className="relative mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-[#f5f4ef]/15 pt-5 sm:grid-cols-4">
         {facts.map((fact) => (
           <div className="min-w-0" key={fact.label}>
@@ -239,9 +240,10 @@ function OriginCard({ model, timeZone }: { model: RelationshipModel; timeZone: s
 function whereParts(encounter: EncounterModel) {
   const memory = encounter.memory;
   const known = encounter.known;
+  const context = encounter.liveContext;
   return {
-    place: [memory?.venue, memory?.city ?? known?.city].filter(Boolean).join(", ") || null,
-    event: memory?.event ?? known?.event ?? null,
+    place: [memory?.venue ?? context?.venue, memory?.city ?? known?.city].filter(Boolean).join(", ") || null,
+    event: memory?.event ?? known?.event ?? (context?.type !== "event" ? context?.label ?? null : null),
   };
 }
 
@@ -259,7 +261,7 @@ function WhereCard({ encounter, person, timeZone, onEdit }: { encounter: Encount
       </button>
     );
   }
-  const provenance = memory ? provenanceLabel(memory.provenance) : `From ${encounter.known?.from}`;
+  const provenance = memory ? provenanceLabel(memory.provenance) : encounter.liveContext ? "From your Live Context at the time" : `From ${encounter.known?.from}`;
   return (
     <div className="flex min-h-[176px] flex-col justify-between rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-6">
       <div>
@@ -268,6 +270,7 @@ function WhereCard({ encounter, person, timeZone, onEdit }: { encounter: Encount
           <EditButton label="Edit where you met" onClick={onEdit} />
         </div>
         <p className="mt-1 break-words font-display text-[26px] font-bold leading-[1.05] tracking-[-0.035em]">{place ?? event}</p>
+        {encounter.liveContext && <p className="mt-1 text-[12px] text-black/50">{capitalize(encounter.liveContext.type)} · explicit context</p>}
         {place && event && <p className="mt-1.5 text-[15px] font-medium text-black/75">{event}</p>}
         <p className="mt-1.5 text-[14px] text-black/60">{memory?.metOn ? `${formatCalendarDate(memory.metOn)}${memory.metTime ? `, ${memory.metTime}` : ""}` : formatDate(encounter.at, timeZone)}</p>
       </div>
@@ -374,7 +377,8 @@ function TimelineEntry({ encounter, person, timeZone, isLast, onEdit }: { encoun
         <p className="mt-1 text-[14px] leading-5 text-black/65">{[encounter.counterpartModeLabel && (encounter.viewerShared ? `${person.firstName} shared back ${encounter.counterpartModeLabel}` : `${encounter.counterpartModeLabel}`), encounter.snapshot.asGuest ? `${person.firstName} connected as a guest` : null, encounter.sourceDetail].filter(Boolean).join(" · ")}</p>
         {(snapshotLine || showSnapshotName) && <p className="mt-1 text-[13px] text-black/50">Then: {[showSnapshotName ? encounter.snapshot.name : null, snapshotLine || null].filter(Boolean).join(" · ")}</p>}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          {encounter.known && <Tag>{capitalize(encounter.known.from)}</Tag>}
+          {encounter.liveContext && <Tag>{capitalize(encounter.liveContext.type)} · Live Context</Tag>}
+          {!encounter.liveContext && encounter.legacyModeSnapshot && <Tag>Mode snapshot from that time</Tag>}
           {memory?.metOn && <Tag lock>You remember {formatCalendarDate(memory.metOn)}{memory.metTime ? `, ${memory.metTime}` : ""}</Tag>}
           {memory && <Tag lock>{provenanceLabel(memory.provenance).replace(" · only you", "")}</Tag>}
           <button className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-2" onClick={onEdit} type="button">{memory ? <><PencilIcon />Edit memory</> : <><PlusIcon />Add where &amp; when</>}</button>

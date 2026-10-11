@@ -13,6 +13,8 @@ import type { PlanCode } from "@/lib/billing/catalog";
 import { hasCapability } from "@/lib/billing/capabilities";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
+import { getMessages } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { modeFocus } from "./photo-focus";
 import { accentLuminance, inkOnAccent, resolveAppearance, resolveModeAccent, type ResolvedAppearance } from "./appearance";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
@@ -40,6 +42,8 @@ type ProfileRendererProps = {
   memberTier?: MemberTier | null;
   /** Server-resolved plan controls paid visual treatments while preserving saved choices. */
   plan?: PlanCode;
+  /** Locale for Setuvara-owned profile chrome; member-authored fields stay unchanged. */
+  locale?: Locale;
 };
 
 /** Props each Mode's design receives: its appearance is already resolved for that Mode alone. */
@@ -114,8 +118,9 @@ function PersonalProfile(props: ModeProfileProps) {
 const isIconLink = (item: ResolvedLink) => Boolean(item.icon) || ["email", "phone", "sms"].includes(item.providerId);
 
 /** Full Bleed: edge-to-edge photo that fades into a centred name and a row of round icons. */
-function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false, memberTier = null }: ModeProfileProps) {
+function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false, memberTier = null, locale = "en" }: ModeProfileProps) {
   const tone = tones[look.theme];
+  const copy = getMessages(locale).profile;
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
   const editorialName = look.theme === "editorial" && accentLuminance(accent) < 0.55;
@@ -140,7 +145,7 @@ function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, vis
       <div className="relative -mt-24 pb-8 text-center">
         <PhotoGlow dark={tone.dark} src={mode.image_url!} />
         <div className="relative px-6">
-        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? "Viewing your profile" : mark}</p>}
+        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? copy.viewingProfile : mark}</p>}
         <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
         <p className="mt-1.5 font-label text-[12px] tracking-[0.04em]" style={{ color: tone.sub }}>@{profile.username}</p>
         {(meta || profile.bio) && <p className="mx-auto mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
@@ -161,8 +166,8 @@ function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, vis
         {setting(mode, "note") && <p className="mx-auto mt-5 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
 
         <div className="text-left">
-          <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
-          {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
+          <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel={copy.editPersonal} locale={locale} mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
+          {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} locale={locale} mode={mode} tone={tone} />}
         </div>
 
         <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} className="mt-6" tone={tone} />
@@ -180,15 +185,16 @@ function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, vis
             ))}
           </ul>
         )}
-        {links.length === 0 && !hasBlocks(mode) && <div className="text-left"><EmptyLinks tone={tone} text="No links shared in this Mode yet." /></div>}
+        {links.length === 0 && !hasBlocks(mode) && <div className="text-left"><EmptyLinks tone={tone} text={copy.noLinks} /></div>}
         </div>
       </div>
     </article>
   );
 }
 
-function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null }: ModeProfileProps) {
+function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null, locale = "en" }: ModeProfileProps) {
   const tone = tones[look.theme];
+  const copy = getMessages(locale).profile;
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
   const editorialName = look.theme === "editorial" && accentLuminance(accent) < 0.55;
@@ -213,14 +219,14 @@ function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, 
       )}
 
       <div className={`relative px-6 pb-7 ${mode.image_url && !portrait ? "-mt-16" : "pt-4"}`}>
-        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? "Viewing your profile · Personal Mode" : mark}</p>}
+        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? `${copy.viewingProfile} · ${copy.personalMode}` : mark}</p>}
         <h1 className="break-words font-display text-[clamp(2.6rem,11vw,3.4rem)] font-extrabold leading-[0.9] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
         {(meta || profile.bio) && <p className="mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
         {setting(mode, "note") && <p className="mt-3 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
         <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
 
-        <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel="Edit Personal Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
-        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
+        <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel={copy.editPersonal} locale={locale} mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
+        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} locale={locale} mode={mode} tone={tone} />}
 
         {links.length > 0 ? (
           <ul className="mt-8 flex flex-wrap gap-2">
@@ -233,15 +239,16 @@ function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, 
               </li>
             ))}
           </ul>
-        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
+        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={copy.noLinks} />}
         <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} tone={tone} />
       </div>
     </article>
   );
 }
 
-function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null }: ModeProfileProps) {
+function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null, locale = "en" }: ModeProfileProps) {
   const tone = tones[look.theme];
+  const copy = getMessages(locale).profile;
   const owner = viewerState === "owner" && !previewAsVisitor;
   const accent = look.accent;
   const bandInk = inkOnAccent(accent);
@@ -257,10 +264,10 @@ function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visi
     <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
       <header className={`relative px-6 ${poster ? "pb-8 pt-6" : "pb-5 pt-5"}`} style={{ background: accent, color: bandInk, clipPath: cutCorner(poster ? 34 : 24) }}>
         <div className="flex items-start justify-between gap-3">
-          <p className="font-label text-[10px] uppercase tracking-[0.16em]">{owner ? "Your Event Mode" : "Event Mode"}</p>
+          <p className="font-label text-[10px] uppercase tracking-[0.16em]">{owner ? `Your ${copy.eventMode}` : copy.eventMode}</p>
           <MeetMark className="size-5 shrink-0" />
         </div>
-        <h1 className={`mt-2 break-words font-display font-extrabold leading-[0.88] tracking-[-0.055em] ${poster ? "text-[clamp(2.6rem,12vw,3.5rem)]" : "text-[2.1rem]"}`}>{eventName || (owner ? "Your next event" : profile.display_name)}</h1>
+        <h1 className={`mt-2 break-words font-display font-extrabold leading-[0.88] tracking-[-0.055em] ${poster ? "text-[clamp(2.6rem,12vw,3.5rem)]" : "text-[2.1rem]"}`}>{eventName || (owner ? copy.nextEvent : profile.display_name)}</h1>
         {where && <p className="mt-2 text-[13px] font-semibold">{where}</p>}
       </header>
 
@@ -281,14 +288,14 @@ function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visi
         <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
         {setting(mode, "hereToMeet") && (
           <div className="mt-5 border-t-2 pt-4" style={{ borderColor: tone.ink }}>
-            <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>Here to meet</p>
+            <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{copy.hereToMeet}</p>
             <p className="mt-1.5 text-[15px] font-semibold leading-snug">{setting(mode, "hereToMeet")}</p>
           </div>
         )}
 
-        <OwnerOrVisitorActions accent={tone.ink} accentInk={tone.bg} editLabel="Edit Event Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
+        <OwnerOrVisitorActions accent={tone.ink} accentInk={tone.bg} editLabel={copy.editEvent} locale={locale} mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
         {!owner && eventName && viewerState !== "visitor_connected" && <p className="mt-2.5 text-center text-[11px]" style={{ color: tone.sub }}>{[eventName, setting(mode, "city"), "the time"].filter(Boolean).join(", ").replace(/, the time$/, " and the time")} are saved to the connection.</p>}
-        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
+        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} locale={locale} mode={mode} tone={tone} />}
 
         {links.length > 0 ? (
           <ul className="mt-7 grid grid-cols-2 gap-2">
@@ -301,7 +308,7 @@ function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visi
               </li>
             ))}
           </ul>
-        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={eventName ? "No links shared in this Mode yet." : "Event Mode is ready when you are."} />}
+        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={eventName ? copy.noLinks : copy.eventReady} />}
         <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} tone={tone} />
       </div>
     </article>
@@ -395,38 +402,41 @@ function TopBar({ tone, label, overlay = false }: { tone: Tone; label: string; o
   );
 }
 
-function OwnerOrVisitorActions({ owner, visitorAction, onShare, onEditMode, mode, tone, accent, accentInk, editLabel }: { owner: boolean; visitorAction?: ReactNode; onShare?: () => void; onEditMode?: () => void; mode: ProfileMode; tone: Tone; accent: string; accentInk: string; editLabel: string }) {
+function OwnerOrVisitorActions({ owner, visitorAction, onShare, onEditMode, mode, tone, accent, accentInk, editLabel, locale = "en" }: { owner: boolean; visitorAction?: ReactNode; onShare?: () => void; onEditMode?: () => void; mode: ProfileMode; tone: Tone; accent: string; accentInk: string; editLabel: string; locale?: Locale }) {
+  const copy = getMessages(locale).profile;
   if (!owner) return visitorAction ? <div className="mt-6 [&>button]:mt-0">{visitorAction}</div> : null;
   const share = `/app/identity?mode=${mode.slug}&section=share`;
   const edit = `/app/identity?mode=${mode.slug}&section=profile`;
   return (
     <div className="mt-6">
       <div className="flex gap-2">
-        <a className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold" href={share} onClick={onShare ? (event) => { event.preventDefault(); onShare(); } : undefined} style={{ background: accent, color: accentInk }}>Share {modeLabel[mode.slug]} Mode</a>
-        <a aria-label="Show QR code" className="inline-flex min-h-12 items-center justify-center rounded-full px-4 text-sm font-semibold" href={share} onClick={onShare ? (event) => { event.preventDefault(); onShare(); } : undefined} style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }}>QR</a>
+        <a className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold" href={share} onClick={onShare ? (event) => { event.preventDefault(); onShare(); } : undefined} style={{ background: accent, color: accentInk }}>{copy.shareMode.replace("{mode}", modeLabel[mode.slug])}</a>
+        <a aria-label={copy.showQr} className="inline-flex min-h-12 items-center justify-center rounded-full px-4 text-sm font-semibold" href={share} onClick={onShare ? (event) => { event.preventDefault(); onShare(); } : undefined} style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }}>QR</a>
       </div>
       <a className="mt-3 inline-flex min-h-8 items-center text-xs font-semibold underline underline-offset-4" href={edit} onClick={onEditMode ? (event) => { event.preventDefault(); onEditMode(); } : undefined}>{editLabel}</a>
     </div>
   );
 }
 
-function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode, tone }: { connectionContext?: ConnectionContext | null; connectionHref?: string; guestClaimHref?: string; mode: ProfileMode; tone: Tone }) {
+function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode, tone, locale = "en" }: { connectionContext?: ConnectionContext | null; connectionHref?: string; guestClaimHref?: string; mode: ProfileMode; tone: Tone; locale?: Locale }) {
+  const copy = getMessages(locale).profile;
   const accent = resolveModeAccent(mode);
   const where = [connectionContext?.event, connectionContext?.city].filter(Boolean);
+  const sharedMode = connectionContext?.mode === "personal" ? copy.personalMode : connectionContext?.mode === "event" ? copy.eventMode : connectionContext?.mode === "business" ? copy.businessMode : null;
   return (
     <section aria-label="Connection status" className="mt-4">
       <div className="flex items-center gap-2">
-        <span aria-live="polite" className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full px-4 text-[13px] font-semibold" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }}>Connected <span aria-hidden="true" className="ml-1">✓</span></span>
-        {connectionHref && <Link className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full px-4 text-[13px] font-semibold" href={connectionHref} style={{ background: tone.ink, color: tone.bg }}>View connection</Link>}
+        <span aria-live="polite" className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full px-4 text-[13px] font-semibold" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }}>{copy.connected} <span aria-hidden="true" className="ml-1">✓</span></span>
+        {connectionHref && <Link className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full px-4 text-[13px] font-semibold" href={connectionHref} style={{ background: tone.ink, color: tone.bg }}>{copy.viewConnection}</Link>}
       </div>
       {(where.length > 0 || connectionContext?.dateLabel) && (
         <div className="mt-3 rounded-2xl bg-[#0D0D0D] px-4 py-3.5 text-[#F5F4EF]" style={{ boxShadow: tone.dark ? "inset 0 0 0 1px rgba(245,244,239,.16)" : undefined }}>
-          <div className="flex justify-between font-label text-[9px] uppercase tracking-[0.14em]"><span style={{ color: accent === "#F5F4EF" ? "#C7FF4A" : accent }}>You met</span>{connectionContext?.mode && <span className="text-white/55">{connectionContext.mode} Mode shared</span>}</div>
+          <div className="flex justify-between font-label text-[9px] uppercase tracking-[0.14em]"><span style={{ color: accent === "#F5F4EF" ? "#C7FF4A" : accent }}>{copy.youMet}</span>{sharedMode && <span className="text-white/55">{sharedMode}</span>}</div>
           {where.length > 0 && <p className="mt-1.5 font-display text-xl font-bold tracking-[-0.03em]">{where[0]}{where[1] && <span className="ml-2 font-brand text-xs font-medium"><span className="mr-1.5 text-[#FF5A4F]">/</span>{where[1]}</span>}</p>}
           {connectionContext?.dateLabel && <p className="mt-1 text-[11px] text-white/60">{connectionContext.dateLabel}</p>}
         </div>
       )}
-      {guestClaimHref && <div className="mt-3"><Link className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D]" href={guestClaimHref}>Claim your Setuvara</Link><p className="mt-1.5 text-[11px] leading-5" style={{ color: tone.sub }}>Keep this connection, create your identity, and share yours next time.</p></div>}
+      {guestClaimHref && <div className="mt-3"><Link className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D]" href={guestClaimHref}>{copy.claimSetuvara}</Link><p className="mt-1.5 text-[11px] leading-5" style={{ color: tone.sub }}>{copy.keepConnection}</p></div>}
     </section>
   );
 }

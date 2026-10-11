@@ -7,21 +7,24 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { MeetMark } from "@/components/marketing/brand";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { DEFAULT_FOCUS, focusPosition, type PhotoFocus } from "@/components/profile/photo-focus";
+import { LocaleToggle } from "@/components/i18n/locale-toggle";
+import type { Locale } from "@/lib/i18n/locale";
+import { useI18n } from "@/lib/i18n/provider";
 import { StatusBadge } from "./status-badge";
 
 const navigation = [
-  { href: "/app", label: "Home", short: "Home" },
-  { href: "/app/identity", label: "Identity", short: "Identity" },
-  { href: "/app/wallet", label: "Wallet", short: "Wallet" },
-  { href: "/app/analytics", label: "Analytics", short: "Analytics" },
-  { href: "/app/connections", label: "Connections", short: "People" },
-  { href: "/app/passport", label: "Passport", short: "Passport" },
+  { href: "/app", labelKey: "home", shortKey: "home" },
+  { href: "/app/identity", labelKey: "identity", shortKey: "identity" },
+  { href: "/app/wallet", labelKey: "wallet", shortKey: "wallet" },
+  { href: "/app/analytics", labelKey: "analytics", shortKey: "analytics" },
+  { href: "/app/connections", labelKey: "connections", shortKey: "people" },
+  { href: "/app/passport", labelKey: "passport", shortKey: "passport" },
 ] as const;
 
 // The 60° tick that marks the current destination. Same angle as the Meet mark cut.
 const tick = "polygon(2.3px 0,100% 0,calc(100% - 2.3px) 100%,0 100%)";
 
-export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut, walletPubliclyLaunched }: {
+export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut, walletPubliclyLaunched, locale }: {
   children: ReactNode;
   displayName: string;
   username: string | null;
@@ -32,15 +35,16 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
   publicProfileUrl: string | null;
   signOut: () => Promise<void>;
   walletPubliclyLaunched: boolean;
+  locale: Locale;
 }) {
   const pathname = usePathname();
   const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
   // The identity editor is a full-screen workspace with its own navigation.
-  if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <>{children}</>;
+  if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <div lang={locale}>{children}</div>;
 
   return (
-    <div className="min-h-dvh bg-[#f5f4ef] font-brand text-[#0d0d0d]">
-      <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-[#0d0d0d] focus:px-4 focus:py-2 focus:text-white" href="#app-main">Skip to content</a>
+    <div className="min-h-dvh bg-[#f5f4ef] font-brand text-[#0d0d0d]" lang={locale}>
+      <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-[#0d0d0d] focus:px-4 focus:py-2 focus:text-white" href="#app-main">{locale === "nl" ? "Ga naar de inhoud" : "Skip to content"}</a>
       <header className="sticky top-0 z-40 grid h-[60px] grid-cols-[1fr_auto] items-center bg-[#f5f4ef]/95 px-4 backdrop-blur-sm md:h-[76px] md:grid-cols-[1fr_auto_1fr] md:px-8">
         <Link aria-label="Setuvara Home" className="flex min-h-11 items-center gap-2.5 justify-self-start rounded-full focus-visible:outline-2" href="/app">
           <MeetMark className="size-[22px] md:size-[26px]" />
@@ -50,7 +54,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
           {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
-          <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} canManageBilling={canManageBilling} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
+          <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} canManageBilling={canManageBilling} displayName={displayName} locale={locale} pathname={pathname} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
         </div>
       </header>
 
@@ -64,24 +68,25 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
 }
 
 function NavLink({ item, pathname, variant }: { item: (typeof navigation)[number]; pathname: string; variant: "top" | "bottom" }) {
+  const { messages } = useI18n();
   const active = isActive(pathname, item.href);
   const indicator = <span aria-hidden="true" className={`h-1 w-5 bg-[#ff5a4f] transition-opacity ${active ? "opacity-100" : "opacity-0"}`} style={{ clipPath: tick }} />;
   if (variant === "bottom") {
     return (
       <Link aria-current={active ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[11px] focus-visible:outline-2 sm:gap-1.5 sm:text-[13px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60"}`} href={item.href}>
-        {indicator}{item.short}
+        {indicator}{messages.common[item.shortKey]}
       </Link>
     );
   }
   return (
     <Link aria-current={active ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-[5px] rounded-full px-2.5 text-[13px] transition-colors focus-visible:outline-2 lg:px-4 lg:text-[15px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60 hover:text-black"}`} href={item.href}>
-      <span>{item.label}</span>{indicator}
+      <span>{messages.common[item.labelKey]}</span>{indicator}
     </Link>
   );
 }
 
-function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut }: {
-  displayName: string; username: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; plan: PlanCode; canManageBilling: boolean; publicProfileUrl: string | null; signOut: () => Promise<void>;
+function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut, locale, pathname }: {
+  displayName: string; username: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; plan: PlanCode; canManageBilling: boolean; publicProfileUrl: string | null; signOut: () => Promise<void>; locale: Locale; pathname: string;
 }) {
   const [open, setOpen] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -91,6 +96,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
   const menuId = useId();
   const first = displayName.trim().split(/\s+/)[0] || displayName;
   const planName = plan === "pro" ? "Setuvara Pro" : plan === "plus" ? "Setuvara Plus" : "Free";
+  const { messages } = useI18n();
 
   useEffect(() => {
     if (!open) return;
@@ -126,7 +132,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
   const item = "flex min-h-[46px] w-full items-center justify-between rounded-xl px-3.5 text-left text-[15px] font-medium hover:bg-[#f5f4ef] focus-visible:bg-[#f5f4ef] focus-visible:outline-none";
   return (
     <div className="relative" ref={root}>
-      <button aria-controls={open ? menuId : undefined} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu" className={`flex min-h-11 items-center gap-2.5 rounded-full py-1 pl-1 pr-1 focus-visible:outline-2 md:pr-2.5 ${open ? "bg-black/[0.06]" : "hover:bg-black/[0.04]"}`} onClick={() => setOpen((value) => !value)} ref={trigger} type="button">
+      <button aria-controls={open ? menuId : undefined} aria-expanded={open} aria-haspopup="menu" aria-label={locale === "nl" ? "Accountmenu" : "Account menu"} className={`flex min-h-11 items-center gap-2.5 rounded-full py-1 pl-1 pr-1 focus-visible:outline-2 md:pr-2.5 ${open ? "bg-black/[0.06]" : "hover:bg-black/[0.04]"}`} onClick={() => setOpen((value) => !value)} ref={trigger} type="button">
         <Avatar focus={avatarFocus} name={displayName} size="size-9" url={avatarUrl} />
         <span className="hidden max-w-40 truncate text-sm font-semibold md:block">{first}</span>
         <svg aria-hidden="true" className="hidden md:block" height="12" viewBox="0 0 12 12" width="12"><path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
@@ -140,15 +146,18 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
           <div className="mx-1 mb-1.5 flex items-center justify-between gap-3 rounded-[14px] bg-[#f5f4ef] px-3.5 py-3">
             <span className="flex items-center gap-2 text-sm font-semibold"><StatusBadge plan={plan} size={16} />{planName}</span>
             {canManageBilling
-              ? <button className="min-h-11 text-[13px] font-semibold text-black/70 underline-offset-4 hover:underline disabled:opacity-60" disabled={billingBusy} onClick={() => void manageBilling()} role="menuitem" type="button">{billingBusy ? "Opening…" : "Manage"}</button>
-              : <Link className="flex min-h-11 items-center text-[13px] font-semibold text-black/70 underline-offset-4 hover:underline" href="/pricing" role="menuitem">See plans</Link>}
+              ? <button className="min-h-11 text-[13px] font-semibold text-black/70 underline-offset-4 hover:underline disabled:opacity-60" disabled={billingBusy} onClick={() => void manageBilling()} role="menuitem" type="button">{billingBusy ? (locale === "nl" ? "Openen…" : "Opening…") : messages.common.manageBilling}</button>
+              : <Link className="flex min-h-11 items-center text-[13px] font-semibold text-black/70 underline-offset-4 hover:underline" href="/pricing" role="menuitem">{messages.common.seePlans}</Link>}
           </div>
-          {billingError && <p aria-live="polite" className="px-3.5 pb-1 text-xs text-[#a43d36]">Billing could not open. Try again in a moment.</p>}
-          {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">View public profile<span aria-hidden="true" className="text-black/50">↗</span></a>}
-          <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">Mode settings</Link>
-          <Link className={item} href="/app/settings/notifications" role="menuitem">Email preferences</Link>
+          {billingError && <p aria-live="polite" className="px-3.5 pb-1 text-xs text-[#a43d36]">{locale === "nl" ? "Facturering kan nu niet worden geopend. Probeer het zo opnieuw." : "Billing could not open. Try again in a moment."}</p>}
+          <LocaleToggle fullLabels locale={locale} menuItems returnTo={pathname} />
+          <Link className={item} href="/app/context" role="menuitem">{messages.common.liveContext}</Link>
+          <Link className={item} href="/app/settings/language" role="menuitem">{messages.common.language}</Link>
+          {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">{messages.common.viewProfile}<span aria-hidden="true" className="text-black/50">↗</span></a>}
+          <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">{messages.common.modeSettings}</Link>
+          <Link className={item} href="/app/settings/notifications" role="menuitem">{messages.common.emailPreferences}</Link>
           <div className="mx-2.5 my-1.5 h-px bg-black/[0.08]" />
-          <form action={signOut}><button className={`${item} text-black/70`} role="menuitem" type="submit">Sign out</button></form>
+          <form action={signOut}><button className={`${item} text-black/70`} role="menuitem" type="submit">{messages.common.signOut}</button></form>
         </div>
       )}
     </div>

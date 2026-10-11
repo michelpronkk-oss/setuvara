@@ -119,8 +119,23 @@ try {
 
   // The Rayzenni case: Michel opens Rayzenni's Personal Mode from a native share and connects.
   const rayzConnection = await connect(michel, rayz, "personal", "native_share");
-  // Ana: first at Slush by QR on her Event Mode, then again through her Business link.
+  // Ana: explicitly sets Slush as her temporary Event Live Context before the first share.
+  const anaLiveContext = await ana.client.rpc("set_active_live_context", {
+    p_context_type: "event",
+    p_label: "Slush",
+    p_expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+    p_venue: null,
+    p_city: "Helsinki",
+    p_country_code: "FI",
+    p_starts_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    p_source: "manual",
+    p_is_saved: false,
+  });
+  assert.ifError(anaLiveContext.error);
   const anaFirst = await connect(michel, ana, "event", "qr");
+  assert.ifError((await ana.client.from("live_contexts").update({ is_active: false }).eq("id", anaLiveContext.data)).error);
+  // A later Business share has no active context, so Slush/Helsinki remain only
+  // on the first immutable Live Context snapshot.
   await new Promise((resolve) => setTimeout(resolve, 50));
   const anaAgain = await connect(michel, ana, "business", "link");
   assert.equal(anaFirst.connection_id, anaAgain.connection_id, "repeat Connect keeps one Connection");
@@ -246,8 +261,10 @@ try {
     assert.match(await entries.first().innerText(), /You corrected this/);
     assert.doesNotMatch(await entries.last().innerText(), /Espoo|Slush/, "the later encounter keeps its own context");
     await whereCard(page).getByText("Espoo").waitFor();
-    const { data: snap } = await admin.from("connection_encounters").select("city,event_name").eq("id", anaFirst.encounter_id).single();
-    assert.deepEqual(snap, { city: "Helsinki", event_name: "Slush" }, "the encounter snapshot is not rewritten");
+    const { data: snap } = await admin.from("connection_encounters")
+      .select("city,event_name,live_context_label_snapshot,live_context_city_snapshot")
+      .eq("id", anaFirst.encounter_id).single();
+    assert.deepEqual(snap, { city: null, event_name: null, live_context_label_snapshot: "Slush", live_context_city_snapshot: "Helsinki" }, "explicit Live Context stays in its own immutable snapshot fields");
     pass("event context shows, repeated encounters stay separate, prefill and corrections persist");
   }
 
@@ -296,7 +313,7 @@ try {
     await outsider.page.goto(`${appUrl}/app/connections/${rayzConnection.connection_id}`);
     await outsider.page.waitForLoadState("networkidle");
     const body = await outsider.page.locator("body").innerText();
-    assert.match(body, /404|could not be found/i);
+    assert.match(body, /404|could not be found|This page isn’t here/i);
     assert.doesNotMatch(body, /Rayzenni|M\.L\.A|Alkmaar|ceramics/);
     const tables = [["connections", "id"], ["connection_encounters", "id"], ["connection_notes", "note"], ["encounter_context", "city"]];
     for (const [table, column] of tables) {

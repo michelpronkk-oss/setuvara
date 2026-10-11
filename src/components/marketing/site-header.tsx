@@ -4,20 +4,24 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { MeetMark, Wordmark } from "./brand";
-
-const navigation = [
-  { href: "/#product", label: "Product" },
-  { href: "/#modes", label: "Modes" },
-  { href: "/events", label: "For Events" },
-  { href: "/teams", label: "For Teams" },
-  { href: "/pricing", label: "Pricing" },
-];
+import { LocaleToggle } from "@/components/i18n/locale-toggle";
+import { getMessages } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral";
 
-export function SiteHeader() {
+export function SiteHeader({ locale }: { locale: Locale }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const copy = getMessages(locale).marketing;
+  const home = locale === "nl" ? "/nl" : "/";
+  const navigation = [
+    { href: `${home}#product`, label: copy.product },
+    { href: `${home}#modes`, label: copy.modes },
+    { href: "/events", label: copy.events },
+    { href: "/teams", label: copy.teams },
+    { href: "/pricing", label: copy.pricing },
+  ];
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -54,7 +58,7 @@ export function SiteHeader() {
       {/* The blur lives on its own layer: backdrop-filter on the header would trap the fixed menu inside it. */}
       <div aria-hidden="true" className={`absolute inset-0 z-[1] border-b transition-colors duration-300 ${menuOpen ? "border-transparent bg-ink" : "border-ink/10 bg-paper/90 backdrop-blur-md supports-[backdrop-filter]:bg-paper/75"}`} />
       <div className="relative z-10 mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:min-h-[72px] lg:px-14">
-        <Link aria-label="Setuvara home" className={`inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-md ${focusRing}`} href="/" onClick={closeMenu}>
+        <Link aria-label={locale === "nl" ? "Setuvara startpagina" : "Setuvara home"} className={`inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-md ${focusRing}`} href={home} onClick={closeMenu}>
           <MeetMark className={`size-7 transition-colors duration-300 ${menuOpen ? "text-coral" : ""}`} />
           <Wordmark className="text-[23px] leading-none" />
         </Link>
@@ -67,10 +71,11 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-6 md:flex">
-          <Link className={`hidden min-h-11 content-center rounded-sm text-[15px] font-medium text-ink/70 transition-colors hover:text-ink lg:block ${focusRing}`} href="/login">Log in</Link>
+        <div className="hidden items-center gap-4 lg:flex">
+          <LocaleToggle locale={locale} returnTo={home} />
+          <Link className={`min-h-11 content-center rounded-sm text-[15px] font-medium text-ink/70 transition-colors hover:text-ink ${focusRing}`} href="/login">{copy.login}</Link>
           <Link className={`group inline-flex min-h-11 items-center gap-2 rounded-full bg-ink pl-5 pr-4 text-[14px] font-semibold text-paper transition-colors hover:bg-[#262626] lg:text-[15px] ${focusRing}`} href="/signup">
-            Get Setuvara
+            {copy.getSetuvara}
             <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
           </Link>
         </div>
@@ -78,7 +83,7 @@ export function SiteHeader() {
         <button
           aria-controls="mobile-navigation"
           aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-label={menuOpen ? (locale === "nl" ? "Navigatiemenu sluiten" : "Close navigation menu") : (locale === "nl" ? "Navigatiemenu openen" : "Open navigation menu")}
           className={`relative inline-flex size-11 items-center justify-center rounded-full transition-colors duration-300 md:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral ${menuOpen ? "bg-paper/10" : "bg-ink/[0.06]"}`}
           onClick={() => setMenuOpen((open) => !open)}
           ref={menuButton}
@@ -112,12 +117,13 @@ export function SiteHeader() {
 
         <div className="mobile-menu-item mt-auto flex flex-col gap-3" style={{ "--i": navigation.length } as CSSProperties}>
           <Link className="flex h-14 items-center justify-center gap-2 rounded-full bg-coral text-[16px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper" href="/signup" onClick={closeMenu}>
-            Create your Setuvara <span aria-hidden="true">→</span>
+            {copy.createSetuvara} <span aria-hidden="true">→</span>
           </Link>
           <Link className="flex h-14 items-center justify-center rounded-full text-[15px] font-semibold text-paper/80 shadow-[inset_0_0_0_1px_rgba(245,244,239,.18)] focus-visible:outline-2 focus-visible:outline-coral" href="/login" onClick={closeMenu}>
-            Log in
+            {copy.login}
           </Link>
-          <p className="mt-3 text-center font-label text-[10px] uppercase tracking-[0.18em] text-paper/35">One identity. Every version of you.</p>
+          <div className="mt-2 flex justify-center"><LocaleToggle locale={locale} returnTo={home} /></div>
+          <p className="mt-2 text-center font-label text-[10px] uppercase tracking-[0.18em] text-paper/35">{copy.oneIdentity}</p>
         </div>
       </nav>
     </header>

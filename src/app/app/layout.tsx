@@ -9,6 +9,8 @@ import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
 import { WALLET_PUBLICLY_LAUNCHED } from "@/lib/wallet/launch";
 import { readFocus } from "@/components/profile/photo-focus";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { resolveRequestLocale } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./identity/actions";
 
@@ -25,31 +27,35 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (error || !userId) redirect("/login?next=/app");
 
-  const [{ data: profile }, { data: personal }, requestHeaders, billing] = await Promise.all([
+  const [{ data: profile }, { data: personal }, requestHeaders, billing, locale] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("image_path, image_focus_x, image_focus_y").eq("profile_id", userId).eq("slug", "personal").maybeSingle(),
     headers(),
     getViewerPlan(userId),
+    resolveRequestLocale({ supabase, userId }),
   ]);
   const publicOrigin = await getPublicOrigin(requestHeaders);
   // Small signed thumbnail for the avatar. Width transform keeps the header light.
   const avatarUrl = await signHomeImage(supabase, personal?.image_path, true);
 
   return (
-    <div className={marketingFontClasses}>
-      <AppShell
-        avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
-        avatarUrl={avatarUrl}
-        canManageBilling={billing.canManageBilling}
-        displayName={profile?.display_name ?? "Your identity"}
-        plan={billing.plan}
-        publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}
-        signOut={signOut}
-        walletPubliclyLaunched={WALLET_PUBLICLY_LAUNCHED}
-        username={profile?.username ?? null}
-      >
-        {children}
-      </AppShell>
-    </div>
+    <I18nProvider locale={locale}>
+      <div className={marketingFontClasses} lang={locale}>
+        <AppShell
+          avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
+          avatarUrl={avatarUrl}
+          canManageBilling={billing.canManageBilling}
+          displayName={profile?.display_name ?? "Your identity"}
+          locale={locale}
+          plan={billing.plan}
+          publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}
+          signOut={signOut}
+          walletPubliclyLaunched={WALLET_PUBLICLY_LAUNCHED}
+          username={profile?.username ?? null}
+        >
+          {children}
+        </AppShell>
+      </div>
+    </I18nProvider>
   );
 }

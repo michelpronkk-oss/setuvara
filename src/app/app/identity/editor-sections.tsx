@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type React
 
 import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
+import { LocaleToggle } from "@/components/i18n/locale-toggle";
 import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/brand";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
@@ -16,6 +17,7 @@ import { modeFocus } from "@/components/profile/photo-focus";
 import { resolveQrStyle } from "@/components/profile/appearance";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { hasCapability } from "@/lib/billing/capabilities";
+import { useI18n } from "@/lib/i18n/provider";
 import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, providerForLink, resolveStoredLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
@@ -516,11 +518,20 @@ function LayoutSketch({ layout, theme, accent }: { layout: string; theme: Profil
 
 export function SettingsSection({ api }: { api: EditorApi }) {
   const { mode, slug, profile } = api;
+  const { locale, messages } = useI18n();
   const contacts = mode.links.filter((link) => CONTACT_PROVIDERS.includes(providerForLink(link.link_type).id));
   const description = { personal: "Who sees what in Personal Mode.", event: "What this Event Mode shows, and what it remembers.", business: "Contact rules and what Business Mode shows." }[slug];
   return (
     <div>
       <SectionHeader description={description} slug={slug} title="Mode Settings" />
+
+      <Card className="mt-4 flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold">{messages.settings.languageTitle}</h2>
+          <p className="mt-0.5 text-[13px] text-black/55">{messages.settings.languageDescription}</p>
+        </div>
+        <LocaleToggle fullLabels locale={locale} returnTo={`/app/identity?mode=${slug}&section=settings`} />
+      </Card>
 
       <Card className="divide-y divide-black/[0.07] px-5 sm:px-6">
         <SettingRow description={slug === "personal" ? "Personal is always on. It’s where people land by default." : mode.is_enabled ? "Its link and QR code open for anyone you share them with." : "Its link and QR code don’t open. Nothing is deleted."} title={`${modeMeta[slug].name} Mode is ${mode.is_enabled ? "on" : "off"}`}>

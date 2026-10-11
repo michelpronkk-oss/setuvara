@@ -55,8 +55,7 @@ const base = (extra = {}) => ({
   encounters: [encounter()],
   counterpart: rayzProfile,
   counterpartModes: { personal: { settings: { location: "Hoorn" }, image_path: `${RAYZ}/photo.webp` } },
-  note: null, memories: [], viewerHistory: [], passport: [], viewerEventMode: null,
-  now: new Date("2026-10-10T08:00:00Z"),
+  note: null, memories: [], viewerHistory: [], passport: [],
   ...extra,
 });
 const everyText = (model) => JSON.stringify({ origin: model.origin, encounters: model.encounters.map(({ known, memory, suggestions, prefill, headline }) => ({ known, memory, suggestions, prefill, headline })) });
@@ -109,25 +108,44 @@ describe("sources in human language", () => {
 });
 
 describe("event context", () => {
-  const slush = encounter({ shared_mode_slug: "event", event_name: "Slush", city: "Helsinki", date_label: "14–15 Nov", source: "qr", created_at: "2026-11-14T10:00:00Z" });
-  test("event snapshot leads the origin and prefills memory", () => {
+  const slush = encounter({ shared_mode_slug: "event", event_name: null, city: null, date_label: null,
+    live_context_id_snapshot: "ctx-slush", live_context_type_snapshot: "event", live_context_label_snapshot: "Slush",
+    live_context_city_snapshot: "Helsinki", live_context_country_code_snapshot: "FI", live_context_venue_snapshot: null,
+    live_context_starts_at_snapshot: "2026-11-14T09:00:00Z", live_context_expires_at_snapshot: "2026-11-15T23:59:00Z",
+    live_context_source_snapshot: "manual", source: "qr", created_at: "2026-11-14T10:00:00Z" });
+  test("explicit Event Live Context leads the origin and prefills owner-confirmed memory", () => {
     const model = lib.buildRelationship(base({ encounters: [slush], connection: connection({ created_at: slush.created_at }) }));
     assert.equal(model.origin.headline, "Connected at Slush");
     assert.equal(model.origin.eventCity, "Helsinki");
     assert.equal(model.hasWhere, true);
     assert.deepEqual(model.encounters[0].prefill, { event: "Slush", city: "Helsinki" });
     assert.equal(model.encounters[0].suggestions.city[0].value, "Helsinki");
-    assert.match(model.encounters[0].known.from, /Rayzenni’s Event Mode at the time/);
+    assert.equal(model.encounters[0].liveContext.type, "event");
+    assert.equal(model.encounters[0].liveContext.label, "Slush");
+    assert.equal(model.encounters[0].known.from, "Live Context at the time");
   });
-  test("viewer's own Event Mode is a suggestion; prefilled only for a fresh encounter", () => {
-    const fresh = encounter({ share_back_mode_slug: "event", created_at: "2026-10-10T07:30:00Z" });
-    const old = encounter({ id: "e0", share_back_mode_slug: "event", created_at: "2026-09-01T07:30:00Z" });
-    const viewerEventMode = { eventName: "Web Summit", city: "Lisbon" };
-    const fm = lib.buildRelationship(base({ encounters: [fresh], viewerEventMode }));
-    assert.deepEqual(fm.encounters[0].prefill, { event: "Web Summit", city: "Lisbon" });
-    const om = lib.buildRelationship(base({ encounters: [old], viewerEventMode }));
-    assert.deepEqual(om.encounters[0].prefill, { event: null, city: null });
-    assert.equal(om.encounters[0].suggestions.event[0].value, "Web Summit");
+  test("a Mode snapshot never becomes meeting truth, a prefill or a suggestion", () => {
+    const historical = encounter({ shared_mode_slug: "event", event_name: "Web Summit", city: "Lisbon", date_label: "Nov 2026" });
+    const model = lib.buildRelationship(base({
+      encounters: [historical],
+      counterpartModes: { event: { settings: { eventName: "Current event", city: "Helsinki" }, image_path: null } },
+    }));
+    assert.equal(model.encounters[0].known, null);
+    assert.deepEqual(model.encounters[0].prefill, { event: null, city: null });
+    assert.deepEqual(model.encounters[0].suggestions.event, []);
+    assert.deepEqual(model.encounters[0].suggestions.city, []);
+    assert.equal(model.encounters[0].legacyModeSnapshot.event, "Web Summit", "historical presentation data remains available without being called the meeting context");
+  });
+  test("meeting context label is not misclassified as an event", () => {
+    const meeting = encounter({
+      live_context_id_snapshot: "ctx-meeting", live_context_type_snapshot: "meeting", live_context_label_snapshot: "Investor catch-up",
+      live_context_city_snapshot: "Amsterdam", live_context_country_code_snapshot: "NL", live_context_expires_at_snapshot: "2026-10-11T12:00:00Z", live_context_source_snapshot: "manual",
+    });
+    const model = lib.buildRelationship(base({ encounters: [meeting] }));
+    assert.equal(model.encounters[0].liveContext.type, "meeting");
+    assert.equal(model.encounters[0].known.event, null);
+    assert.equal(model.encounters[0].known.city, "Amsterdam");
+    assert.deepEqual(model.encounters[0].prefill, { event: null, city: "Amsterdam" });
   });
 });
 
@@ -191,7 +209,18 @@ describe("guests", () => {
 });
 
 describe("repeated encounters and memory", () => {
-  const first = encounter({ id: "e1", shared_mode_slug: "event", event_name: "Slush", city: "Helsinki", created_at: "2026-11-14T10:00:00Z" });
+  const first = encounter({
+    id: "e1",
+    shared_mode_slug: "event",
+    live_context_id_snapshot: "ctx-e1",
+    live_context_type_snapshot: "event",
+    live_context_label_snapshot: "Slush",
+    live_context_city_snapshot: "Helsinki",
+    live_context_country_code_snapshot: "FI",
+    live_context_expires_at_snapshot: "2026-11-15T23:59:00Z",
+    live_context_source_snapshot: "manual",
+    created_at: "2026-11-14T10:00:00Z",
+  });
   const again = encounter({ id: "e2", source: "qr", created_at: "2026-12-03T18:00:00Z" });
   const memories = [{ encounter_id: "e2", city: "Amsterdam", venue: "The Hoxton", event_label: null, met_on: "2026-12-02", met_time: "21:30:00", provenance: "viewer", updated_at: "2026-12-04T00:00:00Z" }];
   test("encounters stay separate and ordered", () => {

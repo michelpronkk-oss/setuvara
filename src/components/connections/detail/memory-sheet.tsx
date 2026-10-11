@@ -103,7 +103,8 @@ export function MemorySheet({ encounter, personFirstName, timeZone, onClose, onS
         </div>
 
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 pb-4 pt-2 sm:px-7">
-          {encounter.known && <p className="rounded-2xl bg-white px-4 py-3 text-[13px] leading-5 text-black/70">Setuvara already knows <strong className="font-semibold text-[#0d0d0d]">{[encounter.known.event, encounter.known.city].filter(Boolean).join(" · ")}</strong> from {encounter.known.from}.{memory ? " Your memory below is what you saved." : " It’s filled in for you."}</p>}
+          {encounter.known && [encounter.known.event, encounter.known.city].some(Boolean) && <p className="rounded-2xl bg-white px-4 py-3 text-[13px] leading-5 text-black/70">Setuvara saved an explicit Live Context at the time: <strong className="font-semibold text-[#0d0d0d]">{[encounter.known.event, encounter.known.city].filter(Boolean).join(" · ")}</strong>.{memory ? " Your private memory below is what you saved." : " You can add or correct your private memory below."}</p>}
+          {encounter.liveContext && <p className="rounded-2xl bg-white px-4 py-3 text-[13px] leading-5 text-black/70">Live Context at the time: <strong className="font-semibold text-[#0d0d0d]">{[encounter.liveContext.label, encounter.liveContext.venue, encounter.liveContext.city].filter(Boolean).join(" · ")}</strong>. This shared context is separate from your private memory.</p>}
           <SmartField autoFocus label="Event" maxLength={100} onChange={setEvent} placeholder="Conference, dinner, wedding…" suggestions={encounter.suggestions.event} value={event} />
           <SmartField label="City" maxLength={80} onChange={setCity} placeholder="Search or type a city" suggestions={encounter.suggestions.city} value={city} />
           <SmartField label="Venue" maxLength={120} onChange={setVenue} placeholder="Café, office, hotel…" suggestions={rankVenues(encounter.suggestions.venue, city)} value={venue} />

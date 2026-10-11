@@ -44,6 +44,15 @@ export type EncounterRow = {
   event_name: string | null;
   city: string | null;
   date_label: string | null;
+  live_context_id_snapshot?: string | null;
+  live_context_type_snapshot?: "event" | "meeting" | "place" | "custom" | null;
+  live_context_label_snapshot?: string | null;
+  live_context_venue_snapshot?: string | null;
+  live_context_city_snapshot?: string | null;
+  live_context_country_code_snapshot?: string | null;
+  live_context_starts_at_snapshot?: string | null;
+  live_context_expires_at_snapshot?: string | null;
+  live_context_source_snapshot?: string | null;
   source: string;
   created_at: string;
 };
@@ -77,9 +86,6 @@ export type RelationshipInput = {
   viewerHistory: Pick<MemoryRow, "city" | "venue" | "event_label" | "updated_at">[];
   /** The viewer's own Passport city/event stamps (suggestions only). */
   passport: { stamp_type: string; title: string }[];
-  /** The viewer's own current Event Mode, if enabled (suggestions only). */
-  viewerEventMode: { eventName: string | null; city: string | null } | null;
-  now?: Date;
 };
 
 export type SourceKind = "qr" | "quick_qr" | "link" | "pass" | "tap" | "profile";
@@ -103,8 +109,22 @@ export type EncounterModel = {
   sourceDetail: string;
   /** How the counterpart presented themselves at that moment (never rewritten). */
   snapshot: { name: string; role: string | null; company: string | null; asGuest: boolean };
-  /** Context Setuvara recorded with the encounter: the sharer's Event Mode at that time. */
+  /** A short summary of explicit Live Context, for owner-confirmed memory only. */
   known: { event: string | null; city: string | null; dateLabel: string | null; from: string } | null;
+  /** Private-to-the-encounter snapshot of the sharer's explicit active Live Context. */
+  liveContext: {
+    id: string;
+    type: "event" | "meeting" | "place" | "custom";
+    label: string;
+    venue: string | null;
+    city: string | null;
+    countryCode: string | null;
+    startsAt: string | null;
+    expiresAt: string;
+    source: string;
+  } | null;
+  /** Legacy Mode-derived fields stay available for historical display only, never for "where" or prefill. */
+  legacyModeSnapshot: { event: string | null; city: string | null; dateLabel: string | null; from: string } | null;
   memory: {
     event: string | null;
     city: string | null;
@@ -161,7 +181,7 @@ export type RelationshipModel = {
   /** Oldest first. */
   encounters: EncounterModel[];
   note: { text: string; updatedAt: string } | null;
-  /** True only when an encounter snapshot or the viewer's own memory says where. */
+  /** True only when an explicit Live Context snapshot or the viewer's own memory is present. */
   hasWhere: boolean;
 };
 
@@ -260,7 +280,6 @@ function byFrequency<T>(rows: T[], pick: (row: T) => string | null | undefined) 
 
 export function buildRelationship(input: RelationshipInput): RelationshipModel {
   const { viewerId, connection } = input;
-  const now = input.now ?? new Date();
   const ordered = [...input.encounters].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
   const memoryByEncounter = new Map(input.memories.map((row) => [row.encounter_id, row]));
   const isGuestEdge = !connection.connected_user_id;
@@ -278,8 +297,32 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
       : { name: encounter.shared_display_name, role: encounter.shared_role, company: encounter.shared_company, asGuest: false };
     const counterpartMode = modeSlug(viewerShared ? encounter.share_back_mode_slug : encounter.shared_mode_slug);
     const viewerMode = modeSlug(viewerShared ? encounter.shared_mode_slug : encounter.share_back_mode_slug);
-    const hasKnown = Boolean(encounter.event_name || encounter.city || encounter.date_label);
-    const known = hasKnown ? {
+    const liveContextType = encounter.live_context_type_snapshot;
+    const liveContext = encounter.live_context_id_snapshot
+      && liveContextType
+      && encounter.live_context_label_snapshot
+      && encounter.live_context_expires_at_snapshot
+      && encounter.live_context_source_snapshot
+      ? {
+        id: encounter.live_context_id_snapshot,
+        type: liveContextType,
+        label: text(encounter.live_context_label_snapshot, 120) ?? "",
+        venue: text(encounter.live_context_venue_snapshot, 120),
+        city: text(encounter.live_context_city_snapshot, 80),
+        countryCode: text(encounter.live_context_country_code_snapshot, 2),
+        startsAt: encounter.live_context_starts_at_snapshot ?? null,
+        expiresAt: encounter.live_context_expires_at_snapshot,
+        source: encounter.live_context_source_snapshot,
+      }
+      : null;
+    const known = liveContext ? {
+      event: liveContext.type === "event" ? liveContext.label : null,
+      city: liveContext.city,
+      dateLabel: null,
+      from: "Live Context at the time",
+    } : null;
+    const hasLegacyModeSnapshot = Boolean(encounter.event_name || encounter.city || encounter.date_label);
+    const legacyModeSnapshot = hasLegacyModeSnapshot ? {
       event: text(encounter.event_name, 100),
       city: text(encounter.city, 80),
       dateLabel: text(encounter.date_label, 80),
@@ -295,7 +338,7 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
       provenance: parseProvenance(row.provenance),
       updatedAt: row.updated_at,
     } : null;
-    return { encounter, viewerShared, snapshot, counterpartMode, viewerMode, known, memory };
+    return { encounter, viewerShared, snapshot, counterpartMode, viewerMode, known, liveContext, legacyModeSnapshot, memory };
   });
 
   // ---- Person: current identity first, the latest snapshot only as a fallback.
@@ -371,18 +414,11 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
     const { encounter, viewerShared, known, memory } = shell;
     const counterpartName = person.name;
     const source = describeSource(encounter.source, viewerShared, counterpartName);
-    const recent = now.getTime() - Date.parse(encounter.created_at) < 48 * 3_600_000;
-    const ownEvent = !viewerShared && shell.viewerMode === "event" && input.viewerEventMode ? input.viewerEventMode : null;
-
     const event: Suggestion[] = [];
     const city: Suggestion[] = [];
     const venue: Suggestion[] = [];
     pushUnique(event, known?.event, known?.from ?? "");
     pushUnique(city, known?.city, known?.from ?? "");
-    if (ownEvent) {
-      pushUnique(event, ownEvent.eventName, "Your Event Mode");
-      pushUnique(city, ownEvent.city, "Your Event Mode");
-    }
     shells.forEach((other, otherIndex) => {
       if (otherIndex === index) return;
       const reason = "Another time you connected";
@@ -399,8 +435,6 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
     passportEvents.forEach((value) => pushUnique(event, value, "In your Passport"));
     passportCities.forEach((value) => pushUnique(city, value, "In your Passport"));
 
-    const ownPrefillEvent = ownEvent && recent ? text(ownEvent.eventName, 100) : null;
-    const ownPrefillCity = ownEvent && recent ? text(ownEvent.city, 80) : null;
     const where = memory?.event || memory?.city || memory?.venue || known?.event || known?.city;
     return {
       id: encounter.id,
@@ -421,9 +455,11 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
       sourceDetail: source.detail,
       snapshot: shell.snapshot,
       known,
+      liveContext: shell.liveContext,
+      legacyModeSnapshot: shell.legacyModeSnapshot,
       memory,
       suggestions: { event: event.slice(0, 12), city: city.slice(0, 12), venue: venue.slice(0, 12) },
-      prefill: { event: known?.event ?? ownPrefillEvent, city: known?.city ?? ownPrefillCity },
+      prefill: { event: known?.event ?? null, city: known?.city ?? null },
     };
   });
 
@@ -445,6 +481,6 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
     },
     encounters,
     note: input.note && input.note.note.trim() ? { text: input.note.note, updatedAt: input.note.updated_at } : null,
-    hasWhere: encounters.some((item) => Boolean(item.known?.event || item.known?.city || item.memory?.city || item.memory?.venue || item.memory?.event)),
+    hasWhere: encounters.some((item) => Boolean(item.liveContext || item.memory?.city || item.memory?.venue || item.memory?.event)),
   };
 }

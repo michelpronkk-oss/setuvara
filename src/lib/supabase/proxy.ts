@@ -3,14 +3,22 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getSupabaseConfig } from "./config";
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, forwardedHeaders = new Headers(request.headers)) {
   const config = getSupabaseConfig();
 
+  const next = () => {
+    const headers = new Headers(forwardedHeaders);
+    const cookieHeader = request.headers.get("cookie");
+    if (cookieHeader) headers.set("cookie", cookieHeader);
+    else headers.delete("cookie");
+    return NextResponse.next({ request: { headers } });
+  };
+
   if (!config) {
-    return NextResponse.next({ request });
+    return next();
   }
 
-  let response = NextResponse.next({ request });
+  let response = next();
 
   const supabase = createServerClient(config.url, config.publishableKey, {
     cookies: {
@@ -22,7 +30,7 @@ export async function updateSession(request: NextRequest) {
           request.cookies.set(name, value);
         });
 
-        response = NextResponse.next({ request });
+        response = next();
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
