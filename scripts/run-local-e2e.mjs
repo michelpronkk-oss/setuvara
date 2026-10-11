@@ -45,7 +45,7 @@ const env = {
 const e2eEnv = { ...env, E2E_LOCAL_SERVICE_KEY: localServiceRoleKey };
 const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs", "scripts/e2e-tap.mjs", "scripts/e2e-tap-experience.mjs", "scripts/e2e-wallet.mjs", "scripts/e2e-analytics.mjs"];
 const requestedScript = process.env.E2E_LOCAL_SCRIPT;
-assert(!requestedScript || e2eScripts.includes(requestedScript), "E2E_LOCAL_SCRIPT must name a Setuvara local E2E script");
+assert(!requestedScript || [...e2eScripts, "scripts/e2e-full-portrait.mjs"].includes(requestedScript), "E2E_LOCAL_SCRIPT must name a Setuvara local E2E script");
 
 await new Promise((resolveReady, reject) => {
   const probe = createServer();

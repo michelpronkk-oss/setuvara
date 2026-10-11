@@ -118,6 +118,9 @@ describe("locale resolution and formatting", () => {
     assert.equal(countries.formatCountryName("NL", "nl-NL"), "Nederland");
     assert.equal(messages.getMessages("nl-NL").common.identity, "Identiteit");
     assert.equal(messages.getMessages("en").common.identity, "Identity");
+    assert.equal(messages.getMessages("en").appearance.layouts["full-portrait"], "Full Portrait");
+    assert.equal(messages.getMessages("nl-NL").appearance.layouts["full-portrait"], "Volledig portret");
+    assert.equal(messages.getMessages("nl-NL").appearance.portrait.showUsername, "Gebruikersnaam tonen");
   });
 
   test("formatting never mutates member-authored text", () => {

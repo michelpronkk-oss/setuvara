@@ -23,10 +23,10 @@ export const FREE_THEMES: readonly ThemeId[] = ["light", "dark"];
 export const MODE_THEMES = THEMES;
 
 /** Layout families. Cover and Framed are the Mode's own pair; the rest work in every Mode. */
-export const LAYOUT_FAMILIES = ["cover", "framed", "portrait", "poster", "index"] as const;
+export const LAYOUT_FAMILIES = ["cover", "framed", "portrait", "poster", "index", "full-portrait"] as const;
 export type LayoutFamily = (typeof LAYOUT_FAMILIES)[number];
 export const FREE_LAYOUT_FAMILIES: readonly LayoutFamily[] = ["cover", "framed"];
-const SHARED_LAYOUTS = ["portrait", "poster", "index"] as const;
+const SHARED_LAYOUTS = ["portrait", "poster", "index", "full-portrait"] as const;
 
 /** The Mode's own stored layout ids for Cover and Framed (live since the first appearance release). */
 export const FAMILY_LAYOUTS = {
@@ -88,7 +88,7 @@ export const THEME_DEFAULTS: Record<ThemeId, ThemeDefaults> = {
  */
 export const THEME_LAYOUTS: Record<ThemeId, readonly LayoutFamily[]> = {
   light: ["cover", "framed", "portrait", "poster", "index"],
-  dark: ["cover", "framed", "portrait", "poster", "index"],
+  dark: ["cover", "framed", "portrait", "poster", "index", "full-portrait"],
   editorial: ["cover", "framed", "portrait", "index"],
   noir: ["cover", "framed", "portrait", "index"],
   signal: ["cover", "framed", "poster", "index"],
@@ -121,9 +121,15 @@ export type ResolvedAppearance = {
   links: LinkStyle;
   soundStyle: SoundStyle;
   qrStyle: QrStyle;
+  portraitZoom: 100 | 110 | 120 | 130 | 140;
+  portraitNameSize: "compact" | "standard" | "large" | "statement";
+  portraitShowUsername: boolean;
 };
 
-const includes = <T extends string>(list: readonly T[], value: unknown): value is T => (list as readonly unknown[]).includes(value);
+export const PORTRAIT_ZOOMS = [100, 110, 120, 130, 140] as const;
+export const PORTRAIT_NAME_SIZES = ["compact", "standard", "large", "statement"] as const;
+
+const includes = <T extends string | number>(list: readonly T[], value: unknown): value is T => (list as readonly unknown[]).includes(value);
 
 export function isModeLayout<S extends ModeSlug>(slug: S, layout: unknown): layout is ModeLayout<S> {
   return includes(MODE_LAYOUTS[slug] as readonly string[], layout);
@@ -145,6 +151,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
   switch (field) {
     case "theme": return includes(FREE_THEMES, value) || value === undefined ? null : "appearance.premium";
     case "layout": return includes(SHARED_LAYOUTS, value) ? "appearance.premium" : null;
+    case "portraitZoom": case "portraitNameSize": case "portraitShowUsername": return value === undefined ? null : "appearance.premium";
     case "imageTreatment": return value === "frame" ? "appearance.premium" : null;
     case "intensity": return value === undefined || value === "balanced" ? null : "appearance.advanced_controls";
     case "card": case "radius": case "button": case "links": return value === undefined ? null : "appearance.advanced_controls";
@@ -154,7 +161,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
   }
 }
 
-export const PREMIUM_FIELDS = ["theme", "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle"] as const;
+export const PREMIUM_FIELDS = ["theme", "layout", "portraitZoom", "portraitNameSize", "portraitShowUsername", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle"] as const;
 export type PremiumField = (typeof PREMIUM_FIELDS)[number];
 
 /** Saved fields whose value needs a capability the plan does not have (kept, shown as inactive). */
@@ -194,7 +201,8 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
   };
 
   const savedTheme: ThemeId = includes(THEMES, saved.theme) ? saved.theme : defaults.theme;
-  const theme = allowed("theme") ? savedTheme : FREE_THEME_FALLBACK[savedTheme];
+  const effectiveTheme = allowed("theme") ? savedTheme : FREE_THEME_FALLBACK[savedTheme];
+  const theme = saved.layout === "full-portrait" && allowed("layout") ? "dark" : effectiveTheme;
   const themeDefaults = THEME_DEFAULTS[theme];
 
   let family: LayoutFamily = isModeLayout(mode.slug, saved.layout) ? layoutFamily(mode.slug, saved.layout) : layoutFamily(mode.slug, defaults.layout);
@@ -224,12 +232,15 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     links: pick("links", LINK_STYLES, themeDefaults.links),
     soundStyle: pick("soundStyle", SOUND_STYLES, "core"),
     qrStyle: pick("qrStyle", QR_STYLES, "standard"),
+    portraitZoom: includes(PORTRAIT_ZOOMS, saved.portraitZoom) && allowed("portraitZoom") ? saved.portraitZoom : 100,
+    portraitNameSize: includes(PORTRAIT_NAME_SIZES, saved.portraitNameSize) && allowed("portraitNameSize") ? saved.portraitNameSize : "standard",
+    portraitShowUsername: typeof saved.portraitShowUsername === "boolean" && allowed("portraitShowUsername") ? saved.portraitShowUsername : true,
   };
 }
 
 /** Whether a saved appearance is valid as-is for its Mode (what the database accepts). */
 export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  const known = new Set(["theme", "accent", "layout", "imageTreatment", "qrStyle", "intensity", "card", "radius", "button", "links", "soundStyle"]);
+  const known = new Set(["theme", "accent", "layout", "imageTreatment", "qrStyle", "intensity", "card", "radius", "button", "links", "soundStyle", "portraitZoom", "portraitNameSize", "portraitShowUsername"]);
   const optional = (value: unknown, list: readonly string[]) => value === undefined || includes(list, value);
   return Object.keys(appearance).every((key) => known.has(key))
     && includes(THEMES, appearance.theme)
@@ -242,7 +253,10 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.radius, RADII)
     && optional(appearance.button, BUTTON_STYLES)
     && optional(appearance.links, LINK_STYLES)
-    && optional(appearance.soundStyle, SOUND_STYLES);
+    && optional(appearance.soundStyle, SOUND_STYLES)
+    && (appearance.portraitZoom === undefined || (PORTRAIT_ZOOMS as readonly unknown[]).includes(appearance.portraitZoom))
+    && optional(appearance.portraitNameSize, PORTRAIT_NAME_SIZES)
+    && (appearance.portraitShowUsername === undefined || typeof appearance.portraitShowUsername === "boolean");
 }
 
 /** Premium QR styling changes only the frame around a QR; its value and modules are untouched. */

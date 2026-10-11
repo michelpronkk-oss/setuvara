@@ -22,7 +22,7 @@ import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, Profile
  * The one profile renderer. The public page, the editor preview and every thumbnail draw a Mode
  * through this component, following the approved Appearance design (ProfilePreview reference):
  *
- *   hero (Cover · Framed · Portrait · Poster · Index) → mark → event card → Connect + secondary
+ *   hero (Cover · Framed · Portrait · Poster · Index · Full Portrait) → mark → event card → Connect + secondary
  *   → About → links → soundtrack → media → attribution
  *
  * The composition answers to its own width (container queries), not the window: below 768px it
@@ -83,7 +83,7 @@ const LINK_VISIBLE = 6;
 /** Whether a Mode's hero runs its photo edge to edge (Cover with the Full image). */
 export function isFullBleed(mode: ProfileMode, plan: PlanCode = "free") {
   const look = resolveAppearance(mode, plan);
-  return Boolean(mode.image_url) && look.family === "cover" && look.imageTreatment === "full-bleed";
+  return look.family === "full-portrait" || Boolean(mode.image_url) && look.family === "cover" && look.imageTreatment === "full-bleed";
 }
 
 /** Background and darkness of a Mode's look, so a page can continue it past the profile. */
@@ -148,6 +148,7 @@ type ProfileProps = ProfileRendererProps & { look: ResolvedAppearance; hasSoundt
 
 function Profile(props: ProfileProps) {
   const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, locale = "en", chrome, footer, attribution = false, className = "" } = props;
+  if (look.family === "full-portrait") return <FullPortraitProfile {...props} />;
   const skin = resolveSkin(look);
   const copy = getMessages(locale).profile;
   const who = identityFor(profile, mode);
@@ -209,6 +210,59 @@ function Profile(props: ProfileProps) {
               {attribution && <p className="mt-auto self-center pt-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: skin.muted }}>{copy.madeWith}</p>}
             </div>
           </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/** One portrait composition for the public page and every editor preview. */
+function FullPortraitProfile(props: ProfileProps) {
+  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, locale = "en", chrome, footer, attribution = false, className = "" } = props;
+  const skin = resolveSkin(look);
+  const copy = getMessages(locale).profile;
+  const who = identityFor(profile, mode);
+  const owner = viewerState === "owner" && !previewAsVisitor;
+  const photo = mode.image_url;
+  const focus = modeFocus(mode);
+  const zoom = look.portraitZoom / 100;
+  const all = resolveLinks(mode.links);
+  const booking = mode.slug === "business" && !owner ? all.find((item) => BOOKING_PROVIDERS.includes(item.providerId)) : undefined;
+  const links = all.filter((item) => item !== booking);
+  const blockTone: BlockTone = { bg: skin.page, ink: skin.fg, sub: skin.muted, chip: skin.chip.background, line: skin.border, dark: skin.dark };
+  const nameSize = { compact: "clamp(32px,8cqw,42px)", standard: "clamp(40px,11cqw,52px)", large: "clamp(48px,12cqw,62px)", statement: "clamp(56px,14cqw,72px)" }[look.portraitNameSize];
+  const photoStyle: CSSProperties = { transform: `scale(${zoom})`, transformOrigin: `${focus.x}% ${focus.y}%` };
+  return (
+    <article className={`@container/profile relative isolate w-full bg-[#0D0D0D] font-brand text-[#F5F4EF] ${className}`} data-image-treatment={look.imageTreatment} data-portrait-zoom={look.portraitZoom} data-profile-photo={photo ? "full-portrait" : "none"} data-profile-family="full-portrait" data-profile-layout={look.layout} data-profile-mode={look.slug} data-profile-theme={look.theme} style={{ "--sv-card-r": `${skin.radius}px`, ...skin.connectVars } as CSSProperties}>
+      <div className="mx-auto w-full max-w-[480px]">
+        <div className="relative isolate flex flex-col justify-end overflow-hidden px-6 pb-7 pt-28 text-center" data-profile-hero="full-portrait" style={{ minHeight: photo ? "min(830px,var(--profile-vh,100svh))" : "min(460px,75svh)" }}>
+          {photo && <>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" style={{ maskImage: "linear-gradient(to bottom, transparent 42%, #000 61%, #000 76%, transparent 98%)" }}><FocusedPhoto alt="" className="!blur-[16px]" focus={focus} priority sizes="(max-width: 480px) 100vw, 480px" src={photo} style={{ ...photoStyle, transform: `scale(${zoom * 1.06})` }} /></div>
+            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" style={{ maskImage: "linear-gradient(to bottom, #000 0%, #000 51%, transparent 79%)" }}><FocusedPhoto alt={`${who.name} portrait`} focus={focus} priority sizes="(max-width: 480px) 100vw, 480px" src={photo} style={photoStyle} /></div>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ background: "linear-gradient(to bottom, rgba(13,13,13,.66) 0%, transparent 22%, transparent 40%, rgba(13,13,13,.36) 58%, rgba(13,13,13,.85) 75%, #0D0D0D 100%)" }} />
+          </>}
+          {!photo && <div aria-hidden="true" className="pointer-events-none absolute inset-x-8 top-1/3 -z-10 h-px bg-white/15" />}
+          {selectedRewards.profile_treatment && <span aria-hidden="true" className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />}
+          {chrome ? <div className="absolute inset-x-0 top-0 z-20 text-left" style={{ color: PAPER, "--sv-chrome-chip-bg": "rgba(13,13,13,.55)", "--sv-chrome-chip-fg": PAPER } as CSSProperties}>{chrome}</div> : <span className="absolute left-6 top-6 font-label text-[11px] font-semibold lowercase tracking-[0.12em]">setuvara</span>}
+          <span className={`absolute right-6 font-label text-[10px] font-semibold uppercase tracking-[0.16em] [text-shadow:0_1px_12px_rgba(0,0,0,.6)] ${chrome ? "top-16" : "top-6"}`}>{mode.slug}</span>
+          <div className="mx-auto w-full max-w-[38rem]">
+            {owner && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em] text-white/75">{copy.viewingProfile}</p>}
+            <h1 className="mx-auto max-w-[16ch] break-words font-display font-extrabold leading-[0.9] tracking-[-0.06em] [text-wrap:balance]" style={{ fontSize: who.name.length > 32 ? "clamp(30px,8cqw,42px)" : nameSize, textShadow: photo ? "0 2px 24px rgba(0,0,0,.52)" : undefined }}>{who.name}<NameBadge size={22} tier={memberTier} /></h1>
+            {look.portraitShowUsername && <p className="mt-2 font-label text-[12px] tracking-[0.06em] text-white/85">@{profile.username}</p>}
+            {who.role && <p className="mx-auto mt-4 max-w-[34ch] text-[14px] font-medium leading-5 text-white/85">{who.role}</p>}
+            <div className="mt-6 text-left"><Actions {...props} booking={booking} copy={copy} owner={owner} skin={skin} /></div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-4 px-6 pb-10 pt-5">
+          <EarnedMark copy={copy} rewards={selectedRewards} skin={skin} />
+          {mode.slug === "event" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} skin={skin} />}
+          <About copy={copy} mode={mode} profile={profile} skin={skin} />
+          <Links copy={copy} links={links} skin={skin} />
+          {props.hasSoundtrack && <SoundtrackPresentation copy={{ soundOn: copy.soundOn, soundOff: copy.soundOff, soundtrack: copy.soundtrack, nowPlaying: copy.nowPlaying, onRepeat: copy.onRepeat, title: copy.soundtrackOf.replace("{mode}", MODE_NAMES[mode.slug]) }} skin={soundtrackSkin(skin)} style={look.soundStyle} />}
+          <ProfileBlocks accent={skin.accent} accentInk={skin.onAccent} blocks={mode.blocks} tone={blockTone} />
+          {owner && links.length === 0 && !hasBlocks(mode) && <p className="px-4 py-4 text-[13px]" style={{ color: skin.muted, borderRadius: `${skin.radius}px`, boxShadow: `inset 0 0 0 1px ${skin.border}` }}>{copy.noLinks}</p>}
+          {footer}
+          {attribution && <p className="self-center pt-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: skin.muted }}>{copy.madeWith}</p>}
         </div>
       </div>
     </article>

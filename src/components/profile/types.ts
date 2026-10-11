@@ -43,6 +43,10 @@ export type ModeAppearance = {
   button?: "pill" | "block" | "editorial" | "minimal";
   links?: "icons" | "list" | "chips" | "cards";
   soundStyle?: "core" | "strip" | "disc" | "poster";
+  /** Curated Full Portrait controls. Photo focus remains in image_focus_x/y. */
+  portraitZoom?: 100 | 110 | 120 | 130 | 140;
+  portraitNameSize?: "compact" | "standard" | "large" | "statement";
+  portraitShowUsername?: boolean;
 };
 
 export type ProfileMode = {

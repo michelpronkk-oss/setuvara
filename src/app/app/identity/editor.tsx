@@ -7,7 +7,7 @@ import { z } from "zod";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import { introducedLockedFields, isModeLayout, isValidAppearance } from "@/components/profile/appearance";
+import { introducedLockedFields, isModeLayout, isValidAppearance, lockedFields } from "@/components/profile/appearance";
 import { focusPosition, modeFocus, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
@@ -293,7 +293,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const base = appearancePreviews[current.id] ?? current.appearance;
     const next = { ...base, ...patch };
     for (const key of Object.keys(next) as (keyof ModeAppearance)[]) if (next[key] === undefined) delete next[key];
-    if (introducedLockedFields(current.appearance, next, plan).length) {
+    if (introducedLockedFields(current.appearance, next, plan).length || lockedFields(patch, plan).length) {
       setAppearancePreviews((previews) => ({ ...previews, [current.id]: next }));
       return;
     }
@@ -310,7 +310,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const current = modesRef.current.find((item) => item.slug === slug);
     const preview = current ? appearancePreviews[current.id] : null;
     if (!current || !preview) return;
-    const locked = introducedLockedFields(current.appearance, preview, plan);
+    const locked = lockedFields(preview, plan);
     if (!locked.length) { chooseAppearance({}); return; }
     // Remember the previewed look so it applies when the member returns with Plus.
     try { window.localStorage.setItem(pendingAppearanceKey(current.id), JSON.stringify(preview)); } catch { /* private mode: the preview simply isn't remembered */ }

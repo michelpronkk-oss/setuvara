@@ -196,13 +196,17 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       .single();
     requireSuccess(freePersonalModeError, "The authenticated owner could not read its own Personal Mode.");
     const premiumAppearance = { ...(freePersonalMode.appearance as Record<string, unknown>), qrStyle: "accent-frame" };
-    const { data: savedPremiumAppearance, error: savePremiumAppearanceError } = await owner.from("profile_modes")
+    const { error: savePremiumAppearanceError } = await owner.from("profile_modes")
       .update({ appearance: premiumAppearance })
       .eq("id", freePersonalMode.id)
       .select("appearance")
       .single();
-    requireSuccess(savePremiumAppearanceError, "The existing appearance field should persist its curated QR frame for later upgrade reactivation.");
-    assertEquals((savedPremiumAppearance.appearance as Record<string, unknown>).qrStyle, "accent-frame");
+    assertEquals(savePremiumAppearanceError?.code, "P0001", "Free cannot introduce premium appearance through the Data API.");
+    const { data: unchangedAppearance, error: unchangedError } = await owner.from("profile_modes").select("appearance").eq("id", freePersonalMode.id).single();
+    requireSuccess(unchangedError, "Free should retain its original appearance after a rejected premium write.");
+    assertEquals(unchangedAppearance.appearance, freePersonalMode.appearance);
+    const fullPortraitBypass = await owner.from("profile_modes").update({ appearance: { ...freePersonalMode.appearance, layout: "full-portrait", portraitZoom: 130 } }).eq("id", freePersonalMode.id);
+    assertEquals(fullPortraitBypass.error?.code, "P0001", "Free cannot grant Full Portrait by a direct authenticated write.");
     const invalidQrStyle = await owner.from("profile_modes")
       .update({ appearance: { ...premiumAppearance, qrStyle: "rainbow" } })
       .eq("id", freePersonalMode.id);

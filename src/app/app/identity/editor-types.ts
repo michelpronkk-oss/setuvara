@@ -34,6 +34,7 @@ const SHARED_LAYOUT_LABELS = [
   { value: "portrait", label: "Portrait", note: "Image-dominant, cinematic" },
   { value: "poster", label: "Poster", note: "Graphic headline from Mode context" },
   { value: "index", label: "Index", note: "Compact, dense, refined" },
+  { value: "full-portrait", label: "Full Portrait", note: "Immersive portrait · Plus" },
 ] as const;
 export const LAYOUTS: { [S in ModeSlug]: { value: ModeLayout<S>; label: string; note: string }[] } = {
   personal: [{ value: "full-bleed", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "portrait-editorial", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],

@@ -510,7 +510,8 @@ export type SoundtrackCopy = { soundOn: string; soundOff: string; soundtrack: st
  */
 export function SoundtrackPresentation({ style, skin, copy }: { style: "core" | "strip" | "disc" | "poster"; skin: SoundtrackSkin; copy: SoundtrackCopy }) {
   const api = useSoundtrack();
-  if (!api || api.status === "unavailable") return null;
+  if (!api || api.status === "loading" || api.status === "unavailable") return null;
+  if (api.asking) return <SoundtrackCue accent={skin.accent} accentInk={skin.onAccent} className="" tone={{ ink: skin.fg, sub: skin.muted, chip: skin.strip.background, line: skin.border, bg: skin.page }} />;
   const playing = api.status === "playing";
   const toggle = api.on && !api.waiting ? api.soundOff : api.soundOn;
   const action = api.on && !api.waiting ? copy.soundOff : copy.soundOn;

@@ -339,11 +339,11 @@ try {
   // ---- Video pauses the soundtrack; closing it brings the soundtrack back.
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForFunction(() => {
-    const button = document.querySelector('[data-sound-ui] button[aria-pressed]');
+    const button = document.querySelector('[data-sound-ui][aria-hidden="false"] button[aria-pressed]');
     return button instanceof HTMLElement && getComputedStyle(button.parentElement).opacity === "1" && button.getBoundingClientRect().bottom <= window.innerHeight;
   });
   await shot(page, "04-pill-scrolled");
-  const pill = page.locator("[data-sound-ui] button[aria-pressed]").last();
+  const pill = page.locator('[data-sound-ui][aria-hidden="false"] button[aria-pressed]');
   assert.equal(await pill.evaluate((element) => getComputedStyle(element.parentElement).opacity === "1" && element.getBoundingClientRect().bottom <= window.innerHeight), true, "Sound control follows the visitor down the page");
   await page.getByRole("button", { name: "Play Studio session" }).click();
   await waitForFake(page, "spotify", { paused: true });

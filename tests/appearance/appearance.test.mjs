@@ -68,6 +68,30 @@ const attr = (html, name) => html.match(new RegExp(`${name}="([^"]*)"`))?.[1];
 const plans = ["free", "plus", "pro"];
 
 describe("resolveAppearance", () => {
+  test("Full Portrait is shared, dark, validated and protected by Plus", () => {
+    for (const slug of ["personal", "event", "business"]) {
+      const appearance = { theme: "light", accent: "#FF5A4F", layout: "full-portrait", imageTreatment: "portrait", portraitZoom: 130, portraitNameSize: "statement", portraitShowUsername: false };
+      assert.equal(lib.isValidAppearance(slug, appearance), true);
+      for (const plan of ["plus", "pro"]) {
+        const look = lib.resolveAppearance({ slug, appearance }, plan);
+        assert.equal(look.family, "full-portrait");
+        assert.equal(look.theme, "dark");
+        assert.equal(look.portraitZoom, 130);
+        assert.equal(look.portraitShowUsername, false);
+        const html = render(mode(slug, appearance), plan);
+        assert.match(html, /data-profile-hero="full-portrait"/);
+        assert.doesNotMatch(html, /@aanya/);
+        assert.match(html, /data-photo-focus/);
+      }
+      const free = lib.resolveAppearance({ slug, appearance }, "free");
+      assert.notEqual(free.family, "full-portrait");
+      assert.equal(free.portraitZoom, 100);
+      assert.equal(lib.introducedLockedFields({}, appearance, "free").includes("layout"), true);
+      assert.deepEqual(lib.introducedLockedFields(appearance, appearance, "free"), []);
+      for (const patch of [{ portraitZoom: 150 }, { portraitZoom: "130" }, { portraitNameSize: "giant" }, { portraitShowUsername: "false" }]) assert.equal(lib.isValidAppearance(slug, { ...appearance, ...patch }), false);
+    }
+  });
+
   test("keeps each Mode's own saved values", () => {
     const saved = {
       personal: { theme: "dark", accent: "#546742", layout: "full-bleed", imageTreatment: "full-bleed" },
@@ -224,7 +248,8 @@ describe("ProfileRenderer", () => {
         assert.equal(attr(html, "data-profile-mode"), slug);
         assert.equal(attr(html, "data-profile-family"), family);
         assert.match(html, new RegExp(`data-profile-hero="${family}"`));
-        assert.match(html, new RegExp(`data-profile-hero-wide="${family}"`), "wide two-column hero is part of the same render");
+        if (family === "full-portrait") assert.doesNotMatch(html, /data-profile-hero-wide/, "Full Portrait stays a centered portrait on desktop");
+        else assert.match(html, new RegExp(`data-profile-hero-wide="${family}"`), "wide two-column hero is part of the same render");
       }
     }
   });

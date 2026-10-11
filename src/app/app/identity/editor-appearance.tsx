@@ -9,7 +9,7 @@ import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { QrFrame } from "@/components/profile/qr-frame";
 import { resolveSkin } from "@/components/profile/profile-skin";
 import {
-  ACCENT_PRESETS, BUTTON_STYLES, CARD_STYLES, IMAGE_TREATMENTS, INTENSITIES, LAYOUT_FAMILIES, LINK_STYLES, QR_STYLES, RADII, SOUND_STYLES, THEMES, THEME_DEFAULTS, THEME_LAYOUTS,
+  ACCENT_PRESETS, BUTTON_STYLES, CARD_STYLES, IMAGE_TREATMENTS, INTENSITIES, LAYOUT_FAMILIES, LINK_STYLES, PORTRAIT_NAME_SIZES, PORTRAIT_ZOOMS, QR_STYLES, RADII, SOUND_STYLES, THEMES, THEME_DEFAULTS, THEME_LAYOUTS,
   CONNECT_EDGE_CONTRAST, FREE_LAYOUT_FAMILIES, FREE_THEMES, capabilityForField, contrastRatio, layoutFamily, layoutForFamily, lockedFields, resolveAppearance,
   type LayoutFamily, type ResolvedAppearance, type ThemeId,
 } from "@/components/profile/appearance";
@@ -120,6 +120,7 @@ function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State;
       <div className="flex flex-col gap-3">
         <h2 className="font-label text-[11px] font-normal uppercase tracking-[0.14em]">{copy.layout}</h2>
         <LayoutTiles api={api} state={state} />
+        {state.working.layout === "full-portrait" && <FullPortraitControls api={api} state={state} />}
       </div>
 
       <div className="flex flex-col gap-3">
@@ -167,20 +168,39 @@ function LayoutTiles({ api, state, compact = false }: { api: EditorApi; state: S
   const { copy, look, saved, locked } = state;
   const savedFamily = layoutFamily(api.slug, saved.layout);
   return (
-    <div className={compact ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : "grid grid-cols-5 gap-2"}>
+    <div className={compact ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : "grid grid-cols-3 gap-2 xl:grid-cols-6"}>
       {LAYOUT_FAMILIES.map((family) => {
         const on = look.family === family;
-        const allowed = THEME_LAYOUTS[look.theme].includes(family);
+        const allowed = family === "full-portrait" || THEME_LAYOUTS[look.theme].includes(family);
         const savedInactive = locked.includes("layout") && savedFamily === family;
         const isFree = FREE_LAYOUT_FAMILIES.includes(family);
         return (
-          <button aria-disabled={!allowed} aria-pressed={on} className={`flex min-h-14 flex-col justify-center rounded-[12px] px-3 text-left transition ${focusRing} ${allowed ? "" : "cursor-not-allowed opacity-45"}`} key={family} onClick={() => { if (allowed) api.chooseAppearance({ layout: layoutForFamily(api.slug, family) }); }} style={{ boxShadow: on ? "inset 0 0 0 2px #0D0D0D" : savedInactive ? "inset 0 0 0 1.5px #0D0D0D, inset 0 0 0 3px #F5F4EF" : "inset 0 0 0 1px #0D0D0D1F" }} title={allowed ? undefined : copy.notAvailable.replace("{theme}", copy.themes[look.theme])} type="button">
+          <button aria-disabled={!allowed} aria-pressed={on} className={`flex min-h-14 flex-col justify-center rounded-[12px] px-3 text-left transition ${focusRing} ${allowed ? "" : "cursor-not-allowed opacity-45"}`} key={family} onClick={() => { if (allowed) api.chooseAppearance(family === "full-portrait" ? { theme: "dark", layout: "full-portrait" } : { layout: layoutForFamily(api.slug, family) }); }} style={{ boxShadow: on ? "inset 0 0 0 2px #0D0D0D" : savedInactive ? "inset 0 0 0 1.5px #0D0D0D, inset 0 0 0 3px #F5F4EF" : "inset 0 0 0 1px #0D0D0D1F" }} title={allowed ? undefined : copy.notAvailable.replace("{theme}", copy.themes[look.theme])} type="button">
             <span className="text-[13.5px] font-bold">{copy.layouts[family]}</span>
             <PlanTag copy={copy} isFree={isFree} />
           </button>
         );
       })}
     </div>
+  );
+}
+
+function FullPortraitControls({ api, state }: { api: EditorApi; state: State }) {
+  const { working, copy } = state;
+  const labels = copy.portrait;
+  return (
+    <fieldset className="mt-2 flex flex-col gap-4 rounded-[18px] bg-white p-4 shadow-[inset_0_0_0_1px_#0D0D0D1A] sm:p-5">
+      <legend className="px-1 font-label text-[11px] uppercase tracking-[0.14em]">{labels.controls}</legend>
+      <p className="text-[12.5px] leading-5 text-black/70">{labels.inkFinish}</p>
+      <div><p className="text-[13px] font-semibold">{labels.zoom}</p><div className="mt-2 flex flex-wrap gap-2">
+        {PORTRAIT_ZOOMS.map((zoom) => <button aria-pressed={(working.portraitZoom ?? 100) === zoom} className={`min-h-11 rounded-full px-3 text-[13px] font-semibold ${focusRing}`} key={zoom} onClick={() => api.chooseAppearance({ portraitZoom: zoom })} style={{ background: (working.portraitZoom ?? 100) === zoom ? "#0D0D0D" : "transparent", color: (working.portraitZoom ?? 100) === zoom ? "#F5F4EF" : "#0D0D0D", boxShadow: "inset 0 0 0 1px #0D0D0D33" }} type="button">{zoom}%</button>)}
+      </div></div>
+      <div><p className="text-[13px] font-semibold">{labels.position}</p>{api.mode.image_url ? <Pill className="mt-2" onClick={api.recropPhoto}>{labels.adjustFocus}</Pill> : <p className="mt-1 text-[12.5px] text-black/65">{labels.noPhoto}</p>}</div>
+      <div><p className="text-[13px] font-semibold">{labels.nameSize}</p><div className="mt-2 grid grid-cols-2 gap-2">
+        {PORTRAIT_NAME_SIZES.map((size) => <button aria-pressed={(working.portraitNameSize ?? "standard") === size} className={`min-h-11 rounded-xl px-3 text-[13px] font-semibold ${focusRing}`} key={size} onClick={() => api.chooseAppearance({ portraitNameSize: size })} style={{ background: (working.portraitNameSize ?? "standard") === size ? "#0D0D0D" : "transparent", color: (working.portraitNameSize ?? "standard") === size ? "#F5F4EF" : "#0D0D0D", boxShadow: "inset 0 0 0 1px #0D0D0D33" }} type="button">{labels.sizes[size]}</button>)}
+      </div></div>
+      <button aria-checked={working.portraitShowUsername !== false} className={`flex min-h-11 items-center justify-between gap-3 text-left text-[13px] font-semibold ${focusRing}`} onClick={() => api.chooseAppearance({ portraitShowUsername: working.portraitShowUsername === false })} role="switch" type="button"><span>{labels.showUsername}</span><span aria-hidden="true" className={`relative h-7 w-12 rounded-full ${working.portraitShowUsername === false ? "bg-black/20" : "bg-[#0D0D0D]"}`}><span className={`absolute top-1 size-5 rounded-full bg-white transition-transform ${working.portraitShowUsername === false ? "left-1" : "left-6"}`} /></span></button>
+    </fieldset>
   );
 }
 
@@ -214,9 +234,9 @@ function ColourControls({ api, state, stacked = false }: { api: EditorApi; state
 }
 
 function MoreRows({ api, state, include, onMore }: { api: EditorApi; state: State; include: MoreKey[]; onMore: (key: MoreKey) => void }) {
-  const { copy, look } = state;
+  const { copy, look, working } = state;
   const rows: Record<MoreKey, { title: string; value: string; isFree: boolean | null }> = {
-    image: { title: copy.image, value: copy.images[look.imageTreatment], isFree: look.imageTreatment !== "frame" },
+    image: { title: copy.image, value: working.layout === "full-portrait" ? copy.portrait.position : copy.images[look.imageTreatment], isFree: working.layout === "full-portrait" || look.imageTreatment !== "frame" },
     surfaces: { title: copy.surfaces, value: `${copy.cardStyles[look.card]} · ${copy.radii[look.radius]} · ${copy.buttonStyles[look.button]}`, isFree: false },
     links: { title: copy.links, value: copy.linkStyles[look.links], isFree: false },
     soundtrack: { title: copy.soundtrack, value: copy.soundStyles[look.soundStyle], isFree: false },
@@ -381,10 +401,10 @@ function ThemeDefaultButton({ active, onClick, copy }: { active: boolean; onClic
 }
 
 function ImageOptions({ api, state }: { api: EditorApi; state: State }) {
-  const { copy, look } = state;
+  const { copy, look, working } = state;
   return (
     <div className="flex flex-col gap-3">
-      <OptionGrid cols={4} isFree={(value) => free(api.plan, "imageTreatment", value) || value !== "frame"} label={copy.image} name={(value) => copy.images[value]} onPick={(imageTreatment) => api.chooseAppearance({ imageTreatment })} options={IMAGE_TREATMENTS} value={look.imageTreatment} />
+      {working.layout !== "full-portrait" && <OptionGrid cols={4} isFree={(value) => free(api.plan, "imageTreatment", value) || value !== "frame"} label={copy.image} name={(value) => copy.images[value]} onPick={(imageTreatment) => api.chooseAppearance({ imageTreatment })} options={IMAGE_TREATMENTS} value={look.imageTreatment} />}
       {api.mode.image_url ? <Pill className="self-start" onClick={api.recropPhoto}>{copy.adjustFocus}</Pill> : <p className="text-[13px] text-black/70">{copy.noPhoto}</p>}
     </div>
   );
@@ -477,7 +497,7 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
                 {THEMES.map((theme) => <ThemeTile api={api} height={134} key={theme} state={state} theme={theme} width={96} zoom={0.246} />)}
               </div>
             )}
-            {tab === "layout" && <LayoutTiles api={api} compact state={state} />}
+            {tab === "layout" && <div className="flex flex-col gap-4"><LayoutTiles api={api} compact state={state} />{state.working.layout === "full-portrait" && <FullPortraitControls api={api} state={state} />}</div>}
             {tab === "colour" && <ColourControls api={api} stacked state={state} />}
             {tab === "image" && <ImageOptions api={api} state={state} />}
             {tab === "more" && <MoreRows api={api} include={["surfaces", "links", "soundtrack", "qr", "earned"]} onMore={onMore} state={state} />}
