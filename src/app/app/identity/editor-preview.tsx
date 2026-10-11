@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
+import type { CSSProperties } from "react";
+
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
-import { inkOnAccent, resolveModeAccent } from "@/components/profile/appearance";
+import { resolveAppearance } from "@/components/profile/appearance";
 import type { ConnectionContext, ProfileMode } from "@/components/profile/types";
 import type { EditorApi, PreviewState } from "./editor-types";
+import { PreviewingBar, useAppearance } from "./editor-appearance";
+import { useI18n } from "@/lib/i18n/provider";
 import { MODE_SLUGS } from "./editor-types";
 import { MonoLabel, Segmented, modeMeta } from "./editor-ui";
 
@@ -42,17 +46,20 @@ function useSampleContext(mode: ProfileMode): ConnectionContext {
 
 function PreviewProfile({ api, state, setState }: { api: EditorApi; state: PreviewState; setState: (state: PreviewState) => void }) {
   const { mode, profile } = api;
+  const { locale, messages } = useI18n();
   const context = useSampleContext(mode);
-  const eventName = typeof mode.settings.eventName === "string" ? mode.settings.eventName.trim() : "";
-  const label = mode.slug === "event" && eventName ? `Connect at ${eventName}` : "Connect";
-  const accent = resolveModeAccent(mode);
+  const label = messages.profile.connect;
+  // Same Connect trigger tokens as the public ConnectFlow button.
   const visitorAction = (
-    <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold" onClick={() => setState("connected")} style={{ background: accent, color: inkOnAccent(accent) }} type="button">{label}</button>
+    <button className="inline-flex h-[var(--sv-connect-h,52px)] w-full items-center justify-[var(--sv-connect-justify,center)] gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-fill)] px-5 text-[16px] font-semibold text-[var(--sv-connect-ink)] shadow-[var(--sv-connect-edge,none)] after:content-[var(--sv-connect-arrow,none)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" onClick={() => setState("connected")} type="button"><span>{label}</span></button>
   );
   return (
     <ProfileRenderer
+      attribution
+      previewLook={api.appearancePreview ? resolveAppearance({ slug: mode.slug, appearance: api.appearancePreview }, "pro") : undefined}
       connectionContext={state === "connected" ? context : null}
       connectionHref={state === "connected" ? "/app/connections" : undefined}
+      locale={locale}
       memberTier={api.memberTier}
       mode={mode}
       onEditMode={() => api.go("profile")}
@@ -67,23 +74,29 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
   );
 }
 
+function PaneBar({ api }: { api: EditorApi }) {
+  const state = useAppearance(api);
+  return <div className="sticky bottom-5 z-10 mt-auto w-full max-w-[460px]"><PreviewingBar api={api} state={state} /></div>;
+}
+
 export function PreviewPane({ api, previewState, setPreviewState }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void }) {
   const offline = !api.profile.is_published || !api.mode.is_enabled;
   return (
-    <div className="flex min-h-full flex-col items-center px-6 pb-8 pt-7">
-      <div className="flex w-full max-w-[392px] items-center justify-between gap-3">
-        <MonoLabel className="text-black/55">Live preview</MonoLabel>
-        <Segmented label="Preview as" onChange={setPreviewState} options={stateOptions} size="sm" value={previewState} />
-      </div>
-      <div className="mt-6 w-full max-w-[372px] rounded-[48px] bg-[#0D0D0D] p-[10px] shadow-[0_50px_100px_-40px_rgba(13,13,13,.55)]">
-        <div className="relative h-[min(760px,calc(100dvh-230px))] min-h-[520px] overflow-hidden rounded-[39px] bg-[#F5F4EF]">
-          <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&>article]:min-h-full [&>article]:rounded-none [&::-webkit-scrollbar]:hidden">
+    <div className="relative flex min-h-full flex-col items-center gap-3.5 px-6 pb-8 pt-[22px]">
+      <MonoLabel className="sr-only">Live preview</MonoLabel>
+      <Segmented label="Preview as" onChange={setPreviewState} options={stateOptions} size="sm" value={previewState} />
+      {/* The phone at the design's .86 scale: the renderer lays out at 390 and is zoomed, so it is
+          exactly the public phone composition. */}
+      <div className="relative w-[336px] shrink-0 overflow-hidden rounded-[36px] bg-[#F5F4EF] shadow-[0_30px_60px_-30px_#0D0D0D80]" data-preview-phone style={{ height: "max(480px, min(726px, calc(100dvh - 220px)))" }}>
+        <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div style={{ width: 390, zoom: 0.86, "--profile-vh": "844px" } as CSSProperties}>
             <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
           </div>
         </div>
       </div>
       <p className="mt-4 max-w-[340px] text-center text-[13px] leading-5 text-black/55">{previewNote(api, previewState)}</p>
       {offline && <p className="mt-2 max-w-[340px] text-center text-[12px] font-medium text-[#B42318]">{!api.profile.is_published ? "Draft: visitors can’t open your Setuvara until you publish." : `${modeMeta[api.slug].name} Mode is off, so its link doesn’t open.`}</p>}
+      {api.appearancePreview && <PaneBar api={api} />}
     </div>
   );
 }
@@ -109,7 +122,8 @@ export function FullPreview({ api, previewState, setPreviewState, onClose }: { a
         </div>
         <button className="hidden min-h-10 items-center rounded-full px-4 text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] sm:inline-flex" onClick={onClose} type="button">Exit preview</button>
       </div>
-      <div className="mx-auto w-full max-w-[440px] px-2 pb-36 pt-2 sm:px-0 sm:pt-6">
+      {/* Full width: the same responsive composition visitors get on this screen. */}
+      <div className="w-full pb-36" style={{ "--profile-vh": "100dvh" } as CSSProperties}>
         <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
         <p className="mt-4 text-center text-[13px] text-black/55">{previewNote(api, previewState)}</p>
       </div>

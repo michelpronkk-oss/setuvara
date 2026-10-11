@@ -7,7 +7,7 @@ import { z } from "zod";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import { isModeLayout, isValidAppearance } from "@/components/profile/appearance";
+import { introducedLockedFields, isModeLayout, isValidAppearance } from "@/components/profile/appearance";
 import { focusPosition, modeFocus, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
@@ -19,14 +19,16 @@ import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
 import { isAllowedUsername } from "@/lib/usernames";
+import { useI18n } from "@/lib/i18n/provider";
 import { FeaturePaywall } from "@/components/app/feature-paywall";
 import { CelebrationClient } from "../passport/passport-dashboard";
 import { createProviderLink, updateProviderLink } from "./actions";
 import { CropDialog, cropToBlob } from "./editor-crop";
 import { FullPreview, PreviewPane } from "./editor-preview";
 import { ContentSection } from "./editor-content";
-import { AppearanceSection, HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
-import { MODE_SLUGS, SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
+import { HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
+import { AppearancePlusSheet, AppearanceSection, pendingAppearanceKey } from "./editor-appearance";
+import { MODE_SLUGS, SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PlusTrigger, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
 import { modeMeta } from "./editor-ui";
 
 type EditorProps = {
@@ -86,9 +88,13 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [usernameCheck, setUsernameCheck] = useState<{ candidate: string; result: UsernameStatus } | null>(null);
   const [toastState, setToastState] = useState<{ id: number; text: string; action?: { label: string; run: () => void } } | null>(null);
   const [paywallCapability, setPaywallCapability] = useState<CapabilityKey | null>(null);
+  // Unsaved premium looks the owner is previewing, per Mode. Never written to the database.
+  const [appearancePreviews, setAppearancePreviews] = useState<Record<string, ModeAppearance>>({});
+  const [plusSheet, setPlusSheet] = useState<PlusTrigger | null>(null);
   const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus } | null>(null);
   const [busyPhoto, setBusyPhoto] = useState(false);
 
+  const { messages } = useI18n();
   const supabase = useMemo(() => createClient(), []);
   const profileRef = useRef(profile);
   const modesRef = useRef(modes);
@@ -263,13 +269,69 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     schedule(`mode:${current.id}`, saveModeTask(current.id));
   }, [patchMode, saveModeTask, schedule, slug]);
 
-  const updateAppearance = useCallback((patch: Partial<ModeAppearance>) => {
-    const current = modesRef.current.find((item) => item.slug === slug);
+  const saveAppearanceFor = useCallback((modeId: string, patch: Partial<ModeAppearance>) => {
+    const current = modesRef.current.find((item) => item.id === modeId);
     // A layout only ever applies to the Mode it belongs to.
     if (!current || (patch.layout !== undefined && !isModeLayout(current.slug, patch.layout))) return;
-    patchMode(current.id, { appearance: { ...current.appearance, ...patch } });
+    const next = { ...current.appearance, ...patch };
+    for (const key of Object.keys(next) as (keyof ModeAppearance)[]) if (next[key] === undefined) delete next[key];
+    patchMode(current.id, { appearance: next });
     schedule(`mode:${current.id}`, saveModeTask(current.id));
-  }, [patchMode, saveModeTask, schedule, slug]);
+  }, [patchMode, saveModeTask, schedule]);
+
+  const updateAppearance = useCallback((patch: Partial<ModeAppearance>) => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (current) saveAppearanceFor(current.id, patch);
+  }, [saveAppearanceFor, slug]);
+
+  // Preview before upgrade: a choice that needs Plus renders for the owner only; a free
+  // choice saves straight away. Once a preview is open, later picks join it so the whole
+  // look is applied (or dropped) together.
+  const chooseAppearance = useCallback((patch: Partial<ModeAppearance>) => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current) return;
+    const base = appearancePreviews[current.id] ?? current.appearance;
+    const next = { ...base, ...patch };
+    for (const key of Object.keys(next) as (keyof ModeAppearance)[]) if (next[key] === undefined) delete next[key];
+    if (introducedLockedFields(current.appearance, next, plan).length) {
+      setAppearancePreviews((previews) => ({ ...previews, [current.id]: next }));
+      return;
+    }
+    setAppearancePreviews((previews) => { const rest = { ...previews }; delete rest[current.id]; return rest; });
+    saveAppearanceFor(current.id, { ...Object.fromEntries(Object.keys(current.appearance).map((key) => [key, undefined])), ...next });
+  }, [appearancePreviews, plan, saveAppearanceFor, slug]);
+
+  const clearAppearancePreview = useCallback(() => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (current) setAppearancePreviews((previews) => { const rest = { ...previews }; delete rest[current.id]; return rest; });
+  }, [slug]);
+
+  const applyAppearancePreview = useCallback(() => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    const preview = current ? appearancePreviews[current.id] : null;
+    if (!current || !preview) return;
+    const locked = introducedLockedFields(current.appearance, preview, plan);
+    if (!locked.length) { chooseAppearance({}); return; }
+    // Remember the previewed look so it applies when the member returns with Plus.
+    try { window.localStorage.setItem(pendingAppearanceKey(current.id), JSON.stringify(preview)); } catch { /* private mode: the preview simply isn't remembered */ }
+    const field = locked[0];
+    setPlusSheet(field === "theme" ? { kind: "theme", name: preview.theme } : field === "layout" ? { kind: "layout", name: preview.layout } : field === "imageTreatment" ? { kind: "image" } : field === "soundStyle" ? { kind: "soundtrack", name: preview.soundStyle } : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle } : { kind: "advanced" });
+  }, [appearancePreviews, chooseAppearance, plan, slug]);
+
+  // Back from checkout with Plus: a look previewed before upgrading applies once.
+  useEffect(() => {
+    for (const item of modesRef.current) {
+      let saved: unknown = null;
+      try { saved = JSON.parse(window.localStorage.getItem(pendingAppearanceKey(item.id)) ?? "null"); } catch { saved = null; }
+      if (!saved || typeof saved !== "object") continue;
+      const next = saved as ModeAppearance;
+      if (!isValidAppearance(item.slug, next) || introducedLockedFields(item.appearance, next, plan).length) continue;
+      try { window.localStorage.removeItem(pendingAppearanceKey(item.id)); } catch { /* ignore */ }
+      saveAppearanceFor(item.id, { ...Object.fromEntries(Object.keys(item.appearance).map((key) => [key, undefined])), ...next });
+      toast(messages.appearance.pendingApplied);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once with the server-resolved plan
+  }, []);
 
   const setModeEnabled = useCallback(async (enabled: boolean) => {
     const current = modesRef.current.find((item) => item.slug === slug);
@@ -656,7 +718,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   const api: EditorApi = {
     profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
-    updateProfile, updateSetting, updateAppearance, requestCapability, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
+    updateProfile, updateSetting, updateAppearance, requestCapability,
+    appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
     pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
@@ -801,6 +864,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         </div>
       )}
       {paywallCapability && <FeaturePaywall capability={paywallCapability} onClose={closePaywall} />}
+      {plusSheet && <AppearancePlusSheet onClose={() => setPlusSheet(null)} plan={plan} trigger={plusSheet} />}
       <CelebrationClient name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} threshold={celebrationThreshold} />
     </div>
   );

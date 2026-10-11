@@ -138,6 +138,20 @@ html:has(head > meta[name="theme-color"][content="#F5F4EF"]) body {
   50% { opacity: 0.35; transform: scale(0.8); }
 }
 
+/* Soundtrack presentation (Appearance): equaliser bars and the turning disc, only while playing. */
+@keyframes sv-eq {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes sv-disc {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sv-motion] { animation: none !important; }
+}
+
 /* Passport: a newly earned stamp is pressed onto the page (Passport .dc, frame 10). */
 @keyframes passport-page-up {
   from { transform: translateY(40px); opacity: 0; }

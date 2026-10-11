@@ -3,17 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
 /**
- * "Save contact" for Business Mode: a vCard built only from what the
- * owner already shows publicly in that Mode (RLS hides everything else).
+ * "Save contact" for a Mode (?mode=personal|event|business, default business):
+ * a vCard built only from what the owner already shows publicly in that Mode
+ * (RLS hides everything else).
  */
 export async function GET(request: Request, { params }: { params: Promise<{ username: string }> }) {
   const username = normalizeUsername((await params).username);
   if (!isAllowedUsername(username)) return notFound();
 
+  const requested = new URL(request.url).searchParams.get("mode") ?? "business";
+  if (requested !== "personal" && requested !== "event" && requested !== "business") return notFound();
+  const slug = requested;
+  const work = slug === "business";
+
   const supabase = await createClient();
   const { data: profile } = await supabase.from("profiles").select("id, username, display_name, bio").eq("username", username).eq("is_published", true).maybeSingle();
   if (!profile) return notFound();
-  const { data: mode } = await supabase.from("profile_modes").select("id, settings").eq("profile_id", profile.id).eq("slug", "business").eq("is_enabled", true).maybeSingle();
+  const { data: mode } = await supabase.from("profile_modes").select("id, settings").eq("profile_id", profile.id).eq("slug", slug).eq("is_enabled", true).maybeSingle();
   if (!mode) return notFound();
   const { data: links } = await supabase.from("profile_links").select("title, url, link_type").eq("profile_id", profile.id).eq("mode_id", mode.id).eq("is_visible", true).order("sort_order");
 
@@ -26,19 +32,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
     `FN:${escape(profile.display_name)}`,
     `N:${escape(lastName(profile.display_name))};${escape(firstName(profile.display_name))};;;`,
   ];
-  if (text("company")) lines.push(`ORG:${escape(text("company"))}`);
-  if (text("role")) lines.push(`TITLE:${escape(text("role"))}`);
-  if (text("city")) lines.push(`ADR;TYPE=WORK:;;;${escape(text("city"))};;;`);
+  const city = text(slug === "personal" ? "location" : "city");
+  if (work && text("company")) lines.push(`ORG:${escape(text("company"))}`);
+  if (slug !== "personal" && text("role")) lines.push(`TITLE:${escape(text("role"))}`);
+  if (city) lines.push(`ADR;TYPE=${work ? "WORK" : "HOME"}:;;;${escape(city)};;;`);
   for (const link of links ?? []) {
     const provider = providerForLink(link.link_type);
     const destination = resolveStoredLink(provider.id, link.url);
     if (!destination) continue;
-    if (/^mailto:/i.test(destination.url)) lines.push(`EMAIL;TYPE=WORK:${escape(destination.url.slice(7))}`);
-    else if (/^tel:/i.test(destination.url)) lines.push(`TEL;TYPE=WORK,VOICE:${escape(destination.url.slice(4))}`);
-    else if (/^https?:/i.test(destination.url)) lines.push(`URL;TYPE=${provider.id === "linkedin" ? "LinkedIn" : "WORK"}:${escape(destination.url)}`);
+    if (/^mailto:/i.test(destination.url)) lines.push(`EMAIL;TYPE=${work ? "WORK" : "INTERNET"}:${escape(destination.url.slice(7))}`);
+    else if (/^tel:/i.test(destination.url)) lines.push(`TEL;TYPE=${work ? "WORK," : ""}VOICE:${escape(destination.url.slice(4))}`);
+    else if (/^https?:/i.test(destination.url)) lines.push(`URL;TYPE=${provider.id === "linkedin" ? "LinkedIn" : work ? "WORK" : "HOME"}:${escape(destination.url)}`);
   }
-  lines.push(`URL;TYPE=Setuvara:${escape(`${origin}/${profile.username}?mode=business&source=contact`)}`);
-  const note = text("description") || profile.bio;
+  lines.push(`URL;TYPE=Setuvara:${escape(`${origin}/${profile.username}?mode=${slug}&source=contact`)}`);
+  const note = text(slug === "business" ? "description" : slug === "event" ? "hereToMeet" : "note") || profile.bio;
   if (note) lines.push(`NOTE:${escape(note)}`);
   lines.push("END:VCARD");
 

@@ -34,7 +34,7 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
     case "services": {
       const items = (data.items as { name?: string; detail?: string; price?: string }[] | undefined) ?? [];
       return (
-        <section className="overflow-hidden rounded-2xl" style={surface}>
+        <section className="overflow-hidden rounded-[var(--sv-card-r,16px)]" style={surface}>
           <p className="px-4 pt-4 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{str(data.heading) || "Services"}</p>
           <ul className="mt-2">
             {items.map((item, index) => (
@@ -50,7 +50,7 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
     case "highlights": {
       const items = (data.items as { value?: string; label?: string }[] | undefined) ?? [];
       return (
-        <section className="grid rounded-2xl" style={{ ...surface, gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+        <section className="grid rounded-[var(--sv-card-r,16px)]" style={{ ...surface, gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
           {items.map((item, index) => (
             <div className="min-w-0 px-3 py-4 text-center" key={index} style={{ borderLeft: index ? `1px solid ${tone.line}` : undefined }}>
               <p className="truncate font-display text-[1.65rem] font-extrabold leading-none tracking-[-0.05em]">{item.value}</p>
@@ -62,7 +62,7 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
     }
     case "testimonial":
       return (
-        <figure className="rounded-2xl px-5 pb-5 pt-4" style={surface}>
+        <figure className="rounded-[var(--sv-card-r,16px)] px-5 pb-5 pt-4" style={surface}>
           <span aria-hidden="true" className="block font-display text-[2.6rem] font-extrabold leading-none" style={{ color: accent === tone.bg ? tone.ink : accent }}>“</span>
           <blockquote className="-mt-2 text-[16px] font-medium leading-[1.45]">{str(data.quote)}</blockquote>
           <figcaption className="mt-3 text-[13px]"><span className="font-semibold">{str(data.author)}</span>{str(data.role) && <span style={{ color: tone.sub }}> · {str(data.role)}</span>}</figcaption>
@@ -89,7 +89,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
     return (
       <figure>
         {title && <p className="mb-2 px-1 text-[14px] font-semibold leading-snug">{title}</p>}
-        <div className="overflow-hidden rounded-2xl bg-[#0D0D0D]">
+        <div className="overflow-hidden rounded-[var(--sv-card-r,16px)] bg-[#0D0D0D]">
           <video
             aria-label={title || "Uploaded video"}
             className="block max-h-[80vh] w-full object-contain"
@@ -116,7 +116,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
   const frame = media.vertical ? "mx-auto aspect-[9/16] w-full max-w-[300px]" : "aspect-video w-full";
   return (
     <figure>
-      <div className={`relative overflow-hidden rounded-2xl ${frame}`} style={{ background: tone.dark ? "#1C1C1C" : "#0D0D0D" }}>
+      <div className={`relative overflow-hidden rounded-[var(--sv-card-r,16px)] ${frame}`} style={{ background: tone.dark ? "#1C1C1C" : "#0D0D0D" }}>
         {playing ? (
           focus.active ? <TrackedVideo key={media.embedUrl} focus={focus} media={media} onClose={close} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} /> : (
             <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowFullScreen className="absolute inset-0 size-full" referrerPolicy="strict-origin-when-cross-origin" src={media.embedUrl} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} />
@@ -214,7 +214,7 @@ function MusicFrame({ media, title, tone, untracked }: { media: MusicMedia; titl
     <div data-sound-untracked={untracked}>
       <iframe
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        className="block w-full overflow-hidden rounded-2xl border-0"
+        className="block w-full overflow-hidden rounded-[var(--sv-card-r,16px)] border-0"
         height={media.height}
         loading="lazy"
         src={media.embedUrl}
@@ -247,7 +247,7 @@ function TrackedMusic({ media, title, tone, trackId }: { media: MusicMedia; titl
   }, [focus, media, title]);
 
   if (failed) return <MusicFrame media={media} title={title} tone={tone} untracked={trackId} />;
-  return <div className="overflow-hidden rounded-2xl" ref={host} style={{ minHeight: media.height, background: tone.chip }} />;
+  return <div className="overflow-hidden rounded-[var(--sv-card-r,16px)]" ref={host} style={{ minHeight: media.height, background: tone.chip }} />;
 }
 
 /**
@@ -283,7 +283,7 @@ function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: Pr
   };
 
   return (
-    <section className="flex items-center gap-3 rounded-2xl p-2.5" data-media style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+    <section className="flex items-center gap-3 rounded-[var(--sv-card-r,16px)] p-2.5" data-media style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
       <div className="relative aspect-video w-[118px] shrink-0 overflow-hidden rounded-xl bg-[#0D0D0D]">
         {/* eslint-disable-next-line @next/next/no-img-element -- YouTube cover art */}
         {cover && <img alt="" className="absolute inset-0 size-full object-cover" loading="lazy" referrerPolicy="no-referrer" src={cover} />}
@@ -310,7 +310,7 @@ function FeatureBlock({ data, tone }: { data: Record<string, unknown>; tone: Blo
   let site = str(data.siteName);
   if (!site) { try { site = new URL(url).hostname.replace(/^www\./, ""); } catch { site = ""; } }
   return (
-    <a className="group block overflow-hidden rounded-2xl transition hover:opacity-95" href={url} rel="noopener noreferrer" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target="_blank">
+    <a className="group block overflow-hidden rounded-[var(--sv-card-r,16px)] transition hover:opacity-95" href={url} rel="noopener noreferrer" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target="_blank">
       {image && !imageFailed && (
         <span className="relative block aspect-[1.91/1] w-full overflow-hidden" style={{ background: tone.bg }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- third-party link preview image */}
@@ -334,7 +334,7 @@ function ImageBlock({ data, tone }: { data: Record<string, unknown>; tone: Block
   if (!image || imageFailed) return null;
 
   return (
-    <figure className="overflow-hidden rounded-2xl" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+    <figure className="overflow-hidden rounded-[var(--sv-card-r,16px)]" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
       {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
       <img alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" decoding="async" loading="lazy" onError={() => setFailedImage(image)} src={image} />
       {str(data.caption) && <figcaption className="px-4 py-3 text-[13px] leading-5" style={{ color: tone.sub }}>{str(data.caption)}</figcaption>}

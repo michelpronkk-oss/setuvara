@@ -30,11 +30,18 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
 };
 
 /** Labels for each Mode's layouts. Values come from MODE_LAYOUTS, the renderer's own list. */
+const SHARED_LAYOUT_LABELS = [
+  { value: "portrait", label: "Portrait", note: "Image-dominant, cinematic" },
+  { value: "poster", label: "Poster", note: "Graphic headline from Mode context" },
+  { value: "index", label: "Index", note: "Compact, dense, refined" },
+] as const;
 export const LAYOUTS: { [S in ModeSlug]: { value: ModeLayout<S>; label: string; note: string }[] } = {
-  personal: [{ value: "full-bleed", label: "Full Bleed", note: "Edge-to-edge photo, round icons" }, { value: "portrait-editorial", label: "Portrait Editorial", note: "Framed portrait, quieter" }],
-  event: [{ value: "event-poster", label: "Event Poster", note: "Big event header" }, { value: "conference-card", label: "Conference Card", note: "Compact badge header" }],
-  business: [{ value: "structured", label: "Structured", note: "Role, company, city table" }, { value: "editorial-business", label: "Editorial Business", note: "Name-first, open layout" }],
+  personal: [{ value: "full-bleed", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "portrait-editorial", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
+  event: [{ value: "event-poster", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "conference-card", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
+  business: [{ value: "editorial-business", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "structured", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
 };
+
+export type PlusTrigger = { kind: "theme" | "layout" | "advanced" | "image" | "soundtrack" | "qr" | "restore"; name?: string };
 
 export type EditorApi = {
   profile: ProfileIdentity;
@@ -54,6 +61,14 @@ export type EditorApi = {
   updateProfile: (patch: Partial<EditableProfile>) => void;
   updateSetting: (key: string, value: string) => void;
   updateAppearance: (patch: Partial<ModeAppearance>) => void;
+  /** The unsaved premium look the owner is previewing for this Mode, or null. */
+  appearancePreview: ModeAppearance | null;
+  /** Saves a choice, or previews it when it needs Plus (never published). */
+  chooseAppearance: (patch: Partial<ModeAppearance>) => void;
+  clearAppearancePreview: () => void;
+  /** Saves the preview when the plan allows it, otherwise opens the Plus sheet. */
+  applyAppearancePreview: () => void;
+  openPlusSheet: (trigger: PlusTrigger) => void;
   requestCapability: (capability: CapabilityKey) => void;
   setModeEnabled: (enabled: boolean) => Promise<void>;
   setConnectPolicy: (policy: ConnectPolicy) => Promise<void>;

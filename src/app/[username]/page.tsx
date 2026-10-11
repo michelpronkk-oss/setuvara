@@ -8,8 +8,10 @@ import { cache } from "react";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
-import { isFullBleed, ProfileRenderer, profileTone, resolvedBrowserThemeColor } from "@/components/profile/profile-renderer";
+import { ProfileRenderer, profileTone, resolvedBrowserThemeColor } from "@/components/profile/profile-renderer";
 import { resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
+import { getMessages } from "@/lib/i18n/messages";
+import { resolveRequestLocale } from "@/lib/i18n/server";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
@@ -258,52 +260,57 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     ...(sameAs.length ? { sameAs } : {}),
   };
 
-  // Full Bleed runs the photo to the phone's edges; the page takes on the profile's own background.
-  const bleed = isFullBleed(mode, plan);
+  // The profile is the page: it fills the window and the browser chrome takes on its background.
   const pageTone = profileTone(mode, plan);
   const browserThemeColor = resolvedBrowserThemeColor(mode, plan);
   const resolvedLook = resolveAppearance(mode, plan);
+  const locale = await resolveRequestLocale({ supabase, userId });
+  const copy = getMessages(locale).profile;
   const sharedPassportStamp = passportHighlight && typeof passportHighlight === "object"
     ? passportHighlight as { type: PassportStampType; title: string; subtitle: string | null; countryCode: string | null }
     : null;
 
   return (
-    <main data-public-profile-surface="true" data-public-profile-theme={resolvedLook.theme} data-public-profile-layout={resolvedLook.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:px-0 max-sm:py-0" : ""}`} style={{ "--page-bg": browserThemeColor } as React.CSSProperties}>
+    <main data-public-profile-surface="true" data-public-profile-theme={resolvedLook.theme} data-public-profile-layout={resolvedLook.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       <JsonLd data={personStructuredData} />
-      <div className="relative mx-auto w-full max-w-[440px]">
-        <header className={`mb-4 flex items-center justify-between px-2 ${bleed ? "max-sm:absolute max-sm:inset-x-0 max-sm:top-0 max-sm:z-20 max-sm:mb-0 max-sm:px-4 max-sm:pt-2 max-sm:text-[#f5f4ef] max-sm:[text-shadow:0_1px_12px_rgba(0,0,0,.35)]" : ""}`}>
-          <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>
-          {owner && <Link className={`inline-flex min-h-10 items-center rounded-full bg-[#0d0d0d] px-4 text-xs font-semibold text-[#f5f4ef] ${bleed ? "max-sm:bg-black/45 max-sm:backdrop-blur-md max-sm:[text-shadow:none]" : ""}`} href={`/app/identity?mode=${slug}`}>Edit profile</Link>}
-        </header>
-        <ProfileRenderer
-          bleed={bleed}
-          profile={identity}
-          mode={mode}
-          viewerState={viewerState}
-          selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
-          connectionContext={connectedState?.context as ConnectionContext | undefined}
-          connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
-          guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
-          memberTier={memberTier}
-          plan={plan}
-          visitorAction={canInitiateConnection ? <ConnectFlow
-            username={username}
-            mode={slug}
-            source={query.source ?? "direct"}
-            registered={Boolean(userId)}
-            shareBackModes={shareBackModes}
-            guestSessionName={guestSessionName}
-            alreadyConnected={Boolean(connectedState?.connection_id)}
-            label={slug === "event" && typeof mode.settings.eventName === "string" && mode.settings.eventName.trim() ? `Connect at ${mode.settings.eventName.trim()}` : "Connect"}
-            accent={resolveModeAccent(mode)}
-          /> : undefined}
-        />
-        {sharedPassportStamp && <aside aria-label="A Passport stamp they chose to share" className="mt-4 flex items-center gap-4 rounded-[24px] border border-black/10 bg-white/85 p-4 shadow-sm">
-          <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
-          <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] text-black/45">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/55">{sharedPassportStamp.subtitle}</p>}</div>
-        </aside>}
-        <p className={`mt-5 text-center font-label text-[10px] tracking-wide text-black/40 ${bleed ? `max-sm:mt-0 max-sm:pb-8 ${pageTone.dark ? "max-sm:text-white/40" : ""}` : ""}`}>Your identity, your context. Shared with Setuvara.</p>
-      </div>
+      <ProfileRenderer
+        attribution
+        className="min-h-dvh"
+        chrome={(
+          <header className="flex items-center justify-between gap-3 px-4 pt-2 @3xl/profile:px-[clamp(32px,5cqw,72px)] @3xl/profile:pt-6">
+            <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>
+            {owner && <Link className="inline-flex min-h-11 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-4 text-xs font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md [text-shadow:none] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>}
+          </header>
+        )}
+        footer={sharedPassportStamp ? (
+          <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
+            <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
+            <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{sharedPassportStamp.subtitle}</p>}</div>
+          </aside>
+        ) : undefined}
+        profile={identity}
+        mode={mode}
+        viewerState={viewerState}
+        selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
+        connectionContext={connectedState?.context as ConnectionContext | undefined}
+        connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
+        guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
+        locale={locale}
+        memberTier={memberTier}
+        plan={plan}
+        sound="live"
+        visitorAction={canInitiateConnection ? <ConnectFlow
+          username={username}
+          mode={slug}
+          source={query.source ?? "direct"}
+          registered={Boolean(userId)}
+          shareBackModes={shareBackModes}
+          guestSessionName={guestSessionName}
+          alreadyConnected={Boolean(connectedState?.connection_id)}
+          label={copy.connect}
+          accent={resolveModeAccent(mode)}
+        /> : undefined}
+      />
     </main>
   );
 }
