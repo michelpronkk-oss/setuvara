@@ -7,8 +7,8 @@ import { isAllowedUsername } from "@/lib/usernames";
 export const dynamic = "force-dynamic";
 
 const profileBatchSize = 1000;
-// Reserve three entries for the marketing pages; move to sitemap partitions before reaching Google's limit.
-const profileUrlLimit = 50_000 - 3;
+// Reserve space for all public marketing pages; partition before reaching Google's limit.
+const sitemapUrlLimit = 50_000;
 
 type SitemapProfileMode = {
   updated_at: string | null;
@@ -18,8 +18,12 @@ type SitemapProfileMode = {
 const marketingUrls: MetadataRoute.Sitemap = [
   { url: `${SETUVARA_ORIGIN}/`, changeFrequency: "weekly", priority: 1 },
   { url: `${SETUVARA_ORIGIN}/pricing`, changeFrequency: "monthly", priority: 0.8 },
+  { url: `${SETUVARA_ORIGIN}/events`, changeFrequency: "monthly", priority: 0.7 },
+  { url: `${SETUVARA_ORIGIN}/teams`, changeFrequency: "monthly", priority: 0.7 },
   { url: `${SETUVARA_ORIGIN}/roadmap`, changeFrequency: "monthly", priority: 0.7 },
 ];
+
+const profileUrlLimit = sitemapUrlLimit - marketingUrls.length;
 
 function parseLastModified(modeDate: string | null, profileDate: string | null) {
   const values = [modeDate, profileDate].filter((value): value is string => Boolean(value)).map((value) => new Date(value)).filter((value) => Number.isFinite(value.getTime()));

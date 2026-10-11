@@ -58,7 +58,7 @@ try {
   const sitemapResponse = await page.request.get(new URL("/sitemap.xml", appUrl).toString());
   assert.equal(sitemapResponse.status(), 200, "sitemap.xml should be served");
   const sitemapText = await sitemapResponse.text();
-  for (const path of ["https://setuvara.com/", "https://setuvara.com/pricing", "https://setuvara.com/roadmap"]) assert(sitemapText.includes(path), `sitemap should include ${path}`);
+  for (const path of ["https://setuvara.com/", "https://setuvara.com/pricing", "https://setuvara.com/events", "https://setuvara.com/teams", "https://setuvara.com/roadmap"]) assert(sitemapText.includes(path), `sitemap should include ${path}`);
   assert(!/https:\/\/setuvara\.com\/(app|auth|api|u)\//i.test(sitemapText), "sitemap should exclude private and legacy routes");
   assert(!/[?&]mode=|utm_/i.test(sitemapText), "sitemap should not include query variants");
 
