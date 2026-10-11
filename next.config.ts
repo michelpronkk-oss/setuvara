@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   experimental: {
     cpus: 1,
   },
+  async redirects() {
+    return [{ source: "/favicon.ico", destination: "/icons/setuvara-icon.png", permanent: true }];
+  },
   async headers() {
     const noIndex = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
     return [

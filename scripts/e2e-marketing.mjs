@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 
-const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
-assert.equal(new URL(appUrl).hostname, "127.0.0.1", "Marketing E2E must use the local Setuvara app");
+const appUrl = process.env.E2E_APP_URL ?? "http://localhost:3014";
+assert(["localhost", "127.0.0.1"].includes(new URL(appUrl).hostname), "Marketing E2E must use the local Setuvara app");
 
 const browser = await chromium.launch({ headless: true });
+const robotsContent = (page) => page.locator('meta[name="robots"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute("content") ?? "").join(", "));
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -36,7 +37,7 @@ try {
       assert.equal(imageResponse.status(), 200, `${route.path} ${kind} image should be served`);
       assert.match(imageResponse.headers()["content-type"] ?? "", /image\/png/, `${route.path} ${kind} image should be PNG`);
     }
-    assert.match(await page.locator('meta[name="robots"]').getAttribute("content") ?? "", /index/i, `${route.path} should remain indexable`);
+    assert.match(await robotsContent(page), /(^|,\s*)index(\s|,|$)/i, `${route.path} should remain indexable`);
     assert(await page.locator('meta[name="description"]').getAttribute("content"), `${route.path} should have a concise description`);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, `${route.path} should not overflow at phone width`);
@@ -45,6 +46,12 @@ try {
   const iconLinks = await page.locator('link[rel="icon"]').evaluateAll((nodes) => nodes.map((node) => ({ href: node.getAttribute("href"), type: node.getAttribute("type") })));
   assert(iconLinks.some((icon) => icon.href?.includes("setuvara-icon.png") && icon.type === "image/png"), "a correctly typed Setuvara PNG app icon should be linked");
   assert(await page.locator('link[rel="apple-touch-icon"]').count(), "Apple touch icon should be linked");
+  const conventionalFavicon = await page.request.get(new URL("/favicon.ico", appUrl).toString(), { maxRedirects: 0 });
+  assert.equal(conventionalFavicon.status(), 308, "the conventional favicon URL should permanently resolve to the existing Setuvara icon");
+  assert.equal(conventionalFavicon.headers().location, "/icons/setuvara-icon.png", "favicon fallback should use the existing public Setuvara mark");
+  const appIcon = await page.request.get(new URL("/icons/setuvara-icon.png", appUrl).toString());
+  assert.equal(appIcon.status(), 200, "Setuvara app icon should be served");
+  assert.match(appIcon.headers()["content-type"] ?? "", /image\/png/, "Setuvara app icon should be a PNG");
   const appleIcon = await page.request.get(new URL("/apple-touch-icon.png", appUrl).toString());
   assert.equal(appleIcon.status(), 200, "Apple touch icon should be served");
   assert.match(appleIcon.headers()["content-type"] ?? "", /image\/png/, "Apple touch icon should be a PNG");
@@ -65,15 +72,16 @@ try {
   for (const path of ["/login", "/signup"]) {
     const response = await page.goto(new URL(path, appUrl).toString());
     assert.equal(response?.status(), 200, `${path} should remain reachable`);
-    assert.match(await page.locator('meta[name="robots"]').getAttribute("content") ?? "", /noindex/i, `${path} should be noindex`);
-    assert.match(await page.locator('meta[name="robots"]').getAttribute("content") ?? "", /nofollow/i, `${path} should be nofollow`);
+    assert.match(await robotsContent(page), /noindex/i, `${path} should be noindex`);
+    assert.match(await robotsContent(page), /nofollow/i, `${path} should be nofollow`);
   }
 
   const missingProfilePath = "/seo_missing_1011";
   const missingProfile = await page.goto(new URL(missingProfilePath, appUrl).toString());
   assert.equal(missingProfile?.status(), 404, "nonexistent root username should remain a 404");
-  assert.match(await page.locator('meta[name="robots"]').getAttribute("content") ?? "", /noindex/i, "404 metadata should be noindex");
-  assert(!((await page.locator('meta[property="og:image"]').getAttribute("content")) ?? "").includes("/og/profile/"), "a missing username must not receive public profile OG metadata");
+  assert.match(await robotsContent(page), /noindex/i, "404 metadata should be noindex");
+  const missingProfileOgImages = await page.locator('meta[property="og:image"]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute("content") ?? ""));
+  assert(!missingProfileOgImages.some((image) => image.includes("/og/profile/")), "a missing username must not receive public profile OG metadata");
 
   const legacyResponse = await page.request.get(new URL("/u/seo_missing_1011?mode=event", appUrl).toString(), { maxRedirects: 0 });
   assert.equal(legacyResponse.status(), 308, "legacy profile URLs should permanently redirect");
@@ -84,14 +92,20 @@ try {
   const healthRoute = await page.request.get(new URL("/api/health/supabase", appUrl).toString());
   assert.match(healthRoute.headers()["x-robots-tag"] ?? "", /noindex/i, "API responses should emit a noindex header");
 
-  const profileUrls = [...sitemapText.matchAll(/<loc>(https:\/\/setuvara\.com\/[^<]+)<\/loc>/g)].map((match) => match[1]).filter((url) => new URL(url).pathname.split("/").filter(Boolean).length === 1 && !["/", "/pricing", "/roadmap"].includes(new URL(url).pathname));
+  const marketingPaths = new Set(["/", "/nl", "/pricing", "/events", "/teams", "/roadmap"]);
+  const profileUrls = [...sitemapText.matchAll(/<loc>(https:\/\/setuvara\.com\/[^<]+)<\/loc>/g)]
+    .map((match) => match[1])
+    .filter((url) => {
+      const pathname = new URL(url).pathname;
+      return pathname.split("/").filter(Boolean).length === 1 && !marketingPaths.has(pathname);
+    });
   if (profileUrls.length) {
     const profileUrl = new URL(profileUrls[0]);
     const publicProfile = await page.goto(new URL(profileUrl.pathname, appUrl).toString());
     assert.equal(publicProfile?.status(), 200, "a sitemap-listed published profile should load publicly");
     const profileCanonical = await page.locator('link[rel="canonical"]').getAttribute("href");
     assert.equal(profileCanonical, `https://setuvara.com${profileUrl.pathname}`, "profile metadata should canonicalize to the root identity URL");
-    assert.match(await page.locator('meta[name="robots"]').getAttribute("content") ?? "", /index/i, "published profile should be indexable");
+    assert.match(await robotsContent(page), /(^|,\s*)index(\s|,|$)/i, "published profile should be indexable");
     const profileImageUrl = await page.locator('meta[property="og:image"]').getAttribute("content");
     assert(profileImageUrl?.includes(`/og/profile/${profileUrl.pathname.slice(1)}/personal`), "profile preview should use the selected Mode's dynamic Setuvara image");
     const profileImage = await page.request.get(new URL(profileImageUrl).toString());
