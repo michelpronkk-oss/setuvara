@@ -17,7 +17,7 @@ import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
-import { PassportStamp, type PassportStampType } from "@/components/passport/passport-stamp";
+import { PassportRecordStamp, type PassportStampType } from "@/components/passport/passport-stamp";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
@@ -284,7 +284,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
         )}
         footer={sharedPassportStamp ? (
           <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
-            <PassportStamp type={sharedPassportStamp.type} title={sharedPassportStamp.title} subtitle={sharedPassportStamp.subtitle} status="earned" rotationKey={`${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`} />
+            <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
             <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{sharedPassportStamp.subtitle}</p>}</div>
           </aside>
         ) : undefined}
