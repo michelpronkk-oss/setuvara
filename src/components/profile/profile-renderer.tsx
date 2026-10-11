@@ -483,7 +483,7 @@ function Links({ links, skin, copy }: { links: ResolvedLink[]; skin: Skin; copy:
       {items.map((item) => (
         <li key={item.link.id} style={{ borderTop: `1px solid ${skin.rule}` }}>
           <a {...anchor(item)} className={`flex min-h-[50px] items-center justify-between gap-3 transition hover:opacity-75 ${focus}`}>
-            <span className="min-w-0 truncate text-[16px] font-semibold">{item.link.title}</span>
+            <span className="flex min-w-0 items-center gap-3 [&>img]:size-[18px] [&>svg]:size-[18px]"><LinkGlyph icon={item.icon} url={item.url} /><span className="min-w-0 truncate text-[16px] font-semibold">{item.link.title}</span></span>
             <span className="max-w-[48%] shrink-0 truncate font-label text-[11px]" style={{ color: skin.muted }}>{item.display} <span aria-hidden="true">↗</span></span>
           </a>
         </li>
@@ -511,7 +511,7 @@ function Links({ links, skin, copy }: { links: ResolvedLink[]; skin: Skin; copy:
       <ul className="flex flex-wrap gap-2" data-links-style="chips">
         {shown.map((item) => (
           <li className="min-w-0 max-w-full" key={item.link.id}>
-            <a {...anchor(item)} className={`flex h-11 max-w-full items-center rounded-full px-4 text-[14px] font-semibold transition hover:opacity-80 ${focus}`} style={{ ...anchor(item).style, background: skin.chip.background, color: skin.chip.color }}><span className="truncate">{item.link.title}</span></a>
+            <a {...anchor(item)} className={`flex h-11 max-w-full items-center gap-2 rounded-full pl-3.5 pr-4 text-[14px] font-semibold transition hover:opacity-80 [&>img]:size-4 [&>svg]:size-4 ${focus}`} style={{ ...anchor(item).style, background: skin.chip.background, color: skin.chip.color }}><LinkGlyph icon={item.icon} url={item.url} /><span className="truncate">{item.link.title}</span></a>
           </li>
         ))}
       </ul>
@@ -522,7 +522,7 @@ function Links({ links, skin, copy }: { links: ResolvedLink[]; skin: Skin; copy:
         {shown.map((item) => (
           <li className="min-w-0" key={item.link.id}>
             <a {...anchor(item)} className={`flex min-h-[72px] flex-col justify-between gap-1.5 px-3.5 py-3 transition hover:opacity-85 ${focus}`} style={{ ...anchor(item).style, borderRadius: `${skin.radius}px`, background: skin.card.style.background === "transparent" ? "transparent" : skin.card.style.background, boxShadow: skin.card.edge, color: skin.card.color }}>
-              <span className="truncate font-label text-[10px]" style={{ color: skin.card.muted }}>{item.display}</span>
+              <span className="flex min-w-0 items-center justify-between gap-2 [&>img]:size-[18px] [&>svg]:size-[18px]"><LinkGlyph icon={item.icon} url={item.url} /><span className="min-w-0 truncate font-label text-[10px]" style={{ color: skin.card.muted }}>{item.display}</span></span>
               <span className="truncate text-[15px] font-semibold">{item.link.title}</span>
             </a>
           </li>
