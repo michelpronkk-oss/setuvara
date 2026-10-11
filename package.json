@@ -14,6 +14,7 @@
     "test:appearance": "node --test tests/appearance/appearance.test.mjs",
     "test:analytics": "deno test --unstable-sloppy-imports tests/analytics/analytics.test.mjs tests/analytics/view.test.mjs",
     "test:connections": "node --test tests/connections/relationship.test.mjs",
+    "test:passport": "node --test tests/passport/view.test.mjs",
     "test:live-context-i18n": "node --test tests/live-context-i18n.test.mjs",
     "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs tests/billing/member-badge.test.mjs",
     "test:wallet": "node --test tests/wallet/wallet.test.mjs",

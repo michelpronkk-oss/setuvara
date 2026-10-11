@@ -1,26 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { PassportStamp, type PassportStampStatus, type PassportStampType } from "@/components/passport/passport-stamp";
-import { createClient } from "@/lib/supabase/client";
-import { MILESTONES, PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import { MemberBadge } from "@/components/app/status-badge";
+import { PassportCover } from "@/components/passport/passport-cover";
+import { PassportAheadStamp, PassportRecordStamp, PassportStamp } from "@/components/passport/passport-stamp";
 import { hasCapability } from "@/lib/billing/capabilities";
 import type { PlanCode } from "@/lib/billing/catalog";
+import { useI18n } from "@/lib/i18n/provider";
+import { MILESTONES, PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
+import {
+  COVERS, alsoUnlocked, collectionItems, coverFor, coverSerial, dayMark, earnedLong, filterCounts, isNewStamp,
+  journeyMonths, milestoneName, milestoneRuler, monthMark, nextMilestone, ordinalOf, pageDate, placeContext, rewardKind,
+  stampLabel, stampMeta, stampThreshold, summarySentence, unlocksSentence, unlocksShort, wearableRewards,
+  type CollectionItem, type CoverId, type MilestoneRecord, type PassportStampRecord, type StampFilter,
+} from "@/lib/passport/view";
+import { createClient } from "@/lib/supabase/client";
+import { passportDisplay } from "./fonts";
+import { PassportSheet, PlusSheet, trapTab } from "./passport-sheets";
 
-type MilestoneRecord = { threshold: number; unlockedAt: string; seenAt: string | null };
-export type PassportStampRecord = {
-  id: string;
-  type: PassportStampType;
-  key?: string;
-  title: string;
-  subtitle: string | null;
-  countryCode: string | null;
-  earnedAt: string;
-};
+export type { PassportStampRecord } from "@/lib/passport/view";
+
 type PassportPresentation = {
   coverId: CoverId;
   memberFinishEnabled: boolean | null;
@@ -41,572 +43,853 @@ export type PassportData = {
   presentation: PassportPresentation;
 };
 
-type CoverId = "standard" | "paper_passport_cover" | "century_cover" | "thousand_cover";
-type PassportView = "passport" | "journey" | "make-it-yours";
-type StampFilter = "all" | PassportStampType;
+type View = "home" | "stamps" | "journey" | "finish" | "flair";
+type Sheet = { kind: "stamp"; stamp: PassportStampRecord } | { kind: "ahead"; threshold: number; state: "progress" | "locked" } | { kind: "plus" } | null;
 
-const coverCatalog: { id: CoverId; title: string; threshold: number | null; description: string; paper: string; ink: string; accent: string }[] = [
-  { id: "standard", title: "Standard", threshold: null, description: "The Setuvara Passport, always yours.", paper: "#0D0D0D", ink: "#F5F4EF", accent: "#FF5A4F" },
-  { id: "paper_passport_cover", title: "Paper Passport", threshold: 5, description: "A warm paper cover, earned at First Circle.", paper: "#E8E2D4", ink: "#0D0D0D", accent: "#FF5A4F" },
-  { id: "century_cover", title: "Century", threshold: 100, description: "A signal coral cover, earned at Century.", paper: "#FF5A4F", ink: "#0D0D0D", accent: "#F5F4EF" },
-  { id: "thousand_cover", title: "Thousand", threshold: 1000, description: "An ink cover with a lime edge, earned at Thousand Met.", paper: "#0D0D0D", ink: "#F5F4EF", accent: "#C7FF4A" },
-];
-
-const categoryNames: Record<RewardCategory, string> = {
-  profile_treatment: "Profile treatment",
-  accent: "Profile accent",
-  share_treatment: "Share treatment",
-  qr_frame: "QR frame",
-  passport_cover: "Passport cover",
-  passport_stamp_style: "Stamp style",
-  profile_mark: "Profile mark",
-};
-
-const views: { id: PassportView; label: string }[] = [
-  { id: "passport", label: "The Passport" },
-  { id: "journey", label: "The journey" },
-  { id: "make-it-yours", label: "Make it yours" },
-];
-
-const stampFilters: { id: StampFilter; label: string }[] = [
-  { id: "all", label: "All stamps" },
+const FILTERS: { id: StampFilter; label: string }[] = [
+  { id: "all", label: "All" },
   { id: "milestone", label: "Milestones" },
-  { id: "event", label: "Events" },
   { id: "city", label: "Cities" },
+  { id: "event", label: "Events" },
   { id: "country", label: "Countries" },
 ];
 
-export function PassportDashboard({
-  initialData,
-  username,
-  displayName,
-  publicOrigin,
-  plan,
-}: {
+const display = "font-display font-extrabold";
+const mono = "font-label";
+const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]";
+const pillOutline = `inline-flex items-center justify-center rounded-full border-[1.5px] border-[#0D0D0D] font-semibold transition-colors hover:bg-[#0D0D0D0A] ${focus}`;
+const pillInk = `inline-flex items-center justify-center rounded-full bg-[#0D0D0D] font-semibold text-[#F5F4EF] transition-colors hover:bg-[#0D0D0D]/85 ${focus}`;
+
+export function PassportDashboard({ initialData, username, displayName, plan, since }: {
   initialData: PassportData;
   username: string;
   displayName: string;
-  publicOrigin: string;
   plan: PlanCode;
+  since: string | null;
 }) {
+  const { language } = useI18n();
   const [data, setData] = useState(initialData);
-  const [view, setView] = useState<PassportView>("passport");
+  const [view, setView] = useState<View>("home");
   const [filter, setFilter] = useState<StampFilter>("all");
+  const [sheet, setSheet] = useState<Sheet>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
-  const memberPlan = hasCapability(plan, "passport.premium_treatment");
-  const memberFinishVisible = memberPlan && data.presentation.memberFinishEnabled !== false;
-  const finishColor = plan === "pro" ? "#C7FF4A" : "#FF5A4F";
-  const unlockedRewards = useMemo(() => new Set(data.rewards.map((reward) => reward.id)), [data.rewards]);
-  const currentCover = coverCatalog.find((cover) => cover.id === data.presentation.coverId) ?? coverCatalog[0];
-  const publicProfileUrl = `${publicOrigin}/${username}`;
-  const selectedFeatured = data.presentation.featuredStamp;
-  const lastStamp = data.stamps.at(-1);
-  const filteredStamps = filter === "all" ? data.stamps : data.stamps.filter((stamp) => stamp.type === filter);
+  const [press] = useState(() => initialData.milestones.filter((item) => !item.seenAt).at(-1) ?? null);
+  const [pressOpen, setPressOpen] = useState(Boolean(press));
 
-  const updatePresentation = useCallback(async (action: "cover" | "finish" | "featured", value: string | boolean | null) => {
-    setPending(action);
+  const memberPlan = hasCapability(plan, "passport.premium_treatment");
+  const finishOn = memberPlan && data.presentation.memberFinishEnabled !== false;
+  const cover = coverFor(data.presentation.coverId);
+  const featured = memberPlan ? data.presentation.featuredStamp : null;
+  const count = data.connectionCount;
+  const sinceMark = monthMark(since);
+  const serial = coverSerial(username);
+  const unlocked = useMemo(() => new Set(data.rewards.map((reward) => reward.id)), [data.rewards]);
+  const counts = filterCounts(data.stamps, data.stampTotal);
+  const earnedStamps = data.stamps;
+  const isEmpty = count < 5 && data.milestones.length === 0 && earnedStamps.length === 0;
+  const next = nextMilestone(count);
+  const summary = summarySentence({ milestones: data.milestones.length, cities: data.cities, events: data.events, countries: data.countries, since });
+  const summaryShort = summarySentence({ milestones: data.milestones.length, cities: data.cities, events: data.events, countries: data.countries, since }, false);
+  const months = useMemo(() => journeyMonths(earnedStamps, since, language), [earnedStamps, since, language]);
+  const isNew = useCallback((stamp: PassportStampRecord) => isNewStamp(stamp, data.milestones), [data.milestones]);
+  const viewTop = useRef<HTMLHeadingElement>(null);
+
+  const go = (target: View) => {
+    setView(target);
     setNotice("");
-    let result;
+    window.scrollTo({ top: 0 });
+    requestAnimationFrame(() => viewTop.current?.focus());
+  };
+
+  const coverObject = (options: { width: string; look?: typeof cover.look; member?: boolean; featuredStamp?: PassportStampRecord | null; empty?: boolean; id: string; label?: string }) => (
+    <PassportCover
+      connections={count}
+      empty={options.empty}
+      featured={options.featuredStamp ? <PassportRecordStamp rotation={-9} stamp={options.featuredStamp} /> : undefined}
+      featuredDisc={options.featuredStamp?.type === "milestone"}
+      handle={username}
+      idPrefix={options.id}
+      label={options.label}
+      look={options.look ?? cover.look}
+      member={options.member ?? finishOn}
+      name={displayName || `@${username}`}
+      serial={serial}
+      since={sinceMark}
+      stamps={data.stampTotal}
+      width={options.width}
+    />
+  );
+
+  const save = useCallback(async (key: string, run: () => PromiseLike<{ error: unknown }>, onSuccess: () => void, message: string) => {
+    setPending(key);
+    setNotice("");
     try {
-      const supabase = createClient();
-      result = action === "cover"
-        ? await supabase.rpc("set_passport_cover", { p_cover_id: String(value) })
-        : action === "finish"
-          ? await supabase.rpc("set_passport_member_finish", { p_enabled: Boolean(value) })
-          : await supabase.rpc("set_passport_featured_stamp", { p_stamp_id: value as string | null });
+      const { error } = await run();
+      if (error) throw error;
+      onSuccess();
+      setNotice(message);
     } catch {
       setNotice("That choice could not be saved. Your earned Passport stays safe.");
+    } finally {
       setPending(null);
-      return;
     }
-    setPending(null);
-    if (result.error) {
-      setNotice("That choice could not be saved. Your earned Passport stays safe.");
-      return;
-    }
+  }, []);
 
-    if (action === "cover") {
-      setData((current) => ({ ...current, presentation: { ...current.presentation, coverId: value as CoverId } }));
-      setNotice("Passport cover saved.");
-    } else if (action === "finish") {
-      setData((current) => ({ ...current, presentation: { ...current.presentation, memberFinishEnabled: Boolean(value) } }));
-      setNotice(Boolean(value) ? "Member finish saved." : "Member finish turned off.");
-    } else {
-      const stamp = value ? data.stamps.find((item) => item.id === value) ?? (selectedFeatured?.id === value ? selectedFeatured : null) : null;
-      setData((current) => ({
-        ...current,
-        presentation: { ...current.presentation, featuredStampId: value as string | null, featuredStamp: stamp },
-      }));
-      setNotice(value ? "Your public highlight is saved." : "Public highlight cleared.");
-    }
-  }, [data.stamps, selectedFeatured]);
+  const wearCover = (id: CoverId) => save(`cover:${id}`, () => createClient().rpc("set_passport_cover", { p_cover_id: id }), () => setData((current) => ({ ...current, presentation: { ...current.presentation, coverId: id } })), "Passport cover saved.");
+  const setFinish = (enabled: boolean) => save("finish", () => createClient().rpc("set_passport_member_finish", { p_enabled: enabled }), () => setData((current) => ({ ...current, presentation: { ...current.presentation, memberFinishEnabled: enabled } })), enabled ? "Member finish on." : "Member finish off.");
+  const setFeatured = (stamp: PassportStampRecord | null) => save("featured", () => createClient().rpc("set_passport_featured_stamp", { p_stamp_id: stamp?.id ?? null }), () => setData((current) => ({ ...current, presentation: { ...current.presentation, featuredStampId: stamp?.id ?? null, featuredStamp: stamp } })), stamp ? `${stampLabel(stamp, language)} is on your cover.` : "Featured stamp removed.");
+  const wearReward = (category: RewardCategory, id: string) => category === "passport_cover"
+    ? wearCover(id as CoverId)
+    : save(`reward:${id}`, () => createClient().rpc("set_passport_reward", { p_category: category, p_reward_id: id }), () => setData((current) => ({ ...current, preferences: { ...current.preferences, [category]: id } })), "Saved. It's yours to wear.");
 
-  async function loadMoreStamps() {
-    if (!lastStamp || !data.hasMoreStamps || loadingMore) return;
+  async function loadMore() {
+    const last = data.stamps.at(-1);
+    if (!last || !data.hasMoreStamps || loadingMore) return;
     setLoadingMore(true);
     setNotice("");
-    let result: unknown;
-    let error: unknown;
     try {
-      const response = await createClient().rpc("get_passport_stamp_page", {
-        p_before_earned_at: lastStamp.earnedAt,
-        p_before_id: lastStamp.id,
-        p_limit: 50,
+      const { data: result, error } = await createClient().rpc("get_passport_stamp_page", { p_before_earned_at: last.earnedAt, p_before_id: last.id, p_limit: 50 });
+      if (error || !result || typeof result !== "object") throw error ?? new Error("empty");
+      const page = result as { items?: PassportStampRecord[]; hasMore?: boolean };
+      const received = Array.isArray(page.items) ? page.items : [];
+      setData((current) => {
+        const seen = new Set(current.stamps.map((stamp) => stamp.id));
+        return { ...current, stamps: [...current.stamps, ...received.filter((stamp) => !seen.has(stamp.id))], hasMoreStamps: page.hasMore === true };
       });
-      result = response.data;
-      error = response.error;
-    } catch (requestError) {
-      error = requestError;
-    }
-    setLoadingMore(false);
-    if (error || !result || typeof result !== "object") {
+    } catch {
       setNotice("Older stamps could not load just now. Try again in a moment.");
-      return;
+    } finally {
+      setLoadingMore(false);
     }
-
-    const page = result as { items?: PassportStampRecord[]; hasMore?: boolean };
-    const received = Array.isArray(page.items) ? page.items : [];
-    setData((current) => ({
-      ...current,
-      stamps: appendUniqueStamps(current.stamps, received),
-      hasMoreStamps: page.hasMore === true,
-    }));
   }
 
-  const dateLabel = data.stamps[0]?.earnedAt ? formatDate(data.stamps[0].earnedAt) : null;
+  const openItem = (item: CollectionItem) => setSheet(item.kind === "stamp" ? { kind: "stamp", stamp: item.stamp } : { kind: "ahead", threshold: item.threshold, state: item.state });
+  const itemName = (item: CollectionItem) => item.kind === "stamp" ? stampLabel(item.stamp, language) : milestoneName(item.threshold);
+  const itemMeta = (item: CollectionItem) => item.kind === "stamp" ? stampMeta(item.stamp) : item.state === "progress" ? `${count} / ${item.threshold}` : `AT ${item.threshold}`;
+  const itemStamp = (item: CollectionItem, size?: number) => item.kind === "stamp"
+    ? <PassportRecordStamp featured={item.stamp.id === featured?.id} isNew={isNew(item.stamp)} size={size} stamp={item.stamp} />
+    : <PassportAheadStamp count={count} size={size} state={item.state} threshold={item.threshold} />;
 
-  return (
-    <main className="min-h-screen bg-[#F5F4EF] px-4 py-6 text-[#0D0D0D] sm:px-7 sm:py-9 lg:px-10">
-      <div className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-5 border-b border-black/15 pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-label text-[10px] font-semibold tracking-[0.22em] text-black/50">SETUVARA · PRIVATE BY DEFAULT</p>
-            <h1 className="mt-2 font-display text-[clamp(2.2rem,5vw,4.1rem)] font-bold leading-[.95] tracking-[-0.065em]">Your Passport</h1>
+  const tile = { name: itemName, meta: itemMeta, stamp: itemStamp, open: openItem, describe: (item: CollectionItem) => item.kind === "stamp" ? `${item.stamp.type} stamp${isNew(item.stamp) ? ", new" : ""}${item.stamp.id === featured?.id ? ", featured" : ""}` : item.state === "progress" ? `next milestone, ${count} of ${item.threshold}` : `locked, at ${item.threshold} Connections` };
+
+  // ---- Sub-views -------------------------------------------------------------------------
+  const subHeader = (right?: string) => (
+    <div className="flex items-center justify-between px-5 pt-1.5 sm:px-10 lg:px-[72px] lg:pt-8">
+      <button className={`-ml-1 flex h-10 items-center rounded-full px-1 text-[15px] font-semibold ${focus}`} onClick={() => go("home")} type="button"><span aria-hidden="true" className="mr-1">‹</span>Passport</button>
+      {right && <span className={`${mono} text-[11px] tracking-[0.16em]`}>{right}</span>}
+    </div>
+  );
+
+  let body: ReactNode;
+  if (view === "stamps") {
+    const items = collectionItems(earnedStamps, count, filter);
+    body = (
+      <section aria-labelledby="stamps-title">
+        {subHeader()}
+        <div className="flex flex-col gap-3.5 px-5 pt-3.5 sm:px-10 lg:px-[72px]">
+          <div className="flex items-baseline justify-between gap-3">
+            <h1 className={`${display} text-[44px] leading-none tracking-[-0.05em] outline-none lg:text-[56px]`} id="stamps-title" ref={viewTop} tabIndex={-1}>Stamps</h1>
+            <span className={`${mono} whitespace-nowrap text-[11px] tracking-[0.12em]`}>{(filter === "all" ? counts.all : counts[filter]).toLocaleString("en")} COLLECTED</span>
           </div>
-          <nav aria-label="Passport sections" className="flex max-w-full gap-1 overflow-x-auto rounded-full border border-black/10 bg-white p-1">
-            {views.map((item) => (
-              <button
-                aria-current={view === item.id ? "page" : undefined}
-                className={`min-h-11 shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 ${view === item.id ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-black/65 hover:bg-black/5 hover:text-black"}`}
-                key={item.id}
-                onClick={() => { setView(item.id); setNotice(""); }}
-                type="button"
-              >
-                {item.label}
-              </button>
+          <FilterChips counts={counts} filter={filter} onChange={setFilter} withCounts />
+        </div>
+        {items.length ? (
+          <ul className="grid list-none grid-cols-3 gap-y-6 px-3 pt-[26px] sm:grid-cols-5 sm:px-8 lg:grid-cols-6 lg:gap-y-8 lg:px-[60px] lg:pt-10">
+            {items.map((item) => <StampTile tile={tile} item={item} key={item.kind === "stamp" ? item.stamp.id : `ahead-${item.threshold}`} sizeClass="size-[92px] sm:size-[96px] lg:size-[120px]" />)}
+          </ul>
+        ) : <p className="px-6 pt-8 text-[15px] text-[#0D0D0DB3] sm:px-10 lg:px-[72px]">Nothing here yet.</p>}
+        <LoadMore data={data} loading={loadingMore} onLoad={() => void loadMore()} />
+      </section>
+    );
+  } else if (view === "journey") {
+    body = (
+      <section aria-labelledby="journey-title">
+        {subHeader()}
+        <div className="mx-auto w-full max-w-[880px]">
+          <div className="flex flex-col gap-1.5 px-6 pt-1.5 sm:px-10">
+            <h1 className={`${display} text-[44px] leading-none tracking-[-0.05em] outline-none`} id="journey-title" ref={viewTop} tabIndex={-1}>Journey</h1>
+            <p className="text-[15px] text-[#0D0D0DB3]">Where your Passport has been.</p>
+          </div>
+          <ol className="flex list-none flex-col px-6 pt-[22px] sm:px-10">
+            {months.map((month, index) => (
+              <li className="grid grid-cols-[20px_minmax(0,1fr)] gap-3.5" key={month.key}>
+                <div aria-hidden="true" className="flex flex-col items-center"><span className="mt-[5px] size-[11px] flex-none rounded-full bg-[#0D0D0D]" />{index < months.length - 1 && <span className="w-px flex-1 bg-[#0D0D0D33]" />}</div>
+                <div className="flex min-w-0 flex-col gap-2.5 pb-6">
+                  <span className={`${mono} text-[11.5px] tracking-[0.14em]`}>{month.month}</span>
+                  <h2 className="font-display text-[22px] font-bold leading-[1.1] tracking-[-0.02em] [overflow-wrap:anywhere]">{month.head}</h2>
+                  {month.stamps.length > 0 && <ul aria-label={month.line} className="flex list-none flex-wrap gap-1.5">{month.stamps.map((stamp) => <li key={stamp.id}><button aria-label={stampLabel(stamp, language)} className={`block rounded-full ${focus}`} onClick={() => setSheet({ kind: "stamp", stamp })} type="button"><PassportRecordStamp size={56} stamp={stamp} /></button></li>)}</ul>}
+                  {month.stamps.length === 0 && <p className="text-[13.5px] text-[#0D0D0DB3]">{month.line}</p>}
+                </div>
+              </li>
             ))}
-          </nav>
-        </header>
+          </ol>
+          <LoadMore data={data} loading={loadingMore} onLoad={() => void loadMore()} />
+        </div>
+      </section>
+    );
+  } else if (view === "finish") {
+    body = <FinishView coverObject={coverObject} currentCover={cover.id} count={count} memberPlan={memberPlan} finishOn={finishOn} pending={pending} onWear={wearCover} onFinish={setFinish} onPlus={() => setSheet({ kind: "plus" })} header={subHeader("PASSPORT FINISH")} titleRef={viewTop} unlocked={unlocked} />;
+  } else if (view === "flair") {
+    body = <FlairView data={data} displayName={displayName} username={username} memberPlan={memberPlan} featured={featured} pending={pending} unlocked={unlocked} language={language} onMark={(id) => { void wearReward("profile_mark", id).then(() => { if (featured) void setFeatured(null); }); }} onFeature={setFeatured} onPlus={() => setSheet({ kind: "plus" })} header={subHeader("PROFILE FLAIR")} titleRef={viewTop} />;
+  } else if (isEmpty) {
+    body = <EmptyPassport coverObject={coverObject} count={count} titleRef={viewTop} />;
+  } else {
+    const ruler = <MilestoneLine count={count} />;
+    const homeItems: CollectionItem[] = [...earnedStamps.slice(0, 9).map((stamp) => ({ kind: "stamp" as const, stamp })), ...collectionItems([], count, "all").slice(0, 1)];
+    const placeStamps = earnedStamps.filter((stamp) => stamp.type !== "milestone");
+    const deskItems = filter === "all" ? null : collectionItems(earnedStamps, count, filter);
+    const leftPage = collectionItems(earnedStamps.filter((stamp) => stamp.type === "milestone"), count, "milestone").filter((item) => item.kind === "stamp" || item.state === "progress");
+    const coversEarned = COVERS.filter((item) => item.id !== "standard" && unlocked.has(item.id));
+    const otherCovers = coversEarned.filter((item) => item.id !== cover.id);
+    const marks = PASSPORT_REWARDS.filter((reward) => reward.category === "profile_mark");
+    const wornMark = marks.find((reward) => reward.id === data.preferences.profile_mark);
+    const earnedMark = [...marks].reverse().find((reward) => unlocked.has(reward.id));
+    const rows = [
+      { k: "Cover", v: otherCovers.length ? `${cover.short} · ${otherCovers.at(-1)!.name} earned` : `${cover.name} · earned through Connections`, tag: otherCovers.length ? `${otherCovers.length} EARNED` : "WEARING", tagClass: otherCovers.length ? "bg-[#0D0D0D] text-[#F5F4EF]" : "bg-[#0D0D0D14]", to: "finish" as const },
+      memberPlan
+        ? { k: "Member finish", v: finishOn ? "On your cover" : "Off. Your saved choice stays", tag: finishOn ? "ON" : "OFF", tagClass: finishOn ? "bg-[#FF5A4F]" : "bg-[#0D0D0D14]", to: "finish" as const }
+        : { k: "Member finish", v: "Preview it on your cover", tag: "PLUS", tagClass: "bg-[#FF5A4F]", to: "finish" as const },
+      { k: "Profile flair", v: featured ? `${stampLabel(featured, language)} beside your name` : wornMark ? `${wornMark.name} mark on your profile` : earnedMark ? `${earnedMark.name} mark earned` : "Just your identity", tag: featured || wornMark ? "SHOWN" : earnedMark ? "EARNED" : "", tagClass: "bg-[#0D0D0D14]", to: "flair" as const },
+    ];
+    const makeRows = (
+      <ul className="flex list-none flex-col">
+        {rows.map((row) => (
+          <li key={row.k}>
+            <button className={`flex min-h-[60px] w-full items-center justify-between gap-3 border-b border-[#0D0D0D1F] py-2 text-left ${focus}`} onClick={() => go(row.to)} type="button">
+              <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[15px] font-semibold">{row.k}</span><span className="text-[13px] text-[#0D0D0DB3]">{row.v}</span></span>
+              {row.tag && <span className={`${mono} whitespace-nowrap rounded-full px-[9px] py-[5px] text-[10.5px] leading-none tracking-[0.12em] ${row.tagClass}`}>{row.tag}</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
 
-        {view === "passport" && (
-          <div className="space-y-12 pb-12 pt-7 sm:pt-9">
-            <section aria-labelledby="passport-opening" className="grid items-center gap-8 rounded-[2rem] bg-[#E8E2D4] p-5 sm:p-8 lg:grid-cols-[minmax(260px,340px)_1fr] lg:gap-14 lg:p-12">
-              <div className="mx-auto">
-                <PassportCover
-                  cover={currentCover}
-                  displayName={displayName}
-                  username={username}
-                  connectionCount={data.connectionCount}
-                  finishColor={memberFinishVisible ? finishColor : null}
-                  finishTier={memberFinishVisible ? plan : null}
-                  selectedStamp={selectedFeatured}
-                />
-              </div>
-              <div className="min-w-0">
-                <p className="font-label text-[10px] font-semibold tracking-[0.22em] text-black/50">A RECORD OF REAL CONNECTIONS</p>
-                <h2 className="mt-3 max-w-[15ch] font-display text-4xl font-bold leading-[.96] tracking-[-0.055em] sm:text-5xl" id="passport-opening">Your people. Your places. Your story.</h2>
-                <div className="mt-8 flex flex-wrap items-end gap-x-4 gap-y-1">
-                  <strong className="font-display text-[clamp(4rem,11vw,7.5rem)] font-bold leading-[.72] tracking-[-0.085em] tabular-nums">{data.connectionCount.toLocaleString()}</strong>
-                  <span className="pb-1 text-[15px] font-semibold">{data.connectionCount === 1 ? "person met" : "people met"}</span>
-                </div>
-                <MilestoneLine data={data} />
-                <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/15 pt-5 font-label text-[10px] font-semibold tracking-[0.12em] text-black/60">
-                  <span>{data.cities} {data.cities === 1 ? "CITY" : "CITIES"}</span>
-                <span>{data.events} {data.events === 1 ? "EVENT" : "EVENTS"}</span>
-                  <span>{data.countries} {data.countries === 1 ? "COUNTRY" : "COUNTRIES"}</span>
-                  <span>{data.stampTotal.toLocaleString()} {data.stampTotal === 1 ? "STAMP" : "STAMPS"}</span>
-                </div>
-                <p className="mt-6 max-w-xl text-[15px] leading-6 text-black/60">Every number begins with a real Connection. Your milestones and stamps belong to you, and stay private unless you choose one mark to share.</p>
-                <button className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0D0D0D] px-5 text-sm font-semibold text-[#F5F4EF] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => setView("make-it-yours")} type="button">Make it yours <span aria-hidden="true">↗</span></button>
-                {dateLabel && <p className="mt-4 font-label text-[9px] tracking-[0.14em] text-black/45">MOST RECENT MARK · {dateLabel.toUpperCase()}</p>}
-              </div>
-            </section>
+    body = (
+      <>
+        <div className="flex items-center justify-between px-5 pt-1.5 sm:px-10 sm:pt-7 lg:hidden">
+          <PassportLabel />
+          <button className={`${pillOutline} h-10 px-4 text-[14px] sm:h-11 sm:px-[18px]`} onClick={() => go("finish")} type="button">Customize</button>
+        </div>
 
-            <section aria-labelledby="milestone-line-heading">
-              <SectionEyebrow>THE LINE</SectionEyebrow>
-              <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-                <h2 className="font-display text-3xl font-bold tracking-[-0.045em]" id="milestone-line-heading">A long way, one person at a time.</h2>
-                <span className="max-w-sm text-sm text-black/55">Milestones count unique Connections, never repeat encounters.</span>
-              </div>
-              <MilestoneLine data={data} expanded />
-            </section>
-
-            <section aria-labelledby="stamps-heading" className="border-t border-black/15 pt-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <SectionEyebrow>THE COLLECTION</SectionEyebrow>
-                  <h2 className="mt-2 font-display text-3xl font-bold tracking-[-0.045em]" id="stamps-heading">Marks from your journey.</h2>
-                </div>
-                <div aria-label="Filter stamps" className="flex max-w-full gap-1 overflow-x-auto pb-1" role="group">
-                  {stampFilters.map((item) => (
-                    <button aria-pressed={filter === item.id} className={`min-h-10 shrink-0 rounded-full border px-3.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${filter === item.id ? "border-[#0D0D0D] bg-[#0D0D0D] text-[#F5F4EF]" : "border-black/15 bg-transparent text-black/65 hover:bg-white"}`} key={item.id} onClick={() => setFilter(item.id)} type="button">{item.label}</button>
-                  ))}
-                </div>
-              </div>
-              {filteredStamps.length ? (
-                <ul className="mt-6 grid list-none gap-3 p-0 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredStamps.map((stamp) => (
-                    <li key={stamp.id}>
-                      <StampCard stamp={stamp} status={stampStatus(stamp, data.milestones)} featured={stamp.id === data.presentation.featuredStampId} />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="mt-6 rounded-[1.5rem] border border-dashed border-black/20 bg-white/45 px-6 py-10">
-                  <p className="font-display text-xl font-semibold tracking-tight">Your first stamp is waiting.</p>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-black/55">A saved meeting can add an event, city, or country. We only make a mark from context you choose to share.</p>
-                </div>
-              )}
-              {data.hasMoreStamps && <button className="mt-6 min-h-12 rounded-full border border-black/20 bg-white px-5 text-sm font-semibold hover:bg-[#E8E2D4] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60" disabled={loadingMore} onClick={() => void loadMoreStamps()} type="button">{loadingMore ? "Loading older stamps…" : `Load older stamps · ${Math.max(0, data.stampTotal - data.stamps.length)} left`}</button>}
-            </section>
+        <section aria-labelledby="passport-count" className="sm:grid sm:grid-cols-[270px_minmax(0,1fr)] sm:items-end sm:gap-10 sm:px-10 sm:pt-[30px] lg:grid-cols-[440px_minmax(0,1fr)] lg:items-start lg:gap-[72px] lg:px-[72px] lg:pt-14">
+          <div className="flex flex-col items-center gap-5 pt-7 sm:items-start sm:pt-0 lg:sticky lg:top-[100px]">
+            <div className="[--cw:min(300px,calc(100vw-40px))] sm:[--cw:270px] lg:[--cw:390px]">{coverObject({ width: "var(--cw)", featuredStamp: featured, id: "pc-home", label: `${cover.name} Passport cover for ${displayName || username}${finishOn ? ", Member edition" : ""}` })}</div>
+            <div className="mt-2.5 hidden gap-2.5 lg:flex">
+              <button className={`${pillOutline} h-11 px-[18px] text-[14px]`} onClick={() => go("finish")} type="button">Customize</button>
+              <Link className={`${pillInk} h-11 px-[18px] text-[14px]`} href="/app/tap">Show Quick QR</Link>
+            </div>
           </div>
-        )}
-
-        {view === "journey" && <JourneyView stamps={data.stamps} milestones={data.milestones} hasMore={data.hasMoreStamps} total={data.stampTotal} loadingMore={loadingMore} onLoadMore={() => void loadMoreStamps()} />}
-
-        {view === "make-it-yours" && (
-          <div className="space-y-12 pb-12 pt-7 sm:pt-9">
-            <section className="max-w-3xl">
-              <SectionEyebrow>YOUR COPY, YOUR CHARACTER</SectionEyebrow>
-              <h2 className="mt-2 font-display text-4xl font-bold leading-[.95] tracking-[-0.06em] sm:text-5xl">A little more like you.</h2>
-              <p className="mt-4 max-w-2xl text-[15px] leading-6 text-black/60">Your achievements belong to every plan. Choose how your private Passport looks, then share only a single stamp if you want it on your profile.</p>
-            </section>
-
-            <section aria-labelledby="cover-choices-heading">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div><SectionEyebrow>THE COVER</SectionEyebrow><h3 className="mt-2 font-display text-2xl font-bold tracking-[-0.04em]" id="cover-choices-heading">Earned by the people you meet.</h3></div>
-                <p className="text-sm text-black/55">No cover is locked behind a paid plan.</p>
+          <div className="flex min-w-0 flex-col sm:gap-[22px] lg:gap-11 lg:pt-2">
+            <p className={`${mono} hidden text-[12px] tracking-[0.16em] lg:block`}>YOUR PASSPORT · {(displayName || `@${username}`).toLocaleUpperCase("en")}</p>
+            <div className="flex flex-col gap-1.5 px-6 pt-10 sm:gap-1 sm:p-0 lg:flex-row lg:flex-wrap lg:items-end lg:gap-x-7 lg:gap-y-4">
+              <h1 className="outline-none" id="passport-count" ref={viewTop} tabIndex={-1}>
+                <span className={`${display} block text-[120px] leading-[0.82] tracking-[-0.065em] tabular-nums sm:text-[150px] sm:leading-[0.8] lg:text-[240px] lg:leading-[0.76] lg:tracking-[-0.07em] ${count >= 1000 ? "max-[389px]:text-[96px] lg:text-[200px]" : ""}`}>{count.toLocaleString("en")}</span>
+                <span className="sr-only"> Connections</span>
+              </h1>
+              <div className="flex flex-col gap-1.5 sm:gap-1 lg:gap-2 lg:pb-1.5">
+                <span aria-hidden="true" className="font-display text-[28px] font-bold tracking-[-0.03em] sm:text-[30px] lg:text-[40px] lg:leading-none lg:tracking-[-0.035em]">{count === 1 ? "Connection" : "Connections"}</span>
+                <p className="mt-2 text-[16px] leading-[1.5] text-[#0D0D0DB3] [text-wrap:pretty] sm:mt-1.5 lg:mt-0 lg:max-w-[360px] lg:text-[17px]"><span className="sm:hidden">{summary}</span><span className="hidden sm:inline">{summaryShort}</span></p>
               </div>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {coverCatalog.map((cover) => {
-                  const earned = cover.id === "standard" || unlockedRewards.has(cover.id);
-                  const selected = data.presentation.coverId === cover.id;
-                  const status: PassportStampStatus = earned ? "earned" : "locked";
-                  return (
-                    <article className={`rounded-[1.5rem] border p-4 ${selected ? "border-[#FF5A4F] bg-white ring-1 ring-[#FF5A4F]/60" : "border-black/10 bg-white/65"}`} key={cover.id}>
-                      <div className="mx-auto max-w-[190px]"><PassportCover cover={cover} displayName={displayName} username={username} connectionCount={data.connectionCount} finishColor={memberFinishVisible ? finishColor : null} finishTier={memberFinishVisible ? plan : null} selectedStamp={selectedFeatured} compact /></div>
-                      <h4 className="mt-4 text-base font-semibold">{cover.title}</h4>
-                      <p className="mt-1 min-h-10 text-xs leading-5 text-black/55">{earned ? cover.description : `Unlock at ${cover.threshold} unique Connections.`}</p>
-                      {earned ? (
-                        <button aria-pressed={selected} className={`mt-3 min-h-11 w-full rounded-full px-4 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${selected ? "bg-[#0D0D0D] text-[#F5F4EF]" : "border border-black/15 hover:bg-[#F5F4EF]"}`} disabled={pending !== null || selected} onClick={() => void updatePresentation("cover", cover.id)} type="button">{selected ? "On your Passport" : pending === "cover" ? "Saving…" : "Choose this cover"}</button>
-                      ) : (
-                        <p className="mt-3 flex min-h-11 items-center rounded-full border border-dashed border-black/20 px-4 text-xs font-semibold text-black/55"><span aria-hidden="true" className="mr-2">◌</span>{cover.threshold} Connections to unlock</p>
-                      )}
-                      <span className="sr-only">{status === "locked" ? "Locked cover" : selected ? "Selected cover" : "Earned cover"}</span>
-                    </article>
-                  );
-                })}
+            </div>
+            <div className="mx-5 mt-8 flex flex-col gap-[18px] border-t-[1.5px] border-[#0D0D0D] px-5 pb-[18px] pt-[22px] sm:mx-0 sm:mt-0 sm:gap-3.5 sm:px-0 sm:pb-0 sm:pt-4 lg:gap-5 lg:pt-5">
+              <div className="flex items-end justify-between gap-3 sm:items-baseline">
+                {next ? <>
+                  <div className="flex flex-col gap-1 sm:hidden"><span className={`${mono} text-[11px] tracking-[0.14em] text-[#0D0D0DB3]`}>NEXT · {ordinalOf(next.threshold)}</span><span className={`${display} text-[32px] leading-none tracking-[-0.04em]`}>{next.name}</span></div>
+                  <span className={`${display} hidden text-[26px] tracking-[-0.04em] sm:inline lg:text-[34px]`}>Next · {next.name}</span>
+                  <span className="text-right text-[14px] font-semibold lg:text-[16px]">{(next.threshold - count).toLocaleString("en")} to go<span className="hidden lg:inline">{unlocksShort(next.threshold) ? ` · ${unlocksShort(next.threshold)}` : ""}</span></span>
+                </> : <span className={`${display} text-[32px] leading-none tracking-[-0.04em] sm:text-[26px] lg:text-[34px]`}>Thousand Met</span>}
               </div>
-            </section>
-
-            <section aria-labelledby="member-finish-heading" className="grid gap-6 rounded-[1.75rem] bg-[#0D0D0D] p-6 text-[#F5F4EF] sm:grid-cols-[minmax(220px,280px)_1fr] sm:items-center sm:p-8">
-              <div className="mx-auto w-full max-w-[240px]"><PassportCover cover={currentCover} displayName={displayName} username={username} connectionCount={data.connectionCount} finishColor={finishColor} finishTier={memberPlan ? plan : null} compact /></div>
-              <div>
-                <SectionEyebrow dark>MEMBER FINISH</SectionEyebrow>
-                <h3 className="mt-2 font-display text-3xl font-bold tracking-[-0.05em]" id="member-finish-heading">A quiet edge around your cover.</h3>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-white/65">Plus and Pro add a coral or lime edge to any cover. Your choice stays saved if your plan changes; the finish only appears while membership is active.</p>
-                {memberPlan ? (
-                  <button aria-checked={memberFinishVisible} className={`mt-5 inline-flex min-h-12 items-center gap-3 rounded-full border px-5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C7FF4A] ${memberFinishVisible ? "border-white bg-white text-[#0D0D0D]" : "border-white/30 text-white hover:bg-white/10"}`} disabled={pending === "finish"} onClick={() => void updatePresentation("finish", !memberFinishVisible)} role="switch" type="button"><span aria-hidden="true">{memberFinishVisible ? "●" : "○"}</span>{pending === "finish" ? "Saving…" : memberFinishVisible ? "Member finish on" : "Add Member finish"}</button>
-                ) : (
-                  <div className="mt-5">
-                    <Link className="inline-flex min-h-12 items-center rounded-full bg-[#FF5A4F] px-5 text-sm font-semibold text-[#0D0D0D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" href="/pricing">See Plus and Pro</Link>
-                    {data.presentation.memberFinishEnabled === true && <p className="mt-3 text-xs text-white/60">Your saved choice will return when your membership is active.</p>}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section aria-labelledby="featured-stamp-heading">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div><SectionEyebrow>ONE PUBLIC MARK</SectionEyebrow><h3 className="mt-2 font-display text-2xl font-bold tracking-[-0.04em]" id="featured-stamp-heading">Choose one stamp to share.</h3></div>
-                <p className="max-w-lg text-sm leading-5 text-black/55">Your count, full collection, and history remain private. Only your deliberate choice appears on a published profile.</p>
-              </div>
-              <div className="mt-5 rounded-[1.5rem] border border-black/10 bg-white p-5 sm:p-6">
-                {selectedFeatured ? <div className="flex items-center gap-4"><PassportStamp type={selectedFeatured.type} title={selectedFeatured.title} subtitle={selectedFeatured.subtitle} status="earned" rotationKey={selectedFeatured.key ?? selectedFeatured.id} /><div><p className="font-label text-[9px] font-semibold tracking-[0.18em] text-black/45">CURRENTLY SELECTED</p><p className="mt-1 text-lg font-semibold">{stampTitle(selectedFeatured)}</p><p className="mt-1 text-sm text-black/55">This is the only Passport stamp shared publicly.</p></div></div> : <p className="text-sm text-black/55">No stamp is shared. Your collection remains private.</p>}
-                {memberPlan ? (
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {selectedFeatured && <button className="min-h-11 rounded-full border border-black/15 px-4 text-xs font-semibold hover:bg-[#F5F4EF] focus-visible:outline-2" disabled={pending === "featured"} onClick={() => void updatePresentation("featured", null)} type="button">Remove public mark</button>}
-                    {data.stamps.map((stamp) => <button aria-pressed={data.presentation.featuredStampId === stamp.id} className={`min-h-11 rounded-full border px-4 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${data.presentation.featuredStampId === stamp.id ? "border-[#FF5A4F] bg-[#FFF0EE]" : "border-black/15 hover:bg-[#F5F4EF]"}`} disabled={pending === "featured" || data.presentation.featuredStampId === stamp.id} key={stamp.id} onClick={() => void updatePresentation("featured", stamp.id)} type="button">{stampTitle(stamp)}</button>)}
-                    {data.stamps.length === 0 && <p className="text-sm text-black/55">Your first stamp will appear here when a real meeting gives it a place.</p>}
-                  </div>
-                ) : (
-                  <div className="mt-5 flex flex-wrap items-center gap-4"><p className="text-sm text-black/55">Featured Passport stamps are included with Plus and Pro.</p><Link className="inline-flex min-h-11 items-center rounded-full bg-[#0D0D0D] px-4 text-xs font-semibold text-white focus-visible:outline-2" href="/pricing">See plans</Link></div>
-                )}
-              </div>
-            </section>
-
-            <section aria-labelledby="earned-treatments-heading" className="border-t border-black/15 pt-8">
-              <div className="flex flex-wrap items-end justify-between gap-4"><div><SectionEyebrow>IDENTITY TREATMENTS</SectionEyebrow><h3 className="mt-2 font-display text-2xl font-bold tracking-[-0.04em]" id="earned-treatments-heading">Your earned Setuvara marks.</h3></div><Link className="inline-flex min-h-11 items-center underline underline-offset-4" href="/app/identity?mode=personal&section=appearance">Open Appearance</Link></div>
-              <ul className="mt-5 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
-                {PASSPORT_REWARDS.filter((reward) => reward.category !== "passport_cover").map((reward) => {
-                  const earned = unlockedRewards.has(reward.id);
-                  const selected = data.preferences[reward.category] === reward.id;
-                  return <li className="rounded-[1.25rem] border border-black/10 bg-white p-4" key={reward.id}><div className="flex items-start justify-between gap-3"><div><h4 className="text-sm font-semibold">{reward.name}</h4><p className="mt-1 text-xs text-black/50">{categoryNames[reward.category]}</p></div><span className={`font-label text-[9px] font-semibold tracking-[0.1em] ${earned ? "text-[#1C6E5B]" : "text-black/45"}`}>{earned ? selected ? "EQUIPPED" : "EARNED" : `AT ${reward.milestone}`}</span></div><p className="mt-3 text-xs leading-5 text-black/55">{reward.description}</p></li>;
-                })}
-              </ul>
-            </section>
-
-            <SharePassportCard profileUrl={publicProfileUrl} displayName={displayName} />
+              {ruler}
+              <span className="text-[14px] leading-[1.45] text-[#0D0D0DB3] sm:hidden">{next ? unlocksSentence(next.threshold) : "Your record keeps growing."}</span>
+              {!next && <span className="hidden text-[14px] text-[#0D0D0DB3] sm:block">Your record keeps growing.</span>}
+            </div>
           </div>
-        )}
+        </section>
 
-        <p aria-live="polite" className="min-h-6 text-sm text-black/60" role="status">{notice}</p>
-      </div>
+        {/* Stamps · phone and tablet */}
+        <section aria-labelledby="stamps-home" className="mx-3 mt-5 flex flex-col gap-5 rounded-3xl border-t-[1.5px] border-dashed border-[#0D0D0D40] bg-[#0D0D0D08] px-3 pb-[26px] pt-6 sm:mx-10 sm:mt-[30px] sm:gap-[18px] sm:p-6 lg:hidden">
+          <div className="flex items-baseline justify-between px-2 sm:px-0">
+            <h2 className={`${display} text-[30px] tracking-[-0.04em]`} id="stamps-home">Stamps</h2>
+            <span className={`${mono} text-[11px] tracking-[0.12em]`}>{data.stampTotal.toLocaleString("en")} COLLECTED</span>
+          </div>
+          <ul className="grid list-none grid-cols-3 gap-y-[22px] sm:grid-cols-5">
+            {homeItems.map((item, index) => {
+              const ahead = item.kind === "ahead";
+              const hiddenOnPhone = !ahead && index >= 5;
+              return <StampTile className={hiddenOnPhone ? "hidden sm:flex" : ""} item={item} key={item.kind === "stamp" ? item.stamp.id : `ahead-${item.threshold}`} labelClass="text-[13px]" metaClass="sm:hidden" sizeClass="size-[92px] sm:size-[96px]" tile={tile} />;
+            })}
+          </ul>
+          <button className={`${pillOutline} h-11 self-center px-5 text-[14px]`} onClick={() => go("stamps")} type="button">All {data.stampTotal.toLocaleString("en")} {data.stampTotal === 1 ? "stamp" : "stamps"}</button>
+        </section>
+
+        {/* Stamps · desktop spread */}
+        <section aria-labelledby="stamps-desk" className="hidden flex-col gap-[22px] px-[72px] pt-[72px] lg:flex">
+          <div className="flex items-baseline justify-between gap-6">
+            <h2 className={`${display} text-[44px] tracking-[-0.045em]`} id="stamps-desk">Stamps</h2>
+            <FilterChips counts={counts} filter={filter} onChange={setFilter} />
+          </div>
+          {deskItems ? (
+            <div className="rounded-[10px] bg-[#0D0D0D08] px-10 py-[34px]">
+              <PageHead left={FILTERS.find((item) => item.id === filter)!.label.toUpperCase()} right="PAGE 01" />
+              <ul className="mt-[22px] grid list-none grid-cols-6 gap-y-[26px]">{deskItems.map((item) => <StampTile tile={tile} item={item} key={item.kind === "stamp" ? item.stamp.id : `ahead-${item.threshold}`} labelClass="text-[14px]" sizeClass="size-[120px]" />)}</ul>
+            </div>
+          ) : (
+            <div className={`relative grid rounded-[10px] bg-[#0D0D0D08] ${placeStamps.length ? "grid-cols-2" : "grid-cols-1"}`}>
+              {placeStamps.length > 0 && <><span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-px bg-[#0D0D0D26]" /><span aria-hidden="true" className="absolute inset-y-0 left-[calc(50%-22px)] w-11 bg-[linear-gradient(90deg,#0D0D0D00,#0D0D0D0D,#0D0D0D00)]" /></>}
+              <div className="flex flex-col gap-[22px] px-10 py-[34px]">
+                <PageHead left="MILESTONES" right="PAGE 01" />
+                <ul className={`grid list-none gap-y-[26px] ${placeStamps.length ? "grid-cols-3" : "grid-cols-6"}`}>{leftPage.map((item) => <StampTile tile={tile} item={item} key={item.kind === "stamp" ? item.stamp.id : `ahead-${item.threshold}`} labelClass="text-[14px]" sizeClass="size-[120px]" />)}</ul>
+              </div>
+              {placeStamps.length > 0 && <div className="flex flex-col gap-[22px] px-10 py-[34px]">
+                <PageHead left="PLACES & EVENTS" right="PAGE 02" />
+                <ul className="grid list-none grid-cols-4 gap-y-[26px]">{placeStamps.map((stamp) => <StampTile tile={tile} item={{ kind: "stamp", stamp }} key={stamp.id} labelClass="text-[14px]" sizeClass="size-[112px]" />)}</ul>
+              </div>}
+            </div>
+          )}
+          {data.hasMoreStamps && <button className={`${pillOutline} h-11 self-start px-5 text-[14px]`} onClick={() => go("stamps")} type="button">All {data.stampTotal.toLocaleString("en")} stamps</button>}
+        </section>
+
+        {/* Journey */}
+        <section aria-labelledby="journey-home" className="flex flex-col gap-1.5 px-6 pt-9 sm:px-10 lg:grid lg:grid-cols-[440px_minmax(0,1fr)] lg:gap-[72px] lg:px-[72px] lg:pt-[72px]">
+          <div className="flex items-baseline justify-between gap-3 lg:flex-col lg:items-start lg:justify-start lg:gap-2.5">
+            <h2 className={`${display} text-[30px] tracking-[-0.04em] lg:text-[44px] lg:leading-none lg:tracking-[-0.045em]`} id="journey-home">Journey</h2>
+            <p className="hidden text-[16px] text-[#0D0D0DB3] lg:block">Where your Passport has been, by month.</p>
+            <button className={`${mono} min-h-11 text-[11px] tracking-[0.12em] underline underline-offset-4 lg:min-h-0 lg:pt-2 ${focus}`} onClick={() => go("journey")} type="button">FULL JOURNEY</button>
+          </div>
+          <ol className="flex list-none flex-col">
+            {months.map((month, index) => (
+              <li className={`grid grid-cols-[78px_minmax(0,1fr)] gap-3 border-t border-[#0D0D0D1F] py-4 lg:grid-cols-[120px_minmax(0,1fr)_auto] lg:items-center lg:gap-6 lg:py-[18px] ${index >= 3 ? "hidden lg:grid" : ""} ${index >= 6 ? "lg:hidden" : ""}`} key={month.key}>
+                <span className={`${mono} pt-[3px] text-[11px] tracking-[0.12em] lg:pt-0 lg:text-[12px] lg:tracking-[0.14em]`}>{month.month}</span>
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[16px] font-semibold [overflow-wrap:anywhere] lg:font-display lg:text-[24px] lg:font-bold lg:tracking-[-0.02em]">{month.head}</span>
+                  <span className="text-[13.5px] leading-[1.45] text-[#0D0D0DB3] lg:hidden">{month.line}</span>
+                </span>
+                <span aria-hidden="true" className="hidden gap-1.5 lg:flex">{month.stamps.slice(0, 6).map((stamp) => <PassportRecordStamp key={stamp.id} size={52} stamp={stamp} />)}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* Make it yours */}
+        <section aria-labelledby="make-yours" className="mx-5 mt-7 flex flex-col border-t-[1.5px] border-[#0D0D0D] sm:mx-10 lg:mx-0 lg:mt-0 lg:grid lg:grid-cols-[440px_minmax(0,1fr)] lg:gap-[72px] lg:border-t-0 lg:px-[72px] lg:pt-[72px]">
+          <h2 className={`${mono} pb-1 pt-[18px] text-[11px] tracking-[0.14em] lg:p-0 lg:font-display lg:text-[44px] lg:font-extrabold lg:leading-none lg:tracking-[-0.045em]`} id="make-yours"><span className="lg:hidden">MAKE IT YOURS</span><span className="hidden lg:inline">Make it yours</span></h2>
+          <div className="lg:border-t-[1.5px] lg:border-[#0D0D0D]">{makeRows}</div>
+        </section>
+      </>
+    );
+  }
+
+  const sheetStamp = sheet?.kind === "stamp" ? sheet.stamp : null;
+  return (
+    <main className={`${passportDisplay.variable} mx-auto w-full max-w-[1440px] pb-10 text-[#0D0D0D] lg:pb-20`} data-passport-view={view}>
+      {body}
+      <p aria-live="polite" className="min-h-6 px-6 pt-4 text-[14px] text-[#0D0D0DB3] sm:px-10 lg:px-[72px]" role="status">{notice}</p>
+
+      {sheetStamp && (
+        <StampDetail
+          featured={featured?.id === sheetStamp.id}
+          language={language}
+          memberPlan={memberPlan}
+          milestones={data.milestones}
+          onClose={() => setSheet(null)}
+          onFeature={(value) => void setFeatured(value ? sheetStamp : null)}
+          onPlus={() => setSheet({ kind: "plus" })}
+          onWear={(category, id) => void wearReward(category, id)}
+          pending={pending}
+          preferences={data.preferences}
+          coverId={cover.id}
+          stamp={sheetStamp}
+          unlocked={unlocked}
+        />
+      )}
+      {sheet?.kind === "ahead" && <AheadDetail count={count} onClose={() => setSheet(null)} state={sheet.state} threshold={sheet.threshold} />}
+      {sheet?.kind === "plus" && (
+        <PlusSheet
+          now={coverObject({ width: "126px", member: false, id: "pc-now" })}
+          onClose={() => setSheet(null)}
+          withPlus={coverObject({ width: "126px", member: true, featuredStamp: featured ?? earnedStamps[0] ?? null, id: "pc-plus" })}
+        />
+      )}
+      {press && pressOpen && <PressDialog milestone={press} onDone={() => setPressOpen(false)} />}
     </main>
   );
 }
 
-function PassportCover({
-  cover,
-  displayName,
-  username,
-  connectionCount,
-  finishColor,
-  finishTier,
-  selectedStamp,
-  compact = false,
-}: {
-  cover: (typeof coverCatalog)[number];
-  displayName: string;
-  username: string;
-  connectionCount: number;
-  finishColor: string | null;
-  finishTier: PlanCode | null;
-  selectedStamp?: PassportStampRecord | null;
-  compact?: boolean;
-}) {
-  const featured = selectedStamp;
+type TileApi = {
+  name: (item: CollectionItem) => string;
+  meta: (item: CollectionItem) => string;
+  stamp: (item: CollectionItem) => ReactNode;
+  open: (item: CollectionItem) => void;
+  describe: (item: CollectionItem) => string;
+};
+
+/** One collectible in a grid: the stamp is the object, the label sits quietly underneath. */
+function StampTile({ tile, item, sizeClass, meta = true, labelClass = "text-[13px]", className = "", metaClass = "" }: { tile: TileApi; item: CollectionItem; sizeClass: string; meta?: boolean; labelClass?: string; className?: string; metaClass?: string }) {
+  return (
+    <li className={`flex min-w-0 justify-center ${className}`}>
+      <button
+        aria-label={`${tile.name(item)}, ${tile.describe(item)}`}
+        className={`group flex min-w-0 max-w-full flex-col items-center gap-2 rounded-2xl px-1 pb-1 text-center ${focus}`}
+        data-collection-item={item.kind === "stamp" ? item.stamp.type : `milestone-${item.state}`}
+        onClick={() => tile.open(item)}
+        type="button"
+      >
+        <span className={`block transition-transform duration-200 group-hover:-translate-y-0.5 motion-reduce:transition-none ${sizeClass}`}>{tile.stamp(item)}</span>
+        <span className="flex min-w-0 max-w-full flex-col gap-0.5">
+          <span className={`break-words font-semibold leading-tight [overflow-wrap:anywhere] ${labelClass}`}>{tile.name(item)}</span>
+          {meta && <span className={`font-label text-[10px] tracking-[0.06em] text-[#0D0D0DB3] lg:text-[10.5px] lg:tracking-normal ${metaClass}`}>{tile.meta(item)}</span>}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function PassportLabel() {
+  return (
+    <span className="flex items-center gap-2">
+      <svg aria-hidden="true" className="size-[18px] sm:size-5" viewBox="0 0 100 100"><path d="M66.94 31.48A17 17 0 1 0 41.04 44.45L58.96 55.55A17 17 0 1 1 33.06 68.52" fill="none" stroke="currentColor" strokeWidth="22" /></svg>
+      <span className="font-label text-[11px] tracking-[0.16em] sm:text-[12px]">YOUR PASSPORT</span>
+    </span>
+  );
+}
+
+function PageHead({ left, right }: { left: string; right: string }) {
+  return <div className="flex justify-between font-label text-[10.5px] tracking-[0.14em] text-[#0D0D0DB3]"><span>{left}</span><span>{right}</span></div>;
+}
+
+function FilterChips({ filter, onChange, counts, withCounts = false }: { filter: StampFilter; onChange: (value: StampFilter) => void; counts: Record<StampFilter, number>; withCounts?: boolean }) {
+  const visible = FILTERS.filter((item) => item.id === "all" || counts[item.id] > 0);
+  return (
+    <div aria-label="Filter stamps" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" role="group">
+      {visible.map((item) => (
+        <button
+          aria-pressed={filter === item.id}
+          className={`flex h-9 flex-none items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-[#0D0D0D] px-[13px] text-[13px] font-semibold transition-colors lg:px-3.5 ${focus} ${filter === item.id ? "bg-[#0D0D0D] text-[#F5F4EF]" : "hover:bg-[#0D0D0D0A]"}`}
+          key={item.id}
+          onClick={() => onChange(item.id)}
+          type="button"
+        >
+          {item.label}{withCounts && <span className="font-label text-[10.5px] opacity-75">{counts[item.id].toLocaleString("en")}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LoadMore({ data, loading, onLoad }: { data: PassportData; loading: boolean; onLoad: () => void }) {
+  if (!data.hasMoreStamps) return null;
+  return (
+    <div className="flex justify-center px-6 pt-8">
+      <button className={`${pillOutline} h-11 px-5 text-[14px] disabled:opacity-60`} disabled={loading} onClick={onLoad} type="button">{loading ? "Opening older pages…" : `Older stamps · ${Math.max(0, data.stampTotal - data.stamps.length).toLocaleString("en")} more`}</button>
+    </div>
+  );
+}
+
+/** The printed line: ordinal spacing (i / 7), interpolated fill, coral ring on the next milestone. */
+function MilestoneLine({ count }: { count: number }) {
+  const { markers, fill } = milestoneRuler(count);
+  const next = nextMilestone(count);
   return (
     <div
-      aria-label={`${cover.title} Setuvara Passport cover for ${displayName}`}
-      className={`relative isolate flex aspect-[5/7] ${compact ? "w-full" : "w-[min(74vw,300px)]"} flex-col justify-between overflow-hidden p-6 shadow-[0_20px_48px_rgba(13,13,13,.18)] sm:p-7`}
-      data-passport-cover={cover.id}
-      data-member-finish={finishColor ? "active" : "off"}
-      data-passport-finish={finishTier ?? "standard"}
-      style={{
-        backgroundColor: cover.paper,
-        color: cover.ink,
-        clipPath: "polygon(0 0,100% 0,100% calc(100% - 24px),calc(100% - 14px) 100%,0 100%)",
-        boxShadow: finishColor ? `inset 0 0 0 3px ${finishColor}, 0 20px 48px rgba(13,13,13,.18)` : "0 20px 48px rgba(13,13,13,.18)",
-      }}
+      aria-label={next ? `${count.toLocaleString("en")} Connections. Next milestone: ${next.name} at ${next.threshold}.` : `${count.toLocaleString("en")} Connections. Every milestone earned.`}
+      className="relative mx-2 h-16 sm:h-14 lg:mx-2.5 lg:h-[62px]"
+      data-milestone-line=""
+      role="img"
     >
-      <span aria-hidden="true" className="absolute inset-y-0 left-5 w-px opacity-25" style={{ backgroundColor: cover.accent }} />
-      <header className="relative flex items-start justify-between gap-2 border-b pb-3" style={{ borderColor: `${cover.ink}30` }}>
-        <span className="font-display text-lg font-extrabold tracking-[-0.06em]">setuvara</span>
-        <span className="pt-1 font-label text-[8px] font-semibold tracking-[0.16em] opacity-60">PRIVATE RECORD</span>
-      </header>
-      <div className="relative flex flex-1 flex-col justify-center py-6 text-center">
-        <p className="font-label text-[9px] font-semibold tracking-[0.24em] opacity-65">SETUVARA PASSPORT</p>
-        <p className={`mt-3 break-words font-display font-bold leading-[.95] tracking-[-0.055em] ${compact ? "text-2xl" : "text-[2rem]"}`}>{displayName || `@${username}`}</p>
-        <p className="mt-2 break-all font-label text-[9px] tracking-[0.1em] opacity-60">@{username}</p>
-      </div>
-      <footer className="relative flex items-end justify-between gap-3 border-t pt-3" style={{ borderColor: `${cover.ink}30` }}>
-        <div className="min-w-0">
-          <p className="font-label text-[8px] font-semibold tracking-[0.16em] opacity-60">ONE IDENTITY</p>
-          <p className="mt-1 font-display text-lg font-bold leading-none tracking-tight">{connectionCount.toLocaleString()} <span className="font-sans text-[10px] font-medium">met</span></p>
-        </div>
-        {featured && <PassportStamp type={featured.type} title={featured.title} subtitle={featured.subtitle} size="small" rotationKey={featured.key ?? featured.id} />}
-      </footer>
+      <span className="absolute inset-x-0 top-7 h-px bg-[#0D0D0D40] sm:top-5 lg:top-6" />
+      <span className="absolute left-0 top-[27.5px] h-0.5 bg-[#0D0D0D] sm:top-[19.5px] lg:top-[23.5px]" style={{ width: `${fill}%` }} />
+      <span className="absolute top-0 -translate-x-1/2 rounded-full bg-[#FF5A4F] px-1.5 py-0.5 font-label text-[10px] leading-[1.2] sm:hidden" style={{ left: `${fill}%` }}>{count.toLocaleString("en")}</span>
+      {markers.map((marker) => (
+        <span className="absolute top-[21px] flex -translate-x-1/2 flex-col items-center gap-[9px] sm:top-[13px] lg:top-4 lg:gap-2.5" data-marker-state={marker.state} key={marker.threshold} style={{ left: `${marker.x}%` }}>
+          <span className={`box-border size-[15px] rounded-full border-2 lg:size-[17px] ${marker.state === "earned" ? "border-[#0D0D0D] bg-[#0D0D0D]" : marker.state === "next" ? "border-[#FF5A4F] bg-[#F5F4EF]" : "border-[#0D0D0D40] bg-[#F5F4EF]"}`} />
+          <span className={`font-label text-[10.5px] leading-none lg:text-[12px] ${marker.state === "future" ? "text-[#0D0D0D80]" : "text-[#0D0D0D]"}`}>{marker.threshold}</span>
+        </span>
+      ))}
     </div>
   );
 }
 
-function MilestoneLine({ data, expanded = false }: { data: PassportData; expanded?: boolean }) {
-  const next = MILESTONES.find((item) => item.threshold > data.connectionCount);
-  const prior = [...MILESTONES].reverse().find((item) => item.threshold <= data.connectionCount)?.threshold ?? 0;
-  const progress = next ? Math.max(0, Math.min(100, ((data.connectionCount - prior) / (next.threshold - prior)) * 100)) : 100;
-  const remaining = next ? Math.max(0, next.threshold - data.connectionCount) : 0;
-  const statusFor = (threshold: number) => threshold <= data.connectionCount ? "earned" : threshold === next?.threshold ? "progress" : "locked";
-  const milestones = (
-    <ol className={`relative grid list-none grid-cols-4 gap-x-2 gap-y-4 p-0 sm:grid-cols-8 ${expanded ? "mt-7" : "mt-6"}`}>
-      <span aria-hidden="true" className="absolute left-3 right-3 top-[13px] hidden h-px bg-black/20 sm:block" />
-      {MILESTONES.map((milestone) => {
-        const state = statusFor(milestone.threshold);
-        return <li className="relative flex min-w-0 flex-col items-center text-center" data-milestone-state={state} key={milestone.threshold}>
-          <span aria-hidden="true" className={`z-10 grid size-[27px] place-items-center rounded-full border text-[10px] font-bold ${state === "earned" ? "border-[#0D0D0D] bg-[#0D0D0D] text-[#C7FF4A]" : state === "progress" ? "border-[#FF5A4F] bg-[#FF5A4F] text-[#0D0D0D]" : "border-black/25 bg-[#F5F4EF] text-black/35"}`}>{state === "earned" ? "✓" : state === "progress" ? "·" : ""}</span>
-          <span className={`mt-2 font-label text-[9px] font-bold tracking-[0.08em] ${state === "locked" ? "text-black/35" : "text-black/70"}`}>{milestone.threshold.toLocaleString()}</span>
-          <span className="mt-0.5 max-w-full text-[10px] leading-4 text-black/50">{milestone.label}</span>
-        </li>;
-      })}
-    </ol>
-  );
+type CoverFactory = (options: { width: string; look?: "standard" | "paper" | "century" | "thousand"; member?: boolean; featuredStamp?: PassportStampRecord | null; empty?: boolean; id: string; label?: string }) => ReactNode;
 
+function EmptyPassport({ coverObject, count, titleRef }: { coverObject: CoverFactory; count: number; titleRef: React.Ref<HTMLHeadingElement> }) {
   return (
-    <div className={expanded ? "mt-7 rounded-[1.5rem] bg-white/65 p-5 sm:p-6" : "mt-7"}>
-      {expanded && <p className="font-label text-[9px] font-semibold tracking-[0.18em] text-black/45">UNIQUE CONNECTIONS · NEVER A LEADERBOARD</p>}
-      {milestones}
-      {next ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-semibold">{remaining} {remaining === 1 ? "person" : "people"} to {next.name}.</p>
-          <div aria-label={`${data.connectionCount} of ${next.threshold} Connections to ${next.name}`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={Math.round(progress)} className="h-2 w-full max-w-[220px] overflow-hidden rounded-full bg-black/10" role="progressbar"><div className="h-full rounded-full bg-[#FF5A4F] transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} /></div>
-        </div>
-      ) : <p className="mt-4 text-sm font-semibold">Thousand Met. Your record keeps growing.</p>}
-    </div>
-  );
-}
-
-function StampCard({ stamp, status, featured = false }: { stamp: PassportStampRecord; status: PassportStampStatus; featured?: boolean }) {
-  return (
-    <article className={`flex min-h-[150px] items-center gap-4 rounded-[1.5rem] border p-4 sm:p-5 ${featured ? "border-[#FF5A4F] bg-white" : "border-black/10 bg-white/65"}`} data-passport-stamp-card={stamp.type}>
-      <PassportStamp type={stamp.type} title={stampTitle(stamp)} subtitle={stamp.subtitle} status={status} rotationKey={stamp.key ?? stamp.id} />
-      <div className="min-w-0 flex-1">
-        <p className="font-label text-[9px] font-semibold tracking-[0.17em] text-black/45">{stamp.type.toUpperCase()} STAMP{featured ? " · PUBLIC HIGHLIGHT" : ""}</p>
-        <h3 className="mt-1 break-words text-base font-semibold leading-5">{stampTitle(stamp)}</h3>
-        {stamp.subtitle && <p className="mt-1 break-words text-xs leading-5 text-black/55">{humanizeSubtitle(stamp)}</p>}
-        <p className="mt-3 font-label text-[9px] tracking-[0.12em] text-black/40">{formatDate(stamp.earnedAt).toUpperCase()}</p>
+    <section aria-labelledby="empty-title" className="flex min-h-[calc(100dvh-138px-env(safe-area-inset-bottom))] flex-col sm:min-h-0 lg:grid lg:grid-cols-[440px_minmax(0,1fr)] lg:items-center lg:gap-[72px] lg:px-[72px] lg:pt-14">
+      <div className="flex h-10 items-center px-5 pt-1.5 sm:px-10 sm:pt-7 lg:hidden"><PassportLabel /></div>
+      <div className="flex justify-center pt-[18px] lg:pt-0">
+        <div className="[--cw:min(234px,calc(100vw-40px))] sm:[--cw:270px] lg:[--cw:390px]">{coverObject({ width: "var(--cw)", empty: true, member: false, id: "pc-empty", label: "Your new Setuvara Passport cover" })}</div>
       </div>
-    </article>
-  );
-}
-
-function JourneyView({ stamps, milestones, hasMore, total, loadingMore, onLoadMore }: { stamps: PassportStampRecord[]; milestones: MilestoneRecord[]; hasMore: boolean; total: number; loadingMore: boolean; onLoadMore: () => void }) {
-  const yearGroups = useMemo(() => {
-    const grouped = new Map<string, PassportStampRecord[]>();
-    for (const stamp of stamps) {
-      const year = Number.isFinite(Date.parse(stamp.earnedAt)) ? String(new Date(stamp.earnedAt).getFullYear()) : "Recorded";
-      grouped.set(year, [...(grouped.get(year) ?? []), stamp]);
-    }
-    return [...grouped.entries()].sort(([yearA], [yearB]) => yearB.localeCompare(yearA, undefined, { numeric: true }));
-  }, [stamps]);
-
-  return (
-    <section aria-labelledby="journey-heading" className="mx-auto max-w-5xl pb-12 pt-8 sm:pt-12">
-      <SectionEyebrow>THE JOURNEY · {total.toLocaleString()} STAMPS</SectionEyebrow>
-      <h2 className="mt-2 max-w-[14ch] font-display text-4xl font-bold leading-[.94] tracking-[-0.06em] sm:text-6xl" id="journey-heading">Every mark has a place in time.</h2>
-      <p className="mt-4 max-w-2xl text-[15px] leading-6 text-black/60">This is a private timeline of your Passport stamps. It records only durable Connections and the context you chose to save.</p>
-      {!stamps.length ? (
-        <div className="mt-8 rounded-[1.5rem] border border-dashed border-black/20 bg-white/55 p-7"><p className="font-display text-xl font-semibold">Your journey starts with a real Connection.</p><p className="mt-2 text-sm text-black/55">When one is saved, its milestone and shared context can leave a permanent mark.</p></div>
-      ) : (
-        <div className="mt-9 space-y-10">
-          {yearGroups.map(([year, records]) => <section aria-label={`Passport stamps from ${year}`} key={year}>
-            <div className="flex items-baseline gap-4 border-b border-black/15 pb-3"><h3 className="font-display text-2xl font-bold tracking-[-0.04em]">{year}</h3><span className="font-label text-[9px] tracking-[0.13em] text-black/45">{records.length} {records.length === 1 ? "MARK" : "MARKS"}</span></div>
-            <ol className="mt-5 grid list-none gap-3 p-0 sm:grid-cols-2">
-              {records.map((stamp) => <li key={stamp.id}><StampCard stamp={stamp} status={stampStatus(stamp, milestones)} /></li>)}
-            </ol>
-          </section>)}
+      <div className="flex flex-1 flex-col sm:mx-auto sm:w-full sm:max-w-[520px] lg:mx-0 lg:max-w-[560px]">
+        <div className="flex flex-col gap-2.5 px-6 pt-7 lg:px-0 lg:pt-0">
+          <p className="hidden font-label text-[12px] tracking-[0.16em] lg:block">YOUR PASSPORT</p>
+          <h1 className="font-display text-[36px] font-extrabold leading-[0.98] tracking-[-0.05em] outline-none lg:text-[56px]" id="empty-title" ref={titleRef} tabIndex={-1}>Your Passport starts with the first person you meet.</h1>
+          <p className="text-[15px] leading-[1.5] text-[#0D0D0DB3] lg:text-[17px]">Five real Connections press your first stamp.</p>
         </div>
-      )}
-      {hasMore && <button className="mt-7 min-h-12 rounded-full border border-black/20 bg-white px-5 text-sm font-semibold hover:bg-[#E8E2D4] focus-visible:outline-2 disabled:opacity-60" disabled={loadingMore} onClick={onLoadMore} type="button">{loadingMore ? "Loading older stamps…" : `Load older stamps · ${Math.max(0, total - stamps.length)} left`}</button>}
+        <div className="mx-6 mt-[18px] flex items-center gap-4 border-t border-[#0D0D0D1F] pt-4 lg:mx-0">
+          <PassportAheadStamp count={count} size={84} state="progress" threshold={5} />
+          <div className="flex flex-col gap-[3px]">
+            <span className="font-label text-[10.5px] tracking-[0.14em] text-[#0D0D0DB3]">FIRST STAMP</span>
+            <span className="text-[17px] font-bold">First Circle</span>
+            <span className="text-[13.5px] text-[#0D0D0DB3]">{count} of 5 · then Ten Met, In Motion…</span>
+          </div>
+        </div>
+        <div className="mx-6 mb-[34px] mt-auto flex flex-col gap-2.5 pt-8 lg:mx-0 lg:mb-0 lg:max-w-[360px]">
+          <Link className={`${pillInk} h-[52px] text-[16px]`} href="/app/tap">Show Quick QR</Link>
+          <span className="text-center text-[13px] text-[#0D0D0DB3] lg:text-left">Meet at an event and it can add the city too.</span>
+        </div>
+      </div>
     </section>
   );
 }
 
-function SharePassportCard({ profileUrl, displayName }: { profileUrl: string; displayName: string }) {
-  const [copied, setCopied] = useState(false);
-  const [copyMessage, setCopyMessage] = useState("");
-  async function copyProfile() {
+function FinishView({ coverObject, currentCover, count, memberPlan, finishOn, pending, onWear, onFinish, onPlus, header, titleRef, unlocked }: {
+  coverObject: CoverFactory;
+  currentCover: CoverId;
+  count: number;
+  memberPlan: boolean;
+  finishOn: boolean;
+  pending: string | null;
+  onWear: (id: CoverId) => void;
+  onFinish: (enabled: boolean) => void;
+  onPlus: () => void;
+  header: ReactNode;
+  titleRef: React.Ref<HTMLHeadingElement>;
+  unlocked: Set<string>;
+}) {
+  const [selected, setSelected] = useState<CoverId>(currentCover);
+  const [preview, setPreview] = useState(false);
+  const selCover = coverFor(selected);
+  const earned = (id: CoverId) => id === "standard" || unlocked.has(id);
+  const selLocked = !earned(selected);
+  const member = memberPlan ? finishOn : preview;
+  const cta = !memberPlan && preview ? "Unlock with Plus" : selLocked ? `Earned at ${selCover.at.toLocaleString("en")} Connections` : selected === currentCover ? "Wearing" : pending === `cover:${selected}` ? "Saving…" : "Wear this cover";
+  const ctaClass = !memberPlan && preview ? "bg-[#FF5A4F] text-[#0D0D0D]" : selLocked || selected === currentCover ? "bg-[#0D0D0D14] text-[#0D0D0DB3]" : "bg-[#0D0D0D] text-[#F5F4EF]";
+  const ctaDisabled = memberPlan || !preview ? (selLocked || selected === currentCover || pending !== null) : false;
+
+  return (
+    <section aria-labelledby="finish-title">
+      {header}
+      <h1 className="sr-only outline-none" id="finish-title" ref={titleRef} tabIndex={-1}>Passport finish</h1>
+      <div className="mx-auto w-full max-w-[560px] lg:pt-4">
+        <div className="mt-3 flex h-[300px] items-center justify-center bg-[#0D0D0D08] sm:rounded-3xl lg:h-[420px]">
+          <div className="[--cw:186px] lg:[--cw:260px]">{coverObject({ width: "var(--cw)", look: selCover.look, member, id: "pc-finish", label: `${selCover.name} preview${member ? " with Member finish" : ""}` })}</div>
+        </div>
+        <div className="flex flex-col gap-3 px-5 pt-[18px] sm:px-0">
+          <div className="flex items-baseline justify-between"><span className="font-label text-[11px] tracking-[0.14em]">COVER</span><span className="text-[13px] text-[#0D0D0DB3]">Earned through Connections</span></div>
+          <div aria-label="Covers" className="grid grid-cols-4 gap-2.5" role="radiogroup">
+            {COVERS.map((item) => {
+              const status = item.id === currentCover ? "WEARING" : earned(item.id) ? "EARNED" : `AT ${item.at.toLocaleString("en")}`;
+              return (
+                <button aria-checked={selected === item.id} aria-label={`${item.name}, ${status.toLowerCase()}`} className={`flex min-w-0 flex-col gap-[7px] rounded-xl text-left ${focus}`} key={item.id} onClick={() => setSelected(item.id)} role="radio" type="button">
+                  <span className={`flex h-[104px] items-center justify-center rounded-xl border-2 ${selected === item.id ? "border-[#0D0D0D]" : "border-transparent"}`}>{coverObject({ width: "66px", look: item.look, member: false, id: `pc-tile-${item.id}` })}</span>
+                  <span className="text-[12px] font-semibold leading-[1.2]">{item.short}</span>
+                  <span className="font-label text-[9.5px] tracking-[0.06em] text-[#0D0D0DB3]">{status}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            aria-checked={member}
+            className={`mt-1.5 flex min-h-[60px] items-center justify-between gap-3 border-y border-[#0D0D0D1F] text-left ${focus}`}
+            disabled={pending === "finish"}
+            onClick={() => (memberPlan ? onFinish(!finishOn) : setPreview((value) => !value))}
+            role="switch"
+            type="button"
+          >
+            <span className="flex items-center gap-2.5">
+              <MemberBadge decorative size={22} tier="plus" />
+              <span className="flex flex-col gap-px"><span className="text-[15px] font-semibold">Member finish</span><span className="text-[12.5px] text-[#0D0D0DB3]">{memberPlan ? "On every cover you've earned" : "Preview free · wear with Plus"}</span></span>
+            </span>
+            <span aria-hidden="true" className={`relative h-7 w-12 flex-none rounded-full transition-colors ${member ? "bg-[#FF5A4F]" : "bg-[#0D0D0D33]"}`}><span className={`absolute top-[3px] size-[22px] rounded-full bg-[#F5F4EF] shadow-[0_1px_3px_#0D0D0D55] transition-[left] motion-reduce:transition-none ${member ? "left-[23px]" : "left-[3px]"}`} /></span>
+          </button>
+          <button
+            aria-disabled={ctaDisabled}
+            className={`mt-1 flex h-[52px] items-center justify-center rounded-full text-[15px] font-semibold ${focus} ${ctaClass} ${ctaDisabled ? "cursor-default" : ""}`}
+            onClick={() => { if (!memberPlan && preview) onPlus(); else if (!ctaDisabled) onWear(selected); }}
+            type="button"
+          >{cta}</button>
+          {!memberPlan && <p className="pt-1 text-center text-[12.5px] text-[#0D0D0DB3]">Every cover is earned at {count < 5 ? "5, 100 and 1000" : "milestones"}, on every plan.</p>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FlairView({ data, displayName, username, memberPlan, featured, pending, unlocked, language, onMark, onFeature, onPlus, header, titleRef }: {
+  data: PassportData;
+  displayName: string;
+  username: string;
+  memberPlan: boolean;
+  featured: PassportStampRecord | null;
+  pending: string | null;
+  unlocked: Set<string>;
+  language: string;
+  onMark: (id: string) => void;
+  onFeature: (stamp: PassportStampRecord | null) => void;
+  onPlus: () => void;
+  header: ReactNode;
+  titleRef: React.Ref<HTMLHeadingElement>;
+}) {
+  const [choosing, setChoosing] = useState(false);
+  const marks = PASSPORT_REWARDS.filter((reward) => reward.category === "profile_mark");
+  const worn = marks.find((reward) => reward.id === data.preferences.profile_mark && unlocked.has(reward.id));
+  const selectedId = featured ? "stamp" : worn ? worn.id : "none";
+  const unlockedAt = (id: string) => data.rewards.find((reward) => reward.id === id)?.unlockedAt;
+  const name = displayName || `@${username}`;
+  const options = [
+    { id: "none", k: "Nothing", v: worn ? "A worn mark can be swapped, not removed yet" : "Just your identity", tag: "", ok: !worn, run: () => { if (featured) onFeature(null); } },
+    ...marks.map((reward) => ({
+      id: reward.id,
+      k: `${reward.name} mark`,
+      v: unlocked.has(reward.id) ? `Earned ${dayMark(unlockedAt(reward.id))}` : `Earned at ${reward.milestone.toLocaleString("en")} Connections`,
+      tag: unlocked.has(reward.id) ? "EARNED" : `AT ${reward.milestone.toLocaleString("en")}`,
+      ok: unlocked.has(reward.id),
+      run: () => onMark(reward.id),
+    })),
+    { id: "stamp", k: "Featured stamp", v: featured ? `${stampLabel(featured, language)} beside your name` : "Any earned stamp beside your name", tag: "PLUS", ok: true, run: () => (memberPlan ? setChoosing((value) => !value) : onPlus()) },
+  ];
+
+  return (
+    <section aria-labelledby="flair-title">
+      {header}
+      <h1 className="sr-only outline-none" id="flair-title" ref={titleRef} tabIndex={-1}>Profile flair</h1>
+      <div className="mx-auto w-full max-w-[560px]">
+        <div className="mx-5 mt-3.5 flex flex-col gap-3.5 rounded-3xl bg-[#0D0D0D] p-[22px] text-[#F5F4EF] sm:mx-0">
+          <span className="font-label text-[10px] tracking-[0.16em] text-[#F5F4EFB3]">PUBLIC PROFILE · PREVIEW</span>
+          <div className="flex items-center gap-3.5">
+            <span aria-hidden="true" className="grid size-16 flex-none place-items-center rounded-full bg-[#AFCBFF] font-display text-[26px] font-extrabold text-[#0D0D0D]">{name.replace(/^@/, "").slice(0, 1).toUpperCase()}</span>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-display text-[26px] font-extrabold leading-none tracking-[-0.04em]">{name}</span>
+                {featured && <span className="flex flex-none rounded-full bg-[#F5F4EF] p-0.5"><PassportRecordStamp size={30} stamp={featured} /></span>}
+              </div>
+              <span className="truncate font-label text-[12px] text-[#F5F4EFB3]">@{username}</span>
+            </div>
+          </div>
+          {worn && (
+            <span className="flex h-7 items-center gap-[7px] self-start rounded-full border border-[#F5F4EF66] pl-1.5 pr-[11px] font-label text-[10.5px] tracking-[0.14em]">
+              <span className="flex size-4 items-center justify-center rounded-full border-[1.5px] border-[#F5F4EF] text-[7px]">{worn.milestone === 1000 ? "1K" : worn.milestone}</span>{worn.name.toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col px-5 pt-5 sm:px-0">
+          <span className="pb-1.5 font-label text-[11px] tracking-[0.14em]">SHOW ON YOUR PROFILE</span>
+          <div aria-label="Show on your profile" role="radiogroup">
+            {options.map((option) => (
+              <div key={option.id}>
+                <button
+                  aria-checked={selectedId === option.id}
+                  aria-disabled={!option.ok}
+                  className={`flex min-h-[62px] w-full items-center justify-between gap-3 border-t border-[#0D0D0D1F] text-left ${focus} ${option.ok ? "" : "cursor-default opacity-55"}`}
+                  disabled={pending !== null && option.ok}
+                  onClick={() => { if (option.ok) option.run(); }}
+                  role="radio"
+                  type="button"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="flex size-5 flex-none items-center justify-center rounded-full border-2 border-[#0D0D0D]"><span className={`size-2.5 rounded-full ${selectedId === option.id ? "bg-[#0D0D0D]" : ""}`} /></span>
+                    <span className="flex flex-col gap-0.5"><span className="text-[15px] font-semibold">{option.k}</span><span className="text-[12.5px] text-[#0D0D0DB3]">{option.v}</span></span>
+                  </span>
+                  {option.tag && <span className={`whitespace-nowrap rounded-full px-[9px] py-[5px] font-label text-[10px] leading-none tracking-[0.12em] ${option.tag === "PLUS" ? "bg-[#FF5A4F]" : option.tag === "EARNED" ? "bg-[#0D0D0D] text-[#F5F4EF]" : "bg-[#0D0D0D14]"}`}>{option.tag}</span>}
+                </button>
+                {option.id === "stamp" && memberPlan && choosing && (
+                  <ul aria-label="Choose a stamp" className="-mx-5 flex list-none gap-2 overflow-x-auto px-5 pb-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+                    {data.stamps.map((stamp) => (
+                      <li className="flex-none" key={stamp.id}>
+                        <button aria-label={stampLabel(stamp, language)} aria-pressed={featured?.id === stamp.id} className={`flex size-[72px] items-center justify-center rounded-2xl border-2 ${featured?.id === stamp.id ? "border-[#0D0D0D]" : "border-transparent"} ${focus}`} onClick={() => { onFeature(stamp); setChoosing(false); }} type="button"><PassportRecordStamp size={56} stamp={stamp} /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="border-t border-[#0D0D0D1F] pt-4 text-[13px] leading-[1.5] text-[#0D0D0DB3]">Your count, collection and history stay private. Only what you choose here appears on a published profile.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DetailHead({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 text-center">
+      <span className="font-label text-[11px] tracking-[0.16em] text-[#0D0D0DB3]">{eyebrow}</span>
+      <h2 className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] [overflow-wrap:anywhere]">{title}</h2>
+    </div>
+  );
+}
+
+function StampDetail({ stamp, featured, language, memberPlan, milestones, onClose, onFeature, onPlus, onWear, pending, preferences, coverId, unlocked }: {
+  stamp: PassportStampRecord;
+  featured: boolean;
+  language: string;
+  memberPlan: boolean;
+  milestones: MilestoneRecord[];
+  onClose: () => void;
+  onFeature: (value: boolean) => void;
+  onPlus: () => void;
+  onWear: (category: RewardCategory, id: string) => void;
+  pending: string | null;
+  preferences: Partial<Record<RewardCategory, string>>;
+  coverId: CoverId;
+  unlocked: Set<string>;
+}) {
+  const threshold = stampThreshold(stamp);
+  const label = stampLabel(stamp, language);
+  const isMilestone = stamp.type === "milestone" && threshold != null;
+  const eyebrow = isMilestone ? `MILESTONE · ${ordinalOf(threshold)}` : stamp.type === "city" ? `CITY${stamp.countryCode ? ` · ${stamp.countryCode}` : ""}` : stamp.type === "event" ? "EVENT" : `COUNTRY · ${(stamp.countryCode ?? stamp.title).toUpperCase()}`;
+  const line = isMilestone ? `${threshold.toLocaleString("en")} people connected with you through Setuvara.` : placeContext(stamp, language);
+  const rewards = isMilestone ? wearableRewards(threshold) : [];
+  const worn = (category: RewardCategory, id: string) => category === "passport_cover" ? coverId === id : preferences[category] === id;
+  return (
+    <PassportSheet label={`${label} stamp`} onClose={onClose}>
+      <div className="flex flex-col gap-5">
+        <div className="flex justify-center pt-2.5"><PassportRecordStamp isNew={isNewStamp(stamp, milestones)} featured={featured} size={178} stamp={stamp} /></div>
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <DetailHead eyebrow={eyebrow} title={label} />
+          {line && <p className="text-[15px] text-[#0D0D0DB3]">{line}</p>}
+        </div>
+        <dl className="grid grid-cols-2 border-y border-[#0D0D0D1F]">
+          <div className="flex flex-col gap-[3px] py-3"><dt className="font-label text-[10px] tracking-[0.14em] text-[#0D0D0DB3]">EARNED</dt><dd className="text-[15px] font-semibold">{dayMark(stamp.earnedAt) || "Recorded"}</dd></div>
+          <div className="flex flex-col gap-[3px] border-l border-[#0D0D0D1F] py-3 pl-3.5"><dt className="font-label text-[10px] tracking-[0.14em] text-[#0D0D0DB3]">KEPT</dt><dd className="text-[15px] font-semibold">Forever</dd></div>
+        </dl>
+        {rewards.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            <span className="pb-1 font-label text-[10.5px] tracking-[0.14em] text-[#0D0D0DB3]">UNLOCKED WITH IT</span>
+            <ul className="flex list-none flex-col">
+              {rewards.map((reward, index) => {
+                const has = unlocked.has(reward.id);
+                const wearing = worn(reward.category, reward.id);
+                return (
+                  <li className={`flex min-h-[52px] items-center justify-between gap-3 ${index < rewards.length - 1 ? "border-b border-[#0D0D0D1F]" : ""}`} key={reward.id}>
+                    <span className="text-[15px] font-semibold">{reward.name} · {rewardKind(reward)}</span>
+                    {has ? (
+                      <button aria-pressed={wearing} className={`h-9 flex-none rounded-full px-3.5 text-[13px] font-semibold ${focus} ${wearing ? "border-[1.5px] border-[#0D0D0D]" : "bg-[#0D0D0D] text-[#F5F4EF]"}`} disabled={wearing || pending !== null} onClick={() => onWear(reward.category, reward.id)} type="button">{wearing ? "Wearing" : pending === `reward:${reward.id}` || pending === `cover:${reward.id}` ? "Saving…" : "Wear"}</button>
+                    ) : <span className="font-label text-[10.5px] tracking-[0.12em] text-[#0D0D0DB3]">SYNCING</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        <button
+          aria-pressed={memberPlan ? featured : undefined}
+          className={`${pillOutline} h-[52px] gap-2 text-[15px] disabled:opacity-60`}
+          disabled={pending === "featured"}
+          onClick={() => (memberPlan ? onFeature(!featured) : onPlus())}
+          type="button"
+        >
+          <MemberBadge decorative size={18} tier="plus" />{featured ? "Shown on your Passport cover" : "Show on Passport cover"}
+        </button>
+      </div>
+    </PassportSheet>
+  );
+}
+
+function AheadDetail({ threshold, state, count, onClose }: { threshold: number; state: "progress" | "locked"; count: number; onClose: () => void }) {
+  const name = milestoneName(threshold);
+  const left = Math.max(0, threshold - count);
+  const rewards = wearableRewards(threshold);
+  return (
+    <PassportSheet label={`${name}, not yet earned`} onClose={onClose}>
+      <div className="flex flex-col gap-[22px]">
+        <div className="flex justify-center pt-2.5"><PassportAheadStamp count={count} size={178} state={state} threshold={threshold} /></div>
+        <DetailHead eyebrow={`MILESTONE · ${ordinalOf(threshold)}`} title={name} />
+        {state === "progress" ? (
+          <p className="flex items-baseline justify-center gap-2"><span className="font-display text-[64px] font-extrabold leading-[0.9] tracking-[-0.06em]">{count.toLocaleString("en")}</span><span className="font-display text-[28px] font-bold text-[#0D0D0D80]">/ {threshold.toLocaleString("en")}</span></p>
+        ) : <p className="text-center font-label text-[12px] tracking-[0.14em] text-[#0D0D0DB3]">AT {threshold.toLocaleString("en")} CONNECTIONS</p>}
+        <p className="text-center text-[15px] leading-[1.5] text-[#0D0D0DB3]">{left.toLocaleString("en")} more {left === 1 ? "person" : "people"}. Every real Connection moves this forward.</p>
+        {rewards.length > 0 && (
+          <div className="flex flex-col border-t border-[#0D0D0D1F]">
+            <span className="pb-1 pt-3 font-label text-[10.5px] tracking-[0.14em] text-[#0D0D0DB3]">WAITING INSIDE</span>
+            <ul className="flex list-none flex-col">
+              {rewards.map((reward, index) => (
+                <li className={`flex min-h-11 items-center justify-between ${index < rewards.length - 1 ? "border-b border-[#0D0D0D1F]" : ""}`} key={reward.id}><span className="text-[15px] font-semibold">{reward.name}</span><span className="font-label text-[10.5px] tracking-[0.12em] text-[#0D0D0DB3]">AT {threshold.toLocaleString("en")}</span></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <Link className={`${pillInk} h-[52px] text-[15px]`} href="/app/tap">Show Quick QR</Link>
+      </div>
+    </PassportSheet>
+  );
+}
+
+/** Newly earned (10): the page slides up, the stamp is pressed, the ink settles. No confetti, no sound. */
+function PressDialog({ milestone, onDone, onView }: { milestone: MilestoneRecord; onDone: () => void; onView?: () => void }) {
+  const panel = useRef<HTMLElement>(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const name = milestoneName(milestone.threshold);
+  const index = MILESTONES.findIndex((item) => item.threshold === milestone.threshold);
+
+  const acknowledge = useCallback(async (view = false) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     try {
-      await navigator.clipboard.writeText(profileUrl);
-      setCopied(true);
-      setCopyMessage("Profile link copied.");
-      window.setTimeout(() => setCopied(false), 1800);
+      const { error } = await createClient().rpc("ack_passport_milestone", { p_threshold: milestone.threshold });
+      if (!error) { onDone(); if (view) onView?.(); }
     } catch {
-      setCopied(false);
-      setCopyMessage("Copy is unavailable here. Select the profile link above to copy it.");
+      // Stay open so the owner can retry without losing the moment.
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-  }
-
-  return (
-    <section className="grid gap-5 rounded-[1.75rem] bg-[#FF5A4F] p-6 text-[#0D0D0D] sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
-      <div><SectionEyebrow>ONE IDENTITY · EVERY MOMENT</SectionEyebrow><h3 className="mt-2 font-display text-2xl font-bold tracking-[-0.045em]">{displayName}’s Passport stays theirs.</h3><p className="mt-2 max-w-xl text-sm leading-6 text-black/65">Share your public identity when you are ready. The Passport remains private.</p><code className="mt-3 block break-all rounded-xl border border-black/15 bg-white/45 px-3 py-2 font-label text-[11px]">{profileUrl}</code><div className="mt-4 flex flex-wrap gap-3"><Link className="inline-flex min-h-11 items-center rounded-full bg-[#0D0D0D] px-4 text-sm font-semibold text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2" href={profileUrl}>Open my profile</Link><button className="inline-flex min-h-11 items-center rounded-full border border-black/30 px-4 text-sm font-semibold hover:bg-white/20 focus-visible:outline-2" onClick={() => void copyProfile()} type="button">{copied ? "Copied" : "Copy profile link"}</button></div><p aria-live="polite" className="mt-2 min-h-5 text-xs">{copyMessage}</p></div>
-      <div aria-label="Your public Setuvara profile QR code" className="mx-auto rounded-2xl bg-white p-3 sm:mx-0"><QRCodeSVG value={profileUrl} size={132} level="Q" marginSize={2} /></div>
-    </section>
-  );
-}
-
-function SectionEyebrow({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
-  return <p className={`font-label text-[9px] font-semibold tracking-[0.2em] ${dark ? "text-white/50" : "text-black/45"}`}>{children}</p>;
-}
-
-function stampStatus(stamp: PassportStampRecord, milestones: MilestoneRecord[]): PassportStampStatus {
-  if (stamp.type === "milestone") {
-    const threshold = Number(stamp.key ?? stamp.subtitle?.match(/\d+/)?.[0]);
-    const milestone = milestones.find((item) => item.threshold === threshold);
-    if (milestone && !milestone.seenAt) return "new";
-  }
-  const earned = Date.parse(stamp.earnedAt);
-  return Number.isFinite(earned) && Date.now() - earned < 14 * 24 * 60 * 60 * 1000 ? "new" : "earned";
-}
-
-function appendUniqueStamps(existing: PassportStampRecord[], incoming: PassportStampRecord[]) {
-  const seen = new Set(existing.map((stamp) => stamp.id));
-  return [...existing, ...incoming.filter((stamp) => !seen.has(stamp.id))];
-}
-
-function stampTitle(stamp: PassportStampRecord) {
-  if (stamp.type === "country") return countryName(stamp.countryCode ?? stamp.title);
-  return stamp.title;
-}
-
-function humanizeSubtitle(stamp: PassportStampRecord) {
-  if (stamp.type === "city" && stamp.countryCode) {
-    const pieces = (stamp.subtitle ?? "").split(" · ");
-    const year = pieces.find((part) => /^\d{4}$/.test(part));
-    return [countryName(stamp.countryCode), year].filter(Boolean).join(" · ");
-  }
-  if (stamp.type === "event" && stamp.countryCode) {
-    return (stamp.subtitle ?? "").replace(stamp.countryCode, countryName(stamp.countryCode));
-  }
-  return stamp.subtitle ?? "";
-}
-
-function countryName(code: string) {
-  try { return new Intl.DisplayNames(["en"], { type: "region" }).of(code.toUpperCase()) ?? code.toUpperCase(); }
-  catch { return code.toUpperCase(); }
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Recorded";
-  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric" }).format(date);
-}
-
-export function CelebrationClient({ threshold, name }: { threshold: number | null; name: string | null }) {
-  const [open, setOpen] = useState(Boolean(threshold));
-  const [acknowledging, setAcknowledging] = useState(false);
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  }, [milestone.threshold, onDone, onView]);
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!open || !dialog || dialog.open) return;
-    dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panel.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); void acknowledge(); return; }
+      trapTab(event, panel.current);
     };
-  }, [open]);
+    document.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = previous; document.removeEventListener("keydown", onKey); };
+  }, [acknowledge]);
 
-  async function acknowledge() {
-    if (!threshold || acknowledging) return;
-    setAcknowledging(true);
-    try {
-      const { error } = await createClient().rpc("ack_passport_milestone", { p_threshold: threshold });
-      if (!error) setOpen(false);
-    } catch {
-      // Keep the celebration open so the owner can retry without losing the milestone.
-    } finally {
-      setAcknowledging(false);
-    }
-  }
-
-  if (!open || !threshold || !name) return null;
   return (
-    <dialog aria-labelledby="milestone-heading" className="fixed m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-auto rounded-[2rem] border-0 bg-[#F5F4EF] p-6 text-[#0D0D0D] shadow-2xl backdrop:bg-[#0D0D0D]/60 sm:p-8" onCancel={(event) => { event.preventDefault(); void acknowledge(); }} onMouseDown={(event) => { if (event.target === event.currentTarget) void acknowledge(); }} ref={dialogRef}>
-      <section className="grid gap-6 sm:grid-cols-[150px_1fr] sm:items-center">
-        <div className="mx-auto"><PassportStamp type="milestone" title={name} subtitle={`${threshold} Connections`} status="new" size="large" rotationKey={String(threshold)} /></div>
-        <div><SectionEyebrow>A REAL MILESTONE</SectionEyebrow><h2 className="mt-2 font-display text-4xl font-bold leading-[.95] tracking-[-0.06em]" id="milestone-heading">{threshold} people met.</h2><p className="mt-2 font-label text-[10px] font-bold tracking-[0.17em]">{name.toUpperCase()}</p><p className="mt-4 text-sm leading-6 text-black/60">This milestone is part of your Passport. Your count is private, and it never resets.</p><div className="mt-5 flex flex-wrap gap-3"><Link className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-sm font-semibold focus-visible:outline-2" href="/app/passport" onClick={() => void acknowledge()}>Open Passport</Link><button className="min-h-11 rounded-full border border-black/15 px-4 text-sm font-semibold focus-visible:outline-2" disabled={acknowledging} onClick={() => void acknowledge()} type="button">{acknowledging ? "Saving…" : "Keep going"}</button></div></div>
+    <div className="fixed inset-0 z-[95] flex items-stretch justify-center sm:items-center sm:p-6" data-passport-press={milestone.threshold}>
+      <div aria-hidden="true" className="absolute inset-0 hidden bg-[#0D0D0D8C] [animation:fade-in_200ms_ease-out] sm:block" />
+      <section
+        aria-labelledby="press-title"
+        aria-modal="true"
+        className="relative flex w-full flex-col gap-[26px] overflow-y-auto bg-[#0D0D0D] px-7 pb-[calc(34px+env(safe-area-inset-bottom))] pt-[calc(28px+env(safe-area-inset-top))] text-[#F5F4EF] outline-none [animation:passport-page-up_320ms_cubic-bezier(.2,.8,.2,1)_both] sm:max-h-[calc(100dvh-48px)] sm:max-w-[420px] sm:rounded-[36px] sm:pt-8"
+        ref={panel}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <span className="font-label text-[12px] tracking-[0.2em] text-[#FF5A4F]">NEW STAMP · {String(index + 1).padStart(2, "0")} OF {String(MILESTONES.length).padStart(2, "0")}</span>
+        <div className="relative flex h-[310px] flex-none items-center justify-center overflow-hidden rounded-[6px_18px_18px_6px] bg-[#F5F4EF]">
+          <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[18px] border-r border-[#0D0D0D1F]" />
+          <span aria-hidden="true" className="absolute left-[34px] right-4 top-[18px] flex justify-between font-label text-[9.5px] tracking-[0.14em] text-[#0D0D0D99]"><span>PAGE {String(index + 1).padStart(2, "0")}</span><span>{pageDate(milestone.unlockedAt)}</span></span>
+          <span className="block [animation:passport-press_260ms_cubic-bezier(.2,.9,.3,1)_both,passport-ink_400ms_260ms_ease-out_both] motion-reduce:[animation:none]">
+            <PassportStamp rotation={0} size={210} sub={dayMark(milestone.unlockedAt).toUpperCase()} threshold={milestone.threshold} title={name} type="milestone" />
+          </span>
+        </div>
+        <div className="flex flex-col gap-2 [animation:passport-rise_320ms_180ms_ease-out_both] motion-reduce:[animation:none]">
+          <h2 className="font-display text-[52px] font-extrabold leading-[0.95] tracking-[-0.055em]" id="press-title">{name}</h2>
+          <span className="text-[17px] font-semibold">{milestone.threshold.toLocaleString("en")} people. All real.</span>
+          {earnedLong(milestone.unlockedAt) && <span className="font-label text-[12px] tracking-[0.1em] text-[#F5F4EFB3]">EARNED {earnedLong(milestone.unlockedAt)}</span>}
+        </div>
+        {alsoUnlocked(milestone.threshold) && <p className="text-[14.5px] leading-[1.5] text-[#F5F4EFCC] [animation:passport-rise_320ms_220ms_ease-out_both] motion-reduce:[animation:none]">{alsoUnlocked(milestone.threshold)}</p>}
+        <div className="mt-auto flex flex-col gap-2.5">
+          <button className="flex h-[52px] items-center justify-center rounded-full bg-[#FF5A4F] text-[16px] font-semibold text-[#0D0D0D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4EF] disabled:opacity-70" disabled={saving} onClick={() => void acknowledge(true)} type="button">{saving ? "Saving…" : "View Passport"}</button>
+          <button className="flex h-12 items-center justify-center rounded-full border-[1.5px] border-[#F5F4EF55] text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4EF] disabled:opacity-70" disabled={saving} onClick={() => void acknowledge()} type="button">Keep going</button>
+        </div>
       </section>
-    </dialog>
+    </div>
   );
+}
+
+/** The same press moment for surfaces outside Passport (the Identity editor). */
+export function CelebrationClient({ threshold }: { threshold: number | null; name?: string | null }) {
+  const [open, setOpen] = useState(Boolean(threshold));
+  const router = useRouter();
+  if (!open || !threshold) return null;
+  return <PressDialog milestone={{ threshold, unlockedAt: "", seenAt: null }} onDone={() => setOpen(false)} onView={() => router.push("/app/passport")} />;
 }
