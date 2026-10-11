@@ -273,18 +273,22 @@ describe("ProfileRenderer", () => {
     }
   });
 
-  test("Event shows the event card; Save contact and Book a call follow the Mode", () => {
-    const event = render(mode("event", { layout: "conference-card", imageTreatment: "portrait" }));
+  test("Event shows its card and Connect action; only configured booking adds a second visitor action", () => {
+    const connect = lib.createElement("button", { "data-test-connect": "" }, "Connect");
+    const renderWithConnect = (item, extra = {}) => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: item, viewerState: "visitor_unconnected", visitorAction: connect, sound: "off", ...extra }));
+    const event = renderWithConnect(mode("event", { layout: "conference-card", imageTreatment: "portrait" }));
     assert.match(event, /data-event-card/);
     assert.match(event, />Slush</);
     assert.match(event, /HELSINKI · NOV 2026|Helsinki · Nov 2026/);
-    assert.match(event, /href="\/aanya\/contact\?mode=event"/);
+    assert.match(event, /data-test-connect/);
+    assert.doesNotMatch(event, /save-contact|\/contact\?/);
     assert.doesNotMatch(render(mode("event", { layout: "poster", imageTreatment: "portrait" }), "plus"), /data-event-card/, "Poster carries the event in its headline");
     const booking = { id: "cal", title: "Intro call", url: "https://calendly.com/aanya", link_type: "calendly", is_visible: true, sort_order: 2 };
-    const business = render(mode("business", { layout: "structured", imageTreatment: "portrait" }, { links: [...links, booking] }));
+    const business = renderWithConnect(mode("business", { layout: "structured", imageTreatment: "portrait" }, { links: [...links, booking] }));
     assert.match(business, /data-profile-action="book"/);
     assert.match(business, /Book a call/);
-    assert.match(render(mode("personal", { layout: "full-bleed", imageTreatment: "portrait" })), /href="\/aanya\/contact\?mode=personal"/);
+    assert.match(renderWithConnect(mode("personal", { layout: "full-bleed", imageTreatment: "portrait" })), /data-test-connect/);
+    assert.doesNotMatch(renderWithConnect(mode("personal", { layout: "full-bleed", imageTreatment: "portrait" })), /save-contact|\/contact\?/);
   });
 
   test("member badges: Plus coral, Pro champagne, none on Free", () => {
@@ -346,10 +350,12 @@ describe("ProfileRenderer", () => {
     assert.match(html, /data-footer/);
   });
 
-  test("Dutch chrome comes from the i18n system", () => {
-    const html = lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: mode("event", { layout: "conference-card", imageTreatment: "portrait" }), viewerState: "visitor_unconnected", sound: "off", locale: "nl", attribution: true }));
-    assert.match(html, /Contact opslaan/);
-    assert.match(html, /Ik wil ontmoeten/);
+  test("interface chrome stays English while profile-authored Dutch content stays untouched", () => {
+    const authoredBio = "Ik ontwerp producten in Amsterdam.";
+    const html = lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile: { ...profile, bio: authoredBio }, mode: mode("event", { layout: "conference-card", imageTreatment: "portrait" }), viewerState: "visitor_unconnected", visitorAction: lib.createElement("button", null, "Connect"), sound: "off", locale: "nl", attribution: true }));
+    assert.match(html, />Connect</);
+    assert.match(html, new RegExp(authoredBio));
+    assert.doesNotMatch(html, /Contact opslaan|Ik wil ontmoeten|save-contact|\/contact\?/);
   });
 });
 

@@ -120,9 +120,10 @@ export function coverSerial(handle: string) {
   return `Nº ${digits.slice(0, 4)} ${digits.slice(4)}`;
 }
 
-export function countryName(code: string, language = "en") {
+export function countryName(code: string, _language = "en") {
+  void _language;
   const upper = code.toUpperCase();
-  try { return new Intl.DisplayNames([language], { type: "region" }).of(upper) ?? upper; }
+  try { return new Intl.DisplayNames(["en"], { type: "region" }).of(upper) ?? upper; }
   catch { return upper; }
 }
 

@@ -33,5 +33,5 @@ export function useConnectPass(mode: ModeSlug, active: boolean) {
 }
 
 export function passExpiryLabel(expiresAt: string) {
-  return new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(expiresAt));
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(expiresAt));
 }

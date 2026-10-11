@@ -172,7 +172,7 @@ async function waitForConfirmation(email) {
 }
 
 async function signUpAndConfirm(browser, account, viewport = { width: 390, height: 844 }, existingContext = null, claimGuest = false) {
-  const context = existingContext ?? await browser.newContext({ viewport, permissions: ["clipboard-read", "clipboard-write"] });
+  const context = existingContext ?? await newDutchContext(browser, { viewport, permissions: ["clipboard-read", "clipboard-write"] });
   const page = await context.newPage();
   let confirmationRouteSeen = false;
   page.on("request", (request) => { if (new URL(request.url()).pathname === "/auth/confirm") confirmationRouteSeen = true; });
@@ -196,12 +196,22 @@ async function signUpAndConfirm(browser, account, viewport = { width: 390, heigh
   return { context, page };
 }
 
+async function newDutchContext(browser, options = {}) {
+  const context = await browser.newContext({
+    ...options,
+    locale: "nl-NL",
+    extraHTTPHeaders: { ...options.extraHTTPHeaders, "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" },
+  });
+  await context.addCookies([{ name: "sv-locale", value: "nl", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
+  return context;
+}
+
 async function expectNoHorizontalOverflow(page, label) {
   const size = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   assert(size.scroll <= size.client + 1, `${label} overflows horizontally (${size.scroll} > ${size.client})`);
 }
 
-const profileThemeColors = { dark: "#0D0D0D", light: "#FFFFFF", editorial: "#F5F4EF" };
+const profileThemeColors = { dark: "#0D0D0D", light: "#F5F4EF", editorial: "#F5F4EF" };
 const asRgb = (hex) => `rgb(${[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)).join(", ")})`;
 
 async function assertPublicProfileTheme(page, username, mode, theme, label, refresh = false) {
@@ -318,13 +328,36 @@ async function openSection(page, title) {
   const labels = { "Links": "Content", "Mode settings": "Mode Settings" };
   const actual = labels[title] ?? title;
   const section = { Profile: "profile", Links: "links", Appearance: "appearance", "Mode settings": "settings", Share: "share" }[title];
+  if (page.viewportSize().width < 1024 && section) {
+    const target = new URL(page.url());
+    target.searchParams.set("section", section);
+    await page.goto(target.toString());
+    if (title === "Appearance") {
+      await page.getByRole("tab", { name: "Theme", exact: true }).filter({ visible: true }).waitFor();
+    } else {
+      await page.getByRole("heading", { name: actual, exact: true }).filter({ visible: true }).waitFor();
+    }
+    return;
+  }
+  const backToCurrent = page.getByRole("button", { name: "Back to current", exact: true }).filter({ visible: true });
+  if (await backToCurrent.count()) await backToCurrent.click();
   const control = page.getByRole("button", { name: actual, exact: true }).filter({ visible: true }).first();
   if (await control.count()) await control.click();
   else {
     const target = new URL(page.url()); target.searchParams.set("section", section);
     await page.goto(target.toString());
   }
+  if (title === "Appearance" && page.viewportSize().width < 1024) {
+    await page.getByRole("tab", { name: "Theme", exact: true }).filter({ visible: true }).waitFor();
+    return;
+  }
   await page.getByRole("heading", { name: actual, exact: true }).filter({ visible: true }).waitFor();
+}
+
+async function selectAppearanceTab(page, tabName) {
+  if (page.viewportSize().width >= 1024) return;
+  const tab = page.getByRole("tab", { name: tabName, exact: true }).filter({ visible: true });
+  if (await tab.count()) await tab.click();
 }
 
 async function waitSaved(page) {
@@ -394,7 +427,7 @@ async function addLink(page, title, value, provider = "Custom Link") {
   await page.getByRole("switch", { name: `Hide ${title}`, exact: true }).waitFor();
 }
 async function setMode(page, mode) {
-  await page.getByRole("tab", { name: new RegExp(`^${mode}`, "i") }).filter({ visible: true }).click();
+  await page.getByRole("tab", { name: new RegExp(`^${mode}`, "i") }).filter({ visible: true }).first().click();
 }
 
 function cssRgb(hex) {
@@ -432,7 +465,7 @@ async function assertEditorAccent(page, modeName, hex) {
   const modeLabels = { personal: "Personal", event: "Event", business: "Business" };
   const modeLabel = modeLabels[modeName];
   const expected = cssRgb(hex);
-  const connectLabel = modeName === "event" ? "Connect at Slush" : "Connect";
+  const connectLabel = "Connect";
 
   await state.getByRole("radio", { name: "Owner", exact: true }).click();
   const share = preview.getByRole("link", { name: `Share ${modeLabel} Mode`, exact: true });
@@ -444,8 +477,9 @@ async function assertEditorAccent(page, modeName, hex) {
   assert.equal(await connect.evaluate((element) => getComputedStyle(element).backgroundColor), expected, `${modeName} visitor Connect action should use its Mode accent`);
 
   await state.getByRole("radio", { name: "Connected", exact: true }).click();
-  const metLabel = preview.getByText("You met", { exact: true });
-  assert.equal(await metLabel.evaluate((element) => getComputedStyle(element).color), expected, `${modeName} connected context should use its Mode accent`);
+  const connectedAction = preview.locator('[data-profile-action="connected"]');
+  await connectedAction.waitFor();
+  assert.match(await connectedAction.innerText(), /^Connected(?:\s|$)/, `${modeName} connected preview uses the current English connection state`);
   await state.getByRole("radio", { name: "Visitor", exact: true }).click();
 }
 
@@ -460,7 +494,7 @@ async function setAndAssertAccent(page, mode, hex) {
 async function assertPublicConnectAccent(page, username, mode, hex) {
   const response = await page.goto(`${appUrl}/${username}?mode=${mode}`);
   assert.equal(response?.status(), 200, `Published ${mode} profile should load for an anonymous visitor`);
-  const label = mode === "event" ? "Connect at Slush" : "Connect";
+  const label = "Connect";
   const expected = cssRgb(hex);
   const trigger = page.getByRole("button", { name: label, exact: true });
   assert.equal(await trigger.evaluate((element) => getComputedStyle(element).backgroundColor), expected, `${mode} public Connect action should use its saved Mode accent`);
@@ -472,7 +506,7 @@ async function assertPublicConnectAccent(page, username, mode, hex) {
 }
 
 async function testResponsiveAuth(browser, width, height) {
-  const context = await browser.newContext({ viewport: { width, height } });
+  const context = await newDutchContext(browser, { viewport: { width, height } });
   const page = await context.newPage();
   for (const route of ["/signup", "/login"]) {
     const response = await page.goto(`${appUrl}${route}`);
@@ -623,35 +657,37 @@ try {
   const page = ownerBrowser.page;
   const ownerLocaleAuth = await authenticatedClient(owner);
   ownerId = ownerLocaleAuth.user.id;
+  const initializeLegacyPreference = await ownerLocaleAuth.client.rpc("set_account_locale", { p_locale: "en" });
+  assert.ifError(initializeLegacyPreference.error);
+  const initialPreferences = await ownerLocaleAuth.client.from("account_preferences").select("preferred_locale, region_code").eq("user_id", ownerId).single();
+  assert.ifError(initialPreferences.error);
+  const localePreferenceUpdate = await ownerLocaleAuth.client.rpc("set_account_locale", { p_locale: "nl" });
+  assert.ifError(localePreferenceUpdate.error);
+  const savedLocale = await ownerLocaleAuth.client.from("account_preferences").select("preferred_locale, region_code").eq("user_id", ownerId).single();
+  assert.ifError(savedLocale.error);
+  assert.equal(savedLocale.data.preferred_locale, "nl", "the legacy stored preference remains intact");
+  assert.equal(savedLocale.data.region_code, initialPreferences.data.region_code, "the region preference remains independent from interface language");
+
+  await ownerBrowser.context.addCookies([{ name: "sv-locale", value: "nl", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
   await page.goto(`${appUrl}/app/settings/language`);
-  await page.getByRole("heading", { level: 1, name: "Language", exact: true }).waitFor();
-  const languageToggle = page.locator('[aria-label="Language"]');
-  await languageToggle.getByRole("button", { name: "Nederlands", exact: true }).click();
-  await page.getByRole("heading", { level: 1, name: "Taal", exact: true }).waitFor();
-  const savedDutchPreference = await ownerLocaleAuth.client.from("account_preferences").select("preferred_locale, region_code").eq("user_id", ownerId).single();
-  assert.ifError(savedDutchPreference.error);
-  assert.equal(savedDutchPreference.data.preferred_locale, "nl", "Authenticated Dutch choice should persist in the account preference");
-  assert.equal(savedDutchPreference.data.region_code, null, "Choosing a language must not infer or change region");
-  await ownerBrowser.context.addCookies([{ name: "sv-locale", value: "en", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
-  await page.reload();
-  await page.getByRole("heading", { level: 1, name: "Taal", exact: true }).waitFor();
-  assert.equal(await page.locator('[aria-label="Language"] button[aria-pressed="true"]').innerText(), "Nederlands", "Saved account language takes precedence over a conflicting locale cookie");
-  await page.locator('[aria-label="Language"]').getByRole("button", { name: "English", exact: true }).click();
-  await page.getByRole("heading", { level: 1, name: "Language", exact: true }).waitFor();
-  const savedEnglishPreference = await ownerLocaleAuth.client.from("account_preferences").select("preferred_locale").eq("user_id", ownerId).single();
-  assert.ifError(savedEnglishPreference.error);
-  assert.equal(savedEnglishPreference.data.preferred_locale, "en", "Returning to English should persist the account preference");
-  const dutchGuestContext = await browser.newContext({ extraHTTPHeaders: { "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" } });
-  const dutchGuestPage = await dutchGuestContext.newPage();
-  await dutchGuestPage.goto(`${appUrl}/signup`);
-  assert.match(await dutchGuestPage.locator("html").getAttribute("lang"), /^nl(?:-|$)/, "Guest Accept-Language should select the supported Dutch locale");
-  await dutchGuestContext.addCookies([{ name: "sv-locale", value: "en", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
-  await dutchGuestPage.goto(`${appUrl}/signup`);
-  assert.equal(await dutchGuestPage.locator("html").getAttribute("lang"), "en", "Guest locale cookie should take precedence over Accept-Language");
-  await dutchGuestContext.addCookies([{ name: "sv-locale", value: "fr", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
-  await dutchGuestPage.goto(`${appUrl}/login`);
-  assert.match(await dutchGuestPage.locator("html").getAttribute("lang"), /^nl(?:-|$)/, "Unsupported locale cookies should fall back to supported Accept-Language");
-  await dutchGuestContext.close();
+  await page.getByRole("heading", { level: 1, name: "Region", exact: true }).waitFor();
+  await page.waitForURL("**/app/settings/region");
+  assert.equal(await page.locator("html").getAttribute("lang"), "en", "authenticated app pages stay English with Dutch cookie and stored preference");
+  assert.equal(await page.getByText("Nederlands", { exact: true }).count(), 0, "language selectors are removed from account settings");
+  if (savedLocale.data.region_code) assert(await page.getByText(savedLocale.data.region_code, { exact: true }).count(), "region remains visible independently");
+
+  await page.goto(`${appUrl}/app/identity?mode=personal&section=settings`);
+  assert.equal(await page.locator("html").getAttribute("lang"), "en", "Identity Editor stays English with Dutch cookie and stored preference");
+  assert.equal(await page.getByText("Nederlands", { exact: true }).count(), 0, "Identity Mode Settings has no language selector");
+
+  const englishOnlyGuestContext = await newDutchContext(browser);
+  const englishOnlyGuestPage = await englishOnlyGuestContext.newPage();
+  for (const path of ["/signup", "/login"]) {
+    await englishOnlyGuestPage.goto(`${appUrl}${path}`);
+    assert.equal(await englishOnlyGuestPage.locator("html").getAttribute("lang"), "en", `${path} stays English with Dutch browser and cookie preferences`);
+    assert.doesNotMatch(await englishOnlyGuestPage.locator("body").innerText(), /Nederlands|Inloggen|Wachtwoord|Identiteit/u, `${path} should not render Dutch UI copy`);
+  }
+  await englishOnlyGuestContext.close();
 
   await page.goto(`${appUrl}/app/context`);
   await page.getByRole("heading", { name: "Where are you meeting people?" }).waitFor();
@@ -984,7 +1020,8 @@ try {
   await waitSaved(page);
   await openSection(page, "Appearance");
   await page.getByRole("button", { name: /Light/ }).click();
-  await page.getByRole("button", { name: /Event Poster/ }).click();
+  await selectAppearanceTab(page, "Layout");
+  await page.getByRole("button", { name: /^Poster\b/ }).click();
   await page.keyboard.press("Control+s");
   await waitSaved(page);
   await addLink(page, "Slush connections", "https://slush.org", "Event Page");
@@ -1006,8 +1043,9 @@ try {
   await waitSaved(page);
   await openSection(page, "Appearance");
   // This account is Free; Editorial is tested with the Plus account in e2e-analytics.
-  await page.getByRole("button", { name: "Dark theme" }).click();
-  await page.getByRole("button", { name: /Editorial Business/ }).click();
+  await page.getByRole("button", { name: /^Dark\b/ }).click();
+  await selectAppearanceTab(page, "Layout");
+  await page.getByRole("button", { name: /^Cover\b/ }).click();
   await page.keyboard.press("Control+s");
   await waitSaved(page);
   await addLink(page, "Book an intro", "michel", "Calendly");
@@ -1059,8 +1097,11 @@ try {
   }
   await setMode(page, "personal");
   await openSection(page, "Appearance");
-  await page.getByRole("button", { name: /Full Bleed/ }).click();
-  await page.getByRole("button", { name: "Dark theme" }).click();
+  await page.getByRole("button", { name: /^Image\b/ }).click();
+  const imageSheet = page.getByRole("dialog").last();
+  await imageSheet.getByRole("button", { name: /^Full\b/ }).click();
+  await imageSheet.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Dark", exact: true }).click();
   await waitSaved(page);
   await setMode(page, "business");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1080,7 +1121,7 @@ try {
   await openSection(page, "Profile");
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await waitEditorMessage(page, "Your profile is live");
-  const anonContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const anonContext = await newDutchContext(browser, { viewport: { width: 390, height: 844 } });
   const anonPage = await anonContext.newPage();
   assert.equal((await anonContext.request.get(`${appUrl}/api/analytics?range=7d`)).status(), 401, "Anonymous users cannot read profile analytics");
   assert.equal((await anonContext.request.get(`${appUrl}/api/analytics/export?range=7d`)).status(), 401, "Anonymous users cannot export profile analytics");
@@ -1253,9 +1294,9 @@ try {
   const businessResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=business`);
   assert.equal(businessResponse?.status(), 200);
   await assertPublicConnectAccent(anonPage, owner.username, "business", businessCustomAccent);
-  await anonPage.getByText("Head of Sales · Lumen Labs · Berlin", { exact: true }).waitFor();
-  await anonPage.getByRole("link", { name: "Book an intro" }).waitFor();
-  assert.equal(await anonPage.getByRole("link", { name: /Book an intro/ }).getAttribute("href"), "https://calendly.com/michel");
+  await anonPage.getByText("Head of Sales · Lumen Labs · Berlin", { exact: true }).filter({ visible: true }).first().waitFor();
+  await anonPage.getByRole("link", { name: "Book a call", exact: true }).waitFor();
+  assert.equal(await anonPage.getByRole("link", { name: "Book a call", exact: true }).getAttribute("href"), "https://calendly.com/michel");
   assert.equal(await anonPage.getByRole("link", { name: /GitHub/ }).getAttribute("href"), "https://github.com/octocat");
   assert.equal(await anonPage.locator('a[href="mailto:sales@northlight.example"]').count(), 1, "Public Business Mode should render a validated mailto action");
   assert.equal(await anonPage.locator('a[href="tel:+493012345678"]').count(), 1, "Public Business Mode should render a validated phone action");
@@ -1324,8 +1365,8 @@ try {
   await page.getByLabel("Event name").waitFor();
   await page.getByLabel("Event name").inputValue().then((value) => assert.equal(value, "Slush"));
   await page.getByRole("tab", { name: /^Business/ }).filter({ visible: true }).click();
-  await page.getByLabel("Company").waitFor();
-  await page.getByLabel("Company").inputValue().then((value) => assert.equal(value, "Lumen Labs"));
+  await page.getByLabel("Company", { exact: true }).waitFor();
+  await page.getByLabel("Company", { exact: true }).inputValue().then((value) => assert.equal(value, "Lumen Labs"));
   const countryFixture = await authenticatedClient(owner);
   const countryMode = await countryFixture.client.from("profile_modes").select("id,settings").eq("profile_id", countryFixture.user.id).eq("slug", "event").single();
   assert.ifError((await countryFixture.client.from("profile_modes").update({ settings: { ...countryMode.data.settings, countryCode: "FI" } }).eq("id", countryMode.data.id)).error);
@@ -1561,7 +1602,7 @@ try {
   console.log("PASS registered connects, symmetric edge reuse, Encounter snapshots, private notes/context, and Data API isolation");
 
   // Guest identity uses a random HttpOnly cookie; the email is never returned by guest RPCs.
-  const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const guestContext = await newDutchContext(browser, { viewport: { width: 390, height: 844 } });
   const guestPage = await guestContext.newPage();
   await guestPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
   await guestPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
@@ -1830,7 +1871,7 @@ try {
     await anonPage.setViewportSize({ width, height });
     await assertPublicProfileTheme(anonPage, owner.username, "personal", "dark", `Personal public profile ${width}x${height}`);
   }
-  const androidContext = await browser.newContext({
+  const androidContext = await newDutchContext(browser, {
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,
@@ -1844,7 +1885,7 @@ try {
   }
   const safariBrowser = await webkit.launch({ headless: true });
   try {
-    const safariContext = await safariBrowser.newContext({
+    const safariContext = await newDutchContext(safariBrowser, {
       viewport: { width: 390, height: 844 },
       isMobile: true,
       hasTouch: true,

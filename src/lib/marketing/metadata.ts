@@ -5,14 +5,11 @@ const marketingShareImage = `${SETUVARA_ORIGIN}/share/setuvara-marketing.png`;
 
 export function marketingMetadata({ title, description, path }: { title: string; description: string; path: string }): Metadata {
   const url = new URL(path, SETUVARA_ORIGIN).toString();
-  const homeAlternates = path === "/" || path === "/nl"
-    ? { en: `${SETUVARA_ORIGIN}/`, nl: `${SETUVARA_ORIGIN}/nl`, "x-default": `${SETUVARA_ORIGIN}/` }
-    : undefined;
 
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: url, ...(homeAlternates ? { languages: homeAlternates } : {}) },
+    alternates: { canonical: url },
     robots: { index: true, follow: true },
     openGraph: {
       type: "website",

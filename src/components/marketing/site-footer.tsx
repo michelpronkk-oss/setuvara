@@ -2,11 +2,10 @@ import Link from "next/link";
 
 import { MeetMark } from "./brand";
 import { getMessages } from "@/lib/i18n/messages";
-import type { Locale } from "@/lib/i18n/locale";
 
-export function SiteFooter({ locale }: { locale: Locale }) {
-  const copy = getMessages(locale).marketing;
-  const home = locale === "nl" ? "/nl" : "/";
+export function SiteFooter() {
+  const copy = getMessages("en").marketing;
+  const home = "/";
   const columns = [
     { title: copy.product, links: [
       { href: `${home}#modes`, label: copy.modes },
@@ -33,7 +32,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
             <MeetMark className="size-14 text-coral" />
             <p className="max-w-60 text-[15px] leading-6 text-paper/70">{copy.yourIdentity}</p>
           </div>
-          <nav aria-label={locale === "nl" ? "Voettekstnavigatie" : "Footer navigation"} className="contents">
+          <nav aria-label="Footer navigation" className="contents">
             {columns.map((column) => (
               <div className="flex flex-col" key={column.title}>
                 <p className="mb-2 font-label text-[11px] uppercase tracking-[0.16em] text-paper/50">{column.title}</p>

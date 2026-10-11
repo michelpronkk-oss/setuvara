@@ -75,7 +75,7 @@ export async function PeopleSection({ userId }: { userId: string }) {
     <section aria-labelledby="home-people" className="flex min-h-0 flex-col pt-1 lg:flex-1 lg:px-1.5 lg:pt-[18px]">
       <div className="flex items-baseline justify-between border-b-[1.5px] border-[#0d0d0d] pb-2 lg:pb-3.5">
         <h2 className="font-display text-2xl font-bold tracking-[-0.035em] lg:text-[34px] lg:tracking-[-0.04em]" id="home-people">People you met</h2>
-        <Link className="flex min-h-11 items-center gap-2 text-sm font-semibold hover:text-[#ff5a4f] lg:text-[15px]" href="/app/connections">All {(count ?? rows.length).toLocaleString()}<span aria-hidden="true">→</span></Link>
+        <Link className="flex min-h-11 items-center gap-2 text-sm font-semibold hover:text-[#ff5a4f] lg:text-[15px]" href="/app/connections">All {(count ?? rows.length).toLocaleString("en-US")}<span aria-hidden="true">→</span></Link>
       </div>
       <ul className="min-h-0 overflow-y-auto">
         {peopleWithImages.map((person) => (

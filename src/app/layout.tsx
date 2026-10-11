@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 
 import { I18nProvider } from "@/lib/i18n/provider";
-import { normalizeLocale } from "@/lib/i18n/locale";
 import "./globals.css";
 
 const siteUrl = "https://setuvara.com";
@@ -39,11 +37,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#F5F4EF", viewportFit: "cover" };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const locale = normalizeLocale((await headers()).get("x-setuvara-locale")) ?? "en";
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang={locale}>
-      <body className="bg-[#f5f4ef] text-[#0d0d0d] antialiased"><I18nProvider locale={locale}>{children}</I18nProvider></body>
+    <html lang="en">
+      <body className="bg-[#f5f4ef] text-[#0d0d0d] antialiased"><I18nProvider>{children}</I18nProvider></body>
     </html>
   );
 }

@@ -4,17 +4,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { MeetMark, Wordmark } from "./brand";
-import { LocaleToggle } from "@/components/i18n/locale-toggle";
 import { getMessages } from "@/lib/i18n/messages";
-import type { Locale } from "@/lib/i18n/locale";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral";
 
-export function SiteHeader({ locale }: { locale: Locale }) {
+export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
-  const copy = getMessages(locale).marketing;
-  const home = locale === "nl" ? "/nl" : "/";
+  const copy = getMessages("en").marketing;
+  const home = "/";
   const navigation = [
     { href: `${home}#product`, label: copy.product },
     { href: `${home}#modes`, label: copy.modes },
@@ -58,7 +56,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
       {/* The blur lives on its own layer: backdrop-filter on the header would trap the fixed menu inside it. */}
       <div aria-hidden="true" className={`absolute inset-0 z-[1] border-b transition-colors duration-300 ${menuOpen ? "border-transparent bg-ink" : "border-ink/10 bg-paper/90 backdrop-blur-md supports-[backdrop-filter]:bg-paper/75"}`} />
       <div className="relative z-10 mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:min-h-[72px] lg:px-14">
-        <Link aria-label={locale === "nl" ? "Setuvara startpagina" : "Setuvara home"} className={`inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-md ${focusRing}`} href={home} onClick={closeMenu}>
+        <Link aria-label="Setuvara home" className={`inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-md ${focusRing}`} href={home} onClick={closeMenu}>
           <MeetMark className={`size-7 transition-colors duration-300 ${menuOpen ? "text-coral" : ""}`} />
           <Wordmark className="text-[23px] leading-none" />
         </Link>
@@ -72,7 +70,6 @@ export function SiteHeader({ locale }: { locale: Locale }) {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <LocaleToggle locale={locale} returnTo={home} />
           <Link className={`min-h-11 content-center rounded-sm text-[15px] font-medium text-ink/70 transition-colors hover:text-ink ${focusRing}`} href="/login">{copy.login}</Link>
           <Link className={`group inline-flex min-h-11 items-center gap-2 rounded-full bg-ink pl-5 pr-4 text-[14px] font-semibold text-paper transition-colors hover:bg-[#262626] lg:text-[15px] ${focusRing}`} href="/signup">
             {copy.getSetuvara}
@@ -83,7 +80,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
         <button
           aria-controls="mobile-navigation"
           aria-expanded={menuOpen}
-          aria-label={menuOpen ? (locale === "nl" ? "Navigatiemenu sluiten" : "Close navigation menu") : (locale === "nl" ? "Navigatiemenu openen" : "Open navigation menu")}
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
           className={`relative inline-flex size-11 items-center justify-center rounded-full transition-colors duration-300 md:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral ${menuOpen ? "bg-paper/10" : "bg-ink/[0.06]"}`}
           onClick={() => setMenuOpen((open) => !open)}
           ref={menuButton}
@@ -122,7 +119,6 @@ export function SiteHeader({ locale }: { locale: Locale }) {
           <Link className="flex h-14 items-center justify-center rounded-full text-[15px] font-semibold text-paper/80 shadow-[inset_0_0_0_1px_rgba(245,244,239,.18)] focus-visible:outline-2 focus-visible:outline-coral" href="/login" onClick={closeMenu}>
             {copy.login}
           </Link>
-          <div className="mt-2 flex justify-center"><LocaleToggle locale={locale} returnTo={home} /></div>
           <p className="mt-2 text-center font-label text-[10px] uppercase tracking-[0.18em] text-paper/35">{copy.oneIdentity}</p>
         </div>
       </nav>

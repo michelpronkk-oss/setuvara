@@ -11,7 +11,6 @@ import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer, profileTone, resolvedBrowserThemeColor } from "@/components/profile/profile-renderer";
 import { resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { getMessages } from "@/lib/i18n/messages";
-import { resolveRequestLocale } from "@/lib/i18n/server";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
@@ -264,8 +263,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const pageTone = profileTone(mode, plan);
   const browserThemeColor = resolvedBrowserThemeColor(mode, plan);
   const resolvedLook = resolveAppearance(mode, plan);
-  const locale = await resolveRequestLocale({ supabase, userId });
-  const copy = getMessages(locale).profile;
+  const copy = getMessages("en").profile;
   const sharedPassportStamp = passportHighlight && typeof passportHighlight === "object"
     ? passportHighlight as { type: PassportStampType; title: string; subtitle: string | null; countryCode: string | null }
     : null;
@@ -295,7 +293,6 @@ export default async function PublicProfilePage({ params, searchParams }: Public
         connectionContext={connectedState?.context as ConnectionContext | undefined}
         connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
         guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
-        locale={locale}
         memberTier={memberTier}
         plan={plan}
         sound="live"

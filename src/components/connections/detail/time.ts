@@ -6,7 +6,7 @@ const noop = () => () => {};
 
 /** The viewer's time zone after hydration; UTC while server rendering so markup matches. */
 export function useTimeZone() {
-  return useSyncExternalStore(noop, () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", () => "UTC");
+  return useSyncExternalStore(noop, () => Intl.DateTimeFormat("en-US").resolvedOptions().timeZone || "UTC", () => "UTC");
 }
 
 export function formatDate(iso: string, timeZone: string) {

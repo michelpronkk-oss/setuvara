@@ -20,6 +20,7 @@ try {
   for (const route of routes) {
     const response = await page.goto(new URL(route.path, appUrl).toString());
     assert.equal(response?.status(), 200, `${route.path} should return 200`);
+    assert.equal(await page.locator("html").getAttribute("lang"), "en", `${route.path} should set the document language to English`);
     await page.getByRole("heading", { name: route.heading, exact: true }).waitFor();
     const canonical = new URL(await page.locator('link[rel="canonical"]').getAttribute("href"));
     assert.equal(canonical.origin, "https://setuvara.com", `${route.path} canonical should use the Setuvara domain`);
@@ -43,29 +44,31 @@ try {
     assert.equal(overflow, false, `${route.path} should not overflow at phone width`);
   }
 
-  const dutchHome = await page.goto(new URL("/nl", appUrl).toString());
-  assert.equal(dutchHome?.status(), 200, "the explicit Dutch marketing route should load");
-  assert.equal(await page.locator("html").getAttribute("lang"), "nl", "the Dutch route should set the document language");
-  assert.match(await page.locator("#nl-hero-title").innerText(), /Eén identiteit/);
-  assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"), "https://setuvara.com/nl", "Dutch home canonical should use its localized URL");
-  for (const [language, href] of [["en", "https://setuvara.com/"], ["nl", "https://setuvara.com/nl"], ["x-default", "https://setuvara.com/"]]) {
-    const actual = new URL(await page.locator(`link[rel="alternate"][hreflang="${language}"]`).getAttribute("href"));
-    const expected = new URL(href);
-    assert.equal(actual.origin, expected.origin, `${language} home alternate should use the Setuvara origin`);
-    assert.equal(actual.pathname, expected.pathname, `${language} home alternate should use the canonical path`);
+  for (const [legacyPath, canonicalPath] of [["/nl", "/"], ["/nl/pricing", "/pricing"]]) {
+    const legacyLocale = await page.request.get(new URL(`${legacyPath}?source=legacy`, appUrl).toString(), { maxRedirects: 0 });
+    assert.equal(legacyLocale.status(), 308, `${legacyPath} should permanently redirect`);
+    const destination = new URL(legacyLocale.headers().location, appUrl);
+    assert.equal(`${destination.pathname}${destination.search}`, `${canonicalPath}?source=legacy`, `${legacyPath} should preserve its path suffix and query`);
   }
 
-  const dutchPreferenceContext = await browser.newContext({
+  const englishOnlyContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
     extraHTTPHeaders: { "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" },
   });
-  const dutchPreferencePage = await dutchPreferenceContext.newPage();
-  await dutchPreferencePage.goto(new URL("/", appUrl).toString());
-  assert.equal(await dutchPreferencePage.locator("html").getAttribute("lang"), "en", "the canonical root marketing route stays English even with a Dutch browser preference");
-  const englishCanonical = new URL(await dutchPreferencePage.locator('link[rel="canonical"]').getAttribute("href"));
-  assert.equal(englishCanonical.origin, "https://setuvara.com", "browser locale must not change the English home canonical origin");
-  assert.equal(englishCanonical.pathname, "/", "browser locale must not change the English home canonical path");
-  await dutchPreferenceContext.close();
+  const englishOnlyPage = await englishOnlyContext.newPage();
+  await englishOnlyContext.addCookies([{ name: "sv-locale", value: "nl", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
+  for (const path of ["/", "/pricing", "/roadmap"]) {
+    await englishOnlyPage.goto(new URL(path, appUrl).toString());
+    assert.equal(await englishOnlyPage.locator("html").getAttribute("lang"), "en", `${path} must ignore Dutch browser and saved cookie preferences`);
+    assert.equal(await englishOnlyPage.locator('link[hreflang]').count(), 0, `${path} must not advertise removed locale alternates`);
+    assert.doesNotMatch(await englishOnlyPage.locator("body").innerText(), /Eén identiteit|Prijzen|Inloggen|Nederlands/u, `${path} must render English interface copy`);
+    if (path === "/") {
+      const canonical = new URL(await englishOnlyPage.locator('link[rel="canonical"]').getAttribute("href"));
+      assert.equal(canonical.origin, "https://setuvara.com", "browser locale must not change the English home canonical origin");
+      assert.equal(canonical.pathname, "/", "browser locale must not change the English home canonical path");
+    }
+  }
+  await englishOnlyContext.close();
 
   const iconLinks = await page.locator('link[rel="icon"]').evaluateAll((nodes) => nodes.map((node) => ({ href: node.getAttribute("href"), type: node.getAttribute("type") })));
   assert(iconLinks.some((icon) => icon.href?.includes("setuvara-icon.png") && icon.type === "image/png"), "a correctly typed Setuvara PNG app icon should be linked");
@@ -89,7 +92,8 @@ try {
   const sitemapResponse = await page.request.get(new URL("/sitemap.xml", appUrl).toString());
   assert.equal(sitemapResponse.status(), 200, "sitemap.xml should be served");
   const sitemapText = await sitemapResponse.text();
-  for (const path of ["https://setuvara.com/", "https://setuvara.com/nl", "https://setuvara.com/pricing", "https://setuvara.com/events", "https://setuvara.com/teams", "https://setuvara.com/roadmap"]) assert(sitemapText.includes(path), `sitemap should include ${path}`);
+  for (const path of ["https://setuvara.com/", "https://setuvara.com/pricing", "https://setuvara.com/events", "https://setuvara.com/teams", "https://setuvara.com/roadmap"]) assert(sitemapText.includes(path), `sitemap should include ${path}`);
+  assert(!sitemapText.includes("https://setuvara.com/nl"), "sitemap must not include removed Dutch URLs");
   assert(!/https:\/\/setuvara\.com\/(app|auth|api|u)\//i.test(sitemapText), "sitemap should exclude private and legacy routes");
   assert(!/[?&]mode=|utm_/i.test(sitemapText), "sitemap should not include query variants");
 
@@ -116,7 +120,7 @@ try {
   const healthRoute = await page.request.get(new URL("/api/health/supabase", appUrl).toString());
   assert.match(healthRoute.headers()["x-robots-tag"] ?? "", /noindex/i, "API responses should emit a noindex header");
 
-  const marketingPaths = new Set(["/", "/nl", "/pricing", "/events", "/teams", "/roadmap"]);
+  const marketingPaths = new Set(["/", "/pricing", "/events", "/teams", "/roadmap"]);
   const profileUrls = [...sitemapText.matchAll(/<loc>(https:\/\/setuvara\.com\/[^<]+)<\/loc>/g)]
     .map((match) => match[1])
     .filter((url) => {
@@ -125,8 +129,9 @@ try {
     });
   if (profileUrls.length) {
     const profileUrl = new URL(profileUrls[0]);
-    const localizedDuplicate = await page.request.get(new URL(`/nl${profileUrl.pathname}`, appUrl).toString());
-    assert.equal(localizedDuplicate.status(), 404, "public identity URLs must not gain locale-prefixed duplicates");
+    const localizedDuplicate = await page.request.get(new URL(`/nl${profileUrl.pathname}`, appUrl).toString(), { maxRedirects: 0 });
+    assert.equal(localizedDuplicate.status(), 308, "legacy locale-prefixed identity URLs should redirect permanently");
+    assert.equal(new URL(localizedDuplicate.headers().location, appUrl).pathname, profileUrl.pathname, "legacy locale prefixes should preserve the root username route");
     const publicProfile = await page.goto(new URL(profileUrl.pathname, appUrl).toString());
     assert.equal(publicProfile?.status(), 200, "a sitemap-listed published profile should load publicly");
     const profileCanonical = await page.locator('link[rel="canonical"]').getAttribute("href");
@@ -168,10 +173,10 @@ try {
   assert(freePricing.includes("QR, Quick QR, and Setuvara Tap"), "Free includes standard sharing");
   assert(freePricing.includes("Connections, private memories, and Passport"), "Free includes the network loop");
   assert(!freePricing.includes("Editorial theme"), "Free does not advertise premium presentation");
-  assert(plusPricing.includes("Editorial theme, accent-frame QR, Passport finish, and soundtrack presentation"), "Plus lists the shipped presentation finish");
+  assert(plusPricing.includes("Premium themes and layouts, QR presentation, Passport finish, and soundtrack presentation"), "Plus lists the shipped presentation finish");
   assert(plusPricing.includes("Setuvara Plus member badge"));
   assert(!plusPricing.includes("Custom analytics ranges up to 730 days"));
-  assert(proPricing.includes("Editorial theme, accent-frame QR, Passport finish, and soundtrack presentation"), "Pro inherits Plus presentation");
+  assert(proPricing.includes("Premium themes and layouts, QR presentation, Passport finish, and soundtrack presentation"), "Pro inherits Plus presentation");
   assert(proPricing.includes("Setuvara Pro member badge"));
   assert(!proPricing.includes("Setuvara Plus member badge"), "Pro receives only the Pro badge");
   assert(proPricing.includes("Custom analytics ranges up to 730 days"));
@@ -215,7 +220,7 @@ try {
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport);
-    for (const path of ["/", "/nl", "/pricing", "/events", "/teams", "/roadmap"]) {
+    for (const path of ["/", "/pricing", "/events", "/teams", "/roadmap"]) {
       await page.goto(new URL(path, appUrl).toString());
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
       assert.equal(overflow, false, `${path} should not overflow at ${viewport.width}px`);

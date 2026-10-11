@@ -97,7 +97,10 @@ notification delivery and its hosted scheduler are documented in
 [`docs/email-notifications.md`](docs/email-notifications.md).
 Published profiles use the canonical root URL
 `https://setuvara.com/[username]`; the legacy `/u/[username]` path permanently
-redirects there.
+redirects there. The product interface currently renders in English regardless
+of browser language, cookies, or a saved account language preference. Legacy
+`/nl/...` URLs permanently redirect to the matching nonlocalized path. Account
+region data remains separate and is preserved.
 
 The non-product connectivity check is available at
 `/api/health/supabase`. It checks the Supabase Auth health endpoint and does

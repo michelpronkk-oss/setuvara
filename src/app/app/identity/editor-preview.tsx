@@ -46,7 +46,7 @@ function useSampleContext(mode: ProfileMode): ConnectionContext {
 
 function PreviewProfile({ api, state, setState }: { api: EditorApi; state: PreviewState; setState: (state: PreviewState) => void }) {
   const { mode, profile } = api;
-  const { locale, messages } = useI18n();
+  const { messages } = useI18n();
   const context = useSampleContext(mode);
   const label = messages.profile.connect;
   // Same Connect trigger tokens as the public ConnectFlow button.
@@ -59,7 +59,6 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
       previewLook={api.appearancePreview ? resolveAppearance({ slug: mode.slug, appearance: api.appearancePreview }, "pro") : undefined}
       connectionContext={state === "connected" ? context : null}
       connectionHref={state === "connected" ? "/app/connections" : undefined}
-      locale={locale}
       memberTier={api.memberTier}
       mode={mode}
       onEditMode={() => api.go("profile")}

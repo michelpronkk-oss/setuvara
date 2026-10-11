@@ -229,7 +229,12 @@ const scripts = {
 };
 
 async function newVisitor(browser, { mobile = true, preference = null, unavailable = false, autoplay = false, requireGesture = false } = {}) {
-  const context = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
+  const context = await browser.newContext({
+    ...(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } }),
+    locale: "nl-NL",
+    extraHTTPHeaders: { "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" },
+  });
+  await context.addCookies([{ name: "sv-locale", value: "nl", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
   const init = autoplay ? fakes.replace("allowAutoplay: false", "allowAutoplay: true") : fakes;
   await context.addInitScript(`${init}${requireGesture ? '\nwindow.__soundtest.requireGesture = true; document.addEventListener("pointerdown", () => { window.__soundtest.gestureAllowed = true; }, { capture: true, once: true });' : ""}`);
   if (preference) await context.addInitScript((value) => localStorage.setItem("setuvara:sound", value), preference);

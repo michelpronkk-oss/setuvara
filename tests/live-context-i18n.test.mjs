@@ -95,38 +95,35 @@ describe("Live Context resolution", () => {
   });
 });
 
-describe("locale resolution and formatting", () => {
-  test("an authenticated explicit preference wins, while guests use cookie then Accept-Language", () => {
-    assert.equal(locale.resolveLocale({ authenticated: true, preferredLocale: "nl-NL", cookieLocale: "en", acceptLanguage: "en-US" }), "nl-NL");
-    assert.equal(locale.resolveLocale({ authenticated: false, preferredLocale: "nl", cookieLocale: "nl-BE", acceptLanguage: "en-US" }), "nl-BE");
-    assert.equal(locale.resolveLocale({ cookieLocale: "unsupported", acceptLanguage: "de-DE;q=1, nl-NL;q=0.8, en;q=0.2" }), "nl-NL");
-    assert.equal(locale.resolveLocale({ cookieLocale: "unsupported", acceptLanguage: "de-DE" }), "en");
+describe("English-only interface and region formatting", () => {
+  test("saved preference, cookie, and Accept-Language never change the interface language", () => {
+    assert.equal(locale.resolveLocale({ authenticated: true, preferredLocale: "nl-NL", cookieLocale: "en", acceptLanguage: "en-US" }), "en");
+    assert.equal(locale.resolveLocale({ authenticated: false, preferredLocale: "nl", cookieLocale: "nl-BE", acceptLanguage: "en-US" }), "en");
+    assert.equal(locale.resolveLocale({ cookieLocale: "unsupported", acceptLanguage: "nl-NL,nl;q=0.9,en;q=0.8" }), "en");
+    assert.equal(locale.normalizeLocale("nl-NL"), null);
   });
 
-  test("locale and region are independently validated", () => {
-    assert.equal(locale.normalizeLocale("NL-nl"), "nl-NL");
+  test("region remains independently validated", () => {
+    assert.equal(locale.normalizeLocale("EN-us"), "en");
     assert.equal(locale.normalizeLocale("fr-FR"), null);
     assert.equal(locale.resolveRegion("nl"), "NL");
     assert.equal(locale.resolveRegion("ZZ"), null);
   });
 
-  test("formatters and country names use the selected locale", () => {
-    const englishDate = locale.formatDate("2026-10-11T12:00:00Z", "en-US");
-    const dutchDate = locale.formatDate("2026-10-11T12:00:00Z", "nl-NL");
-    assert.notEqual(englishDate, dutchDate);
-    assert.notEqual(locale.formatNumber(1234.5, "en-US"), locale.formatNumber(1234.5, "nl-NL"));
-    assert.equal(countries.formatCountryName("NL", "nl-NL"), "Nederland");
-    assert.equal(messages.getMessages("nl-NL").common.identity, "Identiteit");
+  test("copy, dates, numbers, and country names always use English", () => {
+    assert.equal(locale.formatDate("2026-10-11T12:00:00Z", "nl-NL"), locale.formatDate("2026-10-11T12:00:00Z", "en-US"));
+    assert.equal(locale.formatNumber(1234.5, "nl-NL"), locale.formatNumber(1234.5, "en-US"));
+    assert.equal(countries.formatCountryName("NL", "nl-NL"), "Netherlands");
+    assert.equal(messages.getMessages("nl-NL").common.identity, "Identity");
     assert.equal(messages.getMessages("en").common.identity, "Identity");
     assert.equal(messages.getMessages("en").appearance.layouts["full-portrait"], "Full Portrait");
-    assert.equal(messages.getMessages("nl-NL").appearance.layouts["full-portrait"], "Volledig portret");
-    assert.equal(messages.getMessages("nl-NL").appearance.portrait.showUsername, "Gebruikersnaam tonen");
+    assert.equal(messages.getMessages("nl-NL").appearance.portrait.showUsername, "Show username");
   });
 
   test("formatting never mutates member-authored text", () => {
     const authored = "Fête du livre · Qué́bec — ありがとう";
     const before = authored;
-    messages.getMessages("nl");
+    messages.getMessages("en");
     assert.equal(authored, before);
   });
 });

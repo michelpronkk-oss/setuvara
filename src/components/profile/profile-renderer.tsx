@@ -12,7 +12,6 @@ import { hasCapability } from "@/lib/billing/capabilities";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { getMessages } from "@/lib/i18n/messages";
-import type { Locale } from "@/lib/i18n/locale";
 import { modeFocus } from "./photo-focus";
 import { resolveAppearance, type ResolvedAppearance } from "./appearance";
 import { PAPER, resolveSkin, type Skin } from "./profile-skin";
@@ -51,8 +50,6 @@ type ProfileRendererProps = {
   memberTier?: MemberTier | null;
   /** Server-resolved plan controls paid visual treatments while preserving saved choices. */
   plan?: PlanCode;
-  /** Locale for Setuvara-owned profile chrome; member-authored fields stay unchanged. */
-  locale?: Locale;
   /** Page chrome (logo, Edit profile) placed over the hero on phones and atop the body when wide. */
   chrome?: ReactNode;
   /** Extra content after the media (the public page's shared Passport stamp). */
@@ -147,10 +144,10 @@ function identityFor(profile: ProfileIdentity, mode: ProfileMode): Identity {
 type ProfileProps = ProfileRendererProps & { look: ResolvedAppearance; hasSoundtrack: boolean };
 
 function Profile(props: ProfileProps) {
-  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, locale = "en", chrome, footer, attribution = false, className = "" } = props;
+  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
   if (look.family === "full-portrait") return <FullPortraitProfile {...props} />;
   const skin = resolveSkin(look);
-  const copy = getMessages(locale).profile;
+  const copy = getMessages("en").profile;
   const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
   const photo = mode.image_url ?? null;
@@ -218,9 +215,9 @@ function Profile(props: ProfileProps) {
 
 /** One portrait composition for the public page and every editor preview. */
 function FullPortraitProfile(props: ProfileProps) {
-  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, locale = "en", chrome, footer, attribution = false, className = "" } = props;
+  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
   const skin = resolveSkin(look);
-  const copy = getMessages(locale).profile;
+  const copy = getMessages("en").profile;
   const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
   const photo = mode.image_url;
@@ -460,7 +457,7 @@ function EventCard({ mode, skin, copy }: { mode: ProfileMode; skin: Skin; copy: 
   );
 }
 
-function Actions({ profile, mode, owner, skin, copy, visitorAction, viewerState, previewAsVisitor, connectionContext, connectionHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; skin: Skin; copy: Copy; booking?: ResolvedLink }) {
+function Actions({ mode, owner, skin, copy, visitorAction, viewerState, previewAsVisitor, connectionContext, connectionHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; skin: Skin; copy: Copy; booking?: ResolvedLink }) {
   const connected = viewerState === "visitor_connected" && !previewAsVisitor;
   const share = `/app/identity?mode=${mode.slug}&section=share`;
   const onShareClick = onShare ? (event: { preventDefault: () => void }) => { event.preventDefault(); onShare(); } : undefined;
@@ -491,7 +488,7 @@ function Actions({ profile, mode, owner, skin, copy, visitorAction, viewerState,
   } else if (booking) {
     second = <a className={`${button} text-[15px]`} data-profile-action="book" href={booking.url} rel="noopener noreferrer" style={{ ...secondaryStyle, ...focus }} target="_blank"><span>{copy.bookCall}</span>{arrow && <span aria-hidden="true">↗</span>}</a>;
   } else {
-    second = <a className={`${button} text-[15px]`} data-profile-action="save-contact" download href={`/${encodeURIComponent(profile.username)}/contact?mode=${mode.slug}`} style={{ ...secondaryStyle, ...focus }}><span>{copy.saveContact}</span></a>;
+    second = null;
   }
 
   return (

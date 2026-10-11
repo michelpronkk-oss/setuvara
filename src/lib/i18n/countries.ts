@@ -9,12 +9,13 @@ export function normalizeCountryCode(value: unknown): CountryCode | null {
   return ISO_COUNTRY_CODES.has(normalized) ? normalized as CountryCode : null;
 }
 
-export function formatCountryName(value: string, locale: string): string {
+export function formatCountryName(value: string, _locale: string): string {
+  void _locale;
   const code = normalizeCountryCode(value);
   if (!code) return value;
 
   try {
-    const name = new Intl.DisplayNames([locale], { type: "region" }).of(code);
+    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
     return name && name !== code ? name : code;
   } catch {
     return code;

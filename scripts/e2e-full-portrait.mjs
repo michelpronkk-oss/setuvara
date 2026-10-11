@@ -53,7 +53,12 @@ async function confirmationUrl(email) {
 }
 
 async function signup(browser, account) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: "nl-NL",
+    extraHTTPHeaders: { "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" },
+  });
+  await context.addCookies([{ name: "sv-locale", value: "nl", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
   const page = await context.newPage();
   await page.goto(`${appUrl}/signup`);
   await page.getByLabel("Username").fill(account.username);
@@ -79,9 +84,9 @@ async function noOverflow(page, label) {
   assert(result.scroll <= result.width + 1, `${label}: horizontal overflow ${result.scroll} > ${result.width}`);
 }
 
-async function openAppearance(page, language = "en") {
+async function openAppearance(page) {
   await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
-  if (page.viewportSize().width < 1024) await page.getByRole("tab", { name: language === "nl" ? "Indeling" : "Layout", exact: true }).click();
+  if (page.viewportSize().width < 1024) await page.getByRole("tab", { name: "Layout", exact: true }).click();
 }
 
 const activePreview = (page) => page.locator(page.viewportSize().width < 1024 ? '[data-appearance-editor="mobile"] [role="region"]' : '[data-preview-phone]');
@@ -135,7 +140,12 @@ try {
     const result = await client.from("profile_modes").update({ appearance: { ...personalMode.appearance, layout: "full-portrait", ...invalid } }).eq("id", personalMode.id);
     assert.equal(result.error?.code, "23514", "database rejects invalid Full Portrait configuration");
   }
-  const anon = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const anon = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: "nl-NL",
+    extraHTTPHeaders: { "accept-language": "nl-NL,nl;q=0.9,en;q=0.8" },
+  });
+  await anon.addCookies([{ name: "sv-locale", value: "nl", url: appUrl, httpOnly: true, sameSite: "Lax" }]);
   const visitor = await anon.newPage();
 
   await openAppearance(page);
@@ -273,14 +283,16 @@ try {
     await visitor.locator(`[data-profile-mode="${slug}"][data-profile-layout="full-portrait"]`).waitFor();
   }
   await page.goto(`${appUrl}/app/settings/language`);
-  await page.getByRole("button", { name: "Nederlands" }).click();
-  await page.getByRole("heading", { name: "Taal", level: 1 }).waitFor();
+  await page.getByRole("heading", { name: "Region", level: 1 }).waitFor();
+  await page.waitForURL("**/app/settings/region");
+  assert.equal(await page.locator("html").getAttribute("lang"), "en");
+  assert.equal(await page.getByText("Nederlands", { exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await openAppearance(page, "nl");
-  await page.getByRole("button", { name: /Volledig portret/ }).waitFor();
-  await page.locator('[data-appearance-editor="mobile"]').getByText("Fotopositie", { exact: true }).waitFor();
-  await page.getByRole("switch", { name: "Gebruikersnaam tonen" }).waitFor();
-  await page.screenshot({ path: resolve(out, "390-editor-nl.png"), fullPage: true });
+  await openAppearance(page);
+  await page.getByRole("button", { name: /Full Portrait/ }).waitFor();
+  await page.locator('[data-appearance-editor="mobile"]').getByText("Photo position", { exact: true }).waitFor();
+  await page.getByRole("switch", { name: "Show username" }).waitFor();
+  await page.screenshot({ path: resolve(out, "390-editor-en-only.png"), fullPage: true });
 
   second = await signup(browser, other);
   secondId = second.id;

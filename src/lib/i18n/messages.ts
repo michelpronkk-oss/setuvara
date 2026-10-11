@@ -1,14 +1,12 @@
-import { languageFor, type Language, type Locale } from "./locale";
-
 const messages = {
   en: {
     common: {
       home: "Home", identity: "Identity", liveContext: "Live Context", wallet: "Wallet",
       analytics: "Analytics", connections: "Connections", people: "People", passport: "Passport",
-      language: "Language", english: "English", dutch: "Nederlands", signOut: "Sign out",
+      signOut: "Sign out",
       save: "Save", saving: "Saving…", cancel: "Cancel", close: "Close", settings: "Settings",
       viewProfile: "View public profile", manageBilling: "Manage", seePlans: "See plans",
-      modeSettings: "Mode settings", emailPreferences: "Email preferences",
+      modeSettings: "Mode settings", emailPreferences: "Email preferences", region: "Region",
     },
     liveContext: {
       title: "Where are you meeting people?", description: "Choose the context that belongs to this moment. It stays separate from every Mode.",
@@ -30,7 +28,7 @@ const messages = {
       editPersonal: "Edit Personal Mode", editEvent: "Edit Event Mode", editBusiness: "Edit Business Mode",
       shareMode: "Share {mode} Mode", showQr: "Show QR code", noLinks: "No links shared in this Mode yet.",
       eventReady: "Event Mode is ready when you are.", nextEvent: "Your next event", hereToMeet: "Here to meet",
-      saveContact: "Save contact", bookIntro: "Book intro", connected: "Connected", viewConnection: "View connection",
+      bookIntro: "Book intro", connected: "Connected", viewConnection: "View connection",
       youMet: "You met", claimSetuvara: "Claim your Setuvara", keepConnection: "Keep this connection, create your identity, and share yours next time.",
       tagline: "Your identity, your context. Shared with Setuvara.",
       about: "About", atTheEvent: "At the event", bookCall: "Book a call", showMyQr: "Show my QR",
@@ -87,9 +85,7 @@ const messages = {
       equipped: "Equipped", equip: "Equip", locked: "Locked", unlocksAt: "Unlocks at {count} connections",
     },
     settings: {
-      languageTitle: "Language", languageDescription: "Choose the language Setuvara uses for its interface.",
-      saved: "Your language preference is saved.", error: "Your language preference could not be saved. Try again.",
-      regionTitle: "Region", regionDescription: "Your region is separate from your language preference.",
+      regionTitle: "Region", regionDescription: "Your region is stored separately and does not change Setuvara’s interface language.",
     },
     marketing: {
       product: "Product", modes: "Modes", events: "For Events", teams: "For Teams", pricing: "Pricing",
@@ -103,119 +99,18 @@ const messages = {
       addWhereWhen: "Add where & when", privateMemory: "Private memory · only you",
       event: "Event", meeting: "Meeting", place: "Place", custom: "Custom",
     },
-  },
-  nl: {
-    common: {
-      home: "Home", identity: "Identiteit", liveContext: "Live context", wallet: "Wallet",
-      analytics: "Inzichten", connections: "Connecties", people: "Mensen", passport: "Passport",
-      language: "Taal", english: "English", dutch: "Nederlands", signOut: "Uitloggen",
-      save: "Opslaan", saving: "Opslaan…", cancel: "Annuleren", close: "Sluiten", settings: "Instellingen",
-      viewProfile: "Bekijk openbaar profiel", manageBilling: "Beheren", seePlans: "Bekijk abonnementen",
-      modeSettings: "Mode-instellingen", emailPreferences: "E-mailvoorkeuren",
-    },
-    liveContext: {
-      title: "Waar ontmoet je mensen?", description: "Kies de context voor dit moment. Die staat los van elke Mode.",
-      active: "Nu actief", none: "Geen actieve context", empty: "Voeg een live context toe als je dit moment wilt onthouden.",
-      type: { event: "Evenement", meeting: "Afspraak", place: "Plek", custom: "Anders" },
-      label: "Geef deze context een naam", labelHint: "Bijvoorbeeld Web Summit of afspraak met Acme", venue: "Locatie (optioneel)",
-      city: "Stad (optioneel)", country: "Land (optioneel)", startsAt: "Begint (optioneel)", expiresAt: "Eindigt",
-      setActive: "Context activeren", replace: "Actieve context vervangen", end: "Context beëindigen", save: "Context opslaan",
-      expired: "Deze context is verlopen en wordt niet gebruikt voor nieuwe Connecties.",
-      noLocation: "Geen locatie toegevoegd. Je kunt de context wel opslaan.",
-      saved: "Bewaard voor later", recent: "Recente contexten", savedContexts: "Bewaarde contexten",
-      error: "Deze context kon niet worden opgeslagen. Controleer de gegevens en probeer het opnieuw.",
-      ended: "Live context beëindigd.",
-    },
-    profile: {
-      personalMode: "Personal Mode", eventMode: "Event Mode", businessMode: "Business Mode",
-      share: "Delen", editMode: "Mode bewerken", previewVisitor: "Bekijken als bezoeker",
-      connect: "Verbinden", viewingProfile: "Je bekijkt dit profiel", visit: "Link openen",
-      editPersonal: "Personal Mode bewerken", editEvent: "Event Mode bewerken", editBusiness: "Business Mode bewerken",
-      shareMode: "Deel {mode} Mode", showQr: "QR-code tonen", noLinks: "Er zijn nog geen links gedeeld in deze Mode.",
-      eventReady: "Event Mode staat klaar wanneer jij dat bent.", nextEvent: "Je volgende evenement", hereToMeet: "Ik wil ontmoeten",
-      saveContact: "Contact opslaan", bookIntro: "Plan een kennismaking", connected: "Verbonden", viewConnection: "Bekijk connectie",
-      youMet: "Jullie ontmoetten elkaar", claimSetuvara: "Claim je Setuvara", keepConnection: "Bewaar deze connectie, maak je identiteit aan en deel die de volgende keer.",
-      tagline: "Jouw identiteit, jouw context. Gedeeld met Setuvara.",
-      about: "Over", atTheEvent: "Op het evenement", bookCall: "Plan een gesprek", showMyQr: "Toon mijn QR",
-      madeWith: "Gemaakt met Setuvara", allLinks: "Alle links", links: "Links",
-      soundOn: "Geluid aan", soundOff: "Geluid uit", soundtrack: "Soundtrack", nowPlaying: "Nu speelt", onRepeat: "Op repeat",
-      soundtrackOf: "{mode} soundtrack", eventSaved: "{event} en het tijdstip worden bij de connectie bewaard.",
-      profileMark: "Verdiend Setuvara-teken",
-    },
-    appearance: {
-      title: "Uiterlijk", intro: "Samengesteld voor {mode} Mode. Elke wijziging zie je direct.",
-      theme: "Thema", tapToPreview: "Tik op een thema om het te bekijken", layout: "Indeling", colour: "Kleur", image: "Afbeelding", more: "Meer",
-      free: "Gratis", plus: "Plus", themeDefault: "Standaard van het thema", standard: "Standaard {theme}",
-      themes: { light: "Licht", dark: "Donker", editorial: "Editorial", noir: "Noir", signal: "Signal", studio: "Studio" },
-      layouts: { cover: "Cover", framed: "Ingelijst", portrait: "Portret", poster: "Poster", index: "Index", "full-portrait": "Volledig portret" },
-      portrait: { controls: "Instellingen voor volledig portret", zoom: "Foto vergroten", position: "Fotopositie", adjustFocus: "Uitsnede en focus aanpassen", noPhoto: "Voeg bij Profiel een foto toe om deze stijl eigen te maken.", nameSize: "Naamgrootte", sizes: { compact: "Compact", standard: "Standaard", large: "Groot", statement: "Statement" }, showUsername: "Gebruikersnaam tonen", inkFinish: "Volledig portret gebruikt een donkere afwerking voor leesbare tekst." },
-      intensities: { quiet: "Rustig", balanced: "Gebalanceerd", signal: "Signaal" },
-      images: { "full-bleed": "Volledig", portrait: "Portret", compact: "Compact", frame: "Kader" },
-      accents: { coral: "Koraal", lime: "Limoen", blue: "Blauw", lilac: "Lila", gold: "Goud" },
-      custom: "Eigen", customAccent: "Eigen accentkleur", accentLabel: "Accent {name}", intensity: "Accentintensiteit",
-      lowContrast: "Weinig contrast op dit thema. We hebben Connect een rand gegeven.",
-      surfaces: "Oppervlakken", surfacesSummary: "Kaarten · hoeken · knoppen", links: "Links", soundtrack: "Soundtrack", qr: "QR & delen",
-      cards: "Kaarten", corners: "Hoeken", buttons: "Knoppen", linkStyle: "Linkstijl",
-      cardStyles: { flat: "Vlak", outline: "Omlijnd", soft: "Zacht", layered: "Gelaagd", editorial: "Editorial" },
-      radii: { sharp: "Scherp", subtle: "Subtiel", soft: "Zacht" },
-      buttonStyles: { pill: "Pil", block: "Blok", editorial: "Editorial", minimal: "Minimaal" },
-      linkStyles: { icons: "Iconenrij", list: "Lijst", chips: "Chips", cards: "Kaarten" },
-      soundStyles: { core: "Basis", strip: "Strip", disc: "Plaat", poster: "Poster" },
-      qrStyles: { standard: "Standaard", "accent-frame": "Accentkader", label: "Identiteitslabel", inverse: "Omgekeerd", rounded: "Afgerond" },
-      editorialSharp: "Editorial houdt scherpe hoeken.", adjustFocus: "Focuspunt aanpassen", noPhoto: "Nog geen foto. Je initialen staan op je accentkleur.",
-      noSoundtrack: "Voeg een soundtrack toe bij Inhoud om te kiezen hoe die verschijnt.",
-      qrNote: "Premium stijlen omlijsten de code. De code en de link veranderen nooit.",
-      previewing: "Voorbeeld: {name}", previewOnlyYou: "Alleen jij ziet dit voorbeeld. Je openbare profiel toont nog steeds {current}.",
-      backToCurrent: "Terug naar huidig", applyWithPlus: "Toepassen met Plus", saveAppearance: "Uiterlijk opslaan", done: "Klaar",
-      viewers: { owner: "Eigenaar", visitor: "Bezoeker", connected: "Verbonden" }, previewAs: "Bekijken als", livePreview: "Live voorbeeld",
-      controls: "Uiterlijkinstellingen", previewLabel: "Profielvoorbeeld",
-      sheetKicker: "SETUVARA PLUS", sheetTitle: "Maak je identiteit echt van jou.",
-      sheetTheme: "{name} is een van vier premium thema’s. Plus ontgrendelt ook premium indelingen, accentintensiteit, soundtrack- en QR-presentatie, voor elke Mode.",
-      sheetLayout: "{name} is een premium indeling. Plus ontgrendelt ook premium thema’s, accentintensiteit, soundtrack- en QR-presentatie, voor elke Mode.",
-      sheetAdvanced: "Met accentintensiteit, kaarten, hoeken, knoppen en linkstijlen laat je je kleur leiden of juist terugtreden. Plus ontgrendelt ook premium thema’s en indelingen, voor elke Mode.",
-      sheetImage: "De Kader-afbeelding hoort bij Plus, samen met premium thema’s, indelingen en presentatie voor elke Mode.",
-      sheetSoundtrack: "Soundtrackpresentatie {name} hoort bij Plus. Een soundtrack toevoegen en afspelen blijft gratis.",
-      sheetQr: "QR-presentatie {name} hoort bij Plus. De code en de link veranderen nooit.",
-      sheetRestore: "Je bewaarde stijl komt terug zodra Plus actief is. Je hoeft niets opnieuw in te stellen.",
-      sheetItems: { looks: "Premium thema’s & indelingen", looksTag: "ELKE MODE", surfaces: "Accentintensiteit & oppervlakken", surfacesTag: "VEILIG ALS STANDAARD", presentation: "Soundtrack- & QR-presentatie", presentationTag: "ZELFDE LINK" },
-      unlock: "Ontgrendel met Plus", keepPreviewing: "Blijf bekijken", opening: "Openen…", monthly: "{price} / maand", yearly: "{price} / jaar",
-      reviewFirst: "Je bekijkt het abonnement voordat je iets betaalt.", billingFailed: "Betalen kan nu niet worden geopend. Je abonnement is niet gewijzigd.",
-      billingInterval: "Betaalperiode",
-      savedBody: "Bewaard voor als je terugkomt bij Plus. Tot die tijd toont je profiel {current}.",
-      rowTheme: "Thema", rowLayout: "Indeling", rowAccent: "Accent", rowSoundtrack: "Soundtrack", rowSurfaces: "Oppervlakken", rowQr: "QR", rowEarned: "Verdiend",
-      kept: "{value} (behouden)", unchanged: "ongewijzigd", none: "Geen", restore: "Herstel met Plus",
-      restoreNote: "Als je opnieuw upgradet, komen je bewaarde thema, indeling, accent en stijlen direct terug. Niets opnieuw instellen. Verdiende behandelingen blijven altijd.",
-      pendingApplied: "Je bekeken stijl staat live.", inactive: "Bewaard · terug met Plus", notAvailable: "Niet met {theme}",
-      earnedTitle: "Verdiende identiteitsbehandelingen", earnedBody: "Ontgrendeld door echte connecties. Ze gelden voor elke Mode.",
-      equipped: "Actief", equip: "Gebruiken", locked: "Vergrendeld", unlocksAt: "Ontgrendelt bij {count} connecties",
-    },
-    settings: {
-      languageTitle: "Taal", languageDescription: "Kies de taal voor de Setuvara-interface.",
-      saved: "Je taalvoorkeur is opgeslagen.", error: "Je taalvoorkeur kon niet worden opgeslagen. Probeer het opnieuw.",
-      regionTitle: "Regio", regionDescription: "Je regio staat los van je taalvoorkeur.",
-    },
-    marketing: {
-      product: "Product", modes: "Modes", events: "Voor evenementen", teams: "Voor teams", pricing: "Prijzen",
-      login: "Inloggen", getSetuvara: "Ontdek Setuvara", createSetuvara: "Maak je Setuvara",
-      oneIdentity: "Eén identiteit. Elke kant van jou.", yourIdentity: "Jouw identiteit. Jouw connecties.",
-      shareConnect: "Delen & verbinden", roadmap: "Roadmap", account: "Account", setuvaraFor: "Setuvara voor",
-      connections: "Connecties", passport: "Passport", meetOnce: "Ontmoet. Blijf verbonden.",
-    },
-    encounter: {
-      liveContext: "Live context", modeShared: "Gedeelde Mode", contextUnknown: "Er was geen context ingesteld voor deze ontmoeting.",
-      addWhereWhen: "Voeg plek en moment toe", privateMemory: "Privéherinnering · alleen voor jou",
-      event: "Evenement", meeting: "Afspraak", place: "Plek", custom: "Anders",
-    },
-  },
+  }
 } as const;
 
 export type MessageDictionary = typeof messages.en;
 export type MessageKey = keyof MessageDictionary;
 
-export function getMessages(locale: Locale | string): MessageDictionary {
-  return messages[languageFor(locale)] as MessageDictionary;
+export function getMessages(_locale?: string): MessageDictionary {
+  void _locale;
+  return messages.en;
 }
 
-export function getLanguage(locale: Locale | string): Language {
-  return languageFor(locale);
+export function getLanguage(_locale?: string): "en" {
+  void _locale;
+  return "en";
 }

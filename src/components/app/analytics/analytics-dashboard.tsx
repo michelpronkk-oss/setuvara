@@ -73,7 +73,7 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
   const [paywall, setPaywall] = useState<PaywallTarget | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const fmt = useMemo<Format>(() => {
-    const formatter = new Intl.NumberFormat();
+    const formatter = new Intl.NumberFormat("en-US");
     return (value) => formatter.format(value);
   }, []);
   const key = requestParams(request);
@@ -256,7 +256,7 @@ function CustomRange({ initial, historyDays, onApply, onCancel }: {
         <button className="min-h-11 rounded-full bg-[#0d0d0d] px-5 text-[14px] font-semibold text-[#f5f4ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff5a4f] disabled:opacity-45" disabled={!valid} type="submit">Show range</button>
         <button className="min-h-11 px-3 text-[14px] font-semibold focus-visible:outline-2" onClick={onCancel} type="button">Cancel</button>
       </div>
-      {!valid && <p className="basis-full text-[13px] text-[#a43d36]" role="alert">Choose dates within the last {historyDays.toLocaleString()} days, ending today or earlier.</p>}
+      {!valid && <p className="basis-full text-[13px] text-[#a43d36]" role="alert">Choose dates within the last {historyDays.toLocaleString("en-US")} days, ending today or earlier.</p>}
     </form>
   );
 }

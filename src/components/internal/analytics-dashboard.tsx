@@ -39,7 +39,7 @@ const metrics: { key: keyof AnalyticsData["totals"]; label: string; note: string
   { key: "newConnectionsAfterFirstShare", label: "Connections after first share", note: "New connections following a first share" },
 ];
 
-const numberFormat = new Intl.NumberFormat();
+const numberFormat = new Intl.NumberFormat("en-US");
 
 export function InternalAnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -207,5 +207,5 @@ function formatDate(value: string) {
   const date = new Date(`${datePart}T00:00:00Z`);
   return Number.isNaN(date.getTime())
     ? datePart
-    : new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
+    : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }

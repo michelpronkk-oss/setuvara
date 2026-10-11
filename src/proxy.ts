@@ -1,22 +1,15 @@
-import { type NextRequest } from "next/server";
-
-import { resolveLocale } from "@/lib/i18n/locale";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const englishMarketingPaths = new Set(["/", "/pricing", "/events", "/teams", "/roadmap"]);
-  const localizedLocale = pathname === "/nl" || pathname.startsWith("/nl/")
-    ? "nl"
-    : englishMarketingPaths.has(pathname)
-      ? "en"
-      : resolveLocale({
-        cookieLocale: request.cookies.get("sv-locale")?.value,
-        acceptLanguage: request.headers.get("accept-language"),
-      });
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-setuvara-locale", localizedLocale);
-  return updateSession(request, requestHeaders);
+  if (pathname === "/nl" || pathname.startsWith("/nl/")) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = pathname === "/nl" ? "/" : pathname.slice(3);
+    return NextResponse.redirect(destination, 308);
+  }
+
+  return updateSession(request);
 }
 
 export const config = {

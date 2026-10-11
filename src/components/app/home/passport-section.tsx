@@ -51,7 +51,7 @@ export async function PassportSection({ plan }: { plan: PlanCode }) {
         <span className="flex gap-2 text-sm font-semibold">Open<span aria-hidden="true">→</span></span>
       </div>
       <div className="flex items-end justify-between gap-5">
-        <div className="flex items-baseline gap-3"><span className="font-display text-[72px] font-bold leading-[.8] tracking-[-0.06em] lg:text-[96px]">{count.toLocaleString()}</span><span className="text-[15px] font-semibold leading-tight lg:text-[17px]">{count === 1 ? "person met" : "people met"}</span></div>
+        <div className="flex items-baseline gap-3"><span className="font-display text-[72px] font-bold leading-[.8] tracking-[-0.06em] lg:text-[96px]">{count.toLocaleString("en-US")}</span><span className="text-[15px] font-semibold leading-tight lg:text-[17px]">{count === 1 ? "person met" : "people met"}</span></div>
         {next && <div className="flex flex-col items-end text-right"><span className="font-label text-[10px] tracking-[0.14em] opacity-65 lg:text-[11px]">NEXT · {next.threshold}</span><span className="font-display text-xl font-bold tracking-[-0.03em] lg:text-[26px]">{next.name}</span></div>}
       </div>
       <div aria-hidden="true" className="flex gap-[5px]">
