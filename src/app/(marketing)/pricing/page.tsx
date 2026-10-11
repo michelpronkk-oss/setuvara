@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
-  title: "Setuvara plans",
+  title: "Pricing | Setuvara",
   description: "Keep the Setuvara network open on Free. Add member status and deeper product analytics with Plus or Pro.",
   path: "/pricing",
 });

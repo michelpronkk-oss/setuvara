@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { SignupFlow } from "@/components/auth/signup-flow";
 
-export const metadata: Metadata = { title: "Claim your name · Setuvara", robots: { index: false } };
+export const metadata: Metadata = { title: "Claim your name · Setuvara", robots: { index: false, follow: false }, openGraph: null, twitter: null };
 
 type SignupPageProps = {
   searchParams: Promise<{ claim?: string; username?: string | string[]; handle?: string | string[] }>;

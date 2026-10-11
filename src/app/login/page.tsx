@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { LoginForm } from "@/components/auth/login-form";
 
-export const metadata: Metadata = { title: "Log in · Setuvara", robots: { index: false } };
+export const metadata: Metadata = { title: "Log in · Setuvara", robots: { index: false, follow: false }, openGraph: null, twitter: null };
 
 // Only same-site paths are allowed as a post-login destination.
 function safeNextPath(value: string | undefined) {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { AppShell } from "@/components/app/app-shell";
@@ -10,6 +11,13 @@ import { WALLET_PUBLICLY_LAUNCHED } from "@/lib/wallet/launch";
 import { readFocus } from "@/components/profile/photo-focus";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./identity/actions";
+
+export const metadata: Metadata = {
+  title: { default: "Your Setuvara", template: "%s | Setuvara" },
+  robots: { index: false, follow: false },
+  openGraph: null,
+  twitter: null,
+};
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();

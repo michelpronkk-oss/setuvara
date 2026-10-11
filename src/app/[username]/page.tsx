@@ -16,8 +16,10 @@ import { visitorPassCookie } from "@/lib/connections/access";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { PassportStamp, type PassportStampType } from "@/components/passport/passport-stamp";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
+import { getPublishedPublicMode, publicProfileDescription, publicProfileTitle, publicSetting, safePublicHttpUrl } from "@/lib/seo/public-profile";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -29,26 +31,12 @@ type PublicProfilePageProps = {
 const FALLBACK_BROWSER_THEME_COLOR = "#F5F4EF";
 
 const readPublicProfileMode = cache(async (username: string, slug: ModeSlug) => {
+  const publicRecord = await getPublishedPublicMode(username, slug);
+  if (!publicRecord) return null;
+
   try {
-    const supabase = await createClient();
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, username, display_name, bio, is_published")
-      .eq("username", username)
-      .eq("is_published", true)
-      .maybeSingle();
-    if (profileError || !profile) return null;
-
-    const { data: mode, error: modeError } = await supabase.from("profile_modes")
-      .select("id, slug, label, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y")
-      .eq("profile_id", profile.id)
-      .eq("slug", slug)
-      .eq("is_enabled", true)
-      .maybeSingle();
-    if (modeError || !mode) return null;
-
-    const billing = await getUserBillingState(profile.id).catch(() => null);
-    return { profile, mode, plan: billing?.plan ?? "free" as PlanCode };
+    const billing = await getUserBillingState(publicRecord.profile.id).catch(() => null);
+    return { ...publicRecord, plan: billing?.plan ?? "free" as PlanCode };
   } catch {
     return null;
   }
@@ -80,13 +68,36 @@ type ConnectionState = {
   context?: ConnectionContext | null;
 };
 
-export async function generateMetadata({ params }: PublicProfilePageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PublicProfilePageProps): Promise<Metadata> {
   const { username: rawUsername } = await params;
   const username = normalizeUsername(rawUsername);
   if (!isAllowedUsername(username)) notFound();
+  const query = await searchParams;
+  const slug = parseModeSlug(query.mode);
+  if (!slug) notFound();
+  const record = await getPublishedPublicMode(username, slug);
+  if (!record) notFound();
+
+  const title = publicProfileTitle(record.profile);
+  const description = publicProfileDescription(record);
+  const canonical = `https://setuvara.com/${encodeURIComponent(username)}`;
+  const image = `https://setuvara.com/og/profile/${encodeURIComponent(username)}/${slug}`;
+  const modeName = slug[0].toUpperCase() + slug.slice(1);
+
   return {
-    title: `@${username} · Setuvara`,
-    alternates: { canonical: `https://setuvara.com/${encodeURIComponent(username)}` },
+    title,
+    description,
+    alternates: { canonical },
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: "profile",
+      siteName: "Setuvara",
+      title: `${title} | Setuvara`,
+      description,
+      url: canonical,
+      images: [{ url: image, width: 1200, height: 630, alt: `${title} · ${modeName} Mode on Setuvara` }],
+    },
+    twitter: { card: "summary_large_image", title: `${title} | Setuvara`, description, images: [image] },
   };
 }
 
@@ -224,6 +235,28 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     links: (links ?? []) as ProfileLink[],
     blocks: publicBlocks,
   };
+  const canonicalUrl = `https://setuvara.com/${encodeURIComponent(username)}`;
+  const previewImageUrl = `https://setuvara.com/og/profile/${encodeURIComponent(username)}/${slug}`;
+  const publicSettings = { settings: rawMode.settings as Record<string, unknown> };
+  const publicRole = publicSetting(publicSettings, "role", 80);
+  const publicCompany = slug === "business"
+    ? publicSetting(publicSettings, "company", 100)
+    : null;
+  const sameAs = Array.from(new Set((links ?? []).flatMap((link) => {
+    if (!( ["instagram", "linkedin", "spotify", "github", "youtube", "tiktok", "x", "facebook"] as string[]).includes(link.link_type)) return [];
+    const url = safePublicHttpUrl(link.url);
+    return url ? [url] : [];
+  }))).slice(0, 10);
+  const personStructuredData: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: identity.display_name,
+    url: canonicalUrl,
+    ...(imageUrl ? { image: previewImageUrl } : {}),
+    ...(publicRole ? { jobTitle: publicRole } : {}),
+    ...(publicCompany ? { worksFor: { "@type": "Organization", name: publicCompany } } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
+  };
 
   // Full Bleed runs the photo to the phone's edges; the page takes on the profile's own background.
   const bleed = isFullBleed(mode, plan);
@@ -236,6 +269,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
 
   return (
     <main data-public-profile-surface="true" data-public-profile-theme={resolvedLook.theme} data-public-profile-layout={resolvedLook.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] px-3 py-4 font-brand text-[#0d0d0d] sm:px-6 sm:py-10 ${bleed ? "max-sm:px-0 max-sm:py-0" : ""}`} style={{ "--page-bg": browserThemeColor } as React.CSSProperties}>
+      <JsonLd data={personStructuredData} />
       <div className="relative mx-auto w-full max-w-[440px]">
         <header className={`mb-4 flex items-center justify-between px-2 ${bleed ? "max-sm:absolute max-sm:inset-x-0 max-sm:top-0 max-sm:z-20 max-sm:mb-0 max-sm:px-4 max-sm:pt-2 max-sm:text-[#f5f4ef] max-sm:[text-shadow:0_1px_12px_rgba(0,0,0,.35)]" : ""}`}>
           <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>
