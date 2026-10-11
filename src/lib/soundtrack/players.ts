@@ -8,10 +8,13 @@ export type PlayerEvent = "playing" | "paused" | "ended" | "error" | "blocked";
 export type PlayerListener = (event: PlayerEvent) => void;
 
 export type Player = {
-  play: () => void;
-  pause: () => void;
+  /** Dispatch playback; native players return the actual play() promise. */
+  play: () => void | Promise<void>;
+  pause: () => void | Promise<void>;
   /** Back to the start and play: the soundtrack loops. */
-  restart: () => void;
+  restart: () => void | Promise<void>;
+  /** Actual player state when the provider exposes it. */
+  isPlaying?: () => boolean | null;
   destroy: () => void;
 };
 
@@ -72,14 +75,14 @@ function loadYouTube(): Promise<any> {
   return youtube;
 }
 
-function youtubeEvents(on: PlayerListener) {
+function youtubeEvents(on: PlayerListener, setPlaying: (playing: boolean) => void) {
   return {
     onStateChange: (event: { data: number }) => {
-      if (event.data === 1) on("playing");
-      else if (event.data === 2) on("paused");
-      else if (event.data === 0) on("ended");
+      if (event.data === 1) { setPlaying(true); on("playing"); }
+      else if (event.data === 2) { setPlaying(false); on("paused"); }
+      else if (event.data === 0) { setPlaying(false); on("ended"); }
     },
-    onError: () => on("error"),
+    onError: () => { setPlaying(false); on("error"); },
   };
 }
 
@@ -88,6 +91,7 @@ export function createYouTubePlayer(host: HTMLElement, videoId: string, on: Play
   return withTimeout(loadYouTube().then((YT) => new Promise<Player>((resolve) => {
     const target = mount(host);
     let fade = 0;
+    let playing = false;
     const player = new YT.Player(target, {
       host: "https://www.youtube-nocookie.com",
       videoId,
@@ -95,7 +99,7 @@ export function createYouTubePlayer(host: HTMLElement, videoId: string, on: Play
       height: "100%",
       playerVars: { playsinline: 1, rel: 0, controls: 0, disablekb: 1, modestbranding: 1, iv_load_policy: 3, origin: window.location.origin },
       events: {
-        ...youtubeEvents(on),
+        ...youtubeEvents(on, (value) => { playing = value; }),
         onReady: () => resolve({
           play: () => {
             window.clearInterval(fade);
@@ -106,6 +110,7 @@ export function createYouTubePlayer(host: HTMLElement, videoId: string, on: Play
           },
           pause: () => { window.clearInterval(fade); player.pauseVideo(); },
           restart: () => { player.seekTo(0, true); player.playVideo(); },
+          isPlaying: () => playing,
           destroy: () => { window.clearInterval(fade); try { player.destroy(); } catch { /* already gone */ } target.remove(); },
         }),
       },
@@ -116,13 +121,15 @@ export function createYouTubePlayer(host: HTMLElement, videoId: string, on: Play
 /** Listens to a YouTube iframe the page already rendered (its src needs enablejsapi=1). */
 export function watchYouTubeIframe(iframe: HTMLIFrameElement, on: PlayerListener): Promise<Player> {
   return withTimeout(loadYouTube().then((YT) => new Promise<Player>((resolve) => {
+    let playing = false;
     const player = new YT.Player(iframe, {
       events: {
-        ...youtubeEvents(on),
+        ...youtubeEvents(on, (value) => { playing = value; }),
         onReady: () => resolve({
           play: () => player.playVideo(),
           pause: () => player.pauseVideo(),
           restart: () => { player.seekTo(0, true); player.playVideo(); },
+          isPlaying: () => playing,
           destroy: () => { /* the iframe belongs to React */ },
         }),
       },
@@ -167,6 +174,7 @@ export function createSpotifyPlayer(host: HTMLElement, uri: string, height: numb
         play: () => (started ? controller.resume() : controller.play()),
         pause: () => controller.pause(),
         restart: () => { controller.seek(0); controller.resume(); },
+        isPlaying: () => !paused,
         destroy: () => { try { controller.destroy(); } catch { /* already gone */ } host.replaceChildren(); },
       }));
     });
@@ -188,10 +196,11 @@ export function watchSoundCloudIframe(iframe: HTMLIFrameElement, on: PlayerListe
     const widget = SC.Widget(iframe);
     const events = SC.Widget.Events;
     let fade = 0;
-    widget.bind(events.PLAY, () => on("playing"));
-    widget.bind(events.PAUSE, () => on("paused"));
-    widget.bind(events.FINISH, () => on("ended"));
-    widget.bind(events.ERROR, () => on("error"));
+    let playing = false;
+    widget.bind(events.PLAY, () => { playing = true; on("playing"); });
+    widget.bind(events.PAUSE, () => { playing = false; on("paused"); });
+    widget.bind(events.FINISH, () => { playing = false; on("ended"); });
+    widget.bind(events.ERROR, () => { playing = false; on("error"); });
     widget.bind(events.READY, () => resolve({
       play: () => {
         window.clearInterval(fade);
@@ -202,6 +211,7 @@ export function watchSoundCloudIframe(iframe: HTMLIFrameElement, on: PlayerListe
       },
       pause: () => { window.clearInterval(fade); widget.pause(); },
       restart: () => { widget.seekTo(0); widget.play(); },
+      isPlaying: () => playing,
       destroy: () => { window.clearInterval(fade); try { Object.values(events).forEach((name) => widget.unbind(name)); } catch { /* already gone */ } },
     }));
   })), 10_000);
@@ -228,18 +238,54 @@ export function createAudioPlayer(src: string, on: PlayerListener): Promise<Play
   audio.loop = true;
   audio.src = src;
   let fade = 0;
-  audio.addEventListener("playing", () => on("playing"));
-  audio.addEventListener("pause", () => on("paused"));
+  let playGeneration = 0;
+  let allowedGeneration = 0;
+  audio.addEventListener("playing", () => {
+    if (!allowedGeneration) {
+      // Some browsers can finish a play request after pause() aborted it.
+      // Suppress that stale start before it reaches the soundtrack coordinator.
+      audio.pause();
+      return;
+    }
+    on("playing");
+  });
+  audio.addEventListener("pause", () => {
+    // Pause events are queued; a fast resume can make an older pause event
+    // arrive while playback is active again. Ignore that stale notification.
+    if (audio.paused) on("paused");
+  });
   audio.addEventListener("error", () => on("error"));
+  const fadeIn = () => {
+    window.clearInterval(fade);
+    fade = window.setInterval(() => {
+      if (audio.paused) { window.clearInterval(fade); return; }
+      audio.volume = Math.min(1, audio.volume + 0.1);
+      if (audio.volume >= 1) window.clearInterval(fade);
+    }, 60);
+  };
+  const play = () => {
+    window.clearInterval(fade);
+    audio.volume = 0;
+    const generation = ++playGeneration;
+    allowedGeneration = generation;
+    return audio.play().then(() => {
+      if (allowedGeneration === generation) fadeIn();
+      else if (!allowedGeneration) audio.pause();
+    }, (error: unknown) => {
+      if (allowedGeneration === generation) allowedGeneration = 0;
+      throw error;
+    });
+  };
   return Promise.resolve({
-    play: () => {
+    play,
+    pause: () => {
       window.clearInterval(fade);
-      audio.volume = 0;
-      audio.play().catch((error: Error) => on(error.name === "NotAllowedError" ? "blocked" : "error"));
-      fade = window.setInterval(() => { audio.volume = Math.min(1, audio.volume + 0.1); if (audio.volume >= 1) window.clearInterval(fade); }, 60);
+      ++playGeneration;
+      allowedGeneration = 0;
+      audio.pause();
     },
-    pause: () => { window.clearInterval(fade); audio.pause(); },
-    restart: () => { audio.currentTime = 0; void audio.play().catch(() => on("blocked")); },
-    destroy: () => { window.clearInterval(fade); audio.pause(); audio.removeAttribute("src"); audio.load(); },
+    restart: () => { audio.currentTime = 0; return play(); },
+    isPlaying: () => !audio.paused,
+    destroy: () => { window.clearInterval(fade); ++playGeneration; allowedGeneration = 0; audio.pause(); audio.removeAttribute("src"); audio.load(); },
   });
 }

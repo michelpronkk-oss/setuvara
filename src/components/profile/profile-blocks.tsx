@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type MusicMedia, type VideoMedia } from "@/lib/blocks/media";
+import { mediaFocus } from "@/lib/soundtrack/focus";
 import { createSoundCloudPlayer, createSpotifyPlayer, spotifyUri, watchYouTubeIframe, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
 
 export type BlockTone = { bg: string; ink: string; sub: string; chip: string; line: string; dark: boolean };
@@ -82,6 +83,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
   useEffect(() => {
     if (uploadedVideo && videoUrl) uploadedVideoRef.current?.load();
   }, [uploadedVideo, videoUrl, data.video_mime_type]);
+  useEffect(() => () => focus.release(), [focus, videoUrl]);
   if (uploadedVideo) {
     if (!videoUrl) return null;
     return (
@@ -92,6 +94,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
             aria-label={title || "Uploaded video"}
             className="block max-h-[80vh] w-full object-contain"
             controls
+            key={videoUrl}
             playsInline
             preload="metadata"
             ref={uploadedVideoRef}
@@ -107,7 +110,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
     );
   }
   if (!media) return null;
-  const start = () => { focus.claim(); setPlaying(true); };
+  const start = () => { setPlaying(true); };
   const close = () => { setPlaying(false); focus.release(); };
   const thumbnail = str(data.thumbnail) || media.thumbnail;
   const frame = media.vertical ? "mx-auto aspect-[9/16] w-full max-w-[300px]" : "aspect-video w-full";
@@ -115,7 +118,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
     <figure>
       <div className={`relative overflow-hidden rounded-2xl ${frame}`} style={{ background: tone.dark ? "#1C1C1C" : "#0D0D0D" }}>
         {playing ? (
-          focus.active ? <TrackedVideo media={media} onClose={close} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} videoId={id} /> : (
+          focus.active ? <TrackedVideo key={media.embedUrl} focus={focus} media={media} onClose={close} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} /> : (
             <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowFullScreen className="absolute inset-0 size-full" referrerPolicy="strict-origin-when-cross-origin" src={media.embedUrl} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} />
           )
         ) : (
@@ -142,9 +145,8 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
  * A video that started while the Mode has a soundtrack: it holds the
  * soundtrack while it plays and hands it back when it pauses, ends or closes.
  */
-function TrackedVideo({ media, title, videoId, onClose }: { media: VideoMedia; title: string; videoId: string; onClose: () => void }) {
+function TrackedVideo({ media, title, onClose, focus }: { media: VideoMedia; title: string; onClose: () => void; focus: ReturnType<typeof useMediaFocus> }) {
   const ref = useRef<HTMLIFrameElement>(null);
-  const focus = useMediaFocus(`video:${videoId}`);
   const youtube = media.provider === "youtube";
   const vimeo = media.provider === "vimeo";
   const [origin] = useState(() => (typeof window === "undefined" ? "" : window.location.origin));
@@ -160,8 +162,8 @@ function TrackedVideo({ media, title, videoId, onClose }: { media: VideoMedia; t
       else if (event === "paused" || event === "ended") focus.release();
     };
     if (youtube) {
-      watchYouTubeIframe(iframe, (event) => { if (!cancelled) on(event); }).then((ready) => { player = ready; }).catch(() => { /* close button still releases */ });
-      return () => { cancelled = true; };
+      watchYouTubeIframe(iframe, (event) => { if (!cancelled) on(event); }).then((ready) => { player = ready; if (cancelled) ready.destroy(); }).catch(() => { /* close button still releases */ });
+      return () => { cancelled = true; player?.destroy(); focus.release(); };
     }
     if (vimeo) {
       const post = (method: string, value?: string) => iframe.contentWindow?.postMessage(JSON.stringify(value ? { method, value } : { method }), "https://player.vimeo.com");
@@ -178,9 +180,9 @@ function TrackedVideo({ media, title, videoId, onClose }: { media: VideoMedia; t
       };
       iframe.addEventListener("load", onLoad);
       window.addEventListener("message", onMessage);
-      return () => { iframe.removeEventListener("load", onLoad); window.removeEventListener("message", onMessage); };
+      return () => { iframe.removeEventListener("load", onLoad); window.removeEventListener("message", onMessage); focus.release(); };
     }
-  }, [focus, vimeo, youtube]);
+  }, [focus, src, vimeo, youtube]);
 
   return (
     <>
@@ -206,6 +208,8 @@ function MusicBlock({ block, tone, accent, accentInk }: { block: ProfileBlock; t
 
 /** The provider's own embed, exactly as before. Marked when a soundtrack needs to notice it playing. */
 function MusicFrame({ media, title, tone, untracked }: { media: MusicMedia; title: string; tone: BlockTone; untracked?: string }) {
+  const focusId = untracked ? `untracked:${untracked}` : null;
+  useEffect(() => () => { if (focusId) mediaFocus.release(focusId); }, [focusId]);
   return (
     <div data-sound-untracked={untracked}>
       <iframe
@@ -272,10 +276,10 @@ function YouTubeMusicCard({ block, media, tone, accent, accentInk }: { block: Pr
       else if (event === "ended") { focus.release(); setOpen(false); }
     }).then((ready) => { player = ready; }).catch(() => { /* Stop still releases */ });
     return () => { cancelled = true; };
-  }, [focus, open]);
+  }, [focus, media.embedUrl, open]);
 
   const toggle = () => {
-    if (open) { setOpen(false); focus.release(); } else { focus.claim(); setOpen(true); }
+    if (open) { setOpen(false); focus.release(); } else setOpen(true);
   };
 
   return (

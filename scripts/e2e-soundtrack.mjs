@@ -88,12 +88,19 @@ async function seedUploadedVideo(browser, userId) {
   assert(upload.ok, `video upload: ${upload.status} ${await upload.text()}`);
   const [mode] = await admin(`/rest/v1/profile_modes?profile_id=eq.${userId}&slug=eq.personal&select=id`);
   await admin("/rest/v1/profile_blocks", { method: "POST", body: JSON.stringify({ profile_id: userId, mode_id: mode.id, kind: "video", sort_order: 4, is_visible: true, data: { source: "upload", video_path: path, video_mime_type: "video/webm", title: "Uploaded soundtrack video", caption: "A local native player" } }) });
+  return path;
+}
+
+async function seedSecondUploadedVideo(userId) {
+  const [block] = await admin(`/rest/v1/profile_blocks?profile_id=eq.${userId}&kind=eq.video&select=profile_id,mode_id,data&order=sort_order.asc&limit=1`);
+  assert(block, "A first uploaded video exists for the multi-media fixture");
+  await admin("/rest/v1/profile_blocks", { method: "POST", body: JSON.stringify({ profile_id: userId, mode_id: block.mode_id, kind: "video", sort_order: 5, is_visible: true, data: { ...block.data, title: "Second uploaded soundtrack video" } }) });
 }
 
 async function seedUser(name, modes) {
   const username = `${name}${stamp}`.slice(0, 30);
   const email = `${username}@example.test`;
-  const password = "Soundtrack-test-1";
+  const password = `Soundtrack-${crypto.randomUUID()}aA1!`;
   const user = await admin("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { username, display_name: name[0].toUpperCase() + name.slice(1) } }) });
   const owner = createClient(supabaseUrl, publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const signedIn = await owner.auth.signInWithPassword({ email, password });
@@ -123,7 +130,9 @@ const YT_MUSIC = { kind: "music", data: { url: "https://music.youtube.com/watch?
 const fakes = String.raw`
 (() => {
   window.__fake = [];
-  const activated = () => navigator.userActivation.hasBeenActive;
+  window.__soundtest = { allowAutoplay: false, requireGesture: false, gestureAllowed: false, deferNextPlay: false, nextPlayError: null, visibilityEvents: 0, stalePauseEvents: 0, firstPauseEvent: false, unavailableFired: false };
+  document.addEventListener("visibilitychange", () => window.__soundtest.visibilityEvents++, { capture: true });
+  const activated = () => window.__soundtest.allowAutoplay || (window.__soundtest.requireGesture ? window.__soundtest.gestureAllowed : navigator.userActivation.hasBeenActive);
   // Audio previews use the browser Audio API rather than a provider iframe.
   window.Audio = class {
     constructor() {
@@ -131,17 +140,37 @@ const fakes = String.raw`
       this.volume = 1;
       this.currentTime = 0;
       this.paused = true;
-      this.state = { kind: "audio", paused: true, plays: 0, src: "" };
+      this.state = { kind: "audio", paused: true, plays: 0, playCalls: 0, overlaps: 0, playPending: false, src: "", destroyed: false };
+      this.state.emitStalePause = () => { window.__soundtest.stalePauseEvents++; this.emit("pause"); };
       window.__fake.push(this.state);
     }
     addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
     emit(name) { (this.listeners[name] || []).forEach((fn) => fn()); }
     set src(value) { this.state.src = value; }
     get src() { return this.state.src; }
-    play() {
-      if (!activated()) return Promise.reject(new DOMException("User activation required", "NotAllowedError"));
+    resolvePlayback() {
       this.paused = false; this.state.paused = false; this.state.plays++;
-      setTimeout(() => this.emit("playing"), 20);
+      this.state.playPending = false;
+      setTimeout(() => {
+        this.emit("playing");
+        if (!this.paused && [...document.querySelectorAll("video")].some((video) => !video.paused)) this.state.overlaps++;
+      }, 0);
+    }
+    play() {
+      this.state.playCalls++;
+      const forcedError = window.__soundtest.nextPlayError;
+      window.__soundtest.nextPlayError = null;
+      if (forcedError) return Promise.reject(new DOMException("Simulated player transition", forcedError));
+      if (!activated()) return Promise.reject(new DOMException("User activation required", "NotAllowedError"));
+      if (window.__soundtest.deferNextPlay) {
+        window.__soundtest.deferNextPlay = false;
+        this.state.playPending = true;
+        return new Promise((resolve, reject) => {
+          this.state.resolvePlay = () => { this.resolvePlayback(); resolve(); };
+          this.state.rejectPlay = (name = "AbortError") => { this.state.playPending = false; reject(new DOMException("Simulated player transition", name)); };
+        });
+      }
+      this.resolvePlayback();
       return Promise.resolve();
     }
     pause() {
@@ -149,7 +178,12 @@ const fakes = String.raw`
       this.paused = true; this.state.paused = true;
       setTimeout(() => this.emit("pause"), 20);
     }
-    removeAttribute(name) { if (name === "src") this.src = ""; }
+    removeAttribute(name) {
+      if (this.state.playPending) this.state.rejectPlay?.("AbortError");
+      if (name === "src") this.src = "";
+      this.state.destroyed = true;
+      try { sessionStorage.setItem("__setuvara_soundtrack_destroyed", "yes"); } catch {}
+    }
     load() {}
   };
   // Spotify iFrame API
@@ -157,10 +191,10 @@ const fakes = String.raw`
     const iframe = document.createElement("iframe"); iframe.src = "about:blank"; iframe.style.height = opts.height + "px"; iframe.style.width = "100%"; iframe.dataset.fake = "spotify";
     el.replaceWith(iframe);
     const listeners = {}; const emit = (name, data) => (listeners[name] || []).forEach((fn) => fn({ data }));
-    const state = { kind: "spotify", uri: opts.uri, paused: true, plays: 0 }; window.__fake.push(state);
+    const state = { kind: "spotify", uri: opts.uri, paused: true, plays: 0, blockedAttempts: 0 }; window.__fake.push(state);
     const update = (paused) => { state.paused = paused; emit("playback_update", { isPaused: paused, isBuffering: false, position: paused ? 1000 : 0, duration: 30000 }); };
     state.userPlay = () => update(false); state.userPause = () => update(true);
-    cb({ addListener(name, fn) { (listeners[name] ||= []).push(fn); }, play() { state.plays++; if (activated()) setTimeout(() => update(false), 40); }, resume() { this.play(); }, pause() { setTimeout(() => update(true), 30); }, seek() {}, destroy() { state.destroyed = true; iframe.remove(); } });
+    cb({ addListener(name, fn) { (listeners[name] ||= []).push(fn); }, play() { state.plays++; if (activated()) setTimeout(() => update(false), 40); else state.blockedAttempts++; }, resume() { this.play(); }, pause() { setTimeout(() => update(true), 30); }, seek() {}, destroy() { state.destroyed = true; iframe.remove(); } });
     setTimeout(() => emit("ready", {}), 30);
   } };
   // YouTube iFrame API
@@ -168,12 +202,12 @@ const fakes = String.raw`
     constructor(el, opts) {
       const existing = el.tagName === "IFRAME";
       const iframe = existing ? el : document.createElement("iframe"); if (!existing) { iframe.src = "about:blank"; el.replaceWith(iframe); }
-      this.opts = opts; const state = this.state = { kind: "youtube", videoId: opts.videoId || iframe.src, paused: true, plays: 0, attached: existing }; window.__fake.push(state);
+      this.opts = opts; const state = this.state = { kind: "youtube", videoId: opts.videoId || iframe.src, paused: true, plays: 0, blockedAttempts: 0, attached: existing }; window.__fake.push(state);
       const change = (data) => { state.paused = data !== 1; opts.events?.onStateChange?.({ data }); };
       this.change = change; state.userPlay = () => change(1); state.userPause = () => change(2); state.end = () => change(0); state.fail = () => opts.events?.onError?.({ data: 150 });
       setTimeout(() => { opts.events?.onReady?.({ target: this }); if (existing && /autoplay=1/.test(iframe.src)) change(1); }, 30);
     }
-    playVideo() { this.state.plays++; if (activated()) setTimeout(() => this.change(1), 40); }
+    playVideo() { this.state.plays++; if (activated()) setTimeout(() => this.change(1), 40); else this.state.blockedAttempts++; }
     pauseVideo() { setTimeout(() => this.change(2), 30); }
     seekTo() {} setVolume() {} destroy() { this.state.destroyed = true; }
   } };
@@ -194,13 +228,14 @@ const scripts = {
   "https://w.soundcloud.com/player/api.js": "window.SC = window.__sc;",
 };
 
-async function newVisitor(browser, { mobile = true, preference = null, unavailable = false } = {}) {
-  const context = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1280, height: 900 } });
-  await context.addInitScript(fakes);
+async function newVisitor(browser, { mobile = true, preference = null, unavailable = false, autoplay = false, requireGesture = false } = {}) {
+  const context = await browser.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
+  const init = autoplay ? fakes.replace("allowAutoplay: false", "allowAutoplay: true") : fakes;
+  await context.addInitScript(`${init}${requireGesture ? '\nwindow.__soundtest.requireGesture = true; document.addEventListener("pointerdown", () => { window.__soundtest.gestureAllowed = true; }, { capture: true, once: true });' : ""}`);
   if (preference) await context.addInitScript((value) => localStorage.setItem("setuvara:sound", value), preference);
   await context.route((url) => !["127.0.0.1", "localhost"].includes(url.hostname), (route) => {
     const url = route.request().url();
-    if (scripts[url]) return route.fulfill({ contentType: "text/javascript", body: unavailable && url.includes("youtube") ? "window.YT = { Player: class { constructor(el, opts) { setTimeout(() => opts.events.onError({ data: 150 }), 20); } } }; setTimeout(() => window.onYouTubeIframeAPIReady(), 10);" : scripts[url] });
+    if (scripts[url]) return route.fulfill({ contentType: "text/javascript", body: unavailable && url.includes("youtube") ? "window.YT = { Player: class { constructor(el, opts) { setTimeout(() => { window.__soundtest.unavailableFired = true; opts.events.onError({ data: 150 }); }, 20); } } }; setTimeout(() => window.onYouTubeIframeAPIReady(), 10);" : scripts[url] });
     if (route.request().resourceType() === "image") return route.fulfill({ status: 404, body: "" });
     return route.fulfill({ contentType: "text/html", body: "<body style='margin:0;background:#1c1c1c;color:#eee;font:12px sans-serif;display:grid;place-items:center;height:100vh'>provider embed</body>" });
   });
@@ -210,7 +245,19 @@ async function newVisitor(browser, { mobile = true, preference = null, unavailab
   return { context, page };
 }
 
-const fake = (page, kind) => page.evaluate((k) => window.__fake.filter((item) => item.kind === k && !item.destroyed).map(({ paused, plays, uri, videoId, src, attached }) => ({ paused, plays, uri, videoId, src, attached })), kind);
+const fake = (page, kind) => page.evaluate((k) => window.__fake.filter((item) => item.kind === k && !item.destroyed).map(({ paused, plays, blockedAttempts, playCalls, overlaps, playPending, uri, videoId, src, attached }) => ({ paused, plays, blockedAttempts, playCalls, overlaps, playPending, uri, videoId, src, attached })), kind);
+const waitForFake = (page, kind, condition, index = 0) => page.waitForFunction(({ kind, condition, index }) => {
+  const items = window.__fake.filter((item) => item.kind === kind && !item.destroyed);
+  const matches = (item) => Object.entries(condition).every(([key, expected]) => {
+    if (key === "any") return true;
+    if (key === "playing") return !item.paused === expected;
+    if (key === "minPlays") return item.plays >= expected;
+    if (key === "exactPlays") return item.plays === expected;
+    if (key === "minBlockedAttempts") return (item.blockedAttempts ?? 0) >= expected;
+    return item[key] === expected;
+  });
+  return condition.any ? items.some(matches) : Boolean(items[index]) && matches(items[index]);
+}, { kind, condition, index });
 const call = (page, kind, index, method) => page.evaluate(([k, i, m]) => window.__fake.filter((item) => item.kind === k && !item.destroyed)[i][m](), [kind, index, method]);
 const soundUi = (page) => page.locator("[data-sound-ui]").count();
 async function assertNoSoundtrackCard(page, titles) {
@@ -227,15 +274,6 @@ async function assertSourceMetadataAbsent(page, titles) {
   for (const title of titles) assert.equal(text.includes(title), false, `Soundtrack title is hidden from the profile composition: ${title}`);
 }
 const shot = async (page, name, fullPage = false) => { if (shots) await page.screenshot({ path: `${shots}/${name}.png`, fullPage }); };
-async function until(check, message, timeout = 4000) {
-  const end = Date.now() + timeout;
-  for (;;) {
-    try { if (await check()) return; } catch { /* retry */ }
-    if (Date.now() > end) assert.fail(message);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
 const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM ?? undefined, args: ["--autoplay-policy=user-gesture-required"] });
 try {
   const silent = await seedUser("silent", { personal: [SOUNDCLOUD, VIDEO] });
@@ -247,13 +285,15 @@ try {
     event: [{ kind: "music", data: { url: "https://soundcloud.com/odesza/a-moment-apart", title: "A Moment Apart" }, is_soundtrack: true }],
     business: [{ kind: "music", data: { url: "https://www.deezer.com/en/track/3135556", title: "Harder, Better, Faster, Stronger" }, is_soundtrack: true }],
   });
+  await seedUploadedVideo(browser, clips.id);
+  await seedSecondUploadedVideo(clips.id);
 
   // ---- No soundtrack: no sound UI at all, no player scripts.
   {
     const { context, page } = await newVisitor(browser, { preference: "on" });
     for (const url of [`/${silent.username}`, `/${owner.username}?mode=business`]) {
       await page.goto(appUrl + url);
-      await page.waitForTimeout(800);
+      await page.locator('main[data-public-profile-surface="true"]').waitFor();
       assert.equal(await soundUi(page), 0, `${url}: a Mode without a soundtrack shows no sound UI`);
       assert.equal(await page.getByText(/Enter with sound|Sound on|Sound off/).count(), 0, `${url}: no sound copy`);
       assert.equal(await page.evaluate(() => [...document.scripts].some((script) => /spotify|soundcloud|youtube/.test(script.src))), false, `${url}: no player APIs load`);
@@ -288,7 +328,7 @@ try {
     if (width === 430) await shot(page, "02c-first-visit-430");
   }
   await enter.click();
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Enter with sound starts the Spotify soundtrack");
+  await waitForFake(page, "spotify", { paused: false });
   assert.equal(await page.evaluate(() => localStorage.getItem("setuvara:sound")), "on");
   await assertNoSoundtrackCard(page, ["Golden Hour · JVKE"]);
   assert.equal(await page.getByRole("button", { name: "Enter with sound" }).count(), 0, "The entry choice disappears after Sound on");
@@ -298,15 +338,29 @@ try {
 
   // ---- Video pauses the soundtrack; closing it brings the soundtrack back.
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => {
+    const button = document.querySelector('[data-sound-ui] button[aria-pressed]');
+    return button instanceof HTMLElement && getComputedStyle(button.parentElement).opacity === "1" && button.getBoundingClientRect().bottom <= window.innerHeight;
+  });
   await shot(page, "04-pill-scrolled");
   const pill = page.locator("[data-sound-ui] button[aria-pressed]").last();
   assert.equal(await pill.evaluate((element) => getComputedStyle(element.parentElement).opacity === "1" && element.getBoundingClientRect().bottom <= window.innerHeight), true, "Sound control follows the visitor down the page");
   await page.getByRole("button", { name: "Play Studio session" }).click();
-  await until(async () => (await fake(page, "spotify"))[0].paused, "Starting a video pauses the soundtrack");
-  await until(async () => (await fake(page, "youtube")).some((item) => item.attached && !item.paused), "The video plays after its click");
+  await waitForFake(page, "spotify", { paused: true });
+  await waitForFake(page, "youtube", { any: true, attached: true, playing: true });
+  await page.evaluate(() => {
+    window.__soundtest.visibilityEvents = 0;
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(() => window.__soundtest.visibilityEvents === 2);
+  assert.equal((await fake(page, "spotify"))[0].paused, true, "Returning to a visible tab does not resume while the video still blocks");
   await page.getByRole("button", { name: "Close video" }).click();
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Closing the video resumes the soundtrack", 3000);
+  await waitForFake(page, "spotify", { paused: false });
   console.log("PASS video pauses and resumes the soundtrack");
 
   // Native uploaded video shares the same audio-focus handoff as provider video.
@@ -315,80 +369,109 @@ try {
   assert(await uploadedVideo.getAttribute("controls") !== null, "Uploaded public video has native controls");
   assert(await uploadedVideo.getAttribute("playsinline") !== null, "Uploaded public video stays inline on phones");
   await uploadedVideo.evaluate((video) => video.play());
-  await until(async () => (await fake(page, "spotify"))[0].paused, "Uploaded video pauses the soundtrack");
+  await waitForFake(page, "spotify", { paused: true });
   await page.waitForFunction(() => {
     const video = document.querySelector('video[aria-label="Uploaded soundtrack video"]');
     return video instanceof HTMLVideoElement && video.currentTime > 0.1;
   });
   await uploadedVideo.evaluate((video) => video.pause());
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Pausing uploaded video resumes the soundtrack", 3000);
+  await waitForFake(page, "spotify", { paused: false });
+  const beforeNativeEnd = (await fake(page, "spotify"))[0].plays;
   await uploadedVideo.evaluate((video) => video.play());
-  await until(async () => (await fake(page, "spotify"))[0].paused, "Uploaded video pauses the soundtrack before ending");
+  await waitForFake(page, "spotify", { paused: true });
   await page.waitForFunction(() => {
     const video = document.querySelector('video[aria-label="Uploaded soundtrack video"]');
     return video instanceof HTMLVideoElement && video.ended;
   }, null, { timeout: 10_000 });
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Ending uploaded video resumes the soundtrack", 3000);
+  await waitForFake(page, "spotify", { paused: false });
+  assert.equal((await fake(page, "spotify"))[0].plays, beforeNativeEnd + 1, "The pause + ended pair requests one soundtrack resume");
   console.log("PASS native uploaded video pauses/resumes the soundtrack on pause and end");
 
   // Video ended through the player also hands back.
   await page.getByRole("button", { name: "Play Studio session" }).click();
-  await until(async () => (await fake(page, "spotify"))[0].paused, "Video pauses soundtrack again");
+  await waitForFake(page, "spotify", { paused: true });
   await page.evaluate(() => window.__fake.filter((item) => item.kind === "youtube" && item.attached && !item.destroyed).at(-1).end());
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Video end resumes the soundtrack", 3000);
+  await waitForFake(page, "spotify", { paused: false });
   await page.getByRole("button", { name: "Close video" }).click();
 
   // ---- Another music block pauses the soundtrack.
   await call(page, "soundcloud", 0, "userPlay");
-  await until(async () => (await fake(page, "spotify"))[0].paused, "Manual music pauses the soundtrack");
+  await waitForFake(page, "spotify", { paused: true });
   await call(page, "soundcloud", 0, "userPause");
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Soundtrack resumes after manual music stops", 3000);
+  await waitForFake(page, "spotify", { paused: false });
   console.log("PASS manual music pauses and resumes the soundtrack");
 
-  // ---- Hidden tab pauses; visible again resumes.
-  await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); document.dispatchEvent(new Event("visibilitychange")); });
-  await until(async () => (await fake(page, "spotify"))[0].paused, "A hidden tab pauses the soundtrack");
-  await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => false }); document.dispatchEvent(new Event("visibilitychange")); });
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Returning resumes the soundtrack");
-  console.log("PASS hidden tab pauses the soundtrack");
+  // ---- Visibility handling: headless Chromium cannot change page visibility,
+  // so exercise the real visibilitychange listener with a deterministic event.
+  const visibilityCount = await page.evaluate(() => window.__soundtest.visibilityEvents);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction((count) => window.__soundtest.visibilityEvents === count + 1 && document.visibilityState === "hidden", visibilityCount);
+  await waitForFake(page, "spotify", { paused: true });
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction((count) => window.__soundtest.visibilityEvents === count + 1 && document.visibilityState === "visible", visibilityCount + 1);
+  await waitForFake(page, "spotify", { paused: false });
+  console.log("PASS visibilitychange pauses and resumes the soundtrack (headless browser simulation)");
 
   // ---- Mute from the control, remembered across profiles and visits.
   await page.getByRole("button", { name: "Sound on. Mute." }).click();
-  await until(async () => (await fake(page, "spotify"))[0].paused, "Sound off pauses");
+  await waitForFake(page, "spotify", { paused: true });
   assert.equal(await page.evaluate(() => localStorage.getItem("setuvara:sound")), "off");
   await page.reload();
   await page.getByRole("button", { name: "Muted. Turn sound on." }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Enter with sound" }).count(), 0, "No prompt for a visitor who already chose");
-  await page.waitForTimeout(600);
+  await waitForFake(page, "spotify", { exactPlays: 0 });
   assert.equal((await fake(page, "spotify"))[0].plays, 0, "Sound off is remembered: nothing starts");
   await shot(page, "05-returning-muted");
   await page.getByRole("button", { name: "Muted. Turn sound on." }).click();
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "Sound on from the cue plays");
+  await waitForFake(page, "spotify", { paused: false });
   console.log("PASS mute/unmute and Sound off remembered");
 
-  // ---- Sound on remembered: plays on the first tap the browser allows.
-  await page.reload();
-  await page.waitForTimeout(4200);
-  await page.getByRole("button", { name: "Tap to play sound" }).waitFor();
-  await shot(page, "06-returning-sound-on-needs-tap");
-  await page.locator("h1").first().click();
-  await until(async () => !(await fake(page, "spotify"))[0].paused, "First tap on the page starts a remembered Sound on");
-  console.log("PASS Sound on remembered");
+  // ---- Sound on remembered: one genuine tap recovers a blocked reload.
+  const returningOn = await newVisitor(browser, { preference: "on", requireGesture: true });
+  const returningPage = returningOn.page;
+  await returningPage.goto(`${appUrl}/${owner.username}`);
+  await waitForFake(returningPage, "spotify", { minBlockedAttempts: 1 });
+  await returningPage.getByRole("button", { name: "Tap to play sound" }).waitFor();
+  assert.equal(await returningPage.getByRole("button", { name: "Enter with sound" }).count(), 0, "Remembered Sound on does not ask for the first-visit choice again");
+  await shot(returningPage, "06-returning-sound-on-needs-tap");
+  await returningPage.locator("h1").first().click();
+  await waitForFake(returningPage, "spotify", { playing: true });
+  await returningPage.reload();
+  await waitForFake(returningPage, "spotify", { minBlockedAttempts: 1 });
+  await returningPage.getByRole("button", { name: "Tap to play sound" }).waitFor();
+  await returningPage.locator("h1").first().click();
+  await waitForFake(returningPage, "spotify", { playing: true });
+  await returningOn.context.close();
+  await page.goto(`${appUrl}/${silent.username}`);
+  console.log("PASS remembered Sound on recovers on the first tap after reload");
 
-  // ---- Mode switch: Personal → Event stops the Spotify soundtrack; YouTube Music takes over.
-  await page.goto(`${appUrl}/${owner.username}?mode=event`);
-  await page.waitForTimeout(300);
-  assert.equal((await fake(page, "spotify")).length, 0, "Previous Mode soundtrack is gone");
-  await until(async () => (await fake(page, "youtube")).some((item) => !item.attached), "The event soundtrack player is created without a public track card");
-  await assertNoSoundtrackCard(page, ["Nightcall · Kavinsky", "YouTube Music"]);
-  await page.locator("h1").first().click();
-  await until(async () => (await fake(page, "youtube")).some((item) => !item.attached && !item.paused), "YouTube Music soundtrack plays with Sound on");
-  await shot(page, "07-event-youtube-music");
-  console.log("PASS Mode switch + YouTube Music soundtrack");
+  // ---- Event Mode with remembered sound retries an unacknowledged play on the first real gesture.
+  const eventVisit = await newVisitor(browser, { preference: "on", requireGesture: true });
+  const eventPage = eventVisit.page;
+  await eventPage.goto(`${appUrl}/${owner.username}?mode=event`);
+  await waitForFake(eventPage, "youtube", { any: true, attached: false, minBlockedAttempts: 1 });
+  await assertNoSoundtrackCard(eventPage, ["Nightcall · Kavinsky", "YouTube Music"]);
+  const [eventPlayerBeforeTap] = await fake(eventPage, "youtube");
+  await eventPage.locator("h1").first().click();
+  await waitForFake(eventPage, "youtube", { any: true, attached: false, playing: true });
+  assert.equal((await fake(eventPage, "youtube"))[0].plays, eventPlayerBeforeTap.plays + 1, "An early page gesture retries an unacknowledged iframe play");
+  await shot(eventPage, "07-event-youtube-music");
+  await eventVisit.context.close();
+  await page.goto(`${appUrl}/${silent.username}`);
+  console.log("PASS Event Mode + early gesture retry");
 
   // ---- Desktop.
   const desktop = await newVisitor(browser, { mobile: false });
   await desktop.page.goto(`${appUrl}/${owner.username}`);
+  assert.equal(await desktop.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "No horizontal overflow at 1440x900");
   await desktop.page.getByRole("button", { name: "Enter with sound" }).waitFor();
   await shot(desktop.page, "08-desktop-first-visit");
   await desktop.page.getByRole("button", { name: "Continue muted" }).click();
@@ -404,28 +487,127 @@ try {
   await assertNoSoundtrackCard(page, ["Blinding Lights"]);
   await page.getByRole("button", { name: "Enter with sound" }).click();
   await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
-  await until(async () => (await fake(page, "audio")).some((item) => !item.paused), "Apple Music preview plays after the visitor's choice");
+  await waitForFake(page, "audio", { any: true, paused: false });
   await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
   await page.goto(`${appUrl}/${clips.username}?mode=event`);
   await assertNoSoundtrackCard(page, ["A Moment Apart"]);
   await page.getByRole("button", { name: "Enter with sound" }).click();
   await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
-  await until(async () => (await fake(page, "soundcloud")).some((item) => !item.paused), "SoundCloud soundtrack plays after the visitor's choice");
+  await waitForFake(page, "soundcloud", { any: true, paused: false });
   await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
   await page.goto(`${appUrl}/${clips.username}?mode=business`);
   await assertNoSoundtrackCard(page, ["Harder, Better, Faster, Stronger"]);
   await page.getByRole("button", { name: "Enter with sound" }).click();
   await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
-  await until(async () => (await fake(page, "audio")).some((item) => !item.paused), "Deezer preview plays after the visitor's choice");
+  await waitForFake(page, "audio", { any: true, paused: false });
   await shot(page, "10-deezer-business");
   console.log("PASS Apple Music, SoundCloud and Deezer soundtracks");
+
+  // ---- Remembered sound succeeds on an autoplay-permitted reload.
+  {
+    const auto = await newVisitor(browser, { preference: "on", autoplay: true });
+    await auto.page.goto(`${appUrl}/${clips.username}`);
+    await waitForFake(auto.page, "audio", { any: true, paused: false });
+    await auto.page.reload();
+    await waitForFake(auto.page, "audio", { any: true, paused: false });
+    await auto.context.close();
+    console.log("PASS remembered sound on an autoplay-permitted reload");
+  }
+
+  // ---- Client-side route change unmounts the old pending soundtrack player.
+  {
+    const switching = await newVisitor(browser);
+    const sp = switching.page;
+    await sp.goto(`${appUrl}/login`);
+    await sp.getByLabel("Email").fill(clips.email);
+    await sp.getByLabel("Password", { exact: true }).fill(clips.password);
+    await sp.getByRole("button", { name: /log in|sign in/i }).click();
+    await sp.waitForURL(/\/app/);
+    await sp.goto(`${appUrl}/${clips.username}`);
+    await sp.evaluate(() => { window.__soundtest.deferNextPlay = true; sessionStorage.removeItem("__setuvara_soundtrack_destroyed"); });
+    await sp.getByRole("button", { name: "Enter with sound" }).click();
+    await sp.waitForFunction(() => window.__fake.some((item) => item.kind === "audio" && item.playPending));
+    await sp.getByRole("link", { name: "Edit profile" }).click();
+    await sp.waitForURL(/\/app\/identity/);
+    await sp.waitForFunction(() => sessionStorage.getItem("__setuvara_soundtrack_destroyed") === "yes");
+    assert.equal(await sp.evaluate(() => sessionStorage.getItem("__setuvara_soundtrack_destroyed")), "yes", "Client navigation destroys the pending public soundtrack player");
+    await switching.context.close();
+    console.log("PASS client navigation invalidates a pending public soundtrack player");
+  }
+
+  // ---- Pending native play, overlapping blockers, late resolution, and AbortError.
+  {
+    const arbitration = await newVisitor(browser);
+    const ap = arbitration.page;
+    await ap.goto(`${appUrl}/${clips.username}`);
+    await ap.evaluate(() => { window.__soundtest.deferNextPlay = true; });
+    await ap.getByRole("button", { name: "Enter with sound" }).click();
+    await ap.waitForFunction(() => window.__fake.some((item) => item.kind === "audio" && item.playPending));
+
+    const first = ap.locator('video[aria-label="Uploaded soundtrack video"]');
+    const second = ap.locator('video[aria-label="Second uploaded soundtrack video"]');
+    await first.evaluate((video) => video.play());
+    await ap.waitForFunction(() => {
+      const video = document.querySelector('video[aria-label="Uploaded soundtrack video"]');
+      return video instanceof HTMLVideoElement && !video.paused;
+    });
+    await ap.evaluate(() => window.__fake.find((item) => item.kind === "audio" && item.playPending).resolvePlay());
+    await waitForFake(ap, "audio", { paused: true, exactPlays: 1 });
+    assert.equal((await fake(ap, "audio"))[0].overlaps, 0, "A late soundtrack start is suppressed before it overlaps active video");
+
+    await second.evaluate((video) => video.play());
+    await ap.waitForFunction(() => {
+      const video = document.querySelector('video[aria-label="Second uploaded soundtrack video"]');
+      return video instanceof HTMLVideoElement && !video.paused;
+    });
+    await first.evaluate((video) => {
+      window.__soundtest.firstPauseEvent = false;
+      video.addEventListener("pause", () => { window.__soundtest.firstPauseEvent = true; }, { once: true });
+      video.pause();
+    });
+    await ap.waitForFunction(() => window.__soundtest.firstPauseEvent);
+    assert.equal((await fake(ap, "audio"))[0].paused, true, "Stopping one video does not resume under the second active video");
+    assert.equal((await fake(ap, "audio"))[0].playCalls, 1, "The coordinator does not issue an intermediate resume");
+    await second.evaluate((video) => video.pause());
+    await waitForFake(ap, "audio", { paused: false });
+    assert.equal((await fake(ap, "audio"))[0].playCalls, 2, "The last blocker causes exactly one resume request");
+    assert.equal((await fake(ap, "audio"))[0].overlaps, 0, "Two simultaneous media blockers never overlap the soundtrack");
+    const soundPill = ap.locator('[data-sound-ui] button[aria-pressed]').last();
+    await ap.evaluate(() => window.__fake.find((item) => item.kind === "audio" && !item.destroyed).emitStalePause());
+    await ap.waitForFunction(() => window.__soundtest.stalePauseEvents === 1);
+    await ap.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    assert.equal(await soundPill.getAttribute("aria-pressed"), "true", "A queued pause event cannot turn off sound after playback resumed");
+
+    await ap.getByRole("button", { name: "Sound on. Mute." }).click();
+    await waitForFake(ap, "audio", { paused: true });
+    await ap.evaluate(() => { window.__soundtest.deferNextPlay = true; });
+    await ap.getByRole("button", { name: "Muted. Turn sound on." }).click();
+    await ap.waitForFunction(() => window.__fake.some((item) => item.kind === "audio" && item.playPending));
+    await first.evaluate((video) => video.play());
+    await ap.waitForFunction(() => {
+      const video = document.querySelector('video[aria-label="Uploaded soundtrack video"]');
+      return video instanceof HTMLVideoElement && !video.paused;
+    });
+    await ap.evaluate(async () => {
+      window.__fake.find((item) => item.kind === "audio" && item.playPending).rejectPlay("AbortError");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    assert.equal((await fake(ap, "audio"))[0].paused, true, "AbortError during a blocked play does not restart under video");
+    await first.evaluate((video) => video.pause());
+    await waitForFake(ap, "audio", { paused: false });
+    assert.equal((await fake(ap, "audio"))[0].overlaps, 0, "Abort recovery keeps media audio exclusive");
+    await arbitration.context.close();
+    console.log("PASS stale play, multi-media arbitration, and AbortError recovery");
+  }
+
   await context.close();
 
   // ---- Unavailable track: no stuck UI, profile intact.
   {
     const broken = await newVisitor(browser, { unavailable: true });
     await broken.page.goto(`${appUrl}/${owner.username}?mode=event`);
-    await broken.page.waitForTimeout(1500);
+    await broken.page.waitForFunction(() => window.__soundtest.unavailableFired);
     assert.equal(await broken.page.getByRole("button", { name: /Enter with sound|Sound on|Tap to play/ }).count(), 0, "An unavailable soundtrack shows no sound UI");
     await broken.page.getByRole("button", { name: "Play Studio session" }).waitFor();
     await shot(broken.page, "11-unavailable", true);
@@ -445,9 +627,8 @@ try {
     await ep.waitForURL(/\/app/);
     await ep.goto(`${appUrl}/app/identity?mode=personal&section=links`);
     await ep.getByText("PROFILE SOUNDTRACK").first().waitFor();
-    await ep.waitForTimeout(4000);
-    assert.equal((await fake(ep, "spotify")).every((item) => item.plays === 0), true, "Editor preview never starts the soundtrack on its own");
     await ep.getByRole("button", { name: "Enter with sound" }).waitFor();
+    assert.equal((await fake(ep, "spotify")).every((item) => item.plays === 0), true, "Editor preview never starts the soundtrack on its own");
     await assertSourceMetadataAbsent(ep, ["Golden Hour · JVKE"]);
     await shot(ep, "12-editor-desktop");
     // Make the SoundCloud block the soundtrack instead.
@@ -469,7 +650,7 @@ try {
 
     const after = await newVisitor(browser, { preference: "on" });
     await after.page.goto(`${appUrl}/${owner.username}`);
-    await after.page.waitForTimeout(800);
+    await after.page.locator('main[data-public-profile-surface="true"]').waitFor();
     assert.equal(await soundUi(after.page), 0, "Removing the soundtrack removes all sound UI");
     await after.context.close();
     console.log("PASS editor preview silent, replace soundtrack, remove soundtrack");

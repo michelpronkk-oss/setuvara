@@ -33,6 +33,7 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
-    "tests/billing/database.integration.test.ts"
+    "tests/billing/database.integration.test.ts",
+    "tests/soundtrack/focus.test.ts"
   ]
 }

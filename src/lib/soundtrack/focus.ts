@@ -22,12 +22,21 @@ export const mediaFocus = {
   busy() {
     return claims.size > 0;
   },
-  /** The visitor explicitly chose the soundtrack: stop what we can and forget the rest. */
+  /** The visitor explicitly chose the soundtrack: ask controllable media to pause.
+   * Keep its blocker until its real pause/end event so the two sources cannot overlap. */
   yield() {
-    const current = [...claims.values()];
-    claims.clear();
-    current.forEach((claim) => { try { claim.pause?.(); } catch { /* player already gone */ } });
-    emit();
+    let releasedUntracked = false;
+    for (const [id, claim] of [...claims]) {
+      if (claim.pause) {
+        try { claim.pause(); } catch { claims.delete(id); releasedUntracked = true; }
+      } else {
+        // Third-party embeds without a player API cannot be paused. An explicit
+        // Sound on choice yields to the Setuvara soundtrack as before.
+        claims.delete(id);
+        releasedUntracked = true;
+      }
+    }
+    if (releasedUntracked) emit();
   },
   subscribe(listener: () => void) {
     listeners.add(listener);

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "e2e:local": "node scripts/run-local-e2e.mjs",
     "e2e:soundtrack": "node scripts/e2e-soundtrack.mjs",
+    "test:soundtrack": "deno test tests/soundtrack/focus.test.ts",
     "e2e:connection-access": "node scripts/e2e-connection-access.mjs",
     "e2e:connection-detail": "node scripts/e2e-connection-detail.mjs",
     "e2e:tap": "node scripts/e2e-tap.mjs",
