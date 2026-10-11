@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import { getPublishedPublicMode, publicProfileTitle, publicSetting } from "@/lib/seo/public-profile";
+import { memberTierForPlan } from "@/lib/billing/member-badge";
+import { getUserBillingState } from "@/lib/billing/service";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
@@ -102,6 +104,8 @@ export async function GET(_request: Request, { params }: ProfileOgRouteProps) {
   const record = await getPublishedPublicMode(username, slug);
   if (!record) return NotFoundImage();
 
+  const billing = await getUserBillingState(record.profile.id).catch(() => null);
+  const memberTier = memberTierForPlan(billing?.plan ?? "free");
   const title = cleanText(publicProfileTitle(record.profile), 48);
   const handle = `@${record.profile.username}`;
   const context = settingContext(record.mode.settings, slug);
@@ -126,7 +130,14 @@ export async function GET(_request: Request, { params }: ProfileOgRouteProps) {
             <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5 }}>setuvara</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-            <span style={{ color: "#55524D", fontSize: 16, fontWeight: 700, letterSpacing: 3 }}>{modeLabels[slug]}</span>
+            <div style={{ alignItems: "center", display: "flex", gap: 14 }}>
+              <span style={{ color: "#55524D", fontSize: 16, fontWeight: 700, letterSpacing: 3 }}>{modeLabels[slug]}</span>
+              {memberTier && (
+                <span style={{ background: memberTier === "plus" ? "#FF5A4F" : "#D8CCA8", borderRadius: 999, color: "#0D0D0D", fontSize: 13, fontWeight: 800, letterSpacing: 1, padding: "9px 13px" }}>
+                  SETUVARA {memberTier.toUpperCase()} MEMBER
+                </span>
+              )}
+            </div>
             <span style={{ fontSize: titleSize, fontWeight: 800, letterSpacing: -3.5, lineHeight: 0.98, maxWidth: 650, overflow: "hidden" }}>{title}</span>
             <span style={{ color: "#55524D", fontSize: 24 }}>{handle}</span>
             <div style={{ background: accent, height: 6, marginTop: 6, width: 80 }} />
