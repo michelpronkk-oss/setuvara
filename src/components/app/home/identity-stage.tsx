@@ -9,7 +9,8 @@ import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
-import { resolveQrStyle } from "@/components/profile/appearance";
+import { resolveModeAccent, resolveQrStyle } from "@/components/profile/appearance";
+import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeAppearance } from "@/components/profile/types";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -270,11 +271,11 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
       <div aria-hidden="true" className="absolute inset-0 bg-[#0d0d0d]/55 [animation:fade-in_160ms_ease-out]" onClick={onClose} />
       <section aria-labelledby={titleId} aria-modal="true" className="relative flex max-h-[92dvh] w-full flex-col gap-4 overflow-y-auto rounded-t-[30px] bg-[#f5f4ef] px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-2.5 [animation:sheet-up_220ms_cubic-bezier(.2,.8,.2,1)] md:grid md:max-w-[780px] md:grid-cols-[300px_minmax(0,1fr)] md:gap-8 md:rounded-[30px] md:p-8" ref={panel} role="dialog">
         <span aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-black/20 md:hidden" />
-        <div className="order-2 mx-auto w-[228px] rounded-[22px] bg-white p-3.5 md:order-none md:w-full md:p-5" data-qr-treatment={qrStyle} style={qrStyle === "accent-frame" ? { boxShadow: `0 0 0 4px ${mode.appearance.accent}, 0 0 0 7px #F5F4EF` } : undefined}>
+        <QrFrame accent={resolveModeAccent({ appearance: mode.appearance as ModeAppearance })} className="order-2 mx-auto w-[228px] md:order-none md:w-full" modeLabel={NAMES[slug]} name={displayName} style={qrStyle}>
           {qrUrl
             ? <QRCodeSVG aria-label={`${NAMES[slug]} Mode ${inPerson ? "Connect in person " : ""}QR code`} bgColor="#FFFFFF" className="h-auto w-full" data-share-intent={inPerson ? "in_person" : "profile"} data-qr-value={qrUrl} fgColor="#0D0D0D" imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={4} role="img" size={256} title={`${NAMES[slug]} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
             : <div aria-live="polite" className="grid aspect-square w-full place-items-center px-4 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</div>}
-        </div>
+        </QrFrame>
         <div className="contents md:flex md:min-w-0 md:flex-col md:gap-5">
           <div className="order-1 flex items-end justify-between gap-4 md:order-none md:items-start">
             <div><p className="font-label text-[10px] tracking-[0.14em] text-black/65 md:text-xs">YOU ARE SHARING</p><h2 className="font-display text-[30px] font-bold leading-none tracking-[-0.04em] md:text-[40px]" id={titleId}>{NAMES[slug]} Mode</h2></div>

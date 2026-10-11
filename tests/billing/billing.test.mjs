@@ -34,7 +34,7 @@ Deno.test("global capabilities keep the network Free and make Pro inherit Plus",
   assert(plus.filter((key) => key !== "identity.plus_badge").every((key) => pro.includes(key)));
   assert(plus.includes("analytics.history_30d"));
   assert(plus.includes("analytics.history_90d"));
-  for (const key of ["appearance.premium", "share.qr_premium", "passport.premium_treatment", "soundtrack.premium_treatment"]) {
+  for (const key of ["appearance.premium", "appearance.advanced_controls", "share.qr_premium", "passport.premium_treatment", "soundtrack.premium_treatment"]) {
     assert(plus.includes(key), `${key} is a shipped Plus presentation capability`);
   }
   assert(pro.includes("analytics.custom_range"));

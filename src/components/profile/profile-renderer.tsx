@@ -1,12 +1,10 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
-import { PhotoGlow } from "@/components/profile/photo-glow";
-import { ProfileBlocks } from "@/components/profile/profile-blocks";
-import { SoundtrackCue, SoundtrackProvider } from "@/components/profile/soundtrack";
-import { MeetMark } from "@/components/marketing/brand";
+import { ProfileBlocks, type BlockTone } from "@/components/profile/profile-blocks";
+import { SoundtrackPresentation, SoundtrackProvider, type SoundtrackSkin } from "@/components/profile/soundtrack";
 import { MemberBadge } from "@/components/app/status-badge";
 import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -16,8 +14,21 @@ import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { getMessages } from "@/lib/i18n/messages";
 import type { Locale } from "@/lib/i18n/locale";
 import { modeFocus } from "./photo-focus";
-import { accentLuminance, inkOnAccent, resolveAppearance, resolveModeAccent, type ResolvedAppearance } from "./appearance";
+import { resolveAppearance, type ResolvedAppearance } from "./appearance";
+import { PAPER, resolveSkin, type Skin } from "./profile-skin";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
+
+/**
+ * The one profile renderer. The public page, the editor preview and every thumbnail draw a Mode
+ * through this component, following the approved Appearance design (ProfilePreview reference):
+ *
+ *   hero (Cover · Framed · Portrait · Poster · Index) → mark → event card → Connect + secondary
+ *   → About → links → soundtrack → media → attribution
+ *
+ * The composition answers to its own width (container queries), not the window: below 768px it
+ * is the single-column phone layout; from 768px the hero becomes a full-height column (44%,
+ * Portrait 50%) beside the body.
+ */
 
 type ProfileRendererProps = {
   profile: ProfileIdentity;
@@ -31,8 +42,6 @@ type ProfileRendererProps = {
   onShare?: () => void;
   onEditMode?: () => void;
   selectedRewards?: Partial<Record<string, string>>;
-  /** Public page on a phone: the Full Bleed photo runs to the screen edges. */
-  bleed?: boolean;
   /**
    * Soundtrack handling. "preview" (editor previews): never starts on its own and leaves the
    * visitor's choice alone. "off" (thumbnails): no soundtrack at all.
@@ -44,40 +53,46 @@ type ProfileRendererProps = {
   plan?: PlanCode;
   /** Locale for Setuvara-owned profile chrome; member-authored fields stay unchanged. */
   locale?: Locale;
+  /** Page chrome (logo, Edit profile) placed over the hero on phones and atop the body when wide. */
+  chrome?: ReactNode;
+  /** Extra content after the media (the public page's shared Passport stamp). */
+  footer?: ReactNode;
+  /** "Made with Setuvara" under the profile. */
+  attribution?: boolean;
+  /**
+   * An unsaved look to draw instead of the plan-resolved one (the editor's preview-before-
+   * upgrade). Never used by the public page.
+   */
+  previewLook?: ResolvedAppearance;
+  className?: string;
 };
 
-/** Props each Mode's design receives: its appearance is already resolved for that Mode alone. */
-type ModeProfileProps = ProfileRendererProps & { look: ResolvedAppearance };
-
-type Tone = { bg: string; ink: string; sub: string; chip: string; line: string; dark: boolean };
 type ResolvedLink = { link: ProfileLink; name: string; url: string; display: string; external: boolean; providerId: string; icon: ReturnType<typeof providerForLink>["icon"] };
+type Copy = ReturnType<typeof getMessages>["profile"];
 
-/** Booking providers become the Business "Book intro" action instead of a list row. */
+/** Booking providers become the Business "Book a call" action instead of a list row. */
 export const BOOKING_PROVIDERS = ["calendly", "cal_com", "booking_link", "calendar"];
-/** The 60° cut that runs through the Setuvara mark, applied to hero corners. */
-const cutCorner = (size: number) => `polygon(0 0,100% 0,100% calc(100% - ${size}px),calc(100% - ${Math.round(size * 0.58)}px) 100%,0 100%)`;
+const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
+/** Text on photos: always paper over the design's ink gradient. */
+const ON_PHOTO = PAPER;
+const ON_PHOTO_MUTED = "#F5F4EFD9";
+/** Chips and cards collapse after this many links once a Mode has eight or more. */
+const LINK_COLLAPSE_AT = 8;
+const LINK_VISIBLE = 6;
 
-const tones: Record<ResolvedAppearance["theme"], Tone> = {
-  dark: { bg: "#0D0D0D", ink: "#F5F4EF", sub: "rgba(245,244,239,.72)", chip: "#1C1C1C", line: "rgba(245,244,239,.16)", dark: true },
-  light: { bg: "#FFFFFF", ink: "#0D0D0D", sub: "rgba(13,13,13,.62)", chip: "#F5F4EF", line: "rgba(13,13,13,.12)", dark: false },
-  editorial: { bg: "#F5F4EF", ink: "#0D0D0D", sub: "rgba(13,13,13,.62)", chip: "#FFFFFF", line: "rgba(13,13,13,.14)", dark: false },
-};
-
-const modeLabel: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
-
-/** Whether a Mode renders the edge-to-edge Full Bleed photo layout. */
+/** Whether a Mode's hero runs its photo edge to edge (Cover with the Full image). */
 export function isFullBleed(mode: ProfileMode, plan: PlanCode = "free") {
   const look = resolveAppearance(mode, plan);
-  return look.slug === "personal" && Boolean(mode.image_url) && look.layout === "full-bleed";
+  return Boolean(mode.image_url) && look.family === "cover" && look.imageTreatment === "full-bleed";
 }
 
-/** Background and darkness of a Mode's theme, so a page can continue it past the card. */
+/** Background and darkness of a Mode's look, so a page can continue it past the profile. */
 export function profileTone(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free") {
-  const tone = tones[resolveAppearance(mode, plan).theme];
-  return { bg: tone.bg, dark: tone.dark };
+  const skin = resolveSkin(resolveAppearance(mode, plan));
+  return { bg: skin.page, dark: skin.dark };
 }
 
-/** Single browser/page surface color derived from the same tone as the renderer. */
+/** Single browser/page surface color derived from the same skin as the renderer. */
 export function resolvedBrowserThemeColor(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free"): string {
   return profileTone(mode, plan).bg;
 }
@@ -87,15 +102,11 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   const plan = props.plan ?? "free";
   const premiumSoundtrack = hasCapability(plan, "soundtrack.premium_treatment");
   const isLive = props.sound !== "off" && props.sound !== "preview";
-  const renderedMode = isLive
-    ? { ...mode, blocks: mode.blocks?.filter((block) => !block.is_soundtrack) }
-    : mode;
-  const profileProps = { ...props, plan, mode: renderedMode, look: resolveAppearance(mode, plan) };
-  const designs = { personal: PersonalProfile, event: EventProfile, business: BusinessProfile } as const;
-  const Design = designs[profileProps.look.slug];
-  const profile = <Design {...profileProps} />;
-  // No soundtrack: the profile renders exactly as it always has, with no sound UI at all.
   const track = props.sound === "off" ? null : soundtrackBlock(mode);
+  // The soundtrack block is presented by the Appearance, never as a media block.
+  const renderedMode = { ...mode, blocks: mode.blocks?.filter((block) => !block.is_soundtrack) };
+  const look = props.previewLook ?? resolveAppearance(mode, plan);
+  const profile = <Profile {...props} hasSoundtrack={Boolean(track)} look={look} mode={renderedMode} />;
   if (!track) return profile;
   // The public player only needs the URL. Keep editor-only titles/artwork out
   // of the public server payload while retaining the saved block in the editor.
@@ -103,356 +114,443 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} premiumPresentation={premiumSoundtrack} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
-/** Member status beside the person's name: sized to the cap height, kept on the name's last line. */
-function NameBadge({ tier }: { tier: MemberTier | null }) {
-  if (!tier) return null;
-  return <span className="ml-[0.16em] inline-block align-[0.06em] leading-none"><MemberBadge className="size-[0.5em] min-h-4 min-w-4" size={22} tier={tier} /></span>;
-}
+type Identity = {
+  name: string;
+  initials: string;
+  eyebrow: string;
+  role: string;
+  roleShort: string;
+  headline: string;
+  posterMeta: string;
+};
 
-function PersonalProfile(props: ModeProfileProps) {
-  if (isFullBleed(props.mode, props.plan)) return <PersonalBleed {...props} />;
-  return <PersonalPortrait {...props} />;
-}
-
-/** Links that read well as a lone icon: brands plus email/phone. Everything else keeps its title. */
-const isIconLink = (item: ResolvedLink) => Boolean(item.icon) || ["email", "phone", "sms"].includes(item.providerId);
-
-/** Full Bleed: edge-to-edge photo that fades into a centred name and a row of round icons. */
-function PersonalBleed({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, bleed = false, memberTier = null, locale = "en" }: ModeProfileProps) {
-  const tone = tones[look.theme];
-  const copy = getMessages(locale).profile;
-  const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = look.accent;
-  const editorialName = look.theme === "editorial" && accentLuminance(accent) < 0.55;
-  const links = resolveLinks(mode.links);
-  const icons = links.filter(isIconLink);
-  const rows = links.filter((item) => !isIconLink(item));
-  const treatment = look.imageTreatment;
-  const aspect = treatment === "compact" ? "aspect-[4/3]" : treatment === "portrait" ? "aspect-square" : "aspect-[4/5]";
-  const frameAspect = treatment === "compact" ? 4 / 3 : treatment === "portrait" ? 1 : 4 / 5;
-  const meta = [setting(mode, "location"), setting(mode, "pronouns")].filter(Boolean).join(" · ");
-  const mark = earnedMark(selectedRewards);
-
-  return (
-    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden ${bleed ? "max-sm:rounded-none sm:rounded-[28px]" : "rounded-[28px]"} ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
-      <div className={`relative w-full ${aspect}`}>
-        <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={frameAspect} priority sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} />
-        <div className="absolute inset-x-0 top-0 h-28" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,.38), transparent)" }} />
-        <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tone.bg} 0%, ${hexAlpha(tone.bg, 0.92)} 14%, ${hexAlpha(tone.bg, 0.45)} 32%, transparent 52%)` }} />
-        {!bleed && <TopBar tone={tone} label="PERSONAL" overlay />}
-      </div>
-
-      <div className="relative -mt-24 pb-8 text-center">
-        <PhotoGlow dark={tone.dark} src={mode.image_url!} />
-        <div className="relative px-6">
-        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? copy.viewingProfile : mark}</p>}
-        <h1 className="break-words font-display text-[clamp(2.4rem,10.5vw,3.2rem)] font-extrabold leading-[0.92] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
-        <p className="mt-1.5 font-label text-[12px] tracking-[0.04em]" style={{ color: tone.sub }}>@{profile.username}</p>
-        {(meta || profile.bio) && <p className="mx-auto mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
-        <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} align="center" className="mx-auto mt-4 max-w-[360px]" tone={tone} />
-
-        {icons.length > 0 && (
-          <ul aria-label="Links" className="mt-5 flex flex-wrap justify-center gap-2.5">
-            {icons.map((item) => (
-              <li key={item.link.id}>
-                <a aria-label={item.link.title} className="grid size-12 place-items-center rounded-full transition hover:scale-105 [&>svg]:size-5" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: tone.chip, color: tone.ink, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target={item.external ? "_blank" : undefined} title={item.link.title}>
-                  <ProviderGlyph item={item} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {setting(mode, "note") && <p className="mx-auto mt-5 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
-
-        <div className="text-left">
-          <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel={copy.editPersonal} locale={locale} mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
-          {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} locale={locale} mode={mode} tone={tone} />}
-        </div>
-
-        <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} className="mt-6" tone={tone} />
-
-        {rows.length > 0 && (
-          <ul className="mt-6 grid gap-2.5 text-left">
-            {rows.map((item) => (
-              <li key={item.link.id}>
-                <a className="flex min-h-14 items-center gap-3 rounded-2xl px-3.5 transition hover:opacity-85" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: tone.chip, color: tone.ink, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target={item.external ? "_blank" : undefined}>
-                  <span className="grid size-8 shrink-0 place-items-center rounded-lg [&>img]:size-[18px] [&>svg]:size-4" style={{ background: tone.bg }}><ProviderGlyph item={item} /></span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold">{item.link.title}</span><span className="block truncate text-[12px]" style={{ color: tone.sub }}>{item.display}</span></span>
-                  <span aria-hidden="true" className="text-base" style={{ color: tone.sub }}>↗</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-        {links.length === 0 && !hasBlocks(mode) && <div className="text-left"><EmptyLinks tone={tone} text={copy.noLinks} /></div>}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function PersonalPortrait({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null, locale = "en" }: ModeProfileProps) {
-  const tone = tones[look.theme];
-  const copy = getMessages(locale).profile;
-  const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = look.accent;
-  const editorialName = look.theme === "editorial" && accentLuminance(accent) < 0.55;
-  const links = resolveLinks(mode.links);
-  const portrait = look.layout === "portrait-editorial";
-  const heroHeight = { "full-bleed": portrait ? 340 : 400, portrait: portrait ? 300 : 330, compact: 190 }[look.imageTreatment];
-  const meta = [setting(mode, "location"), setting(mode, "pronouns")].filter(Boolean).join(" · ");
-  const mark = earnedMark(selectedRewards);
-
-  return (
-    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
-      {mode.image_url ? (
-        <div className="relative" style={{ height: heroHeight, margin: portrait ? "14px 14px 0" : 0 }}>
-          <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: portrait ? 22 : 0, clipPath: look.imageTreatment === "compact" ? undefined : cutCorner(portrait ? 52 : 64) }}>
-            <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} priority sizes="(max-width: 768px) 100vw, 440px" src={mode.image_url} />
-            {!portrait && <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${tone.bg} 0%, ${hexAlpha(tone.bg, 0.55)} 22%, transparent 55%)` }} />}
-          </div>
-          <TopBar tone={tone} label="PERSONAL" overlay />
-        </div>
-      ) : (
-        <div className="relative h-24"><TopBar tone={tone} label="PERSONAL" /></div>
-      )}
-
-      <div className={`relative px-6 pb-7 ${mode.image_url && !portrait ? "-mt-16" : "pt-4"}`}>
-        {(owner || mark) && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent }}>{owner ? `${copy.viewingProfile} · ${copy.personalMode}` : mark}</p>}
-        <h1 className="break-words font-display text-[clamp(2.6rem,11vw,3.4rem)] font-extrabold leading-[0.9] tracking-[-0.055em]" style={{ color: editorialName ? accent : tone.ink }}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
-        {(meta || profile.bio) && <p className="mt-3 max-w-[34ch] text-[15px] leading-[1.45]" style={{ color: tone.sub }}>{[meta, profile.bio].filter(Boolean).join(" · ")}</p>}
-        {setting(mode, "note") && <p className="mt-3 max-w-[36ch] text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "note")}</p>}
-        <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
-
-        <OwnerOrVisitorActions accent={accent} accentInk={inkOnAccent(accent)} editLabel={copy.editPersonal} locale={locale} mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
-        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} locale={locale} mode={mode} tone={tone} />}
-
-        {links.length > 0 ? (
-          <ul className="mt-8 flex flex-wrap gap-2">
-            {links.map((item) => (
-              <li key={item.link.id}>
-                <a className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold transition hover:opacity-80" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: tone.chip, color: tone.ink }} target={item.external ? "_blank" : undefined}>
-                  <ProviderGlyph item={item} />
-                  <span className="truncate">{item.link.title}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={copy.noLinks} />}
-        <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} tone={tone} />
-      </div>
-    </article>
-  );
-}
-
-function EventProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null, locale = "en" }: ModeProfileProps) {
-  const tone = tones[look.theme];
-  const copy = getMessages(locale).profile;
-  const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = look.accent;
-  const bandInk = inkOnAccent(accent);
-  const poster = look.layout === "event-poster";
+function identityFor(profile: ProfileIdentity, mode: ProfileMode): Identity {
+  const name = profile.display_name.trim() || `@${profile.username}`;
+  const initials = name.replace(/^@/, "").split(/\s+/).map((part) => part[0] ?? "").slice(0, 2).join("").toUpperCase();
   const eventName = setting(mode, "eventName");
-  const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
-  const links = resolveLinks(mode.links);
-  // Event's own Full bleed: the photo spans the card under the event header, which stays on top.
-  const bleedPhoto = Boolean(mode.image_url) && look.imageTreatment === "full-bleed";
-  const imageSize = look.imageTreatment === "compact" ? { width: 72, height: 72 } : { width: 96, height: 120 };
-
-  return (
-    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink }}>
-      <header className={`relative px-6 ${poster ? "pb-8 pt-6" : "pb-5 pt-5"}`} style={{ background: accent, color: bandInk, clipPath: cutCorner(poster ? 34 : 24) }}>
-        <div className="flex items-start justify-between gap-3">
-          <p className="font-label text-[10px] uppercase tracking-[0.16em]">{owner ? `Your ${copy.eventMode}` : copy.eventMode}</p>
-          <MeetMark className="size-5 shrink-0" />
-        </div>
-        <h1 className={`mt-2 break-words font-display font-extrabold leading-[0.88] tracking-[-0.055em] ${poster ? "text-[clamp(2.6rem,12vw,3.5rem)]" : "text-[2.1rem]"}`}>{eventName || (owner ? copy.nextEvent : profile.display_name)}</h1>
-        {where && <p className="mt-2 text-[13px] font-semibold">{where}</p>}
-      </header>
-
-      {bleedPhoto && (
-        <div className={`relative -mt-px w-full ${poster ? "aspect-[4/3]" : "aspect-[16/9]"}`} data-profile-photo="full-bleed" style={{ clipPath: cutCorner(poster ? 40 : 28) }}>
-          <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={poster ? 4 / 3 : 16 / 9} sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} />
-        </div>
-      )}
-
-      <div className={`px-6 pb-7 ${bleedPhoto ? "pt-5" : "pt-6"}`}>
-        <div className="flex items-end gap-4">
-          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={imageSize.width / imageSize.height} sizes="120px" src={mode.image_url} /></div>}
-          <div className="min-w-0 pb-1">
-            <p className="break-words font-display text-[1.75rem] font-bold leading-[0.95] tracking-[-0.045em]">{profile.display_name}<NameBadge tier={memberTier} /></p>
-            {setting(mode, "role") && <p className="mt-1.5 text-[13px]" style={{ color: tone.sub }}>{setting(mode, "role")}</p>}
-          </div>
-        </div>
-        <SoundtrackCue accent={accent} accentInk={inkOnAccent(accent)} className="mt-4" tone={tone} />
-        {setting(mode, "hereToMeet") && (
-          <div className="mt-5 border-t-2 pt-4" style={{ borderColor: tone.ink }}>
-            <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{copy.hereToMeet}</p>
-            <p className="mt-1.5 text-[15px] font-semibold leading-snug">{setting(mode, "hereToMeet")}</p>
-          </div>
-        )}
-
-        <OwnerOrVisitorActions accent={tone.ink} accentInk={tone.bg} editLabel={copy.editEvent} locale={locale} mode={mode} onEditMode={onEditMode} onShare={onShare} owner={owner} tone={tone} visitorAction={visitorAction} />
-        {!owner && eventName && viewerState !== "visitor_connected" && <p className="mt-2.5 text-center text-[11px]" style={{ color: tone.sub }}>{[eventName, setting(mode, "city"), "the time"].filter(Boolean).join(", ").replace(/, the time$/, " and the time")} are saved to the connection.</p>}
-        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} locale={locale} mode={mode} tone={tone} />}
-
-        {links.length > 0 ? (
-          <ul className="mt-7 grid grid-cols-2 gap-2">
-            {links.map((item) => (
-              <li className="min-w-0" key={item.link.id}>
-                <a className="flex min-h-14 flex-col justify-center rounded-xl px-3 py-2 transition hover:opacity-80" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: tone.chip, color: tone.ink }} target={item.external ? "_blank" : undefined}>
-                  <span className="truncate text-[13px] font-semibold">{item.link.title}</span>
-                  <span className="truncate text-[11px]" style={{ color: tone.sub }}>{metaFor(item)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text={eventName ? copy.noLinks : copy.eventReady} />}
-        <ProfileBlocks accent={accent} accentInk={inkOnAccent(accent)} blocks={mode.blocks} tone={tone} />
-      </div>
-    </article>
-  );
+  const city = setting(mode, "city");
+  const join = (...parts: string[]) => parts.filter(Boolean).join(" · ");
+  const shared = { name, initials };
+  if (mode.slug === "event") {
+    const role = setting(mode, "role");
+    return { ...shared, eyebrow: join("EVENT", eventName.toUpperCase()), role: join(role, city), roleShort: role.split(/[·,]/)[0].trim().toUpperCase(), headline: eventName || name, posterMeta: join(city, setting(mode, "dateLabel")).toUpperCase() || "EVENT" };
+  }
+  if (mode.slug === "business") {
+    const role = setting(mode, "role");
+    const company = setting(mode, "company");
+    return { ...shared, eyebrow: "BUSINESS", role: join(role, company, city), roleShort: role.toUpperCase(), headline: company || name, posterMeta: join(role, city).toUpperCase() || "BUSINESS" };
+  }
+  const location = setting(mode, "location");
+  return { ...shared, eyebrow: "PERSONAL", role: join(location, setting(mode, "pronouns")), roleShort: location.toUpperCase(), headline: name, posterMeta: join("PERSONAL", location.toUpperCase()) };
 }
 
-function BusinessProfile({ profile, mode, look, viewerState, previewAsVisitor, visitorAction, connectionHref, connectionContext, guestClaimHref, onShare, onEditMode, selectedRewards = {}, memberTier = null }: ModeProfileProps) {
-  const tone = tones[look.theme];
+type ProfileProps = ProfileRendererProps & { look: ResolvedAppearance; hasSoundtrack: boolean };
+
+function Profile(props: ProfileProps) {
+  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, locale = "en", chrome, footer, attribution = false, className = "" } = props;
+  const skin = resolveSkin(look);
+  const copy = getMessages(locale).profile;
+  const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const accent = look.accent;
-  const structured = look.layout === "structured";
-  // Business's own Full bleed: a wide photo across the card, under the brand row and above the name.
-  const bleedPhoto = Boolean(mode.image_url) && look.imageTreatment === "full-bleed";
+  const photo = mode.image_url ?? null;
+  const treatment = Boolean(selectedRewards.profile_treatment);
+  const family = look.family;
+  const overlay = family === "cover" || family === "portrait";
   const all = resolveLinks(mode.links);
-  const booking = all.find((item) => BOOKING_PROVIDERS.includes(item.providerId));
+  const booking = mode.slug === "business" && !owner ? all.find((item) => BOOKING_PROVIDERS.includes(item.providerId)) : undefined;
   const links = all.filter((item) => item !== booking);
-  const facts = [["Role", setting(mode, "role")], ["Company", setting(mode, "company")], ["City", setting(mode, "city")]].filter((fact): fact is [string, string] => Boolean(fact[1]));
-  const imageSize = look.imageTreatment === "compact" ? { width: 64, height: 64 } : { width: 104, height: 130 };
+  const blockTone: BlockTone = { bg: skin.page, ink: skin.fg, sub: skin.muted, chip: skin.chip.background, line: skin.border, dark: skin.dark };
+  const style = { background: skin.page, color: skin.fg, "--sv-card-r": `${skin.radius}px`, ...skin.connectVars } as CSSProperties;
+  // Chrome over a photo reads paper; with no photo, the accent field carries it.
+  const heroInk = photo ? ON_PHOTO : skin.onAccent;
+  const chromeTone = (onHero: boolean) => ({
+    color: onHero ? heroInk : skin.fg,
+    "--sv-chrome-chip-bg": onHero ? "rgba(13,13,13,.45)" : skin.fg,
+    "--sv-chrome-chip-fg": onHero ? PAPER : skin.page,
+    textShadow: onHero && photo ? "0 1px 12px rgba(0,0,0,.35)" : undefined,
+  }) as CSSProperties;
 
   return (
-    <article {...lookData(look)} className={`relative isolate w-full overflow-hidden rounded-[28px] ${treatmentClass(selectedRewards)}`} style={{ background: tone.bg, color: tone.ink, boxShadow: tone.dark ? undefined : `inset 0 0 0 1px ${tone.line}` }}>
-      <div className="px-6 pb-7 pt-6">
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5"><MeetMark className="size-[18px]" /><span className="font-display text-[15px] font-bold tracking-[-0.04em]">setuvara</span></span>
-          <span className="font-label text-[10px]" style={{ color: tone.sub }}>/{profile.username}</span>
+    <article
+      className={`@container/profile relative isolate w-full font-brand ${className}`}
+      data-image-treatment={look.imageTreatment}
+      data-profile-family={family}
+      data-profile-intensity={look.intensity}
+      data-profile-layout={look.layout}
+      data-profile-mode={look.slug}
+      data-profile-theme={look.theme}
+      style={style}
+    >
+      <div className="flex min-h-[inherit] flex-col @3xl/profile:flex-row">
+        <WideHero copy={copy} look={look} memberTier={memberTier} mode={mode} photo={photo} skin={skin} treatment={treatment} who={who} />
+
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          {chrome && (
+            <>
+              <div className={`z-20 @3xl/profile:hidden ${overlay ? "absolute inset-x-0 top-0" : "relative"}`} data-profile-chrome="mobile" style={chromeTone(overlay)}>{chrome}</div>
+              <div className="hidden @3xl/profile:block" data-profile-chrome="wide" style={chromeTone(false)}>{chrome}</div>
+            </>
+          )}
+          <MobileHero chrome={Boolean(chrome)} look={look} memberTier={memberTier} mode={mode} photo={photo} skin={skin} treatment={treatment} who={who} />
+
+          <div className="flex flex-1 flex-col gap-4 px-[22px] pb-6 pt-[18px] @3xl/profile:gap-[22px] @3xl/profile:px-[clamp(32px,5cqw,72px)] @3xl/profile:pb-10 @3xl/profile:pt-[clamp(36px,4.4cqw,64px)]">
+            <div className="flex w-full max-w-[680px] flex-1 flex-col gap-[inherit]">
+              {!overlay && <WideIdentity memberTier={memberTier} skin={skin} who={who} />}
+              {overlay && <WideIdentity hiddenOnWide memberTier={memberTier} skin={skin} who={who} />}
+              <EarnedMark copy={copy} rewards={selectedRewards} skin={skin} />
+              {mode.slug === "event" && family !== "poster" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} skin={skin} />}
+              <Actions {...props} booking={booking} copy={copy} owner={owner} skin={skin} />
+              <About copy={copy} mode={mode} profile={profile} skin={skin} />
+              <Links copy={copy} links={links} skin={skin} />
+              {props.hasSoundtrack && <SoundtrackPresentation copy={{ soundOn: copy.soundOn, soundOff: copy.soundOff, soundtrack: copy.soundtrack, nowPlaying: copy.nowPlaying, onRepeat: copy.onRepeat, title: copy.soundtrackOf.replace("{mode}", MODE_NAMES[mode.slug]) }} skin={soundtrackSkin(skin)} style={look.soundStyle} />}
+              <ProfileBlocks accent={skin.accent} accentInk={skin.onAccent} blocks={mode.blocks} className="" tone={blockTone} />
+              {owner && links.length === 0 && !hasBlocks(mode) && <p className="px-4 py-4 text-[13px]" style={{ color: skin.muted, borderRadius: `${skin.radius}px`, boxShadow: `inset 0 0 0 1px ${skin.border}` }}>{copy.noLinks}</p>}
+              {footer}
+              {attribution && <p className="mt-auto self-center pt-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: skin.muted }}>{copy.madeWith}</p>}
+            </div>
+          </div>
         </div>
-
-        {bleedPhoto && (
-          <div className={`relative -mx-6 mt-5 ${structured ? "aspect-[16/9]" : "aspect-[4/3]"}`} data-profile-photo="full-bleed" style={{ clipPath: cutCorner(structured ? 28 : 40) }}>
-            <FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={structured ? 16 / 9 : 4 / 3} sizes="(max-width: 640px) 100vw, 440px" src={mode.image_url!} />
-          </div>
-        )}
-
-        <div className={`${bleedPhoto ? "mt-5" : "mt-7"} flex ${structured ? "items-end" : "flex-col items-start"} gap-4`}>
-          {mode.image_url && !bleedPhoto && <div className="relative shrink-0 overflow-hidden rounded-2xl" style={{ ...imageSize, clipPath: cutCorner(22) }}><FocusedPhoto alt={profile.display_name} focus={modeFocus(mode)} frameAspect={imageSize.width / imageSize.height} sizes="132px" src={mode.image_url} /></div>}
-          <div className="min-w-0">
-            {owner && <p className="mb-1.5 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: accent === "#F5F4EF" ? tone.sub : accent }}>Viewing your profile</p>}
-            <h1 className={`break-words font-display font-extrabold leading-[0.92] tracking-[-0.05em] ${structured ? "text-[2.1rem]" : "text-[clamp(2.4rem,10vw,3.1rem)]"}`}>{profile.display_name}<NameBadge tier={memberTier} /></h1>
-          </div>
-        </div>
-
-        {facts.length > 0 && (structured ? (
-          <dl className="mt-5 grid border-y-2" style={{ borderColor: tone.ink, gridTemplateColumns: `repeat(${facts.length}, minmax(0, auto))` }}>
-            {facts.map(([label, value], index) => (
-              <div className="min-w-0 py-2.5 pr-3" key={label} style={{ borderLeft: index ? `1px solid ${tone.line}` : undefined, paddingLeft: index ? 10 : 0 }}>
-                <dt className="font-label text-[9px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>{label}</dt>
-                <dd className="mt-0.5 truncate text-[13px] font-semibold">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : <p className="mt-3 text-[15px] font-semibold leading-snug">{facts.map(([, value]) => value).join(" · ")}</p>)}
-        {setting(mode, "description") && <p className="mt-4 text-sm leading-6" style={{ color: tone.sub }}>{setting(mode, "description")}</p>}
-        <SoundtrackCue accent={tone.ink} accentInk={tone.bg} className="mt-4" tone={tone} />
-
-        {owner ? (
-          <OwnerOrVisitorActions accent={tone.ink} accentInk={tone.bg} editLabel="Edit Business Mode" mode={mode} onEditMode={onEditMode} onShare={onShare} owner tone={tone} />
-        ) : (
-          <div className={`mt-6 grid gap-2 ${booking ? "grid-cols-2" : "grid-cols-1"}`}>
-            {visitorAction && <div className="min-w-0 [&>button]:mt-0">{visitorAction}</div>}
-            {booking && <a className="inline-flex min-h-12 items-center justify-center rounded-full px-4 text-sm font-semibold" href={booking.url} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }} target="_blank">{booking.link.title.length > 18 ? "Book intro" : booking.link.title}</a>}
-          </div>
-        )}
-        {!owner && <a className="mt-2 flex min-h-11 items-center justify-center gap-2 rounded-full text-[13px] font-semibold transition hover:opacity-75" download href={`/${profile.username}/contact`} style={{ color: tone.ink }}><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 1.4-1.4l3.3 3.3V4a1 1 0 0 1 1-1ZM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2Z" /></svg>Save contact</a>}
-        {viewerState === "visitor_connected" && !previewAsVisitor && <ConnectedCard connectionContext={connectionContext} connectionHref={connectionHref} guestClaimHref={guestClaimHref} mode={mode} tone={tone} />}
-
-        <ProfileBlocks accent={tone.ink} accentInk={tone.bg} blocks={mode.blocks} tone={tone} />
-
-        {(owner ? all : links).length > 0 ? (
-          <ul className="mt-7 overflow-hidden rounded-2xl" style={{ background: tone.chip }}>
-            {(owner ? all : links).map((item, index) => (
-              <li key={item.link.id} style={{ borderTop: index ? `1px solid ${tone.line}` : undefined }}>
-                <a className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5 transition hover:opacity-75" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} target={item.external ? "_blank" : undefined}>
-                  <span className="min-w-0 truncate text-[13px] font-semibold">{item.link.title}</span>
-                  <span className="max-w-[45%] shrink-0 truncate text-[11px]" style={{ color: tone.sub }}>{metaFor(item)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : !hasBlocks(mode) && <EmptyLinks tone={tone} text="No links shared in this Mode yet." />}
       </div>
     </article>
   );
 }
 
-function TopBar({ tone, label, overlay = false }: { tone: Tone; label: string; overlay?: boolean }) {
+// ---------------------------------------------------------------- Hero
+
+type HeroProps = { look: ResolvedAppearance; skin: Skin; who: Identity; mode: ProfileMode; photo: string | null; treatment: boolean; memberTier: MemberTier | null };
+
+/** Big image surfaces never become ovals: Compact (the circle) applies to tiles only. */
+const surfaceRadius = (skin: Skin, look: ResolvedAppearance) => (look.imageTreatment === "compact" ? `${skin.radius}px` : skin.image.radius);
+
+function MobileHero({ look, skin, who, mode, photo, treatment, memberTier, chrome }: HeroProps & { chrome: boolean }) {
+  const display = { fontWeight: skin.displayWeight } as const;
+  const long = who.name.length > 18;
+
+  if (look.family === "cover") {
+    const full = look.imageTreatment === "full-bleed";
+    const inset = full ? 0 : 14;
+    return (
+      <div className="@3xl/profile:hidden" data-profile-hero="cover" style={{ padding: `${inset}px ${inset}px 0` }}>
+        <div className="relative overflow-hidden" style={{ height: full ? 470 : 430, borderRadius: surfaceRadius(skin, look), boxShadow: skin.image.frame, background: skin.accent }}>
+          <HeroImage initials={who.initials} initialsStyle={{ fontSize: 150, paddingBottom: 90 }} mode={mode} name={who.name} photo={photo} priority sizes="100vw" skin={skin} treatment={treatment} />
+          <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[58%]" style={{ background: "linear-gradient(#0D0D0D00,#0D0D0DB8)" }} />
+          <div className="absolute inset-x-[22px] bottom-5 flex flex-col gap-[7px]" style={{ color: ON_PHOTO }}>
+            <Eyebrow size={11} text={who.eyebrow} />
+            <h1 className="break-words font-display leading-[0.92] tracking-[-0.05em] [text-wrap:balance]" style={{ ...display, fontSize: long ? 32 : 44 }}>{who.name}<NameBadge size={22} tier={memberTier} /></h1>
+            {who.role && <p className="text-[15px]" style={{ color: ON_PHOTO_MUTED }}>{who.role}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (look.family === "portrait") {
+    return (
+      <div className="relative @3xl/profile:hidden" data-profile-hero="portrait" style={{ height: "calc(var(--profile-vh, 100svh) * .72)", background: skin.accent, boxShadow: skin.image.frame }}>
+        <HeroImage initials={who.initials} initialsStyle={{ fontSize: 180, paddingBottom: 120 }} mode={mode} name={who.name} photo={photo} priority sizes="100vw" skin={skin} treatment={treatment} />
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: "linear-gradient(#0D0D0D00,#0D0D0DCC)" }} />
+        <div className="absolute inset-x-[22px] bottom-[26px] flex flex-col gap-2" style={{ color: ON_PHOTO }}>
+          <h1 className="break-words font-display font-extrabold leading-[0.86] tracking-[-0.06em] [text-wrap:balance]" style={{ fontSize: long ? 40 : 60 }}>{who.name}<NameBadge size={24} tier={memberTier} /></h1>
+          <p className="font-label text-[11px] uppercase tracking-[0.14em]" style={{ color: ON_PHOTO_MUTED }}>{[who.eyebrow, who.roleShort].filter(Boolean).join(" · ")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (look.family === "framed") {
+    const compact = look.imageTreatment === "compact";
+    return (
+      <div className={`flex items-end gap-[18px] px-[22px] pb-1 @3xl/profile:hidden ${chrome ? "pt-3" : "pt-7"}`} data-profile-hero="framed">
+        <Tile height={compact ? 116 : 146} initialsSize={44} look={look} mode={mode} name={who.name} initials={who.initials} photo={photo} skin={skin} treatment={treatment} width={116} />
+        <div className="flex min-w-0 flex-col gap-[7px] pb-1">
+          <Eyebrow color={skin.muted} size={11} text={who.eyebrow} />
+          <h1 className="break-words font-display leading-[0.95] tracking-[-0.045em] [text-wrap:balance]" style={{ ...display, fontSize: long ? 26 : 34 }}>{who.name}<NameBadge size={18} tier={memberTier} /></h1>
+          {who.role && <p className="text-[14px] leading-[1.35]" style={{ color: skin.muted }}>{who.role}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (look.family === "poster") {
+    return (
+      <div className={`flex flex-col gap-4 px-[18px] @3xl/profile:hidden ${chrome ? "pt-2" : "pt-[22px]"}`} data-profile-hero="poster">
+        <PosterBlock skin={skin} who={who} />
+        <div className="flex items-center gap-3.5 px-1">
+          <Tile height={72} initialsSize={28} look={look} mode={mode} name={who.name} initials={who.initials} photo={photo} skin={skin} treatment={treatment} width={72} />
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="break-words font-display text-[24px] font-extrabold leading-none tracking-[-0.04em]">{who.name}<NameBadge size={16} tier={memberTier} /></h1>
+            {who.role && <p className="text-[13.5px]" style={{ color: skin.muted }}>{who.role}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`absolute inset-x-0 top-0 flex items-center justify-between px-6 pt-5`} style={{ color: overlay ? "#F5F4EF" : tone.ink, textShadow: overlay ? "0 1px 12px rgba(0,0,0,.35)" : undefined }}>
-      <MeetMark className="size-5" />
-      <span className="font-label text-[10px] tracking-[0.16em]" style={{ opacity: 0.8 }}>{label}</span>
+    <div className={`flex items-center gap-3.5 px-[22px] @3xl/profile:hidden ${chrome ? "pt-3" : "pt-[26px]"}`} data-profile-hero="index">
+      <div className="relative size-[60px] shrink-0 overflow-hidden rounded-full" style={{ background: skin.accent }}>
+        <HeroImage initials={who.initials} initialsStyle={{ fontSize: 22 }} mode={mode} name={who.name} photo={photo} sizes="60px" skin={skin} treatment={false} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-[3px]">
+        <h1 className="break-words font-display text-[24px] leading-none tracking-[-0.04em]" style={display}>{who.name}<NameBadge size={16} tier={memberTier} /></h1>
+        {who.role && <p className="text-[13.5px]" style={{ color: skin.muted }}>{who.role}</p>}
+      </div>
     </div>
   );
 }
 
-function OwnerOrVisitorActions({ owner, visitorAction, onShare, onEditMode, mode, tone, accent, accentInk, editLabel, locale = "en" }: { owner: boolean; visitorAction?: ReactNode; onShare?: () => void; onEditMode?: () => void; mode: ProfileMode; tone: Tone; accent: string; accentInk: string; editLabel: string; locale?: Locale }) {
-  const copy = getMessages(locale).profile;
-  if (!owner) return visitorAction ? <div className="mt-6 [&>button]:mt-0">{visitorAction}</div> : null;
+/** From 768px: the hero is a full-height column beside the body (44%, Portrait 50%). */
+function WideHero({ look, skin, who, mode, photo, treatment, memberTier }: HeroProps & { copy: Copy }) {
+  const overlay = look.family === "cover" || look.family === "portrait";
+  const inset = look.imageTreatment === "full-bleed" ? 0 : 28;
+  return (
+    <div className={`sticky top-0 hidden h-[var(--profile-vh,100dvh)] shrink-0 flex-col gap-[22px] @3xl/profile:flex ${look.family === "portrait" ? "w-1/2" : "w-[44%]"}`} data-profile-hero-wide={look.family} style={{ padding: inset }}>
+      {look.family === "poster" && <PosterBlock skin={skin} who={who} wide />}
+      <div className="relative min-h-0 flex-1 overflow-hidden" style={{ borderRadius: surfaceRadius(skin, look), boxShadow: skin.image.frame, background: skin.accent }}>
+        <HeroImage initials={who.initials} initialsStyle={{ fontSize: "clamp(120px,14cqw,200px)" }} mode={mode} name={who.name} photo={photo} priority sizes="50vw" skin={skin} treatment={treatment} />
+        {overlay && (
+          <>
+            <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[55%]" style={{ background: "linear-gradient(#0D0D0D00,#0D0D0DB8)" }} />
+            <div className="absolute inset-x-8 bottom-[30px] flex flex-col gap-2.5" style={{ color: ON_PHOTO }}>
+              <Eyebrow size={12} text={who.eyebrow} />
+              <p aria-hidden="true" className="break-words font-display leading-[0.92] tracking-[-0.05em] [text-wrap:balance]" style={{ fontWeight: skin.displayWeight, fontSize: who.name.length > 18 ? "clamp(36px,4.2cqw,60px)" : "clamp(44px,5.8cqw,84px)" }}>{who.name}<NameBadge decorative size={30} tier={memberTier} /></p>
+              {who.role && <p className="text-[17px]" style={{ color: ON_PHOTO_MUTED }}>{who.role}</p>}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The name block in the body. Wide Framed/Poster/Index show it here; Cover/Portrait carry the
+ * name on the photo, so for them this is the accessible heading on wide screens only.
+ */
+function WideIdentity({ skin, who, memberTier, hiddenOnWide = false }: { skin: Skin; who: Identity; memberTier: MemberTier | null; hiddenOnWide?: boolean }) {
+  if (hiddenOnWide) {
+    return <h1 className="sr-only hidden @3xl/profile:block">{who.name}<NameBadge size={16} tier={memberTier} /></h1>;
+  }
+  return (
+    <div className="hidden flex-col gap-2.5 @3xl/profile:flex" data-profile-identity="wide">
+      <Eyebrow color={skin.muted} size={12} text={who.eyebrow} />
+      <h1 className="break-words font-display leading-[0.92] tracking-[-0.05em] [text-wrap:balance]" style={{ fontWeight: skin.displayWeight, fontSize: who.name.length > 18 ? "clamp(36px,4.2cqw,60px)" : "clamp(44px,5.8cqw,84px)" }}>{who.name}<NameBadge size={28} tier={memberTier} /></h1>
+      {who.role && <p className="text-[17px]" style={{ color: skin.muted }}>{who.role}</p>}
+    </div>
+  );
+}
+
+function PosterBlock({ skin, who, wide = false }: { skin: Skin; who: Identity; wide?: boolean }) {
+  const filled = skin.poster.filled;
+  return (
+    <div className={`flex flex-col ${wide ? "gap-2.5" : "gap-3"}`} data-poster-filled={filled} style={{ background: skin.poster.background, color: skin.poster.color, padding: filled ? "18px 18px 20px" : "4px 4px 0", borderRadius: `${skin.radius}px` }}>
+      <Eyebrow size={wide ? 12 : 11} text={who.posterMeta} />
+      <p className="break-words font-display font-extrabold leading-[0.84] tracking-[-0.06em] [text-wrap:balance]" style={{ fontSize: wide ? "clamp(52px,5.8cqw,84px)" : who.headline.length > 12 ? "min(58px,15cqw)" : "min(72px,18.5cqw)" }}>{who.headline}</p>
+    </div>
+  );
+}
+
+function Tile({ width, height, initialsSize, look, skin, mode, photo, name, initials, treatment }: { width: number; height: number; initialsSize: number; look: ResolvedAppearance; skin: Skin; mode: ProfileMode; photo: string | null; name: string; initials: string; treatment: boolean }) {
+  return (
+    <div className="relative shrink-0 overflow-hidden" style={{ width, height, borderRadius: skin.image.radius, boxShadow: skin.image.frame, background: skin.accent }}>
+      <HeroImage frameAspect={width / height} initials={initials} initialsStyle={{ fontSize: initialsSize }} mode={mode} name={name} photo={photo} priority sizes={`${width * 2}px`} skin={skin} treatment={treatment && look.imageTreatment !== "compact"} />
+    </div>
+  );
+}
+
+function HeroImage({ photo, mode, name, initials, initialsStyle, skin, treatment, priority, sizes, frameAspect }: { photo: string | null; mode: ProfileMode; name: string; initials: string; initialsStyle: CSSProperties; skin: Skin; treatment: boolean; priority?: boolean; sizes: string; frameAspect?: number }) {
+  return (
+    <>
+      {photo
+        ? <FocusedPhoto alt={name} focus={modeFocus(mode)} frameAspect={frameAspect} priority={priority} sizes={sizes} src={photo} />
+        : <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center font-display font-extrabold leading-none tracking-[-0.06em]" style={{ color: skin.onAccent, ...initialsStyle }}>{initials}</span>}
+      {/* Earned profile treatment: a quiet coral ring on the image. */}
+      {treatment && <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />}
+    </>
+  );
+}
+
+function Eyebrow({ text, size, color }: { text: string; size: number; color?: string }) {
+  if (!text) return null;
+  return <p className="font-label uppercase tracking-[0.16em]" style={{ fontSize: size, color }}>{text}</p>;
+}
+
+/** Member status beside the person's name (Plus coral, Pro champagne). */
+function NameBadge({ tier, size, decorative = false }: { tier: MemberTier | null; size: number; decorative?: boolean }) {
+  if (!tier) return null;
+  return <span className="ml-[0.2em] inline-block align-middle leading-none" data-name-badge={tier}><MemberBadge decorative={decorative} size={size} tier={tier} /></span>;
+}
+
+// ---------------------------------------------------------------- Body
+
+function EarnedMark({ rewards, skin, copy }: { rewards: Partial<Record<string, string>>; skin: Skin; copy: Copy }) {
+  const mark = rewards.profile_mark === "signal_50_mark" ? { badge: "50", label: "Signal 50" } : rewards.profile_mark === "thousand_mark" ? { badge: "1K", label: "Thousand met" } : null;
+  if (!mark) return null;
+  return (
+    <p aria-label={`${copy.profileMark}: ${mark.label}`} className="flex h-7 items-center gap-[7px] self-start rounded-full pl-1.5 pr-[11px] font-label text-[10.5px] uppercase tracking-[0.14em]" data-profile-mark style={{ boxShadow: `inset 0 0 0 1px ${skin.border}` }}>
+      <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border-[1.5px] border-current text-[7px]">{mark.badge}</span>{mark.label}
+    </p>
+  );
+}
+
+function EventCard({ mode, skin, copy }: { mode: ProfileMode; skin: Skin; copy: Copy }) {
+  const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3.5" data-event-card style={{ background: skin.eventCard.background, color: skin.eventCard.color, borderRadius: `${skin.radius}px` }}>
+      <div className="flex min-w-0 flex-col gap-[3px]">
+        <span className="font-label text-[10px] uppercase tracking-[0.16em]">{copy.atTheEvent}</span>
+        <span className="break-words text-[16px] font-bold">{setting(mode, "eventName")}</span>
+      </div>
+      {where && <span className="shrink-0 text-right font-label text-[10.5px] uppercase tracking-[0.08em]">{where}</span>}
+    </div>
+  );
+}
+
+function Actions({ profile, mode, owner, skin, copy, visitorAction, viewerState, previewAsVisitor, connectionContext, connectionHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; skin: Skin; copy: Copy; booking?: ResolvedLink }) {
+  const connected = viewerState === "visitor_connected" && !previewAsVisitor;
   const share = `/app/identity?mode=${mode.slug}&section=share`;
-  const edit = `/app/identity?mode=${mode.slug}&section=profile`;
-  return (
-    <div className="mt-6">
-      <div className="flex gap-2">
-        <a className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold" href={share} onClick={onShare ? (event) => { event.preventDefault(); onShare(); } : undefined} style={{ background: accent, color: accentInk }}>{copy.shareMode.replace("{mode}", modeLabel[mode.slug])}</a>
-        <a aria-label={copy.showQr} className="inline-flex min-h-12 items-center justify-center rounded-full px-4 text-sm font-semibold" href={share} onClick={onShare ? (event) => { event.preventDefault(); onShare(); } : undefined} style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }}>QR</a>
-      </div>
-      <a className="mt-3 inline-flex min-h-8 items-center text-xs font-semibold underline underline-offset-4" href={edit} onClick={onEditMode ? (event) => { event.preventDefault(); onEditMode(); } : undefined}>{editLabel}</a>
-    </div>
-  );
-}
+  const onShareClick = onShare ? (event: { preventDefault: () => void }) => { event.preventDefault(); onShare(); } : undefined;
+  const primary = { height: skin.button.height, borderRadius: skin.button.radius, background: skin.connect.background, color: skin.connect.color, boxShadow: skin.connect.edge, justifyContent: skin.button.arrow ? "space-between" : "center" } as CSSProperties;
+  const secondaryStyle = { height: skin.button.secondaryHeight, borderRadius: skin.button.radius, boxShadow: skin.secondary.edge, color: skin.secondary.color, justifyContent: skin.button.arrow ? "space-between" : "center", textDecoration: skin.secondary.underline ? "underline" : undefined, textUnderlineOffset: 4 } as CSSProperties;
+  const button = "flex w-full items-center gap-2.5 px-5 font-semibold transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+  const focus = { outlineColor: skin.fg };
+  const arrow = skin.button.arrow ? <span aria-hidden="true">→</span> : null;
+  const eventName = setting(mode, "eventName");
 
-function ConnectedCard({ connectionContext, connectionHref, guestClaimHref, mode, tone, locale = "en" }: { connectionContext?: ConnectionContext | null; connectionHref?: string; guestClaimHref?: string; mode: ProfileMode; tone: Tone; locale?: Locale }) {
-  const copy = getMessages(locale).profile;
-  const accent = resolveModeAccent(mode);
-  const where = [connectionContext?.event, connectionContext?.city].filter(Boolean);
-  const sharedMode = connectionContext?.mode === "personal" ? copy.personalMode : connectionContext?.mode === "event" ? copy.eventMode : connectionContext?.mode === "business" ? copy.businessMode : null;
+  let first: ReactNode;
+  if (owner) {
+    first = <a className={`${button} text-[16px]`} data-profile-action="share" href={share} onClick={onShareClick} style={{ ...primary, ...focus }}><span>{copy.shareMode.replace("{mode}", MODE_NAMES[mode.slug])}</span>{arrow}</a>;
+  } else if (connected) {
+    const since = [connectionContext?.event, connectionContext?.dateLabel].filter(Boolean).join(" · ");
+    const label = <span className="truncate">{copy.connected}{since ? ` · ${since}` : ""}</span>;
+    const connectedStyle = { ...primary, background: "transparent", color: skin.fg, boxShadow: `inset 0 0 0 1.5px ${skin.fg}`, ...focus };
+    first = connectionHref
+      ? <Link aria-label={`${copy.connected}. ${copy.viewConnection}`} className={`${button} text-[16px]`} data-profile-action="connected" href={connectionHref} style={connectedStyle}>{label}{arrow}</Link>
+      : <p aria-live="polite" className={`${button} text-[16px]`} data-profile-action="connected" style={connectedStyle}>{label}</p>;
+  } else {
+    first = visitorAction ?? null;
+  }
+
+  let second: ReactNode;
+  if (owner) {
+    second = <a className={`${button} text-[15px]`} data-profile-action="qr" href={share} onClick={onShareClick} style={{ ...secondaryStyle, ...focus }}><span>{copy.showMyQr}</span></a>;
+  } else if (booking) {
+    second = <a className={`${button} text-[15px]`} data-profile-action="book" href={booking.url} rel="noopener noreferrer" style={{ ...secondaryStyle, ...focus }} target="_blank"><span>{copy.bookCall}</span>{arrow && <span aria-hidden="true">↗</span>}</a>;
+  } else {
+    second = <a className={`${button} text-[15px]`} data-profile-action="save-contact" download href={`/${encodeURIComponent(profile.username)}/contact?mode=${mode.slug}`} style={{ ...secondaryStyle, ...focus }}><span>{copy.saveContact}</span></a>;
+  }
+
   return (
-    <section aria-label="Connection status" className="mt-4">
-      <div className="flex items-center gap-2">
-        <span aria-live="polite" className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full px-4 text-[13px] font-semibold" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.ink}` }}>{copy.connected} <span aria-hidden="true" className="ml-1">✓</span></span>
-        {connectionHref && <Link className="inline-flex min-h-10 flex-1 items-center justify-center rounded-full px-4 text-[13px] font-semibold" href={connectionHref} style={{ background: tone.ink, color: tone.bg }}>{copy.viewConnection}</Link>}
-      </div>
-      {(where.length > 0 || connectionContext?.dateLabel) && (
-        <div className="mt-3 rounded-2xl bg-[#0D0D0D] px-4 py-3.5 text-[#F5F4EF]" style={{ boxShadow: tone.dark ? "inset 0 0 0 1px rgba(245,244,239,.16)" : undefined }}>
-          <div className="flex justify-between font-label text-[9px] uppercase tracking-[0.14em]"><span style={{ color: accent === "#F5F4EF" ? "#C7FF4A" : accent }}>{copy.youMet}</span>{sharedMode && <span className="text-white/55">{sharedMode}</span>}</div>
-          {where.length > 0 && <p className="mt-1.5 font-display text-xl font-bold tracking-[-0.03em]">{where[0]}{where[1] && <span className="ml-2 font-brand text-xs font-medium"><span className="mr-1.5 text-[#FF5A4F]">/</span>{where[1]}</span>}</p>}
-          {connectionContext?.dateLabel && <p className="mt-1 text-[11px] text-white/60">{connectionContext.dateLabel}</p>}
+    <div className="flex flex-col gap-2" data-profile-actions>
+      {first}
+      {second}
+      {!owner && !connected && first && mode.slug === "event" && eventName && <p className="text-center text-[11px]" style={{ color: skin.muted }}>{copy.eventSaved.replace("{event}", eventName)}</p>}
+      {connected && guestClaimHref && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={guestClaimHref} style={focus}>{copy.claimSetuvara}</Link>
+          <p className="text-[11px] leading-5" style={{ color: skin.muted }}>{copy.keepConnection}</p>
         </div>
       )}
-      {guestClaimHref && <div className="mt-3"><Link className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D]" href={guestClaimHref}>{copy.claimSetuvara}</Link><p className="mt-1.5 text-[11px] leading-5" style={{ color: tone.sub }}>{copy.keepConnection}</p></div>}
+    </div>
+  );
+}
+
+function About({ profile, mode, skin, copy }: { profile: ProfileIdentity; mode: ProfileMode; skin: Skin; copy: Copy }) {
+  const modeText = setting(mode, mode.slug === "event" ? "hereToMeet" : mode.slug === "business" ? "description" : "note");
+  const bio = profile.bio?.trim() ?? "";
+  const paragraphs = [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
+  if (!paragraphs.length) return null;
+  const label = mode.slug === "event" && modeText ? copy.hereToMeet : copy.about;
+  return (
+    <section aria-label={label} className="flex flex-col gap-1.5" data-profile-about style={{ ...skin.card.style, color: skin.card.color }}>
+      <h2 className="font-label text-[10.5px] font-normal uppercase tracking-[0.16em]" style={{ color: skin.card.muted }}>{label}</h2>
+      {paragraphs.map((text) => <p className="max-w-[560px] whitespace-pre-line text-[15px] leading-[1.5] [text-wrap:pretty] @3xl/profile:text-[17px]" key={text}>{text}</p>)}
     </section>
   );
 }
 
-/** Marks which Mode's design and resolved look rendered, for tests and debugging. */
-const lookData = (look: ResolvedAppearance) => ({ "data-profile-mode": look.slug, "data-profile-layout": look.layout, "data-image-treatment": look.imageTreatment });
+function Links({ links, skin, copy }: { links: ResolvedLink[]; skin: Skin; copy: Copy }) {
+  if (!links.length) return null;
+  const style = skin.links;
+  const collapse = (style === "chips" || style === "cards") && links.length >= LINK_COLLAPSE_AT;
+  const shown = collapse ? links.slice(0, LINK_VISIBLE) : links;
+  const rest = collapse ? links.slice(LINK_VISIBLE) : [];
+  const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+  const anchor = (item: ResolvedLink) => ({ href: item.url, rel: item.external ? "noopener noreferrer" : undefined, target: item.external ? "_blank" : undefined, style: { outlineColor: skin.fg } });
+
+  const list = (items: ResolvedLink[]) => (
+    <ul className="flex flex-col" data-links-style="list" style={{ color: skin.fg }}>
+      {items.map((item) => (
+        <li key={item.link.id} style={{ borderTop: `1px solid ${skin.rule}` }}>
+          <a {...anchor(item)} className={`flex min-h-[50px] items-center justify-between gap-3 transition hover:opacity-75 ${focus}`}>
+            <span className="min-w-0 truncate text-[16px] font-semibold">{item.link.title}</span>
+            <span className="max-w-[48%] shrink-0 truncate font-label text-[11px]" style={{ color: skin.muted }}>{item.display} <span aria-hidden="true">↗</span></span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+
+  let body: ReactNode;
+  if (style === "list") {
+    body = list(shown);
+  } else if (style === "icons") {
+    body = (
+      <ul className="flex flex-wrap gap-2.5" data-links-style="icons">
+        {shown.map((item) => (
+          <li key={item.link.id}>
+            <a {...anchor(item)} aria-label={item.link.title} className={`grid size-12 place-items-center rounded-full transition hover:scale-105 [&>img]:size-5 [&>svg]:size-5 ${focus}`} style={{ ...anchor(item).style, background: skin.icon.background, color: skin.icon.color, boxShadow: skin.icon.edge }} title={item.link.title}>
+              <LinkGlyph icon={item.icon} url={item.url} />
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  } else if (style === "chips") {
+    body = (
+      <ul className="flex flex-wrap gap-2" data-links-style="chips">
+        {shown.map((item) => (
+          <li className="min-w-0 max-w-full" key={item.link.id}>
+            <a {...anchor(item)} className={`flex h-11 max-w-full items-center rounded-full px-4 text-[14px] font-semibold transition hover:opacity-80 ${focus}`} style={{ ...anchor(item).style, background: skin.chip.background, color: skin.chip.color }}><span className="truncate">{item.link.title}</span></a>
+          </li>
+        ))}
+      </ul>
+    );
+  } else {
+    body = (
+      <ul className="grid grid-cols-2 gap-2" data-links-style="cards">
+        {shown.map((item) => (
+          <li className="min-w-0" key={item.link.id}>
+            <a {...anchor(item)} className={`flex min-h-[72px] flex-col justify-between gap-1.5 px-3.5 py-3 transition hover:opacity-85 ${focus}`} style={{ ...anchor(item).style, borderRadius: `${skin.radius}px`, background: skin.card.style.background === "transparent" ? "transparent" : skin.card.style.background, boxShadow: skin.card.edge, color: skin.card.color }}>
+              <span className="truncate font-label text-[10px]" style={{ color: skin.card.muted }}>{item.display}</span>
+              <span className="truncate text-[15px] font-semibold">{item.link.title}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <nav aria-label={copy.links} className="flex flex-col gap-2" data-profile-links>
+      {body}
+      {rest.length > 0 && (
+        <details className="group">
+          <summary className={`flex h-11 cursor-pointer list-none items-center justify-center rounded-full text-[14px] font-semibold [&::-webkit-details-marker]:hidden ${focus}`} style={{ boxShadow: `inset 0 0 0 1.5px ${skin.border}`, outlineColor: skin.fg }}>{copy.allLinks} · {links.length}</summary>
+          <div className="mt-2">{list(rest)}</div>
+        </details>
+      )}
+    </nav>
+  );
+}
+
+// ---------------------------------------------------------------- Helpers
+
+function soundtrackSkin(skin: Skin): SoundtrackSkin {
+  return { fg: skin.fg, page: skin.page, muted: skin.muted, border: skin.border, accent: skin.accent, onAccent: skin.onAccent, cardRadius: `${skin.radius}px`, artRadius: `${skin.artRadius}px`, strip: skin.strip };
+}
 
 const hasBlocks = (mode: ProfileMode) => Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
-
-function EmptyLinks({ tone, text }: { tone: Tone; text: string }) {
-  return <p className="mt-8 rounded-2xl px-4 py-4 text-[13px]" style={{ color: tone.sub, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>{text}</p>;
-}
-
-function ProviderGlyph({ item }: { item: ResolvedLink }) {
-  return <LinkGlyph icon={item.icon} url={item.url} />;
-}
 
 function resolveLinks(links: ProfileLink[]): ResolvedLink[] {
   return links.filter((link) => link.is_visible).flatMap((link) => {
@@ -463,30 +561,7 @@ function resolveLinks(links: ProfileLink[]): ResolvedLink[] {
   });
 }
 
-/** Secondary text for a link: the provider, unless the title already says it. */
-function metaFor(item: ResolvedLink) {
-  if (["email", "phone", "sms", "whatsapp"].includes(item.providerId)) return item.display;
-  return item.link.title.trim().toLowerCase() === item.name.toLowerCase() ? item.display : item.name;
-}
-
 function setting(mode: ProfileMode, key: string) {
   const value = mode.settings[key];
   return typeof value === "string" ? value.trim() : "";
 }
-
-function earnedMark(rewards: Partial<Record<string, string>>) {
-  return rewards.profile_mark === "signal_50_mark" ? "Signal 50" : rewards.profile_mark === "thousand_mark" ? "Thousand met" : null;
-}
-
-function treatmentClass(rewards: Partial<Record<string, string>>) {
-  if (rewards.profile_treatment === "editorial_profile" || rewards.profile_treatment === "century_profile") return "shadow-[inset_0_0_0_2px_rgba(255,90,79,.45)]";
-  if (rewards.profile_treatment === "connector_treatment") return "shadow-[inset_0_0_0_1px_rgba(255,90,79,.45)]";
-  return "";
-}
-
-function hexAlpha(hex: string, alpha: number) {
-  const value = /^#([\da-f]{6})$/i.exec(hex)?.[1] ?? "000000";
-  const [r, g, b] = [0, 2, 4].map((index) => parseInt(value.slice(index, index + 2), 16));
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-

@@ -489,6 +489,81 @@ export function SoundtrackCue({ tone, accent, accentInk, align = "left", classNa
   );
 }
 
+export type SoundtrackSkin = {
+  fg: string;
+  page: string;
+  muted: string;
+  border: string;
+  accent: string;
+  onAccent: string;
+  cardRadius: string;
+  artRadius: string;
+  strip: { background: string; color: string };
+};
+
+export type SoundtrackCopy = { soundOn: string; soundOff: string; soundtrack: string; nowPlaying: string; onRepeat: string; title: string };
+
+/**
+ * The soundtrack as part of the Appearance (Core, Strip, Disc, Poster). Presentation only: it
+ * drives the same provider API as the floating control and never names the provider, track or
+ * artwork, which stay out of the public payload.
+ */
+export function SoundtrackPresentation({ style, skin, copy }: { style: "core" | "strip" | "disc" | "poster"; skin: SoundtrackSkin; copy: SoundtrackCopy }) {
+  const api = useSoundtrack();
+  if (!api || api.status === "unavailable") return null;
+  const playing = api.status === "playing";
+  const toggle = api.on && !api.waiting ? api.soundOff : api.soundOn;
+  const action = api.on && !api.waiting ? copy.soundOff : copy.soundOn;
+  const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+  const motion = (animation: string) => (playing ? { animation } : undefined);
+  const data = { "data-sound-ui": true, "data-soundtrack-style": style, "data-premium-sound": api.premiumPresentation ? "true" : undefined };
+
+  if (style === "strip") {
+    return (
+      <button {...data} aria-pressed={api.on} className={`flex w-full items-center gap-3 p-2.5 text-left transition active:scale-[.99] ${focus}`} onClick={toggle} style={{ ...skin.strip, borderRadius: skin.cardRadius, outlineColor: skin.fg }} type="button">
+        <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center" style={{ background: skin.accent, color: skin.onAccent, borderRadius: skin.artRadius }}><SpeakerIcon className="size-5" on={api.on} /></span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-label text-[9.5px] uppercase tracking-[0.16em] opacity-80">{playing ? copy.nowPlaying : copy.soundtrack}</span>
+          <span className="truncate text-[15px] font-bold">{copy.title}</span>
+          <span className="text-[12px] opacity-75">{action}</span>
+        </span>
+        <span aria-hidden="true" className="flex h-[22px] items-end gap-[3px] pr-2">
+          {[0.6, 1, 0.4, 0.75].map((height, index) => <span className="w-[3px] origin-bottom rounded-[2px]" data-sv-motion key={index} style={{ height: `${height * 100}%`, background: skin.accent, ...motion(`sv-eq ${0.9 + index * 0.17}s ease-in-out ${index * -0.2}s infinite`) }} />)}
+        </span>
+      </button>
+    );
+  }
+
+  if (style === "disc") {
+    return (
+      <button {...data} aria-pressed={api.on} className={`flex min-h-11 w-full items-center gap-4 rounded-[18px] py-1 text-left ${focus}`} onClick={toggle} style={{ outlineColor: skin.fg }} type="button">
+        <span aria-hidden="true" className="grid size-24 shrink-0 place-items-center rounded-full" data-sv-motion style={{ background: "#0D0D0D", boxShadow: `inset 0 0 0 30px ${skin.accent}, inset 0 0 0 31px #0D0D0D`, ...motion("sv-disc 6s linear infinite") }}><span className="size-2.5 rounded-full" style={{ background: skin.page }} /></span>
+        <span className="flex min-w-0 flex-col gap-[3px]">
+          <span className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: skin.muted }}>{copy.onRepeat}</span>
+          <span className="font-display text-[24px] font-extrabold leading-none tracking-[-0.03em]">{copy.title}</span>
+          <span className="text-[13px]" style={{ color: skin.muted }}>{action}</span>
+        </span>
+      </button>
+    );
+  }
+
+  if (style === "poster") {
+    return (
+      <button {...data} aria-pressed={api.on} className={`flex min-h-[150px] w-full flex-col justify-between gap-[22px] p-[18px] text-left transition active:scale-[.99] ${focus}`} onClick={toggle} style={{ background: skin.accent, color: skin.onAccent, borderRadius: skin.cardRadius, outlineColor: skin.fg }} type="button">
+        <span className="flex w-full justify-between font-label text-[10px] uppercase tracking-[0.16em]"><span>{copy.soundtrack}</span><span>{api.on && !api.waiting ? "■" : "▶"} {action}</span></span>
+        <span className="font-display text-[40px] font-extrabold leading-[0.9] tracking-[-0.05em]">{copy.title}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div {...data} className="flex min-h-11 items-center gap-2.5 rounded-full px-1.5 text-[13.5px]" style={{ boxShadow: `inset 0 0 0 1px ${skin.border}` }}>
+      <button aria-pressed={api.on} className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition active:scale-[.98] ${focus} relative after:absolute after:-inset-1.5 after:content-['']`} onClick={toggle} style={{ background: skin.fg, color: skin.page, outlineColor: skin.fg }} type="button"><SpeakerIcon className="size-3.5" on={api.on} />{action}</button>
+      <span className="truncate" style={{ color: skin.muted }}>{copy.title}</span>
+    </div>
+  );
+}
+
 /** An icon-only control remains after the visitor makes a sound choice. */
 function SoundPill({ api }: { api: SoundtrackApi }) {
   const show = api.status !== "loading" && api.status !== "unavailable" && !api.asking;

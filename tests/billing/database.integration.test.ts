@@ -145,7 +145,7 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       "connections.guest_connect", "connections.private_memory", "passport.core",
       "passport.standard_progression", "passport.premium_treatment", "soundtrack.core", "soundtrack.premium_treatment", "analytics.basic_7d",
       "analytics.history_30d", "analytics.history_90d", "analytics.sources",
-      "analytics.modes", "analytics.conversion", "wallet.core",
+      "analytics.modes", "analytics.conversion", "appearance.advanced_controls", "wallet.core",
     ]);
     assertEquals((await readSnapshot(pro.id)).plan, "pro");
     assertEquals(getPlanEntitlements("pro"), [
@@ -157,7 +157,7 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       "passport.standard_progression", "passport.premium_treatment", "soundtrack.core", "soundtrack.premium_treatment", "analytics.basic_7d",
       "analytics.history_30d", "analytics.history_90d", "analytics.sources",
       "analytics.modes", "analytics.conversion", "analytics.custom_range", "analytics.funnels",
-      "analytics.device_insights", "analytics.csv_export", "wallet.core",
+      "analytics.device_insights", "analytics.csv_export", "appearance.advanced_controls", "wallet.core",
     ]);
     assertEquals((await readSnapshot(expired.id)).plan, "free");
     assertEquals((await readSnapshot(unknown.id)).plan, "free", "an unknown provider product with no plan mapping grants Free");
@@ -169,7 +169,7 @@ Deno.test("database-backed billing security, webhook reconciliation and entitlem
       assertEquals(planCapabilities["wallet.core"], true, `${expectedPlan} includes standard Wallet`);
       assertEquals(planCapabilities["wallet.premium_appearance"], false, `${expectedPlan} cannot use Wallet presentation before the provider launch`);
       const paid = expectedPlan !== "free";
-      for (const key of ["appearance.premium", "share.qr_premium", "passport.premium_treatment", "soundtrack.premium_treatment"] as const) {
+      for (const key of ["appearance.premium", "appearance.advanced_controls", "share.qr_premium", "passport.premium_treatment", "soundtrack.premium_treatment"] as const) {
         assertEquals(planCapabilities[key], paid, `${expectedPlan} premium presentation matrix is database-plan-backed for ${key}`);
       }
       assertEquals(planCapabilities["identity.plus_badge"], expectedPlan === "plus", `${expectedPlan} receives only its matching member badge`);

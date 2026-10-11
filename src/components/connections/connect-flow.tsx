@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { ModeSlug } from "@/components/profile/types";
 import { inkOnAccent } from "@/components/profile/appearance";
 
@@ -97,8 +97,9 @@ export function ConnectFlow({ username, mode, source, registered, alreadyConnect
 
   return (
     <>
-      <button className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-sm font-semibold transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d0d0d]" onClick={() => setOpen(true)} ref={triggerRef} style={{ background: accent, color: inkOnAccent(accent) }} type="button">
-        {alreadyConnected ? "Connect again" : label}
+      {/* Inside a profile the trigger follows the Appearance button tokens (set by the renderer). */}
+      <button className="inline-flex h-[var(--sv-connect-h,52px)] w-full items-center gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-bg)] px-5 text-[16px] font-semibold text-[var(--sv-connect-fg)] shadow-[var(--sv-connect-edge,none)] transition after:content-[var(--sv-connect-arrow,none)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" onClick={() => setOpen(true)} ref={triggerRef} style={{ justifyContent: "var(--sv-connect-justify, center)", "--sv-connect-bg": `var(--sv-connect-fill, ${accent})`, "--sv-connect-fg": `var(--sv-connect-ink, ${inkOnAccent(accent)})` } as CSSProperties} type="button">
+        <span>{alreadyConnected ? "Connect again" : label}</span>
       </button>
       {open && (
         <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0d]/45 p-0 sm:place-items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) close(); }}>

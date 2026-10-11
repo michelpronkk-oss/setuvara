@@ -30,12 +30,19 @@ export type ProfileBlock = {
 };
 
 export type ModeAppearance = {
-  theme: "light" | "dark" | "editorial";
+  theme: "light" | "dark" | "editorial" | "noir" | "signal" | "studio";
   accent: string;
   layout: string;
-  imageTreatment: "full-bleed" | "portrait" | "compact";
-  /** Saved through the existing appearance JSON; the paid frame falls back on Free. */
-  qrStyle?: "standard" | "accent-frame";
+  imageTreatment: "full-bleed" | "portrait" | "compact" | "frame";
+  /** Frame around the QR code; the code itself never changes. Paid frames fall back on Free. */
+  qrStyle?: "standard" | "accent-frame" | "label" | "inverse" | "rounded";
+  /** Optional Plus refinements. Left out means the theme's own default. */
+  intensity?: "quiet" | "balanced" | "signal";
+  card?: "flat" | "outline" | "soft" | "layered" | "editorial";
+  radius?: "sharp" | "subtle" | "soft";
+  button?: "pill" | "block" | "editorial" | "minimal";
+  links?: "icons" | "list" | "chips" | "cards";
+  soundStyle?: "core" | "strip" | "disc" | "poster";
 };
 
 export type ProfileMode = {

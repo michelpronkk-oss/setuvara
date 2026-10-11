@@ -14,7 +14,8 @@ import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/br
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { modeFocus } from "@/components/profile/photo-focus";
-import { resolveQrStyle } from "@/components/profile/appearance";
+import { QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
+import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { hasCapability } from "@/lib/billing/capabilities";
 import { useI18n } from "@/lib/i18n/provider";
@@ -36,11 +37,9 @@ const profileIntro: Record<ModeSlug, string> = {
   business: "Clean and structured. What a client, investor or recruiter needs.",
 };
 const CONTACT_PROVIDERS = ["email", "phone", "sms", "whatsapp", "telegram", "signal", "messenger"];
-const ACCENTS = [{ name: "Coral", hex: "#FF5A4F" }, { name: "Lime", hex: "#C7FF4A" }, { name: "Blue", hex: "#AFCBFF" }, { name: "Lilac", hex: "#E8A6FF" }, { name: "Gold", hex: "#F5C66E" }];
-const themeSwatches = { light: { bg: "#FFFFFF", fg: ink }, dark: { bg: ink, fg: paper }, editorial: { bg: paper, fg: coral } } as const;
 
 const text = (mode: ProfileMode, key: string) => (typeof mode.settings[key] === "string" ? String(mode.settings[key]) : "");
-const layoutLabel = (mode: ProfileMode) => LAYOUTS[mode.slug].find((layout) => layout.value === mode.appearance.layout)?.label ?? "Curated";
+const layoutLabel = (mode: ProfileMode) => LAYOUTS[mode.slug].find((layout) => layout.value === mode.appearance.layout)?.label ?? "Cover";
 const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
@@ -50,7 +49,7 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   return {
     profile: [profile.display_name || "Add your name", contextLine, mode.image_path ? "photo set" : "no photo yet"].filter(Boolean).join(" · "),
     links: [mode.blocks?.length ? `${mode.blocks.length} block${mode.blocks.length === 1 ? "" : "s"}` : "", mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : ""].filter(Boolean).join(" · ") || "Nothing added yet",
-    appearance: `${cap(mode.appearance.theme)} · ${layoutLabel(mode)}`,
+    appearance: `${cap(resolveAppearance(mode, api.plan).theme)} · ${layoutLabel(mode)}`,
     settings: `${mode.is_enabled ? "Mode is live" : "Mode is off"} · ${profile.is_published ? "public" : "draft"} · ${{ anyone: "anyone can connect", direct_only: "direct share only", nobody: "view-only" }[mode.connect_policy ?? "anyone"]}`,
     share: api.publicUrl(mode.slug).replace(/^https?:\/\//, ""),
   };
@@ -410,110 +409,6 @@ export function AddLinkPanel({ api, initial, initialValue = "", onClose, bare = 
   );
 }
 
-// ---------------------------------------------------------------- Appearance
-
-export function AppearanceSection({ api }: { api: EditorApi }) {
-  const { mode, slug } = api;
-  const appearance = mode.appearance;
-  const custom = !ACCENTS.some((accent) => accent.hex.toLowerCase() === appearance.accent.toLowerCase());
-  const rewards = PASSPORT_REWARDS.filter((reward) => ["profile_treatment", "accent", "profile_mark"].includes(reward.category));
-  return (
-    <div>
-      <SectionHeader description={`Curated for ${modeMeta[slug].name} Mode. Every change previews live.`} slug={slug} title="Appearance" />
-
-      <h2 className="mb-3 text-sm font-semibold">Theme</h2>
-      <div className="grid grid-cols-3 gap-3">
-        {(["light", "dark", "editorial"] as const).map((theme) => {
-          const on = appearance.theme === theme;
-          const locked = theme === "editorial" && !hasCapability(api.plan, "appearance.premium");
-          const swatch = themeSwatches[theme];
-          return (
-            <button aria-label={locked ? "Editorial theme, included with Plus" : `${cap(theme)} theme`} aria-pressed={on} className="text-left" key={theme} onClick={() => locked ? api.requestCapability("appearance.premium") : api.updateAppearance({ theme })} type="button">
-              <span className="flex h-[58px] items-center rounded-2xl px-4 font-display text-[1.6rem] font-bold tracking-[-0.04em] transition" style={{ background: swatch.bg, color: theme === "editorial" ? appearance.accent : swatch.fg, boxShadow: on ? `0 0 0 3px ${paper}, 0 0 0 5px ${coral}` : "inset 0 0 0 1px rgba(13,13,13,.12)" }}>Aa</span>
-              <span className="mt-2 block text-sm font-semibold">{cap(theme)}{locked ? " · Plus" : on ? " ✓" : ""}</span>
-              {locked && <span className="mt-0.5 block text-[11px] leading-4 text-black/50">{on ? "Saved · returns with Plus" : "Included with Plus"}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-8 flex items-baseline justify-between"><h2 className="text-sm font-semibold">Layout</h2><span className="text-[13px] text-black/50">Curated · each Mode keeps its structure</span></div>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-[440px]">
-        {LAYOUTS[slug].map((layout) => {
-          const on = appearance.layout === layout.value;
-          return (
-            <button aria-pressed={on} className="text-left" key={layout.value} onClick={() => api.updateAppearance({ layout: layout.value })} type="button">
-              <span className="block overflow-hidden rounded-[18px] transition" style={{ boxShadow: on ? `0 0 0 3px ${paper}, 0 0 0 5px ${coral}` : "inset 0 0 0 1px rgba(13,13,13,.12)" }}><LayoutSketch accent={appearance.accent} layout={layout.value} theme={appearance.theme} /></span>
-              <span className="mt-2 flex items-baseline justify-between gap-2"><span className="text-sm font-semibold">{layout.label}</span>{on && <span className="font-label text-[9px] tracking-[0.12em] text-[#FF5A4F]">CURRENT</span>}</span>
-              <span className="block text-[12px] text-black/50">{layout.note}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <h2 className="mb-3 mt-8 text-sm font-semibold">Accent</h2>
-      <div className="flex flex-wrap gap-x-4 gap-y-3">
-        {ACCENTS.map((accent) => {
-          const on = appearance.accent.toLowerCase() === accent.hex.toLowerCase();
-          return (
-            <button aria-label={`${accent.name} accent`} aria-pressed={on} className="flex w-12 flex-col items-center gap-1.5" key={accent.hex} onClick={() => api.updateAppearance({ accent: accent.hex })} type="button">
-              <span className="size-11 rounded-full transition" style={{ background: accent.hex, boxShadow: on ? `0 0 0 3px ${paper}, 0 0 0 5px ${ink}` : "inset 0 0 0 1px rgba(13,13,13,.12)" }} />
-              <span className="text-[12px] text-black/70">{accent.name}</span>
-            </button>
-          );
-        })}
-        <label className="flex w-12 cursor-pointer flex-col items-center gap-1.5">
-          <span className="relative grid size-11 place-items-center rounded-full border-[1.5px] border-dashed border-black/35 text-lg" style={custom ? { background: appearance.accent, border: "none", boxShadow: `0 0 0 3px ${paper}, 0 0 0 5px ${ink}` } : undefined}>
-            {!custom && "+"}
-            <input aria-label="Custom accent colour" className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => { if (/^#[\da-f]{6}$/i.test(event.target.value)) api.updateAppearance({ accent: event.target.value.toUpperCase() }); }} type="color" value={appearance.accent.toLowerCase()} />
-          </span>
-          <span className="text-[12px] text-black/70">Custom</span>
-        </label>
-      </div>
-
-      <h2 className="mb-3 mt-8 text-sm font-semibold">Image</h2>
-      <Segmented label="Image treatment" onChange={(imageTreatment) => api.updateAppearance({ imageTreatment })} options={[{ value: "full-bleed", label: "Full bleed" }, { value: "portrait", label: "Portrait" }, { value: "compact", label: "Compact" }]} value={appearance.imageTreatment} />
-
-      <div className="mt-10 rounded-[22px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-6">
-        <div className="flex items-baseline justify-between gap-3"><h2 className="text-[15px] font-semibold">Earned identity treatments</h2><Link className="text-[13px] font-semibold underline underline-offset-4" href="/app/passport">Passport</Link></div>
-        <p className="mt-1 text-[13px] text-black/55">Unlocked through real connections. They apply to every Mode.</p>
-        <ul className="mt-4 divide-y divide-black/[0.07]">
-          {rewards.map((reward) => {
-            const unlocked = api.unlockedRewards.includes(reward.id);
-            const equipped = api.selectedRewards[reward.category] === reward.id;
-            return (
-              <li className="flex items-center justify-between gap-3 py-3" key={reward.id}>
-                <div className="min-w-0"><p className="truncate text-sm font-semibold">{reward.name}</p><p className="text-[12px] text-black/50">{unlocked ? reward.description : `Unlocks at ${reward.milestone} connections`}</p></div>
-                {equipped ? <span className="inline-flex min-h-9 items-center rounded-full bg-[#C7FF4A] px-3 text-[13px] font-semibold">Equipped</span>
-                  : unlocked ? <Pill className="min-h-9 text-[13px]" onClick={() => void api.equipReward(reward.category, reward.id)}>Equip</Pill>
-                    : <span className="inline-flex min-h-9 items-center gap-1.5 px-2 text-[13px] text-black/40"><svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 16 16"><rect height="7" rx="1.5" width="10" x="3" y="7" /><path d="M5 7V5a3 3 0 0 1 6 0v2" /></svg>Locked</span>}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function LayoutSketch({ layout, theme, accent }: { layout: string; theme: ProfileMode["appearance"]["theme"]; accent: string }) {
-  const bg = theme === "dark" ? ink : theme === "editorial" ? paper : "#FFFFFF";
-  const fg = theme === "dark" ? paper : ink;
-  const soft = theme === "dark" ? "rgba(245,244,239,.22)" : "rgba(13,13,13,.12)";
-  const photo = theme === "dark" ? "#3A3A3A" : "#D9D6CC";
-  const bar = (width: string, height = 6, color = fg) => <span className="block rounded-full" style={{ width, height, background: color }} />;
-  return (
-    <span className="relative block h-[150px] w-full" style={{ background: bg }}>
-      {layout === "full-bleed" && <><span className="absolute inset-x-0 top-0 h-[62%]" style={{ background: photo, clipPath: cutCorner(20) }} /><span className="absolute inset-x-3 bottom-3 grid gap-1.5">{bar("60%", 9)}{bar("80%", 4, soft)}<span className="mt-1 flex gap-1">{bar("34%", 10, accent)}{bar("18%", 10, soft)}</span></span></>}
-      {layout === "portrait-editorial" && <><span className="absolute left-3 right-3 top-3 h-[48%] rounded-lg" style={{ background: photo, clipPath: cutCorner(16) }} /><span className="absolute inset-x-3 bottom-3 grid gap-1.5">{bar("70%", 9)}{bar("50%", 4, soft)}<span className="mt-1 flex gap-1">{bar("26%", 8, soft)}{bar("26%", 8, soft)}{bar("20%", 8, soft)}</span></span></>}
-      {layout === "event-poster" && <><span className="absolute inset-x-0 top-0 grid h-[46%] content-end gap-1.5 px-3 pb-3" style={{ background: accent, clipPath: cutCorner(16) }}>{bar("70%", 10, ink)}{bar("40%", 4, ink)}</span><span className="absolute left-3 top-[54%] h-7 w-6 rounded" style={{ background: photo }} /><span className="absolute left-11 right-3 top-[57%] grid gap-1">{bar("60%", 6)}{bar("40%", 4, soft)}</span><span className="absolute inset-x-3 bottom-3 grid grid-cols-2 gap-1">{bar("100%", 10, soft)}{bar("100%", 10, soft)}</span></>}
-      {layout === "conference-card" && <><span className="absolute inset-x-0 top-0 grid h-[24%] content-center px-3" style={{ background: accent }}>{bar("50%", 7, ink)}</span><span className="absolute left-3 top-[32%] h-9 w-7 rounded" style={{ background: photo }} /><span className="absolute left-12 right-3 top-[36%] grid gap-1">{bar("70%", 7)}{bar("45%", 4, soft)}</span><span className="absolute inset-x-3 bottom-3 grid gap-1">{bar("100%", 9, fg)}<span className="grid grid-cols-2 gap-1">{bar("100%", 8, soft)}{bar("100%", 8, soft)}</span></span></>}
-      {layout === "structured" && <><span className="absolute left-3 top-3">{bar("22px", 5)}</span><span className="absolute left-3 top-6 h-9 w-7 rounded" style={{ background: photo }} /><span className="absolute left-12 right-3 top-10">{bar("70%", 9)}</span><span className="absolute inset-x-3 top-[58%] grid grid-cols-3 gap-1 border-y py-1.5" style={{ borderColor: fg }}>{bar("80%", 4, soft)}{bar("80%", 4, soft)}{bar("80%", 4, soft)}</span><span className="absolute inset-x-3 bottom-3 grid grid-cols-2 gap-1">{bar("100%", 9, fg)}{bar("100%", 9, soft)}</span></>}
-      {layout === "editorial-business" && <><span className="absolute left-3 top-3">{bar("22px", 5)}</span><span className="absolute inset-x-3 top-8 grid gap-1.5">{bar("85%", 12)}{bar("55%", 12)}</span><span className="absolute inset-x-3 top-[62%] h-px" style={{ background: fg }} /><span className="absolute inset-x-3 bottom-3 grid gap-1">{bar("100%", 6, soft)}{bar("100%", 6, soft)}{bar("100%", 6, soft)}</span></>}
-    </span>
-  );
-}
-
 // ---------------------------------------------------------------- Mode Settings
 
 export function SettingsSection({ api }: { api: EditorApi }) {
@@ -685,6 +580,10 @@ export function ShareSection({ api }: { api: EditorApi }) {
   const darkShare = api.selectedRewards.share_treatment === "signal_share" || api.selectedRewards.share_treatment === "network_share";
   const coralFrame = api.selectedRewards.qr_frame === "coral_qr_frame";
   const qrStyle = resolveQrStyle(mode, api.plan);
+  // A Connection Pass QR stays plain: it is temporary and must scan first time.
+  const shownQrStyle = inPerson ? "standard" : qrStyle;
+  const { messages } = useI18n();
+  const qrCopy = messages.appearance;
   const eventName = text(mode, "eventName");
 
   async function copy() {
@@ -721,10 +620,12 @@ export function ShareSection({ api }: { api: EditorApi }) {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
         <div className={`rounded-[24px] p-6 ${darkShare ? "bg-[#0D0D0D]" : "bg-[#0D0D0D]"} text-[#F5F4EF]`}>
           <MonoLabel color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
-          <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] bg-white p-5 disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} data-qr-treatment={qrStyle} disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }} style={qrStyle === "accent-frame" ? { boxShadow: `0 0 0 4px ${mode.appearance.accent}, 0 0 0 7px #F5F4EF` } : undefined} type="button">
-            {qrUrl
-              ? <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" data-qr-value={qrUrl} data-share-intent={inPerson ? "in_person" : "profile"} fgColor={ink} id={qrId} imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={1} size={256} title={`${modeMeta[slug].name} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
-              : <span aria-live="polite" className="grid aspect-square w-full place-items-center px-3 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</span>}
+          <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} data-qr-treatment={qrStyle} disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }} type="button">
+            <QrFrame accent={resolveAppearance(mode, api.plan).accent} modeLabel={modeMeta[slug].name} name={profile.display_name} style={shownQrStyle}>
+              {qrUrl
+                ? <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" data-qr-value={qrUrl} data-share-intent={inPerson ? "in_person" : "profile"} fgColor={ink} id={qrId} imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={4} size={256} title={`${modeMeta[slug].name} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
+                : <span aria-live="polite" className="grid aspect-square w-full place-items-center px-3 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</span>}
+            </QrFrame>
           </button>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] text-white/70">
             <span>Download QR</span>
@@ -753,12 +654,15 @@ export function ShareSection({ api }: { api: EditorApi }) {
             <Segmented full label="Mode to share" onChange={(next) => api.go("share", next)} options={MODE_SLUGS.map((item) => ({ value: item, label: modeMeta[item].name }))} value={slug} />
           </div>
           <div className="grid gap-3">
-            <div aria-label="QR appearance" className="rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]" data-qr-treatment={qrStyle}>
-              <p className="text-sm font-semibold">QR appearance</p>
-              <p className="mt-1 text-[12px] leading-5 text-black/55">{mode.appearance.qrStyle === "accent-frame" && qrStyle === "standard" ? "Your Plus frame is saved and returns if you upgrade. The QR keeps the same destination." : "The frame changes its finish. Your QR still opens the same Mode."}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button aria-pressed={qrStyle === "standard"} className={`min-h-11 rounded-full px-3 text-[13px] font-semibold focus-visible:outline-2 ${qrStyle === "standard" ? "bg-[#0D0D0D] text-white" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} onClick={() => api.updateAppearance({ qrStyle: "standard" })} type="button">Setuvara default</button>
-                <button aria-pressed={qrStyle === "accent-frame"} className={`min-h-11 rounded-full px-3 text-[13px] font-semibold focus-visible:outline-2 ${qrStyle === "accent-frame" ? "bg-[#0D0D0D] text-white" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} onClick={() => hasCapability(api.plan, "share.qr_premium") ? api.updateAppearance({ qrStyle: "accent-frame" }) : api.requestCapability("share.qr_premium")} type="button">Accent frame · Plus</button>
+            <div aria-label={qrCopy.qr} className="rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]" data-qr-treatment={qrStyle}>
+              <p className="text-sm font-semibold">{qrCopy.qr}</p>
+              <p className="mt-1 text-[12px] leading-5 text-black/60">{(mode.appearance.qrStyle ?? "standard") !== qrStyle ? qrCopy.inactive : qrCopy.qrNote}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {QR_STYLES.map((style) => {
+                  const on = qrStyle === style;
+                  const allowed = style === "standard" || hasCapability(api.plan, "share.qr_premium");
+                  return <button aria-pressed={on} className={`flex min-h-11 items-center justify-between gap-2 rounded-full px-3.5 text-left text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-[#0D0D0D] text-white" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button"><span>{qrCopy.qrStyles[style]}</span>{style !== "standard" && <span className={`font-label text-[9px] uppercase tracking-[0.1em] ${on ? "text-white/70" : "text-[#A43D36]"}`}>{qrCopy.plus}</span>}</button>;
+                })}
               </div>
             </div>
             {(["qr_frame", "share_treatment"] as const).map((category) => <RewardSelect api={api} category={category} key={category} />)}
@@ -766,7 +670,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
         </div>
       </div>
 
-      {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void copy()} qrStyle={inPerson ? "standard" : qrStyle} accent={mode.appearance.accent} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={displayUrl} value={qrUrl} />}
+      {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void copy()} qrStyle={shownQrStyle} accent={resolveAppearance(mode, api.plan).accent} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={displayUrl} value={qrUrl} />}
     </div>
   );
 }
@@ -785,7 +689,7 @@ function RewardSelect({ api, category }: { api: EditorApi; category: RewardCateg
   );
 }
 
-function FullscreenQr({ value, url, name, subtitle, dark, onClose, onCopy, caption = "Scan to open my Setuvara", qrStyle, accent }: { value: string; url: string; name: string; subtitle: string; dark: boolean; onClose: () => void; onCopy: () => void; caption?: string; qrStyle: "standard" | "accent-frame"; accent: string }) {
+function FullscreenQr({ value, url, name, subtitle, dark, onClose, onCopy, caption = "Scan to open my Setuvara", qrStyle, accent }: { value: string; url: string; name: string; subtitle: string; dark: boolean; onClose: () => void; onCopy: () => void; caption?: string; qrStyle: QrStyle; accent: string }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -796,9 +700,9 @@ function FullscreenQr({ value, url, name, subtitle, dark, onClose, onCopy, capti
       <MeetMark className="size-8" />
       <p className="mt-4 font-display text-[2rem] font-extrabold leading-none tracking-[-0.05em]">{name}</p>
       <p className="mt-2 font-label text-[11px] uppercase tracking-[0.16em] opacity-60">{subtitle} Mode</p>
-      <div className="mt-7 w-full max-w-[320px] rounded-[28px] bg-white p-5 shadow-[0_30px_80px_-40px_rgba(13,13,13,.6)]" data-qr-treatment={qrStyle} style={qrStyle === "accent-frame" ? { boxShadow: `0 0 0 5px ${accent}, 0 0 0 9px #F5F4EF, 0 30px 80px -40px rgba(13,13,13,.6)` } : undefined}>
-        <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" fgColor={ink} imageSettings={{ src: markDataUri, height: 56, width: 56, excavate: true }} level="H" marginSize={1} size={300} value={value} />
-      </div>
+      <QrFrame accent={accent} className="mt-7 w-full max-w-[320px] shadow-[0_30px_80px_-40px_rgba(13,13,13,.6)]" modeLabel={subtitle} name={name} size="lg" style={qrStyle}>
+        <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" fgColor={ink} imageSettings={{ src: markDataUri, height: 56, width: 56, excavate: true }} level="H" marginSize={4} size={300} value={value} />
+      </QrFrame>
       <p className="mt-6 text-[15px] font-semibold">{caption}</p>
       <p className="mt-1 font-label text-xs opacity-55">{url}</p>
       <div className="mt-7 flex gap-3"><button className="min-h-12 rounded-full px-6 text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_currentColor]" onClick={onCopy} type="button">Copy link</button><button className="min-h-12 rounded-full bg-[#FF5A4F] px-7 text-[15px] font-semibold text-[#0D0D0D]" onClick={onClose} type="button">Done</button></div>
