@@ -15,7 +15,7 @@ import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
-import { PassportStamp, type PassportStampType } from "@/components/passport/passport-stamp";
+import { PassportRecordStamp, type PassportStampType } from "@/components/passport/passport-stamp";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
@@ -299,7 +299,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
           /> : undefined}
         />
         {sharedPassportStamp && <aside aria-label="A Passport stamp they chose to share" className="mt-4 flex items-center gap-4 rounded-[24px] border border-black/10 bg-white/85 p-4 shadow-sm">
-          <PassportStamp type={sharedPassportStamp.type} title={sharedPassportStamp.title} subtitle={sharedPassportStamp.subtitle} status="earned" rotationKey={`${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`} />
+          <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
           <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] text-black/45">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/55">{sharedPassportStamp.subtitle}</p>}</div>
         </aside>}
         <p className={`mt-5 text-center font-label text-[10px] tracking-wide text-black/40 ${bleed ? `max-sm:mt-0 max-sm:pb-8 ${pageTone.dark ? "max-sm:text-white/40" : ""}` : ""}`}>Your identity, your context. Shared with Setuvara.</p>
