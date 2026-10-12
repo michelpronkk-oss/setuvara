@@ -43,7 +43,7 @@ export async function loadRelationship(supabase: SupabaseClient, viewerId: strin
   const latest = encounterRows[encounterRows.length - 1];
   const viewerShared = latest.shared_by_user_id === viewerId;
   const requestedMode = (viewerShared ? latest.share_back_mode_slug : latest.shared_mode_slug) ?? "personal";
-  const mode: ModeSlug = requestedMode === "event" || requestedMode === "business" ? requestedMode : "personal";
+  const mode: ModeSlug = requestedMode === "event" || requestedMode === "business" || requestedMode === "creator" ? requestedMode : "personal";
   const resolved = counterpart
     ? await resolveConnectionProfiles(supabase, [{ connectionId, profileId: counterpart.id, mode }])
     : null;

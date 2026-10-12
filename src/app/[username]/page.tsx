@@ -45,7 +45,7 @@ const readPublicProfileMode = cache(async (username: string, slug: ModeSlug) => 
 
 function parseModeSlug(value?: string): ModeSlug | null {
   return value === undefined || value === "personal" ? "personal"
-    : value === "event" || value === "business" ? value
+    : value === "event" || value === "business" || value === "creator" ? value
       : null;
 }
 
@@ -142,7 +142,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
 
   let imageUrl: string | null = null;
   if (rawMode.image_path) {
-    const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, 3600);
+    const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, slug === "creator" ? 300 : 3600);
     imageUrl = image?.signedUrl ?? null;
   }
 
@@ -181,7 +181,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
       supabase.from("profile_modes").select("slug,label").eq("profile_id", userId).eq("is_enabled", true).order("sort_order"),
     ]);
     connectedState = connection as unknown as ConnectionState | null;
-    shareBackModes = (availableModes ?? []).filter((item) => ["personal", "event", "business"].includes(item.slug)).map((item) => ({ slug: item.slug as ModeSlug, label: item.label }));
+    shareBackModes = (availableModes ?? []).filter((item) => ["personal", "event", "business", "creator"].includes(item.slug)).map((item) => ({ slug: item.slug as ModeSlug, label: item.label }));
   } else if (!owner) {
     const cookieStore = await cookies();
     const guestToken = cookieStore.get("sv-guest-session")?.value;
@@ -215,8 +215,8 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     delete data.video_path;
     delete data.video_mime_type;
     const [image, video] = await Promise.all([
-      typeof imagePath === "string" ? supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600) : Promise.resolve({ data: null }),
-      typeof videoPath === "string" ? supabase.storage.from("profile-media").createSignedUrl(videoPath, 3600) : Promise.resolve({ data: null }),
+      typeof imagePath === "string" ? supabase.storage.from("profile-media").createSignedUrl(imagePath, slug === "creator" ? 300 : 3600) : Promise.resolve({ data: null }),
+      typeof videoPath === "string" ? supabase.storage.from("profile-media").createSignedUrl(videoPath, slug === "creator" ? 300 : 3600) : Promise.resolve({ data: null }),
     ]);
     return {
       ...block,

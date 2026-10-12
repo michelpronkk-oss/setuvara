@@ -5,12 +5,12 @@ export type AnalyticsQuery = {
   startDate: string;
   endDate: string;
   source: string | null;
-  mode: "personal" | "event" | "business" | null;
+  mode: "personal" | "event" | "business" | "creator" | null;
 };
 
 const DAY_MS = 86_400_000;
 const SOURCES = new Set(["direct", "profile", "share", "qr", "quick_qr", "tap", "link", "native_share"]);
-const MODES = new Set(["personal", "event", "business"]);
+const MODES = new Set(["personal", "event", "business", "creator"]);
 
 function validDate(value: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;

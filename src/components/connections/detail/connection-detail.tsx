@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LockIcon, MemorySheet, type MemoryDraft, type SavedMemory } from "./memory-sheet";
 import { formatCalendarDate, formatDate, formatTime, relativeDay, useTimeZone } from "./time";
 
-const MODE_COLOR: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" };
+const MODE_COLOR: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 const cutCorner = (size: number) => `polygon(0 0,100% 0,100% calc(100% - ${size}px),calc(100% - ${Math.round(size * 0.58)}px) 100%,0 100%)`;
 

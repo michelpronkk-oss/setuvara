@@ -21,8 +21,8 @@ export type TapProfile = {
   modes: Mode[];
 };
 
-const modeNames: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
-const modeColors: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" };
+const modeNames: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
+const modeColors: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 const kindNames: Record<DeviceKind, string> = { card: "Card", ring: "Ring", sticker: "Sticker", badge: "Badge", other: "Other" };
 const statusNames: Record<DeviceStatus, string> = { unclaimed: "Ready to claim", active: "Ready", disabled: "Paused", lost: "Lost", retired: "Retired" };
 const kinds: DeviceKind[] = ["card", "ring", "sticker", "badge", "other"];
@@ -30,7 +30,7 @@ const kinds: DeviceKind[] = ["card", "ring", "sticker", "badge", "other"];
 function isEquipped(value: unknown): value is Equipped {
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
-  return ["personal", "event", "business"].includes(String(state.mode)) && ["view_profile", "connect_in_person"].includes(String(state.intent));
+  return ["personal", "event", "business", "creator"].includes(String(state.mode)) && ["view_profile", "connect_in_person"].includes(String(state.intent));
 }
 
 function isDevice(value: unknown): value is Device {

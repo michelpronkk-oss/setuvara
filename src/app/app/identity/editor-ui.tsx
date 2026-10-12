@@ -12,6 +12,7 @@ export const modeMeta: Record<ModeSlug, { name: string; bg: string; fg: string; 
   personal: { name: "Personal", bg: ink, fg: paper },
   event: { name: "Event", bg: coral, fg: ink },
   business: { name: "Business", bg: "#FFFFFF", fg: ink, ring: `inset 0 0 0 2px ${ink}` },
+  creator: { name: "Creator", bg: "#E8A6FF", fg: ink },
 };
 
 export function ModeTag({ slug, size = "md" }: { slug: ModeSlug; size?: "sm" | "md" }) {

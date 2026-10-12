@@ -20,7 +20,7 @@ import { z } from "zod";
 
 export type LinkCategory = "Social" | "Professional & tech" | "Creator & content" | "Messaging & contact" | "Business & actions" | "Work & resources" | "Community & gaming" | "Event & location" | "Custom";
 export type LinkInputKind = "handle" | "username" | "url" | "email" | "phone";
-export type LinkMode = "personal" | "event" | "business";
+export type LinkMode = "personal" | "event" | "business" | "creator";
 type Strategy = "handle" | "url" | "domain" | "email" | "phone" | "whatsapp" | "sms" | "telegram" | "discord" | "linkedin" | "spotify" | "youtube" | "mastodon";
 
 export type LinkProvider = {
@@ -129,6 +129,7 @@ export const MODE_LINK_SUGGESTIONS: Record<LinkMode, readonly LinkProviderId[]> 
   personal: ["instagram", "tiktok", "youtube", "spotify", "whatsapp", "snapchat", "x", "threads", "twitch", "kick", "url"],
   event: ["linkedin", "instagram", "x", "whatsapp", "website", "event_page", "schedule", "ticket_page", "portfolio"],
   business: ["linkedin", "company_website", "email", "phone", "calendly", "cal_com", "github", "portfolio", "pitch_deck", "media_kit", "demo_request"],
+  creator: ["instagram", "tiktok", "youtube", "spotify", "substack", "patreon", "twitch", "threads", "x", "portfolio", "url"],
 };
 
 export const linkInputPayloadSchema = z.object({

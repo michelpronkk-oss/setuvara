@@ -20,12 +20,13 @@ import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-p
 
 export type StageMode = { slug: ModeSlug; enabled: boolean; appearance: Pick<ModeAppearance, "accent" | "qrStyle">; imageUrl: string | null; imageFocus: PhotoFocus; sub: string; line: string; configured: boolean; connectPolicy: ConnectPolicy };
 
-const NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
-const DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" };
+const NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
+const DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 const NOTES: Record<ModeSlug, string> = {
   personal: "For friends and new people. Links, music and your note.",
   event: "Built for the room. Event, city and who you want to meet.",
   business: "Role, company and city, without the rest.",
+  creator: "Your work, audience and creative identity.",
 };
 // Stage corner is cut at 60°, the same crop as profile photos (see clip-path classes on the section).
 const markDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#FF5A4F"/><g transform="translate(17 17) scale(.66)" fill="#0D0D0D"><path d="${meetMarkTop}"/><path d="${meetMarkBottom}"/></g></svg>`)}`;

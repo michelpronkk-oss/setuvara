@@ -6,10 +6,10 @@ import { createBillingAdminClient } from "@/lib/billing/admin";
 
 export const ANALYTICS_SOURCES = ["direct", "profile", "share", "qr", "quick_qr", "tap", "link", "native_share", "other"] as const;
 export type AnalyticsSource = (typeof ANALYTICS_SOURCES)[number];
-export type AnalyticsMode = "personal" | "event" | "business";
+export type AnalyticsMode = "personal" | "event" | "business" | "creator";
 export type DeviceClass = "mobile" | "tablet" | "desktop" | "unknown";
 
-const MODE_SET = new Set<AnalyticsMode>(["personal", "event", "business"]);
+const MODE_SET = new Set<AnalyticsMode>(["personal", "event", "business", "creator"]);
 const SOURCE_SET = new Set<string>(ANALYTICS_SOURCES);
 
 export function isAnalyticsMode(value: string): value is AnalyticsMode {

@@ -185,10 +185,10 @@ export type RelationshipModel = {
   hasWhere: boolean;
 };
 
-const MODE_LABEL: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
+const MODE_LABEL: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
 
 export function modeSlug(value: string | null | undefined): ModeSlug | null {
-  return value === "personal" || value === "event" || value === "business" ? value : null;
+  return value === "personal" || value === "event" || value === "business" || value === "creator" ? value : null;
 }
 
 export function modeLabel(value: ModeSlug | null): string | null {

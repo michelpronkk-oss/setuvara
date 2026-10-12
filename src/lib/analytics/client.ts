@@ -2,7 +2,7 @@
 
 export type ShareMetricAction = "copy" | "native_share" | "qr_open";
 
-export function recordProfileShare(mode: "personal" | "event" | "business", action: ShareMetricAction) {
+export function recordProfileShare(mode: "personal" | "event" | "business" | "creator", action: ShareMetricAction) {
   if (!globalThis.crypto?.randomUUID) return;
   void fetch("/api/analytics/share", {
     method: "POST",

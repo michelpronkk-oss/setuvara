@@ -8,7 +8,7 @@ import { getSetuvaraOrigin } from "@/lib/billing/config";
 import { createClient } from "@/lib/supabase/server";
 
 export const tapTokenPattern = /^[A-Za-z0-9_-]{43}$/;
-export const tapModes = ["personal", "event", "business"] as const;
+export const tapModes = ["personal", "event", "business", "creator"] as const;
 export const tapIntents = ["view_profile", "connect_in_person"] as const;
 export const tapDeviceKinds = ["card", "ring", "sticker", "badge", "other"] as const;
 export const tapDeviceStatuses = ["unclaimed", "active", "disabled", "lost", "retired"] as const;

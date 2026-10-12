@@ -88,6 +88,7 @@ export const MODE_BLOCKS: Record<ModeSlug, BlockKind[]> = {
   personal: ["video", "music", "feature"],
   event: ["feature", "video", "highlights"],
   business: ["services", "highlights", "testimonial", "video", "feature"],
+  creator: ["video", "music", "image", "feature", "highlights"],
 };
 
 export const BLOCK_LIMIT = 12;

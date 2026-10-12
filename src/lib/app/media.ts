@@ -45,12 +45,12 @@ export async function resolveConnectionProfiles(
     .from("profile_modes")
     .select("profile_id,slug,is_enabled,settings,image_path,image_focus_x,image_focus_y")
     .in("profile_id", profileIds)
-    .in("slug", ["personal", "event", "business"])
+    .in("slug", ["personal", "event", "business", "creator"])
     .eq("is_enabled", true);
   if (error || !modes?.length) return { modesByProfile, imagePathsByConnection, imageFocusByConnection };
 
   for (const mode of modes) {
-    if (mode.slug !== "personal" && mode.slug !== "event" && mode.slug !== "business") continue;
+    if (mode.slug !== "personal" && mode.slug !== "event" && mode.slug !== "business" && mode.slug !== "creator") continue;
     const row: ConnectionProfileMode = {
       slug: mode.slug,
       is_enabled: true,

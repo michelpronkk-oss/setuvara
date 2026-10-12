@@ -7,7 +7,7 @@ import { getPublicOrigin } from "@/lib/app/viewer";
 import { ownerPassCookie } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 
-const modeSchema = z.enum(["personal", "event", "business"]);
+const modeSchema = z.enum(["personal", "event", "business", "creator"]);
 
 export type ConnectPassResult =
   | { ok: true; url: string; expiresAt: string }

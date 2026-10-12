@@ -33,6 +33,7 @@ export const FAMILY_LAYOUTS = {
   personal: { cover: "full-bleed", framed: "portrait-editorial" },
   event: { cover: "event-poster", framed: "conference-card" },
   business: { cover: "editorial-business", framed: "structured" },
+  creator: { cover: "full-bleed", framed: "portrait-editorial" },
 } as const satisfies Record<ModeSlug, { cover: string; framed: string }>;
 
 /** Layouts each Mode may store. Mirrors the profile_modes appearance check constraint. */
@@ -40,6 +41,7 @@ export const MODE_LAYOUTS = {
   personal: ["full-bleed", "portrait-editorial", ...SHARED_LAYOUTS],
   event: ["event-poster", "conference-card", ...SHARED_LAYOUTS],
   business: ["editorial-business", "structured", ...SHARED_LAYOUTS],
+  creator: ["full-bleed", "portrait-editorial", ...SHARED_LAYOUTS],
 } as const satisfies Record<ModeSlug, readonly string[]>;
 
 export type ModeLayout<S extends ModeSlug = ModeSlug> = (typeof MODE_LAYOUTS)[S][number];
@@ -103,6 +105,7 @@ const MODE_DEFAULTS: { [S in ModeSlug]: { theme: ThemeId; layout: ModeLayout<S>;
   personal: { theme: "dark", layout: "full-bleed", imageTreatment: "portrait" },
   event: { theme: "light", layout: "event-poster", imageTreatment: "portrait" },
   business: { theme: "light", layout: "structured", imageTreatment: "portrait" },
+  creator: { theme: "light", layout: "portrait-editorial", imageTreatment: "portrait" },
 };
 
 /** A Mode's appearance with every value checked against that Mode's options and the plan. */

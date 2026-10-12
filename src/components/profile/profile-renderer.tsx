@@ -69,7 +69,7 @@ type Copy = ReturnType<typeof getMessages>["profile"];
 
 /** Booking providers become the Business "Book a call" action instead of a list row. */
 export const BOOKING_PROVIDERS = ["calendly", "cal_com", "booking_link", "calendar"];
-const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
+const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
 /** Text on photos: always paper over the design's ink gradient. */
 const ON_PHOTO = PAPER;
 const ON_PHOTO_MUTED = "#F5F4EFD9";

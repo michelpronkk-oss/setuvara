@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  mode: z.enum(["personal", "event", "business"]),
+  mode: z.enum(["personal", "event", "business", "creator"]),
   action: z.enum(["copy", "native_share", "qr_open"]),
   requestId: z.string().uuid(),
 }).strict();

@@ -27,6 +27,7 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
   personal: { note: 280, location: 80, pronouns: 40 },
   event: { eventName: 100, city: 80, dateLabel: 80, role: 80, hereToMeet: 280 },
   business: { role: 80, company: 100, city: 80, description: 280 },
+  creator: { tagline: 280, category: 80 },
 };
 
 /** Labels for each Mode's layouts. Values come from MODE_LAYOUTS, the renderer's own list. */
@@ -40,6 +41,7 @@ export const LAYOUTS: { [S in ModeSlug]: { value: ModeLayout<S>; label: string; 
   personal: [{ value: "full-bleed", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "portrait-editorial", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
   event: [{ value: "event-poster", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "conference-card", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
   business: [{ value: "editorial-business", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "structured", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
+  creator: [{ value: "full-bleed", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "portrait-editorial", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
 };
 
 export type PlusTrigger = { kind: "theme" | "layout" | "advanced" | "image" | "soundtrack" | "qr" | "restore"; name?: string };
