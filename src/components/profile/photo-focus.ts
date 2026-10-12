@@ -58,3 +58,117 @@ export function focusPosition(focus: PhotoFocus, frameAspect?: number | null, ph
 }
 
 const round = (value: number) => Math.round(value * 100) / 100;
+
+// ---------------------------------------------------------------- Framing from the original
+
+/**
+ * Mode photos keep the original upload (size-capped) next to the saved 4:5 crop. The crop is
+ * metadata on the original: a rectangle in fractions (0–1) of its width and height, plus the
+ * original's pixel size. Every surface frames itself from the original with `placePhoto`, so a
+ * wide panel or a zoomed-out hero shows real pixels from beyond the crop instead of nothing.
+ *
+ * Photos saved before originals were kept have no crop metadata. They render from the saved
+ * 4:5 photo as their own "original" (the whole of it is the crop); nothing beyond it exists.
+ */
+export type PhotoCrop = { x: number; y: number; w: number; h: number; width: number; height: number };
+
+/** What a surface draws a Mode photo from. */
+export type PhotoSource = {
+  url: string;
+  /** Width / height of the image at `url`. */
+  aspect: number;
+  /** The member's 4:5 crop in fractions of the image at `url`. */
+  crop: { x: number; y: number; w: number; h: number };
+  /** The face point, percent of the crop (image_focus_x/y). */
+  focus: PhotoFocus;
+  /** True when this is a kept original; false for photos saved before originals existed. */
+  original: boolean;
+};
+
+export const FULL_CROP = { x: 0, y: 0, w: 1, h: 1 } as const;
+
+/** The stored crop metadata, or null when missing or malformed. */
+export function readCrop(value: unknown): PhotoCrop | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const crop = value as Record<string, unknown>;
+  const num = (key: string) => (typeof crop[key] === "number" && Number.isFinite(crop[key]) ? crop[key] as number : NaN);
+  const [x, y, w, h, width, height] = ["x", "y", "w", "h", "width", "height"].map(num);
+  const unit = (n: number) => n >= 0 && n <= 1;
+  if (![x, y, w, h].every(unit) || w <= 0 || h <= 0 || x + w > 1.0001 || y + h > 1.0001) return null;
+  if (!(width >= 1 && height >= 1)) return null;
+  return { x, y, w, h, width, height };
+}
+
+/** A Mode's photo source: its kept original when it has one, otherwise the saved 4:5 photo. */
+export function photoSource(mode: { image_url?: string | null; image_original_url?: string | null; image_crop?: unknown; image_focus_x?: number | null; image_focus_y?: number | null }): PhotoSource | null {
+  const focus = modeFocus(mode);
+  const crop = readCrop(mode.image_crop);
+  if (mode.image_original_url && crop) {
+    return { url: mode.image_original_url, aspect: crop.width / crop.height, crop: { x: crop.x, y: crop.y, w: crop.w, h: crop.h }, focus, original: true };
+  }
+  return mode.image_url ? legacySource(mode.image_url, focus) : null;
+}
+
+/** A photo that is its own crop (saved 4:5 photos, slideshow photos). */
+export function legacySource(url: string, focus: PhotoFocus, aspect = PHOTO_ASPECT): PhotoSource {
+  return { url, aspect, crop: { ...FULL_CROP }, focus, original: false };
+}
+
+/** The face point in fractions of the whole image. */
+export function sourceFocus(source: Pick<PhotoSource, "crop" | "focus">) {
+  return { x: source.crop.x + source.crop.w * clamp(source.focus.x / 100), y: source.crop.y + source.crop.h * clamp(source.focus.y / 100) };
+}
+
+/** Where the image sits in a frame, in fractions of the frame (may run past its edges). */
+export type PhotoPlacement = { left: number; top: number; width: number; height: number; covers: boolean };
+
+/**
+ * Frames a photo in a frame of `frameAspect` (width / height) at `zoom` (1 = 100%).
+ *
+ * At 100% the crop sets the scale and the composition: the crop's height fills the frame's height,
+ * centred on the face within the crop. A 4:5 frame shows exactly the crop; a taller one part of it
+ * (as before); a wide frame the whole crop plus real image beside it, from the original. Where the image runs out at 100%, it is scaled up only
+ * as far as needed to fill the frame, so 100% never shows empty space.
+ *
+ * Zooming scales around where the face sits at 100%, so the face holds its place on screen. Zoomed
+ * out, the window grows past the crop and reveals the original's real pixels; only beyond the
+ * original itself is the frame left to the Appearance's atmosphere (`covers` is false).
+ */
+export function placePhoto(source: Pick<PhotoSource, "aspect" | "crop" | "focus">, frameAspect: number, zoom = 1): PhotoPlacement {
+  const A = Number.isFinite(frameAspect) && frameAspect > 0 ? frameAspect : PHOTO_ASPECT;
+  const z = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  // Work in image heights: the image is `aspect` wide and 1 tall.
+  const W = source.aspect;
+  const face = sourceFocus(source);
+  const fx = face.x * W;
+  const fy = face.y;
+  let h = source.crop.h;
+  let w = h * A;
+  const fit = Math.min(W / w, 1 / h, 1);
+  w *= fit;
+  h *= fit;
+  // At 100%: centred on the face, but kept to the member's crop (a window smaller than the crop
+  // stays inside it; a larger one keeps the whole crop in view), and always inside the image.
+  const cx = source.crop.x * W;
+  const cw = source.crop.w * W;
+  const x1 = clampRange(clampRange(fx - w / 2, cx, cx + cw - w), 0, W - w);
+  const y1 = clampRange(clampRange(fy - h / 2, source.crop.y, source.crop.y + source.crop.h - h), 0, 1 - h);
+  const u = (fx - x1) / w;
+  const v = (fy - y1) / h;
+  const zw = w / z;
+  const zh = h / z;
+  const wx = clampRange(fx - u * zw, 0, W - zw);
+  const wy = clampRange(fy - v * zh, 0, 1 - zh);
+  const left = -wx / zw;
+  const top = -wy / zh;
+  const width = W / zw;
+  const height = 1 / zh;
+  const e = 1e-6;
+  return { left, top, width, height, covers: left <= e && top <= e && left + width >= 1 - e && top + height >= 1 - e };
+}
+
+/** Clamps to [min, max]; when the range is inverted (window larger than the image), to [max, min]. */
+function clampRange(value: number, min: number, max: number) {
+  return max >= min ? Math.min(max, Math.max(min, value)) : Math.min(min, Math.max(max, value));
+}
+

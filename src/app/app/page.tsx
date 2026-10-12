@@ -8,7 +8,7 @@ import { PeopleSection, PeopleSkeleton } from "@/components/app/home/people-sect
 import type { ModeSlug } from "@/components/profile/types";
 import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
-import { readFocus } from "@/components/profile/photo-focus";
+import { photoSource, readFocus } from "@/components/profile/photo-focus";
 import { parseConnectPolicy } from "@/lib/connections/access";
 import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +27,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   // Identity is the only required source. People and Passport stream in behind their own boundaries.
   const [{ data: profile }, { data: modeRows }, requestHeaders, billing] = await Promise.all([
     supabase.from("profiles").select("username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("slug, label, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("slug, label, is_enabled, settings, appearance, image_path, image_original_path, image_crop, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
     headers(),
     getViewerPlan(userId),
   ]);
@@ -38,8 +38,9 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   const modes: StageMode[] = await Promise.all(ORDER.map(async (slug) => {
     const row = modeRows?.find((item) => item.slug === slug);
     const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
-    const imageUrl = await signHomeImage(supabase, row?.image_path);
-    return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
+    const [imageUrl, imageOriginalUrl] = await Promise.all([signHomeImage(supabase, row?.image_path), row?.image_path ? signHomeImage(supabase, row?.image_original_path) : null]);
+    const imageSource = photoSource({ image_url: imageUrl, image_original_url: imageOriginalUrl, image_crop: row?.image_crop, image_focus_x: row?.image_focus_x, image_focus_y: row?.image_focus_y });
+    return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageSource, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
   }));
   const initialMode = ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 

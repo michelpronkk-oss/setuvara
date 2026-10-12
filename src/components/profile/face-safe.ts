@@ -1,4 +1,4 @@
-import { visibleWindow, PHOTO_ASPECT, type PhotoFocus } from "./photo-focus";
+import { legacySource, placePhoto, sourceFocus, PHOTO_ASPECT, type PhotoFocus, type PhotoPlacement, type PhotoSource } from "./photo-focus";
 
 /**
  * Face-safe composition for photo-led heroes. Deterministic and dependency-free: no face
@@ -18,10 +18,12 @@ export type FaceSafeInput = {
   frame: { width: number; height: number };
   /** Null when the Mode has no photo. */
   focus: PhotoFocus | null;
-  /** Zoom factor: 1–1.4 scales around the focus; 0.7–1 shows more of the photo (zoomOutFrame). */
+  /** The photo as the hero draws it (kept original + crop). Without it, a saved 4:5 photo of `focus`. */
+  source?: Pick<PhotoSource, "aspect" | "crop" | "focus"> | null;
+  /** Zoom factor around the face: 1–1.4 closer; 0.7–1 reveals more of the photo (placePhoto). */
   zoom?: number;
   photoAspect?: number;
-  /** A detected face in photo fractions (0–1). Optional; estimated from the focus otherwise. */
+  /** A detected face in fractions (0–1) of the whole image. Optional; estimated from the focus otherwise. */
   faceBox?: FaceBox | null;
   name: string;
   /** The Appearance's base name size in px at 390 wide, and the chosen scale. */
@@ -70,47 +72,54 @@ export function fittedNameSize(name: string, base: number, scale: number, width:
   return Math.round(chars(name.trim()) > 22 ? size * 0.8 : size);
 }
 
-/** Where the marked face point lands in a cover frame (frame pixels), and the rendered photo height. */
-export function facePoint(focus: PhotoFocus, frame: { width: number; height: number }, photoAspect = PHOTO_ASPECT) {
-  const frameAspect = frame.width / frame.height;
-  const view = visibleWindow(focus, frameAspect, photoAspect);
-  const x = ((focus.x / 100 - view.x) / view.width) * frame.width;
-  const y = ((focus.y / 100 - view.y) / view.height) * frame.height;
-  return { x, y, photoHeight: frame.height / view.height, photoWidth: frame.width / view.width, view };
-}
+type Framed = Pick<PhotoSource, "aspect" | "crop" | "focus">;
 
-/** The face box in frame pixels for a cover frame, zoomed around the focus and shifted. */
-export function estimateFace(focus: PhotoFocus, frame: { width: number; height: number }, { zoom = 1, shiftY = 0, photoAspect = PHOTO_ASPECT, faceBox = null }: { zoom?: number; shiftY?: number; photoAspect?: number; faceBox?: FaceBox | null } = {}): FaceBox {
-  const point = facePoint(focus, frame, photoAspect);
-  const toFrameY = (fraction: number) => ((fraction - point.view.y) / point.view.height) * frame.height;
-  const toFrameX = (fraction: number) => ((fraction - point.view.x) / point.view.width) * frame.width;
-  const raw: FaceBox = faceBox
-    ? { top: toFrameY(faceBox.top), mouth: toFrameY(faceBox.mouth), chin: toFrameY(faceBox.chin), left: toFrameX(faceBox.left), right: toFrameX(faceBox.right) }
-    : {
-      top: point.y + FACE_MODEL.brow * point.photoHeight,
-      mouth: point.y + FACE_MODEL.mouth * point.photoHeight,
-      chin: point.y + FACE_MODEL.chin * point.photoHeight,
-      left: point.x - FACE_MODEL.halfWidth * point.photoHeight,
-      right: point.x + FACE_MODEL.halfWidth * point.photoHeight,
-    };
-  const zy = (value: number) => point.y + (value - point.y) * zoom + shiftY;
-  const zx = (value: number) => point.x + (value - point.x) * zoom;
-  return { top: zy(raw.top), mouth: zy(raw.mouth), chin: zy(raw.chin), left: zx(raw.left), right: zx(raw.right) };
+/** A source for a bare focus: a saved 4:5 photo (or `photoAspect`) that is its own crop. */
+export function focusSource(focus: PhotoFocus, photoAspect = PHOTO_ASPECT): Framed {
+  return legacySource("", focus, photoAspect);
 }
-
-/** The lowest zoom: the whole photo, full width at the top of the frame. */
-export const ZOOM_OUT_MIN = 0.7;
 
 /**
- * Zoomed out (below 100%), the photo sits in a full-width box at the top of the frame instead of
- * covering it. The box's aspect moves from the frame's own (100%) to the photo's (70%), so each
- * step reveals more of the photo at full sharpness, never a smaller copy with bars beside it.
+ * Where the marked face point lands in a frame (frame pixels), the image's placement, and the
+ * subject scale: the crop's height in frame pixels, which the face model is measured against.
  */
-export function zoomOutFrame(frame: { width: number; height: number }, zoom: number, photoAspect = PHOTO_ASPECT) {
-  const frameAspect = frame.width / frame.height;
-  if (zoom >= 1 || frameAspect >= photoAspect) return frame;
-  const t = Math.min(1, (1 - zoom) / (1 - ZOOM_OUT_MIN));
-  return { width: frame.width, height: frame.width / (frameAspect + t * (photoAspect - frameAspect)) };
+export function facePoint(source: Framed, frame: { width: number; height: number }, zoom = 1) {
+  const placement = placePhoto(source, frame.width / frame.height, zoom);
+  const face = sourceFocus(source);
+  const imageWidth = placement.width * frame.width;
+  const imageHeight = placement.height * frame.height;
+  return {
+    x: placement.left * frame.width + face.x * imageWidth,
+    y: placement.top * frame.height + face.y * imageHeight,
+    imageWidth,
+    imageHeight,
+    subject: source.crop.h * imageHeight,
+    placement,
+  };
+}
+
+/** The face box in frame pixels, as the photo is drawn at `zoom`, then shifted. */
+export function estimateFace(source: Framed, frame: { width: number; height: number }, { zoom = 1, shiftY = 0, faceBox = null }: { zoom?: number; shiftY?: number; faceBox?: FaceBox | null } = {}): FaceBox {
+  const point = facePoint(source, frame, zoom);
+  const { placement } = point;
+  const toFrameY = (fraction: number) => placement.top * frame.height + fraction * point.imageHeight + shiftY;
+  const toFrameX = (fraction: number) => placement.left * frame.width + fraction * point.imageWidth;
+  if (faceBox) return { top: toFrameY(faceBox.top), mouth: toFrameY(faceBox.mouth), chin: toFrameY(faceBox.chin), left: toFrameX(faceBox.left), right: toFrameX(faceBox.right) };
+  return {
+    top: point.y + FACE_MODEL.brow * point.subject + shiftY,
+    mouth: point.y + FACE_MODEL.mouth * point.subject + shiftY,
+    chin: point.y + FACE_MODEL.chin * point.subject + shiftY,
+    left: point.x - FACE_MODEL.halfWidth * point.subject,
+    right: point.x + FACE_MODEL.halfWidth * point.subject,
+  };
+}
+
+/** The lowest zoom the editor offers. */
+export const ZOOM_OUT_MIN = 0.7;
+
+/** Image edges in frame pixels for a placement (for the dissolve mask). */
+function imageEdges(placement: PhotoPlacement, height: number, shiftY: number) {
+  return { imageTop: placement.top * height + shiftY, imageBottom: (placement.top + placement.height) * height + shiftY };
 }
 
 export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
@@ -131,12 +140,11 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
     return { strategy: "bottom", nameSize: base, shiftY: 0, align: "left", face: null, imageTop: 0, imageBottom: height, decision: "NO PHOTO · BOTTOM" };
   }
 
-  const focus = input.focus;
-  // Zoomed out, the photo fills a shorter box at the top of the frame and dissolves below it.
-  const photoFrame = zoomOutFrame(frame, zoom, input.photoAspect);
-  const scale = Math.max(1, zoom);
+  // Zoomed out, the window grows past the crop: real image from the original first, then the
+  // Appearance's atmosphere where even the original runs out.
+  const source = input.source ?? focusSource(input.focus, input.photoAspect);
   let shiftY = 0;
-  let face = estimateFace(focus, photoFrame, { zoom: scale, shiftY, photoAspect: input.photoAspect, faceBox: input.faceBox });
+  let face = estimateFace(source, frame, { zoom, shiftY, faceBox: input.faceBox });
   const clearTop = () => face.top - MARGIN;
   const clearBottom = () => face.chin + MARGIN;
   const fitAboveBrow = () => {
@@ -175,7 +183,7 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
       // Reframe within bounds before touching the name, then shrink only as far as needed.
       const need = Math.ceil(total(base) - roomBelow);
       shiftY = -Math.min(Math.max(need, 0), MAX_SHIFT);
-      face = estimateFace(focus, photoFrame, { zoom: scale, shiftY, photoAspect: input.photoAspect, faceBox: input.faceBox });
+      face = estimateFace(source, frame, { zoom, shiftY, faceBox: input.faceBox });
       let size = base;
       while (total(size) > bottomLimit - clearBottom() && size > base * 0.78) size -= 2;
       strategy = "bottom";
@@ -187,9 +195,7 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
   const centre = (face.left + face.right) / 2;
   const align = centre < width * 0.4 ? "right" : "left";
   if (align === "right") decision += " · ALIGN RIGHT";
-  const point = facePoint(focus, photoFrame, input.photoAspect);
-  const imageTop = point.y * (1 - scale) + shiftY;
-  const imageBottom = point.y + (photoFrame.height - point.y) * scale + shiftY;
+  const { imageTop, imageBottom } = imageEdges(placePhoto(source, width / height, zoom), height, shiftY);
   return { strategy, nameSize, shiftY, align, face, imageTop, imageBottom, decision };
 }
 
