@@ -45,11 +45,7 @@ before(async () => {
 });
 after(() => rmSync(out, { recursive: true, force: true }));
 
-const PROFILE = "11111111-1111-4111-8111-111111111111";
-const EVENT_MODE = "22222222-2222-4222-8222-222222222222";
-const BUSINESS_MODE = "33333333-3333-4333-8333-333333333333";
-const nonce = "ab".repeat(32);
-const shareUrls = { event: `https://setuvara.com/s/${"E".repeat(43)}`, business: `https://setuvara.com/s/${"B".repeat(43)}` };
+const shareUrls = { event: "https://setuvara.com/s/K7mP2xQa", business: "https://setuvara.com/s/b9Rt4Lw2" };
 
 describe("owner share URLs", () => {
   test("Personal is the canonical username URL", () => {
@@ -60,7 +56,7 @@ describe("owner share URLs", () => {
     for (const mode of ["event", "business"]) {
       for (const source of [undefined, "qr", "link", "native_share"]) {
         const url = urls.publicModeUrl({ origin: "https://setuvara.com", username: "michel", shareUrls, mode, source });
-        assert.match(url, /^https:\/\/setuvara\.com\/s\/[A-Za-z0-9_-]{43}(\?source=[a-z_]+)?$/);
+        assert.match(url, /^https:\/\/setuvara\.com\/s\/[0-9A-Za-z]{8}(\?source=[a-z_]+)?$/);
         assert.doesNotMatch(url, /[?&]mode=/);
         assert.doesNotMatch(url, /michel/, "the opaque URL does not name the person");
       }
@@ -72,26 +68,22 @@ describe("owner share URLs", () => {
   });
 });
 
-describe("opaque tokens", () => {
-  before(() => { process.env.QUICK_SHARE_TOKEN_KEY = Buffer.alloc(32, 7).toString("base64url"); });
-  test("tokens are 43 url-safe characters and stable for the same locator", () => {
-    const token = share.deriveModeShareToken(PROFILE, EVENT_MODE, nonce);
-    assert.match(token, share.modeShareTokenPattern);
-    assert.equal(share.deriveModeShareToken(PROFILE, EVENT_MODE, nonce), token);
+describe("share ids", () => {
+  test("short ids are 8 Base62 characters", () => {
+    for (const id of ["K7mP2xQa", "00000000", "zzzzzzzz", "aZ09bY18"]) {
+      assert.match(id, share.modeShortIdPattern);
+      assert.match(id, share.modeShareTokenPattern);
+    }
   });
-  test("each Mode and each nonce gets an unrelated token", () => {
-    const event = share.deriveModeShareToken(PROFILE, EVENT_MODE, nonce);
-    assert.notEqual(share.deriveModeShareToken(PROFILE, BUSINESS_MODE, nonce), event);
-    assert.notEqual(share.deriveModeShareToken(PROFILE, EVENT_MODE, "cd".repeat(32)), event);
+  test("legacy 43-character tokens still route", () => {
+    assert.match("E".repeat(43), share.modeShareTokenPattern);
+    assert.match(`${"a-_".repeat(14)}Z`, share.modeShareTokenPattern);
+    assert.doesNotMatch("E".repeat(43), share.modeShortIdPattern);
   });
-  test("a different server key yields a different token", () => {
-    const event = share.deriveModeShareToken(PROFILE, EVENT_MODE, nonce);
-    process.env.QUICK_SHARE_TOKEN_KEY = Buffer.alloc(32, 9).toString("base64url");
-    assert.notEqual(share.deriveModeShareToken(PROFILE, EVENT_MODE, nonce), event);
-  });
-  test("a missing server key fails closed", () => {
-    delete process.env.QUICK_SHARE_TOKEN_KEY;
-    assert.throws(() => share.deriveModeShareToken(PROFILE, EVENT_MODE, nonce));
+  test("anything else is rejected before the database", () => {
+    for (const bad of ["", "K7mP2xQ", "K7mP2xQab", "K7mP2xQ-", "K7mP_xQa", "K7mP2xQ=", "michel", "../event", "K7mP2xQa?mode=event", "E".repeat(42), "E".repeat(44), "é".repeat(8)]) {
+      assert.doesNotMatch(bad, share.modeShareTokenPattern, bad);
+    }
   });
   test("resolution results are validated", () => {
     assert.deepEqual(share.parseResolvedModeShare({ username: "michel", mode: "event" }), { username: "michel", mode: "event" });

@@ -587,6 +587,8 @@ export function ShareSection({ api }: { api: EditorApi }) {
   const [copied, setCopied] = useState(false);
   const [full, setFull] = useState(false);
   const [intent, setIntent] = useState(api.initialShareIntent);
+  const [confirmNewLink, setConfirmNewLink] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const qrId = useId().replace(/:/g, "");
   const offline = !profile.is_published || !mode.is_enabled;
   const policy = mode.connect_policy ?? "anyone";
@@ -613,6 +615,14 @@ export function ShareSection({ api }: { api: EditorApi }) {
     api.toast(ok ? "Link copied" : "Copy didn’t work. Select the link instead.");
     if (ok && !inPerson && !offline) recordProfileShare(slug, "copy");
     if (ok) window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function newLink() {
+    setRotating(true);
+    const ok = await api.regenerateShareLink(slug);
+    setRotating(false);
+    setConfirmNewLink(false);
+    api.toast(ok ? "New link ready. Older links to this Mode no longer open." : "Couldn’t make a new link. Try again.");
   }
 
   async function share() {
@@ -680,6 +690,17 @@ export function ShareSection({ api }: { api: EditorApi }) {
               <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={!linkUrl} onClick={() => void share()} variant="coral">Share…</Pill>
               <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }}>Full-screen QR</Pill>
             </div>
+            {!inPerson && slug !== "personal" && linkUrl && (
+              confirmNewLink
+                ? <div className="mt-3 rounded-2xl bg-[#FF5A4F]/[0.1] px-4 py-3" data-share-new-link="confirm">
+                    <p className="text-[12.5px] leading-5">Make a new {modeMeta[slug].name} Mode link? Older links and printed QR codes for this Mode stop working.</p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      <Pill className="!min-h-10 !px-4" disabled={rotating} onClick={() => void newLink()} variant="ink">{rotating ? "Making link…" : "Make new link"}</Pill>
+                      <Pill className="!min-h-10 !px-4" disabled={rotating} onClick={() => setConfirmNewLink(false)}>Keep this link</Pill>
+                    </div>
+                  </div>
+                : <button className="mt-3 text-[12.5px] font-semibold text-black/60 underline underline-offset-4 hover:text-black" onClick={() => setConfirmNewLink(true)} type="button">New link</button>
+            )}
           </section>
 
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">

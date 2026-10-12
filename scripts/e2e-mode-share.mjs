@@ -3,7 +3,9 @@
  *
  * Contract:
  *   - /<username> only ever shows the default (Personal) Mode; ?mode= is ignored.
- *   - Event and Business open only through /s/<token>, resolved server-side.
+ *   - Event and Business open only through /s/<short id> (8 Base62 chars),
+ *     resolved server-side; legacy 43-character tokens keep resolving.
+ *   - Regenerating a Mode link retires every older link to it.
  *   - Owner surfaces (Share, Live at, View live profile), Quick QR and
  *     Connection Pass landings use the opaque URL, never ?mode=.
  *   - Connection Access is unchanged: a share locator is a pointer, never a pass.
@@ -17,7 +19,7 @@ import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
-import { landedMode } from "./lib/mode-share-url.mjs";
+import { landedMode, mintLegacyModeToken } from "./lib/mode-share-url.mjs";
 
 const root = resolve(process.cwd());
 const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
@@ -171,7 +173,7 @@ try {
     const qr = owner.page.locator("[data-share-intent]").first();
     await qr.waitFor();
     const qrUrl = new URL(await qr.getAttribute("data-qr-value"));
-    assert.match(qrUrl.pathname, /^\/s\/[A-Za-z0-9_-]{43}$/, `${mode} Share QR uses an opaque locator`);
+    assert.match(qrUrl.pathname, /^\/s\/[0-9A-Za-z]{8}$/, `${mode} Share QR uses an 8-character short id`);
     assert.equal(qrUrl.searchParams.get("mode"), null);
     assert.equal(qrUrl.searchParams.get("source"), "qr");
     assert(!qrUrl.href.includes(username), "The opaque link does not name the person");
@@ -205,7 +207,7 @@ try {
   assert(business.html.includes(SECRET_BUSINESS));
   assert.equal(await visitor.getByRole("button", { name: /^connect/i }).count(), 0, "Business Nobody still has no Connect behind its share link");
   const flipped = shareLinks.event.slice(0, -1) + (shareLinks.event.endsWith("A") ? "B" : "A");
-  for (const bad of [flipped, "/s/short", `/s/${"A".repeat(43)}`, "/s/..%2Fadmin"]) {
+  for (const bad of [flipped, shareLinks.event.toLowerCase() === shareLinks.event ? shareLinks.event.toUpperCase() : shareLinks.event.toLowerCase(), `${shareLinks.event}x`, shareLinks.event.slice(0, -1), "/s/short", `/s/${"A".repeat(43)}`, "/s/..%2Fadmin", "/s/K7mP_xQa"]) {
     assert.equal((await anon.request.get(`${appUrl}${bad}`)).status(), 404, `${bad} must not resolve`);
   }
   console.log("PASS opaque links resolve to exactly one Mode; tampering 404s");
@@ -261,6 +263,75 @@ try {
   const { data: anonLeak, error: anonLeakError } = await userClient().from("mode_share_locators").select("*");
   assert(anonLeakError || (anonLeak ?? []).length === 0, "Anonymous visitors cannot read locator rows");
   console.log("PASS locator table is server-only");
+
+  // 7. Short ids are uniform Base62 from the database CSPRNG.
+  const samples = [];
+  for (let i = 0; i < 400; i += 1) {
+    const { data, error } = await admin.rpc("mode_share_short_id");
+    assert.ifError(error);
+    assert.match(data, /^[0-9A-Za-z]{8}$/);
+    samples.push(data);
+  }
+  assert.equal(new Set(samples).size, samples.length, "No repeats across 400 short ids");
+  const counts = new Map();
+  for (const char of samples.join("")) counts.set(char, (counts.get(char) ?? 0) + 1);
+  assert.equal(counts.size, 62, "Every Base62 character appears");
+  // 3200 characters over 62 symbols: about 52 each; a biased mapping would skew far wider.
+  assert(Math.min(...counts.values()) > 20 && Math.max(...counts.values()) < 95, `Character spread looks uniform (${Math.min(...counts.values())}..${Math.max(...counts.values())})`);
+  for (const role of [owner.client, userClient()]) {
+    const { error } = await role.rpc("mode_share_short_id");
+    assert(error, "Browsers cannot call the id generator");
+  }
+  console.log("PASS short ids are 8 uniform Base62 characters");
+
+  // 8. Links shared before short ids keep working, until the owner regenerates.
+  const legacyToken = await mintLegacyModeToken(username, "event");
+  assert.match(legacyToken, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal((await publicMode(visitor, `/s/${legacyToken}`)).mode, "event", "A legacy long Event link still opens");
+  assert.equal((await publicMode(visitor, shareLinks.event)).mode, "event", "The short id opens the same Mode");
+  assert.equal((await anon.request.get(`${appUrl}/og/s/${legacyToken}`)).status(), 200, "Legacy preview image still renders");
+  assert.equal(await landedMode(`/s/${legacyToken}`), "event");
+  console.log("PASS legacy long links keep resolving next to short ids");
+
+  // 9. Regenerate: only the owner, only against the link they see; every older link closes.
+  const oldEventId = shareLinks.event.slice(3);
+  const anonRotate = await anon.request.post(`${appUrl}/api/share/mode-link`, { data: { mode: "event", current: oldEventId }, headers: { origin: appUrl } });
+  assert.equal(anonRotate.status(), 401, "Signed-out visitors cannot regenerate");
+  const { data: directRotate } = await userClient().rpc("rotate_mode_share_locator", { p_mode: "event", p_expected_short_id: oldEventId });
+  assert.equal(directRotate ?? null, null, "Anonymous RPC rotation does nothing");
+  for (const body of [{ mode: "personal", current: oldEventId }, { mode: "event", current: "short" }, { mode: "event", current: oldEventId, extra: 1 }]) {
+    const status = await owner.page.evaluate(async (payload) => (await fetch("/api/share/mode-link", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })).status, body);
+    assert.equal(status, 400, `Invalid rotation ${JSON.stringify(body)} is rejected`);
+  }
+
+  await owner.page.goto(`${appUrl}/app/identity?mode=event&section=share`);
+  await owner.page.locator("[data-share-intent]").first().waitFor();
+  await owner.page.getByRole("button", { name: "New link", exact: true }).click();
+  await owner.page.getByText("Older links and printed QR codes for this Mode stop working.").waitFor();
+  await owner.page.getByRole("button", { name: "Make new link" }).click();
+  await owner.page.getByText("New link ready. Older links to this Mode no longer open.").waitFor();
+  const rotatedUrl = new URL(await owner.page.locator("[data-share-intent]").first().getAttribute("data-qr-value"));
+  assert.match(rotatedUrl.pathname, /^\/s\/[0-9A-Za-z]{8}$/);
+  assert.notEqual(rotatedUrl.pathname, shareLinks.event, "Regenerate gives a new short id");
+  assert.equal((await anon.request.get(`${appUrl}${shareLinks.event}`)).status(), 404, "The old short id stops working");
+  assert.equal((await anon.request.get(`${appUrl}/s/${legacyToken}`)).status(), 404, "The old long link stops working");
+  assert.equal((await anon.request.get(`${appUrl}/og${shareLinks.event}`)).status(), 404, "The old preview image is gone");
+  const rotated = await publicMode(visitor, rotatedUrl.pathname);
+  assert.equal(rotated.mode, "event", "The new link opens Event");
+  assert(rotated.html.includes(SECRET_EVENT));
+  await owner.page.reload();
+  await owner.page.locator("[data-share-intent]").first().waitFor();
+  assert.equal(new URL(await owner.page.locator("[data-share-intent]").first().getAttribute("data-qr-value")).pathname, rotatedUrl.pathname, "The new link is the stable one after reload");
+  const stale = await owner.page.evaluate(async (current) => (await fetch("/api/share/mode-link", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "event", current }) })).status, oldEventId);
+  assert.equal(stale, 409, "A stale tab cannot replace the newer link");
+  assert.equal((await publicMode(visitor, rotatedUrl.pathname)).mode, "event", "The stale attempt left the new link working");
+  assert.equal((await publicMode(visitor, shareLinks.business)).mode, "business", "Regenerating Event leaves Business alone");
+  await owner.page.goto(`${appUrl}/app/identity?mode=personal&section=share`);
+  await owner.page.locator("[data-share-intent]").first().waitFor();
+  assert.equal(await owner.page.getByRole("button", { name: "New link", exact: true }).count(), 0, "Personal has no New link action");
+  const quickAfter = await anon.request.get(quick.payload.url, { maxRedirects: 0 });
+  assert.equal(new URL(quickAfter.headers().location, appUrl).pathname, rotatedUrl.pathname, "Quick QR follows the new Event link");
+  console.log("PASS regenerate retires every older link and keeps the new one stable");
 
   await anon.close();
   await owner.context.close();

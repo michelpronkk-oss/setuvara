@@ -182,7 +182,7 @@ async function openTap(browser, tapUrl, expectedUsername, expectedMode, viewport
   const location = new URL(initial.location, appUrl);
   assert.equal(location.origin, appUrl);
   if (expectedMode === "personal") assert.equal(location.pathname, `/${expectedUsername}`, "Tap redirects Personal to the canonical public identity URL");
-  else assert.match(location.pathname, /^\/s\/[A-Za-z0-9_-]{43}$/, "Tap redirects Event and Business to their opaque share locator");
+  else assert.match(location.pathname, /^\/s\/[0-9A-Za-z]{8}$/, "Tap redirects Event and Business to their short share id");
   assert.equal(location.searchParams.get("mode"), null, "Tap never relies on a ?mode= query");
   assert.equal(location.searchParams.get("source"), "tap", "Tap attribution remains a source context value");
   assert(!location.href.includes(new URL(tapUrl).pathname.split("/").at(-1)), "Redirect URL never repeats the bearer token");
