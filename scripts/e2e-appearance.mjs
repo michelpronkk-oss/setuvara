@@ -140,12 +140,73 @@ async function inspect(page, label, { connect = true } = {}) {
 
 const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM ?? undefined });
 try {
+  // E2E_ONLY=content runs just the content and branding checks (quick visual loop).
+  const only = process.env.E2E_ONLY;
   const aanya = await seedUser("aanya", "Aanya Rao", { face: [50, 30] });
-  const low = await seedUser("lowface", "Maximiliana Wolkenstein", { face: [50, 58] });
-  const side = await seedUser("sideface", "Theo Lind", { face: [28, 34], live: false });
+  const low = only ? null : await seedUser("lowface", "Maximiliana Wolkenstein", { face: [50, 58] });
+  const side = only ? null : await seedUser("sideface", "Theo Lind", { face: [28, 34], live: false });
   const free = await seedUser("freeaanya", "Free Aanya", { plan: "free", face: [50, 30], live: false });
-  for (const user of [aanya, low, side, free]) await dressModes(browser, user);
+  for (const user of [aanya, low, side, free].filter(Boolean)) await dressModes(browser, user);
 
+  // ---- Content under the Appearances: a single picture, a link preview and a video read as
+  // refined cards (never a wall of image), the hero dissolves into the page without a cut, and
+  // only Free profiles carry the setuvara mark.
+  {
+    const mla = await seedUser("mla", "M.L.A", { face: [50, 34], bio: "CEO", live: false });
+    const [row] = await admin(`/rest/v1/profile_modes?profile_id=eq.${mla.id}&slug=eq.personal&select=id`);
+    const photo = await upload(mla.id, await portrait(browser, 50, 34, ["#3a2a20", "#b97a5a", "#120d0b"]));
+    const poster = await upload(mla.id, await scene(browser, ["#0b1a3a", "#1e90ff"], "Production"));
+    await admin(`/rest/v1/profile_modes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ is_enabled: true, image_path: photo, image_focus_x: 50, image_focus_y: 34, appearance: { theme: "immersive", accent: "#FF5A4F" }, settings: { location: "Amsterdam" } }) });
+    for (const [index, [type, title, url]] of [["instagram", "Instagram", "https://instagram.com/mla"], ["tiktok", "TikTok", "https://www.tiktok.com/@milentonio"]].entries()) {
+      await admin("/rest/v1/profile_links", { method: "POST", body: JSON.stringify({ profile_id: mla.id, mode_id: row.id, link_type: type, title, url, is_visible: true, sort_order: index }) });
+    }
+    const blocks = [
+      { kind: "image", data: { image_path: poster, alt: "Verify what's live in production", caption: "" } },
+      { kind: "feature", data: { url: "https://auterim.com", title: "Auterim", description: "Verify what's live in production.", image: null, image_path: poster, siteName: "auterim.com", cta: "Visit" } },
+      { kind: "video", data: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Launch film", caption: "" } },
+    ];
+    for (const [index, block] of blocks.entries()) await admin("/rest/v1/profile_blocks", { method: "POST", body: JSON.stringify({ profile_id: mla.id, mode_id: row.id, sort_order: index, is_visible: true, ...block }) });
+    for (const id of ["immersive", "clean", "glow", "film"]) {
+      await setAppearance(mla, "personal", { theme: id });
+      for (const [width, height] of [[390, 844], [1440, 900]]) {
+        const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+        const page = await context.newPage();
+        await page.goto(`${appUrl}/${mla.username}`);
+        await page.locator(`article[data-appearance="${id}"]`).waitFor();
+        await page.waitForLoadState("networkidle");
+        await inspect(page, `content ${id} @${width}`);
+        // Scroll the hero's end to mid-screen: it must dissolve into the page, not cut.
+        await page.evaluate(() => {
+          const box = [...document.querySelectorAll("[data-hero], [data-wide-hero]")].map((node) => node.getBoundingClientRect()).find((rect) => rect.height > 0);
+          if (box) window.scrollTo(0, window.scrollY + box.bottom - window.innerHeight / 2);
+        });
+        await page.waitForTimeout(250);
+        await shot(page, `content-${id}-${width}-seam`);
+        await page.evaluate(() => window.scrollTo(0, document.querySelector("[data-appearance-content]")?.getBoundingClientRect().top + window.scrollY - 40));
+        await page.waitForTimeout(250);
+        await shot(page, `content-${id}-${width}-content`);
+        // A picture is framed, never taller than the column is wide.
+        const media = await page.locator("[data-featured-media]").boundingBox();
+        assert(media && media.height <= Math.min(media.width, 420) + 1, `${id} @${width}: picture stays in proportion (${JSON.stringify(media)})`);
+        assert.equal(await page.locator("[data-attribution]").count(), 0, `${id}: Plus profiles carry no setuvara branding`);
+        await context.close();
+      }
+    }
+    // Free carries the refined setuvara mark at the end of the profile; it links to Make yours.
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto(`${appUrl}/${free.username}`);
+    const mark = page.locator("[data-attribution]");
+    await mark.waitFor();
+    assert.match(await page.getByRole("link", { name: /Make yours on Setuvara/ }).first().getAttribute("href"), /^\/signup\?appearance=immersive$/);
+    await mark.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(250);
+    await shot(page, "content-free-branding");
+    await context.close();
+    console.log("PASS content is refined, the hero dissolves, branding is Free only");
+  }
+
+  if (!only) {
   // ---- Every Appearance at every width, as a visitor.
   for (const id of APPEARANCES) {
     await setAppearance(aanya, "personal", { theme: id });
@@ -224,7 +285,7 @@ try {
     await page.goto(`${appUrl}/${free.username}`);
     await page.locator('article[data-appearance="immersive"]').waitFor();
     await inspect(page, "free fallback");
-    await page.getByText("Make yours on Setuvara").first().waitFor();
+    await page.locator('[data-attribution="setuvara"]').waitFor();
     assert.match(await page.getByRole("link", { name: /Make yours on Setuvara/ }).first().getAttribute("href"), /^\/signup\?appearance=immersive$/);
     await shot(page, "free-film-renders-immersive", true);
     const [row] = await admin(`/rest/v1/profile_modes?profile_id=eq.${free.id}&slug=eq.personal&select=appearance`);
@@ -276,6 +337,7 @@ try {
     await context.close();
   }
   console.log("PASS editor picker shows ten; Free previews and meets the paywall on Apply");
+  }
 } finally {
   await browser.close();
   const cleanup = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });

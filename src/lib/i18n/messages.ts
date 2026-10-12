@@ -36,7 +36,7 @@ const messages = {
       soundOn: "Sound on", soundOff: "Sound off", soundtrack: "Soundtrack", nowPlaying: "Now playing", onRepeat: "On repeat",
       soundtrackOf: "{mode} soundtrack", eventSaved: "{event} and the time are saved to the connection.",
       profileMark: "Earned Setuvara mark",
-      makeYours: "Make yours on Setuvara", live: "Live", until: "until {time}", today: "today",
+      makeYours: "Make yours on Setuvara", makeYoursShort: "Make yours", live: "Live", until: "until {time}", today: "today",
       hasSoundtrack: "This identity has a soundtrack", enterWithSound: "Enter with sound", continueMuted: "Continue muted",
       platforms: "{count} platforms", muteSoundtrack: "Sound on. Mute.", playSoundtrack: "Muted. Turn sound on.", tapToPlay: "Tap to play sound",
       photoOf: "Photo of {name}", moreImages: "More images",
