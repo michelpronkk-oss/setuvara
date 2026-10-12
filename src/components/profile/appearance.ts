@@ -383,3 +383,9 @@ export function mixHex(base: string, over: string, amount: number): string {
   const [b, o] = [parse(base), parse(over)];
   return `#${b.map((channel, index) => Math.round(channel + (o[index] - channel) * amount).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
+
+/** Where social platforms show: under the name (each once, out of the link rows) or only in the link rows. */
+export type SocialPlacement = "name" | "links";
+export const socialPlacement = (style: SocialStyle): SocialPlacement => (style === "hidden" ? "links" : "name");
+/** The style a look wears when its platforms move back under the name. */
+export const defaultSocialStyle = (id: AppearanceId): SocialStyle => APPEARANCE_DEFAULTS[id].socialStyle;

@@ -372,6 +372,22 @@ describe("ProfileRenderer", () => {
     assert.doesNotMatch(render(m, "plus"), /data-member-badge/);
   });
 
+  test("each social platform shows once: under the name, or in the link rows", () => {
+    const rows = (html) => html.slice(html.indexOf("data-profile-links"));
+    const hero = (html) => html.slice(0, html.indexOf("data-appearance-content"));
+    for (const socialStyle of ["rail", "row", "compact"]) {
+      const html = render(mode("personal", { theme: "immersive", socialStyle }));
+      assert.match(hero(html), /instagram\.com\/aanya/, `${socialStyle}: under the name`);
+      assert.doesNotMatch(rows(html), /instagram\.com\/aanya/, `${socialStyle}: not repeated in the rows`);
+      assert.match(rows(html), /example\.com/, "other links stay in the rows");
+    }
+    const inLinks = render(mode("personal", { theme: "immersive", socialStyle: "hidden" }));
+    assert.doesNotMatch(hero(inLinks), /instagram\.com\/aanya/);
+    assert.match(rows(inLinks), /instagram\.com\/aanya/);
+    assert.equal(lib.socialPlacement("hidden"), "links");
+    assert.equal(lib.socialPlacement("compact"), "name");
+  });
+
   test("links collapse after eight", () => {
     const many = Array.from({ length: 9 }, (_, index) => ({ id: `l${index}`, title: `Link ${index}`, url: `https://example.com/${index}`, link_type: "website", is_visible: true, sort_order: index }));
     const html = render(mode("personal", { theme: "clean" }, { links: many }));

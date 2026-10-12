@@ -86,6 +86,9 @@ const LINKS = [
   ["spotify", "Spotify", "https://open.spotify.com/artist/1"],
   ["website", "Portfolio", "https://aanya.studio"],
   ["x", "X", "https://x.com/aanyarao"],
+  ["website", "Studio journal", "https://aanya.studio/journal"],
+  ["website", "Talk: Calm tools", "https://aanya.studio/talks/calm-tools"],
+  ["website", "Reading list", "https://aanya.studio/reading"],
 ];
 
 async function seedUser(name, displayName, { plan = "plus", face = [50, 30], bio = "Product designer in Lisbon. Building calm tools for loud rooms.", live = true } = {}) {
@@ -189,8 +192,30 @@ try {
         const media = await page.locator("[data-featured-media]").boundingBox();
         assert(media && media.height <= Math.min(media.width, 420) + 1, `${id} @${width}: picture stays in proportion (${JSON.stringify(media)})`);
         assert.equal(await page.locator("[data-attribution]").count(), 0, `${id}: Plus profiles carry no setuvara branding`);
+        // Each platform shows once: under the name by default, never again in the link rows.
+        for (const url of ["https://instagram.com/mla", "https://www.tiktok.com/@milentonio"]) {
+          assert.equal(await page.locator(`a[href$="${url.replace(/^https:\/\/(www\.)?/, "")}"]:visible`).count(), 1, `${id} @${width}: ${url} shows once`);
+          assert.equal(await page.locator(`[data-profile-links] a[href$="${url.replace(/^https:\/\/(www\.)?/, "")}"]`).count(), 0, `${id} @${width}: not repeated in the rows`);
+        }
         await context.close();
       }
+    }
+    // "In links": the icons leave the name and live only in the rows.
+    await setAppearance(mla, "personal", { theme: "immersive", socialStyle: "hidden" });
+    {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`${appUrl}/${mla.username}`);
+      await page.locator('article[data-appearance="immersive"]').waitFor();
+      for (const url of ["https://instagram.com/mla", "https://www.tiktok.com/@milentonio"]) {
+        assert.equal(await page.locator(`a[href$="${url.replace(/^https:\/\/(www\.)?/, "")}"]:visible`).count(), 1, `in links: ${url} shows once`);
+        assert.equal(await page.locator(`[data-profile-links] a[href$="${url.replace(/^https:\/\/(www\.)?/, "")}"]`).count(), 1, `in links: ${url} is a row`);
+      }
+      assert.equal(await page.locator("[data-social-style]").count(), 0, "in links: nothing under the name");
+      await page.evaluate(() => window.scrollTo(0, document.querySelector("[data-profile-links]")?.getBoundingClientRect().top + window.scrollY - 360));
+      await page.waitForTimeout(250);
+      await shot(page, "socials-in-links");
+      await context.close();
     }
     // Free carries the refined setuvara mark at the end of the profile; it links to Make yours.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
@@ -203,7 +228,7 @@ try {
     await page.waitForTimeout(250);
     await shot(page, "content-free-branding");
     await context.close();
-    console.log("PASS content is refined, the hero dissolves, branding is Free only");
+    console.log("PASS content is refined, the hero dissolves, branding is Free only, socials show once");
   }
 
   if (!only) {
@@ -223,7 +248,7 @@ try {
       if (width === 390) {
         await shot(page, `${id}-${width}-full`, true);
         // One floating Connect appears once the hero's Connect has scrolled away.
-        await page.evaluate(() => window.scrollTo(0, window.innerHeight * 1.4));
+        await page.evaluate(() => window.scrollTo(0, Math.min(window.innerHeight * 1.4, document.documentElement.scrollHeight - window.innerHeight)));
         await page.waitForFunction(() => document.querySelector("[data-floating-connect]")?.getAttribute("data-visible") === "true");
         await page.waitForTimeout(400);
         await shot(page, `${id}-${width}-scrolled`);
@@ -333,6 +358,20 @@ try {
       await picker.locator('[data-direction="frame"] button').click();
       await page.waitForFunction(async () => true);
       await shot(page, `editor-plus-${width}-frame`);
+      // Social icons: Under name or In links; the choice is saved on the Mode.
+      const personalize = page.getByRole("tab", { name: "Personalize" }).first();
+      if (await personalize.count()) await personalize.click();
+      const control = page.locator("[data-social-control]:visible").first();
+      await control.waitFor();
+      await control.getByRole("radio", { name: "In links" }).click();
+      const saved = async () => (await admin(`/rest/v1/profile_modes?profile_id=eq.${user.id}&slug=eq.personal&select=appearance`))[0].appearance.socialStyle;
+      for (let i = 0; i < 40 && (await saved()) !== "hidden"; i++) await page.waitForTimeout(250);
+      assert.equal(await saved(), "hidden", "In links is saved");
+      await control.scrollIntoViewIfNeeded();
+      await shot(page, `editor-plus-${width}-socials-in-links`);
+      await control.getByRole("radio", { name: "Under name" }).click();
+      for (let i = 0; i < 40 && (await saved()) === "hidden"; i++) await page.waitForTimeout(250);
+      assert.equal(await saved(), "rail", "Under name restores the look's own style");
     }
     await context.close();
   }
