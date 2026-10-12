@@ -47,7 +47,7 @@ const noopSubscribe = () => () => {};
 const PLAYBACK_ACK_TIMEOUT_MS = 3500;
 const bumpPlaybackGeneration = (generation: { current: number }) => { generation.current += 1; };
 
-export function SoundtrackProvider({ block, preview = false, premiumPresentation = false, children }: { block: ProfileBlock; preview?: boolean; premiumPresentation?: boolean; children: ReactNode }) {
+export function SoundtrackProvider({ block, preview = false, premiumPresentation = false, pill = true, children }: { block: ProfileBlock; preview?: boolean; premiumPresentation?: boolean; /** False when the Appearance draws its own sound control. */ pill?: boolean; children: ReactNode }) {
   const media = useMemo(() => parseMusic(str(block.data.url))!, [block.data.url]);
   const sourceKey = `${block.id}:${media.provider}:${media.url}`;
   const owner = useId();
@@ -462,7 +462,7 @@ export function SoundtrackProvider({ block, preview = false, premiumPresentation
     <SoundtrackContext.Provider value={api}>
       {children}
       {!audioPreview && <div aria-hidden="true" className="pointer-events-none fixed left-[-10000px] top-0 w-[300px] overflow-hidden opacity-0" data-soundtrack-player inert ref={setHost} style={{ height: media.height }} />}
-      <SoundPill api={api} />
+      {pill && <SoundPill api={api} />}
     </SoundtrackContext.Provider>
   );
 }

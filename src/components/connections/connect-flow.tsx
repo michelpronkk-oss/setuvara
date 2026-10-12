@@ -98,7 +98,10 @@ export function ConnectFlow({ username, mode, source, registered, alreadyConnect
   return (
     <>
       {/* Inside a profile the trigger follows the Appearance button tokens (set by the renderer). */}
-      <button className="inline-flex h-[var(--sv-connect-h,52px)] w-full items-center gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-bg)] px-5 text-[16px] font-semibold text-[var(--sv-connect-fg)] shadow-[var(--sv-connect-edge,none)] transition after:content-[var(--sv-connect-arrow,none)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" onClick={() => setOpen(true)} ref={triggerRef} style={{ justifyContent: "var(--sv-connect-justify, center)", "--sv-connect-bg": `var(--sv-connect-fill, ${accent})`, "--sv-connect-fg": `var(--sv-connect-ink, ${inkOnAccent(accent)})` } as CSSProperties} type="button">
+      {/* The floating Connect (data-connect-trigger) opens this same flow; nothing opens it on load. */}
+      <button className="relative isolate inline-flex h-[var(--sv-connect-h,52px)] w-[var(--sv-connect-w,100%)] min-w-11 items-center gap-2.5 overflow-hidden rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-bg)] px-[var(--sv-connect-px,20px)] text-[16px] font-semibold text-[var(--sv-connect-fg)] shadow-[var(--sv-connect-edge,none)] transition after:content-[var(--sv-connect-arrow,none)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" data-connect-trigger onClick={() => setOpen(true)} ref={triggerRef} style={{ justifyContent: "var(--sv-connect-justify, center)", "--sv-connect-bg": `var(--sv-connect-fill, ${accent})`, "--sv-connect-fg": `var(--sv-connect-ink, ${inkOnAccent(accent)})` } as CSSProperties} type="button">
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-[36%] bg-[linear-gradient(90deg,#FFFFFF00,#FFFFFF73,#FFFFFF00)] [animation:var(--sv-connect-sheen,none)] [display:var(--sv-connect-sheen-display,none)]" data-sv-motion />
+        <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[var(--sv-connect-dot,transparent)] [display:var(--sv-connect-dot-display,none)]" />
         <span>{alreadyConnected ? "Connect again" : label}</span>
       </button>
       {open && (

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import { introducedLockedFields, isModeLayout, isValidAppearance, lockedFields } from "@/components/profile/appearance";
+import { APPEARANCE_NAMES, introducedLockedFields, isModeLayout, isValidAppearance, lockedFields, resetAppearance as resetVisualAppearance, resolveAppearance, storedAppearance } from "@/components/profile/appearance";
 import { focusPosition, modeFocus, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
@@ -315,8 +315,22 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     // Remember the previewed look so it applies when the member returns with Plus.
     try { window.localStorage.setItem(pendingAppearanceKey(current.id), JSON.stringify(preview)); } catch { /* private mode: the preview simply isn't remembered */ }
     const field = locked[0];
-    setPlusSheet(field === "theme" ? { kind: "theme", name: preview.theme } : field === "layout" ? { kind: "layout", name: preview.layout } : field === "imageTreatment" ? { kind: "image" } : field === "soundStyle" ? { kind: "soundtrack", name: preview.soundStyle } : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle } : { kind: "advanced" });
+    const appearance = storedAppearance(preview, current.slug);
+    setPlusSheet(field === "theme" || field === "layout" || field === "imageTreatment" ? { kind: "appearance", appearance }
+      : field === "soundStyle" || field === "soundtrackPresentation" ? { kind: "soundtrack", appearance }
+        : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle, appearance } : { kind: "advanced", appearance });
   }, [appearancePreviews, chooseAppearance, plan, slug]);
+
+  // Reset Appearance: only this Mode's visual config returns to its Free default (accent and QR
+  // frame kept). Photo, bio, links, blocks, soundtrack, connections and Live Context live in other
+  // columns and tables and are never touched here.
+  const resetAppearance = useCallback(() => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current) return;
+    setAppearancePreviews((previews) => { const rest = { ...previews }; delete rest[current.id]; return rest; });
+    const next = resetVisualAppearance(current.slug, current.appearance);
+    saveAppearanceFor(current.id, { ...Object.fromEntries(Object.keys(current.appearance).map((key) => [key, undefined])), ...next });
+  }, [saveAppearanceFor, slug]);
 
   // Back from checkout with Plus: a look previewed before upgrading applies once.
   useEffect(() => {
@@ -719,7 +733,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const api: EditorApi = {
     profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
     updateProfile, updateSetting, updateAppearance, requestCapability,
-    appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
+    appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
     pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
@@ -864,7 +878,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         </div>
       )}
       {paywallCapability && <FeaturePaywall capability={paywallCapability} onClose={closePaywall} />}
-      {plusSheet && <AppearancePlusSheet onClose={() => setPlusSheet(null)} plan={plan} trigger={plusSheet} />}
+      {plusSheet && <AppearancePlusSheet currentName={APPEARANCE_NAMES[resolveAppearance(mode, plan).id]} modeLabel={mode.label} onClose={() => setPlusSheet(null)} plan={plan} trigger={plusSheet} />}
       <CelebrationClient name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} threshold={celebrationThreshold} />
     </div>
   );

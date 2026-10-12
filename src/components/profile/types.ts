@@ -29,24 +29,43 @@ export type ProfileBlock = {
   is_soundtrack?: boolean;
 };
 
+export type AppearanceId = "immersive" | "motion" | "aura" | "clean" | "glow" | "scene" | "frame" | "stack" | "social" | "film";
+/** Themes saved before the ten Appearances. Still readable; the resolver maps them to an Appearance. */
+export type LegacyThemeId = "light" | "dark" | "editorial" | "noir" | "signal" | "studio";
+
+/**
+ * A Mode's saved appearance (profile_modes.appearance). Every value is an enumerated id or a
+ * bounded number, never CSS. New saves write an Appearance id as `theme`; rows saved earlier may
+ * still carry a legacy theme and the legacy layout keys, which stay valid and are normalized by
+ * resolveAppearance().
+ */
 export type ModeAppearance = {
-  theme: "light" | "dark" | "editorial" | "noir" | "signal" | "studio";
+  theme: AppearanceId | LegacyThemeId;
   accent: string;
-  layout: string;
-  imageTreatment: "full-bleed" | "portrait" | "compact" | "frame";
+  /** Legacy composition keys (retired from the editor, still accepted and read). */
+  layout?: string;
+  imageTreatment?: "full-bleed" | "portrait" | "compact" | "frame";
   /** Frame around the QR code; the code itself never changes. Paid frames fall back on Free. */
   qrStyle?: "standard" | "accent-frame" | "label" | "inverse" | "rounded";
-  /** Optional Plus refinements. Left out means the theme's own default. */
+  /** Legacy Plus refinements (retired from the editor, kept so nothing saved is lost). */
   intensity?: "quiet" | "balanced" | "signal";
   card?: "flat" | "outline" | "soft" | "layered" | "editorial";
   radius?: "sharp" | "subtle" | "soft";
   button?: "pill" | "block" | "editorial" | "minimal";
   links?: "icons" | "list" | "chips" | "cards";
+  /** Legacy soundtrack presentation; soundtrackPresentation wins when both exist. */
   soundStyle?: "core" | "strip" | "disc" | "poster";
-  /** Curated Full Portrait controls. Photo focus remains in image_focus_x/y. */
-  portraitZoom?: 100 | 110 | 120 | 130 | 140;
+  /** Photo zoom in percent. 110 and 120 are kept as legacy values. Photo focus stays in image_focus_x/y. */
+  portraitZoom?: 100 | 110 | 115 | 120 | 130 | 140;
   portraitNameSize?: "compact" | "standard" | "large" | "statement";
   portraitShowUsername?: boolean;
+  /** Where the name sits on photo-led Appearances. Auto is face-safe; "center" is never stored. */
+  namePosition?: "auto" | "top" | "bottom";
+  /** Scrim strength over the photo. Auto is face- and contrast-aware. */
+  readability?: "auto" | "soft" | "deep";
+  socialStyle?: "rail" | "row" | "compact" | "hidden";
+  motion?: "off" | "subtle" | "full";
+  soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };
 
 export type ProfileMode = {
@@ -74,4 +93,11 @@ export type ProfileIdentity = {
   display_name: string;
   bio: string;
   is_published: boolean;
+};
+
+/** A published profile's currently effective Live Context, as the public RPC returns it. */
+export type PublicLiveContext = {
+  label: string;
+  type: "event" | "meeting" | "place" | "custom";
+  expiresAt: string;
 };

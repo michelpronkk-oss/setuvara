@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { SignupFlow } from "@/components/auth/signup-flow";
+import { appearanceHint } from "@/components/profile/appearance";
 
 export const metadata: Metadata = { title: "Claim your name · Setuvara", robots: { index: false, follow: false }, openGraph: null, twitter: null };
 
 type SignupPageProps = {
-  searchParams: Promise<{ claim?: string; username?: string | string[]; handle?: string | string[] }>;
+  searchParams: Promise<{ claim?: string; username?: string | string[]; handle?: string | string[]; appearance?: string | string[] }>;
 };
 
 export default async function SignupPage({ searchParams }: SignupPageProps) {
@@ -14,7 +15,8 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const requested = [query.username, query.handle].find((value): value is string => typeof value === "string") ?? "";
   return (
     <div className={marketingFontClasses}>
-      <SignupFlow claimGuest={query.claim === "1"} initialHandle={requested.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24)} />
+      {/* ?appearance= from "Make yours" is only a validated hint; it never grants a Plus look. */}
+      <SignupFlow appearance={appearanceHint(query.appearance)} claimGuest={query.claim === "1"} initialHandle={requested.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24)} />
     </div>
   );
 }
