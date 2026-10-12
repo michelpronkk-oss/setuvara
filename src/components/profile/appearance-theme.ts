@@ -148,13 +148,15 @@ const HERO_PRIORITY: Record<ModeSlug, string[]> = {
   business: ["linkedin", "website", "company_website", "behance", "email", "dribbble", "github", "portfolio", "x", "instagram", "youtube", "medium", "substack", "threads", "bluesky", "tiktok"],
 };
 export const HERO_SOCIAL_LIMIT = 5;
+/** Sites and email keep their titled row; only social platforms become icons under the name. */
+const NOT_SOCIAL = new Set(["website", "company_website", "portfolio", "email"]);
 
 /** Up to five hero platforms from the Mode's existing visible links, in Mode priority. */
 export function heroSocials<T extends { providerId: string; link: { id: string; sort_order: number } }>(slug: ModeSlug, links: readonly T[]): T[] {
   const priority = HERO_PRIORITY[slug];
   const seen = new Set<string>();
   return links
-    .filter((item) => priority.includes(item.providerId))
+    .filter((item) => priority.includes(item.providerId) && !NOT_SOCIAL.has(item.providerId))
     .sort((a, b) => priority.indexOf(a.providerId) - priority.indexOf(b.providerId) || a.link.sort_order - b.link.sort_order)
     .filter((item) => (seen.has(item.providerId) ? false : (seen.add(item.providerId), true)))
     .slice(0, HERO_SOCIAL_LIMIT);

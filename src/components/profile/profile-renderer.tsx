@@ -832,7 +832,8 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
       <EarnedMark copy={copy} rewards={rewards} theme={theme} />
       {mode.slug === "event" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} theme={theme} />}
       <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="" gallery tone={blockTone} />
-      <Links copy={copy} links={links} scene={scene} />
+      {/* Under name: the rows skip what the name shows. In links and Both: every row stays. */}
+      <Links copy={copy} links={look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links} scene={scene} />
       {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
       {footer}
       {attribution && branded && (

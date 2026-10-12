@@ -73,6 +73,14 @@ describe("profile_modes appearance", () => {
     assert.ifError(error);
   });
 
+  test("Social icons placement: Both, In links and Under name are Free; nothing else is accepted", async () => {
+    for (const socialPlacement of ["both", "links", "name"]) {
+      const { error } = await save(free, { theme: "immersive", accent: "#FF5A4F", socialStyle: "rail", socialPlacement });
+      assert.ifError(error);
+    }
+    assert(await save(free, { theme: "immersive", accent: "#FF5A4F", socialPlacement: "everywhere" }).then((result) => result.error), "unknown placement rejected");
+  });
+
   test("Free cannot introduce a Plus Appearance or Plus control", async () => {
     for (const appearance of [{ theme: "glow" }, { theme: "immersive", namePosition: "top" }, { theme: "immersive", readability: "deep" }, { theme: "immersive", motion: "full" }, { theme: "immersive", soundtrackPresentation: "featured" }, { theme: "immersive", portraitNameSize: "statement" }]) {
       const { error } = await save(free, { accent: "#FF5A4F", ...appearance });

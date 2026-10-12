@@ -92,11 +92,18 @@ export function SocialPresentation({ links, style, theme, align, size = 42, copy
   const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
   const anchor = (item: ResolvedLink) => ({ href: item.url, rel: item.external ? "noopener noreferrer" : undefined, target: item.external ? "_blank" : undefined, "aria-label": item.name, title: item.name });
   if (style === "compact") {
+    // One glass pill; each glyph opens its platform (these platforms are not repeated in the link rows).
     return (
-      <a aria-label={`${copy.platforms.replace("{count}", String(links.length))}. ${copy.links}`} className={`inline-flex h-10 items-center gap-3 rounded-full px-3.5 [&_img]:size-[17px] [&_svg]:size-[17px] ${focus}`} data-social-style="compact" href="#profile-links" style={{ background: theme.pill.bg, color: theme.pill.fg, outlineColor: theme.identity.fg, ...blur }}>
-        {links.map((item) => <LinkGlyph icon={item.icon} key={item.link.id} url={item.url} />)}
-        <span className="pl-0.5 text-[12px] font-semibold">{copy.platforms.replace("{count}", String(links.length))}</span>
-      </a>
+      <div className="inline-flex h-10 items-center gap-0.5 rounded-full pl-1.5 pr-3.5" data-social-style="compact" style={{ background: theme.pill.bg, color: theme.pill.fg, ...blur }}>
+        <ul className="flex items-center">
+          {links.map((item) => (
+            <li key={item.link.id}>
+              <a {...anchor(item)} className={`grid size-8 place-items-center rounded-full [&_img]:size-[17px] [&_svg]:size-[17px] ${focus}`} style={{ outlineColor: theme.identity.fg }}><LinkGlyph icon={item.icon} url={item.url} /></a>
+            </li>
+          ))}
+        </ul>
+        <span className="pl-1.5 text-[12px] font-semibold">{copy.platforms.replace("{count}", String(links.length))}</span>
+      </div>
     );
   }
   if (style === "row") {

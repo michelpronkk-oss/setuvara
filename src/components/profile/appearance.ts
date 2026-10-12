@@ -76,6 +76,9 @@ export const READABILITY = ["auto", "soft", "deep"] as const;
 export type Readability = (typeof READABILITY)[number];
 export const SOCIAL_STYLES = ["rail", "row", "compact", "hidden"] as const;
 export type SocialStyle = (typeof SOCIAL_STYLES)[number];
+/** Where platforms show: under the name, only in the link rows, or both (each twice, on purpose). */
+export const SOCIAL_PLACEMENTS = ["name", "links", "both"] as const;
+export type SocialPlacement = (typeof SOCIAL_PLACEMENTS)[number];
 export const MOTION_LEVELS = ["off", "subtle", "full"] as const;
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 export const SOUND_PRESENTATIONS = ["ambient", "minimal", "featured"] as const;
@@ -118,7 +121,9 @@ export type ResolvedAppearance = {
   nameSize: NameSize;
   namePosition: NamePosition;
   readability: Readability;
+  /** How icons look under the name; "hidden" exactly when placement is "links". */
   socialStyle: SocialStyle;
+  socialPlacement: SocialPlacement;
   motion: MotionLevel;
   soundPresentation: SoundPresentation;
   zoom: PortraitZoom;
@@ -242,6 +247,8 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
   const savedReadability: Readability = includes(READABILITY, saved.readability) ? saved.readability : "auto";
   const savedMotion: MotionLevel = includes(MOTION_LEVELS, saved.motion) ? saved.motion : defaults.motion;
   const sound = storedSoundPresentation(saved);
+  const savedStyle: SocialStyle = includes(SOCIAL_STYLES, saved.socialStyle) ? saved.socialStyle : defaults.socialStyle;
+  const placement: SocialPlacement = includes(SOCIAL_PLACEMENTS, saved.socialPlacement) ? saved.socialPlacement : savedStyle === "hidden" ? "links" : "name";
 
   return {
     slug: mode.slug,
@@ -251,7 +258,8 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     nameSize: savedSize === "standard" || advanced ? savedSize : "standard",
     namePosition: savedPosition === "top" && !advanced ? "auto" : savedPosition,
     readability: savedReadability !== "auto" && !advanced ? "auto" : savedReadability,
-    socialStyle: includes(SOCIAL_STYLES, saved.socialStyle) ? saved.socialStyle : defaults.socialStyle,
+    socialStyle: placement === "links" ? "hidden" : savedStyle === "hidden" ? defaults.socialStyle : savedStyle,
+    socialPlacement: placement,
     // An Appearance whose character is motion keeps its own motion; Full needs Plus elsewhere.
     motion: savedMotion === "full" && !advanced ? "subtle" : savedMotion,
     soundPresentation: sound === "featured" && !can("soundtrack.premium_treatment") ? "minimal" : sound,
@@ -274,7 +282,7 @@ export function previewAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
 export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
-  "socialStyle", "motion", "soundtrackPresentation",
+  "socialStyle", "socialPlacement", "motion", "soundtrackPresentation",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -303,7 +311,7 @@ export function equipAppearance(saved: Partial<ModeAppearance> | null | undefine
 
 /** Whether a saved appearance is valid as-is for its Mode (what the database accepts). */
 export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  const known = new Set<string>(["theme", "accent", "qrStyle", ...PREMIUM_FIELDS]);
+  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", ...PREMIUM_FIELDS]);
   const optional = (value: unknown, list: readonly string[]) => value === undefined || includes(list, value);
   return Boolean(appearance) && typeof appearance === "object"
     && Object.keys(appearance).every((key) => known.has(key))
@@ -324,6 +332,7 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.namePosition, NAME_POSITIONS)
     && optional(appearance.readability, READABILITY)
     && optional(appearance.socialStyle, SOCIAL_STYLES)
+    && optional(appearance.socialPlacement, SOCIAL_PLACEMENTS)
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
 }
@@ -383,3 +392,7 @@ export function mixHex(base: string, over: string, amount: number): string {
   const [b, o] = [parse(base), parse(over)];
   return `#${b.map((channel, index) => Math.round(channel + (o[index] - channel) * amount).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
+
+
+/** The style a look wears when its platforms show under the name again. */
+export const defaultSocialStyle = (id: AppearanceId): SocialStyle => APPEARANCE_DEFAULTS[id].socialStyle;
