@@ -53,6 +53,11 @@ type ProfileRendererProps = {
    * visitor's choice alone. "off" (thumbnails): no soundtrack at all.
    */
   sound?: "live" | "preview" | "off";
+  /**
+   * Editor previews only: show the first-visit "Enter with sound" gate. Off by default so the
+   * owner sees their profile, not the gate; the editor offers it as a toggle.
+   */
+  soundGate?: boolean;
   /** Paid member status resolved server-side from billing. One badge beside the name; null for Free. */
   memberTier?: MemberTier | null;
   /** Server-resolved plan controls paid visual treatments while preserving saved choices. */
@@ -92,7 +97,7 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   // The public player only needs the URL. Keep editor-only titles/artwork out of the public
   // server payload. The provider sits above the Appearance, so changing look never restarts it.
   const playerBlock = isLive ? { ...track, data: { url: track.data.url } } : track;
-  return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} pill={false} premiumPresentation={premiumSoundtrack} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
+  return <SoundtrackProvider block={playerBlock} gate={props.sound !== "preview" || Boolean(props.soundGate)} key={`${mode.id}:${track.id}:${String(track.data.url)}:${props.soundGate ? "gate" : ""}`} pill={false} premiumPresentation={premiumSoundtrack} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
 type Identity = { name: string; initials: string; username: string; roleLine: string };

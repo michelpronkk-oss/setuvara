@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { CSSProperties } from "react";
 
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { resolveAppearance } from "@/components/profile/appearance";
+import { SpeakerIcon } from "@/components/profile/soundtrack";
+import { soundtrackBlock } from "@/lib/blocks/registry";
 import type { ConnectionContext, ProfileMode } from "@/components/profile/types";
 import type { EditorApi, PreviewState } from "./editor-types";
 import { PreviewingBar, useAppearance } from "./editor-appearance";
@@ -44,7 +46,10 @@ function useSampleContext(mode: ProfileMode): ConnectionContext {
   }, [mode.settings, mode.slug]);
 }
 
-function PreviewProfile({ api, state, setState }: { api: EditorApi; state: PreviewState; setState: (state: PreviewState) => void }) {
+/** Whether the editor previews show the first-visit sound gate ("Enter with sound"). */
+export type SoundIntro = { on: boolean; set: (on: boolean) => void };
+
+function PreviewProfile({ api, state, setState, soundGate = false }: { api: EditorApi; state: PreviewState; setState: (state: PreviewState) => void; soundGate?: boolean }) {
   const { mode, profile } = api;
   const { messages } = useI18n();
   const context = useSampleContext(mode);
@@ -67,6 +72,7 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
       plan={api.plan}
       selectedRewards={api.selectedRewards}
       sound="preview"
+      soundGate={soundGate}
       viewerState={state === "owner" ? "owner" : state === "connected" ? "visitor_connected" : "visitor_unconnected"}
       visitorAction={state === "visitor" && (mode.connect_policy ?? "anyone") === "anyone" ? visitorAction : undefined}
     />
@@ -78,18 +84,43 @@ function PaneBar({ api }: { api: EditorApi }) {
   return <div className="sticky bottom-5 z-10 mt-auto w-full max-w-[460px]"><PreviewingBar api={api} state={state} /></div>;
 }
 
-export function PreviewPane({ api, previewState, setPreviewState }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void }) {
+/**
+ * The sound gate is part of the visitor's first visit, not of the profile, so editor previews
+ * skip it and keep the small sound control. This switch shows it on demand, only when the
+ * Mode has a soundtrack.
+ */
+function SoundIntroToggle({ api, intro, compact = false }: { api: EditorApi; intro: SoundIntro; compact?: boolean }) {
+  if (!soundtrackBlock(api.mode)) return null;
+  return (
+    <button
+      aria-pressed={intro.on}
+      aria-label={compact ? "Sound intro" : undefined}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 ${compact ? "min-h-10 min-w-10 px-2.5 text-[13px] sm:px-3" : "min-h-9 px-3 text-[12.5px]"} ${intro.on ? "bg-[#0D0D0D] text-[#F5F4EF]" : "bg-white text-black/70 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)] hover:text-black"}`}
+      data-sound-intro-toggle
+      onClick={() => intro.set(!intro.on)}
+      title={intro.on ? "Hide the sound intro visitors see first" : "Show the sound intro visitors see first"}
+      type="button"
+    >
+      <SpeakerIcon className={compact ? "size-4" : "size-3.5"} on={intro.on} /><span className={compact ? "max-sm:hidden" : undefined}>Sound intro</span>
+    </button>
+  );
+}
+
+export function PreviewPane({ api, previewState, setPreviewState, soundIntro }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; soundIntro: SoundIntro }) {
   const offline = !api.profile.is_published || !api.mode.is_enabled;
   return (
     <div className="relative flex min-h-full flex-col items-center gap-3.5 px-6 pb-8 pt-[22px]">
       <MonoLabel className="sr-only">Live preview</MonoLabel>
-      <Segmented label="Preview as" onChange={setPreviewState} options={stateOptions} size="sm" value={previewState} />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Segmented label="Preview as" onChange={setPreviewState} options={stateOptions} size="sm" value={previewState} />
+        <SoundIntroToggle api={api} intro={soundIntro} />
+      </div>
       {/* The phone at the design's .86 scale: the renderer lays out at 390 and is zoomed, so it is
           exactly the public phone composition. */}
       <div className="relative w-[336px] shrink-0 overflow-hidden rounded-[36px] bg-[#F5F4EF] shadow-[0_30px_60px_-30px_#0D0D0D80]" data-preview-phone style={{ height: "max(480px, min(726px, calc(100dvh - 220px)))" }}>
         <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div style={{ width: 390, zoom: 0.86, "--profile-vh": "844px" } as CSSProperties}>
-            <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
+            <PreviewProfile api={api} setState={setPreviewState} soundGate={soundIntro.on} state={previewState} />
           </div>
         </div>
       </div>
@@ -100,7 +131,7 @@ export function PreviewPane({ api, previewState, setPreviewState }: { api: Edito
   );
 }
 
-export function FullPreview({ api, previewState, setPreviewState, onClose }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; onClose: () => void }) {
+export function FullPreview({ api, previewState, setPreviewState, onClose, soundIntro }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; onClose: () => void; soundIntro: SoundIntro }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -119,11 +150,14 @@ export function FullPreview({ api, previewState, setPreviewState, onClose }: { a
             return <button aria-pressed={on} className="min-h-9 rounded-full px-3.5 text-[13px] font-semibold" key={slug} onClick={() => api.go(api.section, slug)} style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.6)", boxShadow: on ? meta.ring : undefined }} type="button">{meta.name}</button>;
           })}
         </div>
-        <button className="hidden min-h-10 items-center rounded-full px-4 text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] sm:inline-flex" onClick={onClose} type="button">Exit preview</button>
+        <div className="flex items-center gap-2">
+          <SoundIntroToggle api={api} compact intro={soundIntro} />
+          <button className="hidden min-h-10 items-center rounded-full px-4 text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] sm:inline-flex" onClick={onClose} type="button">Exit preview</button>
+        </div>
       </div>
       {/* Full width: the same responsive composition visitors get on this screen. */}
       <div className="w-full pb-36" style={{ "--profile-vh": "100dvh" } as CSSProperties}>
-        <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
+        <PreviewProfile api={api} setState={setPreviewState} soundGate={soundIntro.on} state={previewState} />
         <p className="mt-4 text-center text-[13px] text-black/55">{previewNote(api, previewState)}</p>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -136,3 +170,49 @@ export function FullPreview({ api, previewState, setPreviewState, onClose }: { a
   );
 }
 
+
+/**
+ * Phones: the live preview docked under the editor, so every change shows while you make it.
+ * The phone composition is drawn at 390 and zoomed to the dock's width, exactly like the pane.
+ */
+export function PeekPreview({ api, previewState, setPreviewState, onExpand, onHide }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; onExpand: () => void; onHide: () => void }) {
+  const frame = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 0.68, height: 844 });
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    // The frame is a short phone: the hero fills what is visible, so name and Connect show too.
+    const observer = new ResizeObserver(([entry]) => {
+      const scale = Math.max(0.5, entry.contentRect.width / 390);
+      setFit({ scale, height: Math.round(Math.max(560, entry.contentRect.height / scale)) });
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const icon = "grid size-10 place-items-center rounded-full text-black/70 transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2";
+  return (
+    <section aria-label="Live preview" className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col overflow-hidden rounded-t-[26px] border-t border-black/10 bg-[#E9E7E0] shadow-[0_-22px_44px_-26px_rgba(13,13,13,.5)] [animation:sheet-up_.24s_ease-out] lg:hidden" data-preview-peek style={{ height: "var(--editor-dock)" }}>
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 pl-4 pr-1.5">
+        <button className="flex min-h-10 min-w-0 items-center gap-2 text-left text-[13px] font-semibold" onClick={onExpand} type="button">
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[#2BB673] [animation:sound-breathe_2.4s_ease-in-out_infinite]" />
+          <span className="truncate">Live preview</span>
+          <span className="truncate font-normal text-black/50">· {modeMeta[api.slug].name}</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {previewState !== "owner" && <button className="min-h-9 rounded-full bg-white px-3 text-[12px] font-semibold text-black/70 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" onClick={() => setPreviewState("owner")} title="Back to your own view" type="button">As {previewState === "visitor" ? "visitor" : "connection"} ×</button>}
+          <button aria-label="Full-screen preview" className={icon} onClick={onExpand} type="button"><svg aria-hidden="true" className="size-[18px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" /></svg></button>
+          <button aria-label="Hide live preview" className={icon} onClick={onHide} type="button"><svg aria-hidden="true" className="size-[18px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 px-4">
+        <div className="mx-auto h-full w-full max-w-[272px] overflow-hidden rounded-t-[24px] bg-[#F5F4EF] shadow-[0_0_0_4px_#0D0D0D]" ref={frame}>
+          <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div style={{ width: 390, zoom: fit.scale, "--profile-vh": `${fit.height}px` } as CSSProperties}>
+              <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
