@@ -19,6 +19,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
+import { publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -418,7 +419,7 @@ try {
   for (const [slug, expected] of [["personal", "glow"], ["event", "motion"], ["business", "clean"]]) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
     const page = await context.newPage();
-    await page.goto(`${appUrl}/${aanya.username}?mode=${slug}`);
+    await page.goto(await publicModeUrl(aanya.username, slug));
     await page.locator(`article[data-appearance="${expected}"][data-profile-mode="${slug}"]`).waitFor();
     await inspect(page, `mode ${slug}`);
     await shot(page, `mode-${slug}-${expected}`);

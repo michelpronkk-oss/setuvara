@@ -9,7 +9,7 @@ const qrValue = "https://setuvara.com/";
 
 const channels = [
   { name: "QR code", detail: "Opens the Mode you’re sharing", live: true },
-  { name: "Link", detail: "setuvara.com/you?mode=event", live: true },
+  { name: "Link", detail: "A private link for Event or Business", live: true },
   { name: "Native share", detail: "Messages, AirDrop, any app", live: true },
   { name: "Wallet pass", detail: "Your Setuvara in Apple and Google Wallet", live: false },
   { name: "NFC", detail: "Tap a phone or card to share", live: false },
@@ -43,7 +43,7 @@ export function Share() {
               <span className="sm:hidden"><ShareQr label="QR code that opens setuvara.com" size={176} /></span><span className="hidden sm:block"><ShareQr label="QR code that opens setuvara.com" size={232} /></span>
             </div>
             <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3">
-              <span className="truncate font-label text-[12px] text-paper/80">setuvara.com/{person.username}?mode=event</span>
+              <span className="truncate font-label text-[12px] text-paper/80">setuvara.com/s/k7Qx…</span>
               <span className="shrink-0 text-[12px] font-semibold text-coral">Copy</span>
             </div>
             <div className="mt-3 flex h-12 items-center justify-center rounded-full bg-coral text-[14px] font-semibold text-ink">Share Event Mode</div>

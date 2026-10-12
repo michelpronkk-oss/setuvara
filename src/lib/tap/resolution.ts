@@ -3,7 +3,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { passTokenPattern, profilePath, visitorPassCookie } from "@/lib/connections/access";
+import { passTokenPattern, visitorPassCookie } from "@/lib/connections/access";
+import { publicModePathForUsername } from "@/lib/share/mode-share";
 import { tapModes, type TapIntent, type TapMode } from "@/lib/tap/server";
 
 export type ResolvedEquippedShare = {
@@ -47,9 +48,11 @@ export function internalShareRedirect(path: string) {
   return response;
 }
 
-export function resolvedShareRedirect(resolved: ResolvedEquippedShare, source: "tap" | "quick_qr") {
-  const profileUrl = new URL(profilePath(resolved.username, resolved.mode), "https://setuvara.com");
-  profileUrl.searchParams.set("mode", resolved.mode);
+export async function resolvedShareRedirect(resolved: ResolvedEquippedShare, source: "tap" | "quick_qr") {
+  // Event and Business land on their opaque share locator, never on `?mode=`.
+  const path = await publicModePathForUsername(resolved.username, resolved.mode);
+  if (!path) return internalShareRedirect(source === "tap" ? "/t/unavailable" : "/q/unavailable");
+  const profileUrl = new URL(path, "https://setuvara.com");
   profileUrl.searchParams.set("source", source);
   const response = internalShareRedirect(`${profileUrl.pathname}${profileUrl.search}`);
   const connectionPass = resolved.connection_pass;

@@ -146,6 +146,7 @@ export type PersonModel = {
   initials: string;
   username: string | null;
   profileHref: string | null;
+  profileMode: ModeSlug | null;
   /** Which of their Modes this page describes them through. */
   mode: ModeSlug | null;
   modeLabel: string | null;
@@ -389,7 +390,10 @@ export function buildRelationship(input: RelationshipInput): RelationshipModel {
     firstName: firstName(name),
     initials: initials(name),
     username,
-    profileHref: username && profileMode ? `/${username}${profileMode === "personal" ? "" : `?mode=${profileMode}`}` : null,
+    // Only the default Mode has a predictable URL; the loader swaps in the
+    // opaque share locator for Event and Business.
+    profileHref: username && profileMode ? `/${username}` : null,
+    profileMode,
     mode: personMode,
     modeLabel: modeLabel(personMode),
     photoPath,
