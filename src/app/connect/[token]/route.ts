@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { ModeSlug } from "@/components/profile/types";
-import { passTokenPattern, profilePath, visitorPassCookie } from "@/lib/connections/access";
+import { passTokenPattern, visitorPassCookie } from "@/lib/connections/access";
+import { publicModePathForUsername } from "@/lib/share/mode-share";
 import { createClient } from "@/lib/supabase/server";
 
 type ResolvedPass = { username: string; mode: ModeSlug; valid: boolean };
@@ -28,7 +29,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   // Unknown passes, or passes for a profile that isn't live, have nowhere to land.
-  const response = NextResponse.redirect(new URL(resolved ? profilePath(resolved.username, resolved.mode) : "/", origin), 303);
+  // Event and Business land on their opaque share locator, never on `?mode=`.
+  const landing = resolved ? await publicModePathForUsername(resolved.username, resolved.mode) : null;
+  const response = NextResponse.redirect(new URL(landing ?? "/", origin), 303);
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Referrer-Policy", "no-referrer");
   if (!resolved) return response;

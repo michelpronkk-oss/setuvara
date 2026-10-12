@@ -7,6 +7,7 @@ import { resolve, relative, isAbsolute } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import sharp from "sharp";
+import { landedMode, publicModePath, publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const root = process.cwd();
 assert.equal(resolve(execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim()), resolve(root));
@@ -92,7 +93,7 @@ async function openAppearance(page) {
 const activePreview = (page) => page.locator(page.viewportSize().width < 1024 ? '[data-appearance-editor="mobile"] [role="region"]' : '[data-preview-phone]');
 
 async function publicPage(page, username, slug, status = 200) {
-  const url = `${appUrl}/${username}${slug === "personal" ? "" : `?mode=${slug}`}`;
+  const url = await publicModeUrl(username, slug);
   const response = await page.goto(url, { waitUntil: "domcontentloaded" });
   assert.equal(response?.status(), status, `${slug} public status`);
   if (status === 200) {
@@ -271,14 +272,14 @@ try {
     await qr.waitFor();
     const qrUrl = new URL(await qr.getAttribute("data-qr-value"));
     assert.equal(qrUrl.origin, appUrl);
-    assert.equal(qrUrl.pathname, `/${owner.username}`);
-    assert.equal(qrUrl.searchParams.get("mode") ?? "personal", slug);
+    assert.equal(qrUrl.pathname, await publicModePath(owner.username, slug));
+    assert.equal(await landedMode(qrUrl.href), slug);
     assert.equal(qrUrl.searchParams.get("source"), "qr");
     await page.getByRole("button", { name: "Copy link", exact: true }).click();
     await page.getByRole("button", { name: "Copied ✓", exact: true }).waitFor();
     const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     assert.equal(copied.pathname, qrUrl.pathname);
-    assert.equal(copied.searchParams.get("mode") ?? "personal", slug);
+    assert.equal(await landedMode(copied.href), slug);
     assert.equal((await visitor.goto(qrUrl.toString()))?.status(), 200);
     await visitor.locator(`[data-profile-mode="${slug}"][data-profile-layout="full-portrait"]`).waitFor();
   }

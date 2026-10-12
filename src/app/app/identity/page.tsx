@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
 
@@ -7,6 +8,7 @@ import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { parseConnectPolicy } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 import { getViewerPlan } from "@/lib/app/viewer";
+import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 
 import { signOut } from "./actions";
@@ -32,7 +34,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
 
   const [profileResult, modesResult, linksResult, blocksResult, passportResult, viewer] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, slide_photos, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
     selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).order("sort_order")),
     supabase.rpc("get_passport_overview"),
@@ -64,6 +66,8 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       appearance: mode.appearance as ProfileMode["appearance"],
       connect_policy: parseConnectPolicy(mode.connect_policy),
       image_url: signed?.signedUrl ?? null,
+      slide_photos: parseSlidePhotos(mode.slide_photos),
+      slide_urls: await signSlidePhotos(supabase, parseSlidePhotos(mode.slide_photos)),
       links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
       // Blocks are optional: an older database without them still opens the editor.
       blocks: await Promise.all(readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)).map(async (block) => {
@@ -84,6 +88,8 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       })),
     };
   }));
+  // Event and Business are shared through opaque locators, never `?mode=`.
+  const modeShareUrls = await ownerModeShareUrls(userId, profile.username, modes.map((mode) => mode.slug), publicOrigin);
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";
   const passport = (passportResult.data ?? {}) as { rewards?: { id: string }[]; preferences?: Partial<Record<RewardCategory, string>>; milestones?: { threshold: number; seenAt: string | null }[] };
   const unseenMilestone = passport.milestones?.filter((milestone) => !milestone.seenAt).at(-1)?.threshold ?? null;
@@ -102,6 +108,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       memberTier={memberTierForPlan(viewer.plan)}
       plan={viewer.plan}
       publicOrigin={publicOrigin}
+      modeShareUrls={modeShareUrls}
       saved={query.saved}
       signOut={signOut}
     />

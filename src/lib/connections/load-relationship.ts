@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ModeSlug } from "@/components/profile/types";
 import { resolveConnectionProfiles, signHomeImage } from "@/lib/app/media";
+import { publicModePath } from "@/lib/share/mode-share";
 import {
   buildRelationship,
   type ConnectionRow,
@@ -62,6 +63,12 @@ export async function loadRelationship(supabase: SupabaseClient, viewerId: strin
     viewerHistory: ((history ?? []) as MemoryRow[]).filter((row) => !encounterIds.has(row.encounter_id)),
     passport: passport ?? [],
   });
-  const photoUrl = await signHomeImage(supabase, model.person.photoPath);
+  // The Mode the counterpart shared with this viewer opens through its opaque
+  // share locator. The pointer is minted server-side; reading stays on RLS.
+  const { person } = model;
+  if (counterpart && person.username && person.profileMode && person.profileMode !== "personal") {
+    person.profileHref = await publicModePath(counterpart.id, person.username, person.profileMode);
+  }
+  const photoUrl = await signHomeImage(supabase, person.photoPath);
   return { model, photoUrl };
 }

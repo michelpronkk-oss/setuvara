@@ -113,7 +113,7 @@ try {
 
   const legacyResponse = await page.request.get(new URL("/u/seo_missing_1011?mode=event", appUrl).toString(), { maxRedirects: 0 });
   assert.equal(legacyResponse.status(), 308, "legacy profile URLs should permanently redirect");
-  assert.equal(legacyResponse.headers().location, "/seo_missing_1011?mode=event", "legacy redirect should preserve the Mode query and use the root namespace");
+  assert.equal(legacyResponse.headers().location, "/seo_missing_1011", "legacy redirect should drop the Mode query and use the root namespace");
 
   const confirmationRoute = await page.request.get(new URL("/auth/confirm", appUrl).toString(), { maxRedirects: 0 });
   assert.match(confirmationRoute.headers()["x-robots-tag"] ?? "", /noindex/i, "auth confirmation utility route should emit a noindex header");
@@ -149,16 +149,15 @@ try {
     assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"), `https://setuvara.com${profileUrl.pathname}`, "Mode and tracking query metadata should canonicalize to one identity");
     for (const mode of ["event", "business"]) {
       const modeResponse = await page.goto(new URL(`${profileUrl.pathname}?mode=${mode}`, appUrl).toString());
-      assert([200, 404].includes(modeResponse?.status() ?? 0), `${mode} mode should either be public or safely unavailable`);
-      if (modeResponse?.status() === 200) {
-        assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"), `https://setuvara.com${profileUrl.pathname}`, `${mode} mode should keep the identity canonical`);
-        const modeImageUrl = await page.locator('meta[property="og:image"]').getAttribute("content");
-        assert(modeImageUrl?.endsWith(`/${mode}`), `${mode} mode preview should use its own public context`);
-      }
+      assert.equal(modeResponse?.status(), 200, `?mode=${mode} must fall back to the default Mode`);
+      assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"), `https://setuvara.com${profileUrl.pathname}`, `${mode} query should keep the identity canonical`);
+      const modeImageUrl = await page.locator('meta[property="og:image"]').getAttribute("content");
+      assert(modeImageUrl?.endsWith("/personal"), `?mode=${mode} must never select another Mode's preview`);
+      assert.equal(await page.locator(`[data-profile-mode="${mode}"]`).count(), 0, `?mode=${mode} must never render that Mode`);
     }
     const legacyProfile = await page.request.get(new URL(`/u${profileUrl.pathname}?mode=business`, appUrl).toString(), { maxRedirects: 0 });
     assert.equal(legacyProfile.status(), 308, "a real profile's legacy URL should permanently redirect");
-    assert.equal(legacyProfile.headers().location, `${profileUrl.pathname}?mode=business`, "legacy redirect should preserve the selected Mode");
+    assert.equal(legacyProfile.headers().location, profileUrl.pathname, "legacy redirect must not carry a Mode query");
   }
 
   await page.goto(new URL("/pricing", appUrl).toString());

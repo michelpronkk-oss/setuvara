@@ -13,7 +13,7 @@ import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/br
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { modeFocus } from "@/components/profile/photo-focus";
-import { QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
+import { APPEARANCE_NAMES, extraSlideLimit, QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
 import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { hasCapability } from "@/lib/billing/capabilities";
@@ -22,7 +22,7 @@ import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, provider
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
-import { LAYOUTS, MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
+import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
 import { Card, Counter, Field, MonoLabel, Pill, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper } from "./editor-ui";
 
 const modeIntro: Record<ModeSlug, string> = {
@@ -40,8 +40,6 @@ const profileIntro: Record<ModeSlug, string> = {
 const CONTACT_PROVIDERS = ["email", "phone", "sms", "whatsapp", "telegram", "signal", "messenger"];
 
 const text = (mode: ProfileMode, key: string) => (typeof mode.settings[key] === "string" ? String(mode.settings[key]) : "");
-const layoutLabel = (mode: ProfileMode) => LAYOUTS[mode.slug].find((layout) => layout.value === mode.appearance.layout)?.label ?? "Cover";
-const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   const { mode, profile } = api;
@@ -50,7 +48,7 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   return {
     profile: [profile.display_name || "Add your name", contextLine, mode.image_path ? "photo set" : "no photo yet"].filter(Boolean).join(" · "),
     links: [mode.blocks?.length ? `${mode.blocks.length} block${mode.blocks.length === 1 ? "" : "s"}` : "", mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : ""].filter(Boolean).join(" · ") || "Nothing added yet",
-    appearance: `${cap(resolveAppearance(mode, api.plan).theme)} · ${layoutLabel(mode)}`,
+    appearance: `${APPEARANCE_NAMES[resolveAppearance(mode, api.plan).id]} · equipped for ${mode.label}`,
     settings: `${mode.is_enabled ? "Mode is live" : "Mode is off"} · ${profile.is_published ? "public" : "draft"} · ${{ anyone: "anyone can connect", direct_only: "direct share only", nobody: "view-only" }[mode.connect_policy ?? "anyone"]}`,
     share: api.publicUrl(mode.slug).replace(/^https?:\/\//, ""),
   };
@@ -180,7 +178,37 @@ function PhotoBlock({ api }: { api: EditorApi }) {
         </div>
         <p className="mt-2.5 text-[13px] leading-5 text-black/55">JPG, PNG or WebP. This photo belongs to {modeMeta[slug].name} Mode only.</p>
         {canBorrow && <button className="mt-1.5 min-h-9 text-[13px] font-semibold underline underline-offset-4" onClick={() => api.usePhotoFrom("personal")} type="button">Use my Personal photo</button>}
+        {mode.image_url && <SlideshowRow api={api} />}
       </div>
+    </div>
+  );
+}
+
+/** Extra photos that cross-fade with the main one. Plus adds one, Pro three. */
+function SlideshowRow({ api }: { api: EditorApi }) {
+  const { mode, plan } = api;
+  const limit = extraSlideLimit(plan);
+  const slides = (mode.slide_urls ?? []).slice(0, limit);
+  if (!limit) {
+    return (
+      <button className="mt-3 flex min-h-9 items-center gap-2 text-[13px] font-semibold" data-slideshow-upsell onClick={api.pickSlide} type="button">
+        Slideshow<span className="rounded-full bg-[#FF5A4F] px-2 py-0.5 text-[11px] font-bold text-[#0D0D0D]">Plus</span>
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3" data-slideshow-editor>
+      <p className="text-[13px] font-semibold">Slideshow <span className="font-normal text-black/55">{slides.length + 1} of {limit + 1}</span></p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {slides.map((slide, index) => (
+          <div className="relative h-[60px] w-12 overflow-hidden rounded-[10px] bg-[#E4E2DA]" data-slide-thumb key={`${slide.url}-${index}`}>
+            <FocusedPhoto alt={`Slideshow photo ${index + 2}`} focus={{ x: slide.x, y: slide.y }} frameAspect={4 / 5} sizes="48px" src={slide.url} />
+            <button aria-label={`Remove slideshow photo ${index + 2}`} className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-[#0D0D0D]/75 text-[11px] font-bold text-white" onClick={() => api.removeSlide(index)} type="button">×</button>
+          </div>
+        ))}
+        {slides.length < limit && <button aria-label="Add a slideshow photo" className="grid h-[60px] w-12 place-items-center rounded-[10px] border border-dashed border-black/25 text-lg font-semibold text-black/55 transition hover:bg-black/5" data-slide-add disabled={api.busyPhoto} onClick={api.pickSlide} type="button">+</button>}
+      </div>
+      {plan !== "pro" && slides.length >= limit && <p className="mt-1.5 text-[12.5px] text-black/55">Pro slideshows hold up to four photos.</p>}
     </div>
   );
 }
@@ -609,57 +637,78 @@ export function ShareSection({ api }: { api: EditorApi }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-        <div className={`rounded-[24px] p-6 ${darkShare ? "bg-[#0D0D0D]" : "bg-[#0D0D0D]"} text-[#F5F4EF]`}>
-          <MonoLabel color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
+      {/* Sized by the space the editor leaves (preview pane open or not), not the window. */}
+      <div className="@container/share">
+      <div className="grid grid-cols-1 items-start gap-4 @min-[560px]/share:grid-cols-[minmax(0,236px)_minmax(0,1fr)] @min-[760px]/share:grid-cols-[minmax(0,280px)_minmax(0,1fr)] @min-[760px]/share:gap-6">
+        <div className="mx-auto w-full max-w-[360px] rounded-[24px] bg-[#0D0D0D] p-4 text-[#F5F4EF] @min-[560px]/share:sticky @min-[560px]/share:top-6 @min-[760px]/share:p-5">
+          <MonoLabel className="truncate !text-[10px]" color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
           <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} data-qr-treatment={qrStyle} disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }} type="button">
             <QrFrame accent={resolveAppearance(mode, api.plan).accent} modeLabel={modeMeta[slug].name} name={profile.display_name} style={shownQrStyle}>
               {qrUrl
                 ? <QRCodeSVG bgColor="#FFFFFF" className="h-auto w-full" data-qr-value={qrUrl} data-share-intent={inPerson ? "in_person" : "profile"} fgColor={ink} id={qrId} imageSettings={{ src: markDataUri, height: 48, width: 48, excavate: true }} level="H" marginSize={4} size={256} title={`${modeMeta[slug].name} Mode ${inPerson ? "Connect in person " : ""}QR code`} value={qrUrl} />
-                : <span aria-live="polite" className="grid aspect-square w-full place-items-center px-3 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : "Making your pass…"}</span>}
+                : <span aria-live="polite" className="grid aspect-square w-full place-items-center px-3 text-center text-sm text-black/60">{pass && !pass.ok ? pass.message : offline ? "Turn this Mode on to connect in person." : inPerson ? "Making your pass…" : "This link isn’t ready yet. Refresh in a moment."}</span>}
             </QrFrame>
           </button>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] text-white/70">
-            <span>Download QR</span>
-            <button className="min-h-9 font-semibold text-white underline underline-offset-4" onClick={() => void downloadQr(qrId, "png", `setuvara-${profile.username}-${slug}`)} type="button">PNG</button>
-            <button className="min-h-9 font-semibold text-white underline underline-offset-4" onClick={() => void downloadQr(qrId, "svg", `setuvara-${profile.username}-${slug}`)} type="button">SVG</button>
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-3.5 text-[12.5px] text-white/60">
+            <span>Download</span>
+            <span className="flex gap-1">
+              <button className="min-h-8 rounded-full px-3 font-semibold text-white shadow-[inset_0_0_0_1px_rgba(245,244,239,.22)] transition hover:bg-white/10 disabled:opacity-40" disabled={!qrUrl} onClick={() => void downloadQr(qrId, "png", `setuvara-${profile.username}-${slug}`)} type="button">PNG</button>
+              <button className="min-h-8 rounded-full px-3 font-semibold text-white shadow-[inset_0_0_0_1px_rgba(245,244,239,.22)] transition hover:bg-white/10 disabled:opacity-40" disabled={!qrUrl} onClick={() => void downloadQr(qrId, "svg", `setuvara-${profile.username}-${slug}`)} type="button">SVG</button>
+            </span>
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-5">
-          {policy === "direct_only" && <Segmented full label="What you are sharing" onChange={setIntent} options={[{ value: "profile", label: "Share profile" }, { value: "in_person", label: "Connect in person" }]} value={inPerson ? "in_person" : "profile"} />}
-          {policy !== "anyone" && !inPerson && <p className="-mt-2 text-[13px] text-black/55">View only. Your profile opens without Connect.</p>}
-          {inPerson && <p className="-mt-2 text-[13px] leading-5 text-black/60">Anyone who scans or opens this can connect with your {modeMeta[slug].name} Mode{pass?.ok ? ` until ${passExpiryLabel(pass.expiresAt)}` : ""}. <button className="py-1 font-semibold text-black underline underline-offset-4" onClick={() => void resetPass()} type="button">Reset pass</button></p>}
-          <div>
-            <p className="mb-2 text-sm font-semibold">{inPerson ? "Connection Pass link" : "Public link"}</p>
-            <div className="flex min-h-[56px] items-center gap-2 rounded-2xl bg-white py-1.5 pl-4 pr-1.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]">
-              <span className="min-w-0 flex-1 truncate font-label text-[13px]">{displayUrl}</span>
-              <Pill className="shrink-0" disabled={!linkUrl} onClick={() => void copy()} variant="ink">{copied ? "Copied ✓" : "Copy link"}</Pill>
+        <div className="flex min-w-0 flex-col gap-4">
+          <section aria-label="Link" className="@container/link rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5">
+            {policy === "direct_only" && <div className="mb-4"><Segmented full label="What you are sharing" onChange={setIntent} options={[{ value: "profile", label: "Share profile" }, { value: "in_person", label: "Connect in person" }]} size="sm" value={inPerson ? "in_person" : "profile"} /></div>}
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-semibold">{inPerson ? "Connection Pass link" : slug === "personal" ? "Public link" : "Private Mode link"}</p>
+              {!inPerson && policy !== "anyone" && <span className="shrink-0 text-[12px] text-black/50">View only</span>}
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2 max-[380px]:grid-cols-1">
-            <Pill disabled={!linkUrl} onClick={() => void share()} variant="coral">Share…</Pill>
-            <Pill disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }}>Full-screen QR</Pill>
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-semibold">Share a different Mode instead</p>
-            <Segmented full label="Mode to share" onChange={(next) => api.go("share", next)} options={MODE_SLUGS.map((item) => ({ value: item, label: modeMeta[item].name }))} value={slug} />
-          </div>
-          <div className="grid gap-3">
-            <div aria-label={qrCopy.qr} className="rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]" data-qr-treatment={qrStyle}>
-              <p className="text-sm font-semibold">{qrCopy.qr}</p>
-              <p className="mt-1 text-[12px] leading-5 text-black/60">{(mode.appearance.qrStyle ?? "standard") !== qrStyle ? qrCopy.inactive : qrCopy.qrNote}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {QR_STYLES.map((style) => {
-                  const on = qrStyle === style;
-                  const allowed = style === "standard" || hasCapability(api.plan, "share.qr_premium");
-                  return <button aria-pressed={on} className={`flex min-h-11 items-center justify-between gap-2 rounded-full px-3.5 text-left text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-[#0D0D0D] text-white" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button"><span>{qrCopy.qrStyles[style]}</span>{style !== "standard" && <span className={`font-label text-[9px] uppercase tracking-[0.1em] ${on ? "text-white/70" : "text-[#A43D36]"}`}>{qrCopy.plus}</span>}</button>;
-                })}
-              </div>
+            <p className="mt-1 text-[12.5px] leading-5 text-black/55">
+              {inPerson
+                ? <>Anyone who scans or opens this can connect with your {modeMeta[slug].name} Mode{pass?.ok ? ` until ${passExpiryLabel(pass.expiresAt)}` : ""}. <button className="font-semibold text-black underline underline-offset-4" onClick={() => void resetPass()} type="button">Reset pass</button></>
+                : slug === "personal"
+                  ? "Your username link always opens Personal Mode."
+                  : `Only people you send this link to can open ${modeMeta[slug].name} Mode. Your username link never shows it.`}
+            </p>
+            <div className="mt-3 flex min-h-[52px] items-center gap-2 rounded-2xl bg-[#F5F4EF] py-1.5 pl-4 pr-1.5">
+              <span className="min-w-0 flex-1 truncate font-label text-[12.5px]" title={displayUrl}>{displayUrl || "Link unavailable"}</span>
+              <Pill className="!min-h-10 shrink-0 !px-4" disabled={!linkUrl} onClick={() => void copy()} variant="ink">{copied ? "Copied ✓" : "Copy link"}</Pill>
             </div>
-            {(["qr_frame", "share_treatment"] as const).map((category) => <RewardSelect api={api} category={category} key={category} />)}
+            <div className="mt-3 grid grid-cols-1 gap-2 @min-[300px]/link:grid-cols-2">
+              <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={!linkUrl} onClick={() => void share()} variant="coral">Share…</Pill>
+              <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }}>Full-screen QR</Pill>
+            </div>
+          </section>
+
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
+            <p className="text-[13px] font-semibold text-black/65">Share another Mode</p>
+            <Segmented label="Mode to share" onChange={(next) => api.go("share", next)} options={MODE_SLUGS.map((item) => ({ value: item, label: modeMeta[item].name }))} size="sm" value={slug} />
           </div>
+
+          <section aria-label={qrCopy.qr} className="@container/qr rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5" data-qr-treatment={qrStyle}>
+            <p className="text-sm font-semibold">{qrCopy.qr}</p>
+            <p className="mt-1 text-[12.5px] leading-5 text-black/55">{(mode.appearance.qrStyle ?? "standard") !== qrStyle ? qrCopy.inactive : qrCopy.qrNote}</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 @min-[460px]/qr:grid-cols-3">
+              {QR_STYLES.map((style) => {
+                const on = qrStyle === style;
+                const allowed = style === "standard" || hasCapability(api.plan, "share.qr_premium");
+                return (
+                  <button aria-pressed={on} className={`flex min-h-[52px] min-w-0 flex-col items-start justify-center gap-0.5 rounded-2xl px-3.5 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-[#0D0D0D] text-white" : "bg-[#F5F4EF] hover:bg-black/[0.06]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button">
+                    <span className="w-full break-words text-[13px] font-semibold leading-[1.2]">{qrCopy.qrStyles[style]}</span>
+                    <span className={`font-label text-[9px] uppercase leading-none tracking-[0.12em] ${on ? "text-white/60" : style === "standard" ? "text-black/40" : "text-[#A43D36]"}`}>{style === "standard" ? qrCopy.free : qrCopy.plus}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-4 divide-y divide-black/[0.07] border-t border-black/[0.07]">
+              {(["qr_frame", "share_treatment"] as const).map((category) => <RewardSelect api={api} category={category} key={category} />)}
+            </div>
+          </section>
         </div>
+      </div>
+
       </div>
 
       {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void copy()} qrStyle={shownQrStyle} accent={resolveAppearance(mode, api.plan).accent} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={displayUrl} value={qrUrl} />}
@@ -671,9 +720,9 @@ function RewardSelect({ api, category }: { api: EditorApi; category: RewardCateg
   const options = PASSPORT_REWARDS.filter((reward) => reward.category === category);
   const id = useId();
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-2xl bg-white px-4 py-2.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
-      <label className="text-sm font-semibold" htmlFor={id}>{category === "qr_frame" ? "QR frame" : "Share treatment"}</label>
-      <select className="min-h-10 min-w-0 max-w-full flex-1 rounded-full bg-[#F5F4EF] px-3 text-sm font-medium sm:max-w-[200px]" id={id} onChange={(event) => { if (event.target.value) void api.equipReward(category, event.target.value); }} value={api.selectedRewards[category] ?? ""}>
+    <div className="flex items-center justify-between gap-3 pt-3">
+      <label className="shrink-0 text-[13px] font-semibold" htmlFor={id}>{category === "qr_frame" ? "QR frame" : "Share treatment"}</label>
+      <select className="min-h-10 w-full min-w-0 max-w-[200px] flex-1 rounded-full bg-[#F5F4EF] px-3 text-[13px] font-medium" id={id} onChange={(event) => { if (event.target.value) void api.equipReward(category, event.target.value); }} value={api.selectedRewards[category] ?? ""}>
         <option value="">Setuvara default</option>
         {options.map((reward) => <option disabled={!api.unlockedRewards.includes(reward.id)} key={reward.id} value={reward.id}>{reward.name}{api.unlockedRewards.includes(reward.id) ? "" : ` · at ${reward.milestone}`}</option>)}
       </select>

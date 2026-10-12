@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { CharacterAvatar } from "@/components/avatar/character-avatar";
+import type { AppearanceId } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/client";
 import { isAllowedUsername, isReservedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -46,7 +47,7 @@ function suggestionsFor(handle: string) {
   return [`${handle}_`, `the${handle}`, `${handle}26`, `${handle}_hq`].map(cleanHandle).filter((value) => isAllowedUsername(value) && value !== handle).slice(0, 4);
 }
 
-export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: string; claimGuest: boolean }) {
+export function SignupFlow({ initialHandle, claimGuest, appearance = null }: { initialHandle: string; claimGuest: boolean; appearance?: AppearanceId | null }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [handle, setHandle] = useState(cleanHandle(initialHandle));
@@ -134,7 +135,7 @@ export function SignupFlow({ initialHandle, claimGuest }: { initialHandle: strin
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { username, display_name: displayName }, emailRedirectTo: confirmationUrl.toString() },
+        options: { data: { username, display_name: displayName, ...(appearance ? { appearance } : {}) }, emailRedirectTo: confirmationUrl.toString() },
       });
       if (signUpError) return setError("We couldn’t create the account. Check your details and try again.");
 

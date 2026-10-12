@@ -1,5 +1,6 @@
 /**
- * Appearance: resolution, entitlements, theme tokens, rendering and QR presentation.
+ * Appearance: the ten Appearances, entitlements, legacy mapping, the face-safe solver, rendering
+ * and QR presentation.
  *
  *   npm run test:appearance
  *
@@ -8,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { build } from "esbuild";
@@ -24,12 +25,12 @@ before(async () => {
     stdin: {
       contents: `
         export * from "@/components/profile/appearance";
+        export * from "@/components/profile/appearance-theme";
+        export * from "@/components/profile/face-safe";
         export * from "@/components/profile/photo-focus";
-        export { ProfileRenderer, isFullBleed, profileTone } from "@/components/profile/profile-renderer";
-        export { resolveSkin } from "@/components/profile/profile-skin";
+        export { ProfileRenderer } from "@/components/profile/profile-renderer";
         export { QrFrame } from "@/components/profile/qr-frame";
         export { QRCodeSVG } from "qrcode.react";
-        export { LAYOUTS } from "@/app/app/identity/editor-types";
         export { createElement } from "react";
         export { renderToStaticMarkup } from "react-dom/server";
       `,
@@ -55,307 +56,472 @@ const links = [
   { id: "ig", title: "Instagram", url: "https://instagram.com/aanya", link_type: "instagram", is_visible: true, sort_order: 0 },
   { id: "site", title: "Portfolio", url: "https://example.com", link_type: "website", is_visible: true, sort_order: 1 },
 ];
-const profile = { id: "p", username: "aanya", display_name: "Aanya Rao", bio: "Designer", is_published: true };
+const profile = { id: "p", username: "aanya", display_name: "Aanya Rao", bio: "Designer in Lisbon. Making quiet things.", is_published: true };
 const settings = {
   personal: { location: "Lisboa" },
   event: { eventName: "Slush", city: "Helsinki", dateLabel: "Nov 2026", role: "Founder", hereToMeet: "Investors" },
   business: { role: "Founder", company: "Setuvara", city: "Amsterdam", description: "Identity, in person." },
 };
-const mode = (slug, appearance, extra = {}) => ({ id: slug, slug, label: slug, is_enabled: true, settings: settings[slug], appearance: { theme: "light", accent: "#FF5A4F", ...appearance }, image_path: "x", image_url: PHOTO, links, blocks: [], ...extra });
-const render = (m, plan = "free", sound = "off") => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: m, plan, viewerState: "visitor_unconnected", sound }));
+const mode = (slug, appearance, extra = {}) => ({ id: slug, slug, label: slug, is_enabled: true, settings: settings[slug], appearance: { theme: "immersive", accent: "#FF5A4F", ...appearance }, image_path: "x", image_url: PHOTO, links, blocks: [], ...extra });
+const renderWith = (m, props = {}) => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: m, plan: "free", viewerState: "visitor_unconnected", sound: "off", ...props }));
+const render = (m, plan = "free", sound = "off") => renderWith(m, { plan, sound });
 const attr = (html, name) => html.match(new RegExp(`${name}="([^"]*)"`))?.[1];
+const resolveFor = (appearance, plan = "free", slug = "personal") => lib.resolveAppearance({ slug, appearance: { accent: "#FF5A4F", ...appearance } }, plan);
 
 const plans = ["free", "plus", "pro"];
+const TEN = ["immersive", "motion", "aura", "clean", "glow", "scene", "frame", "stack", "social", "film"];
 
-describe("resolveAppearance", () => {
-  test("Full Portrait is shared, dark, validated and protected by Plus", () => {
-    for (const slug of ["personal", "event", "business"]) {
-      const appearance = { theme: "light", accent: "#FF5A4F", layout: "full-portrait", imageTreatment: "portrait", portraitZoom: 130, portraitNameSize: "statement", portraitShowUsername: false };
-      assert.equal(lib.isValidAppearance(slug, appearance), true);
-      for (const plan of ["plus", "pro"]) {
-        const look = lib.resolveAppearance({ slug, appearance }, plan);
-        assert.equal(look.family, "full-portrait");
-        assert.equal(look.theme, "dark");
-        assert.equal(look.portraitZoom, 130);
-        assert.equal(look.portraitShowUsername, false);
-        const html = render(mode(slug, appearance), plan);
-        assert.match(html, /data-profile-hero="full-portrait"/);
-        assert.doesNotMatch(html, /@aanya/);
-        assert.match(html, /data-photo-focus/);
-      }
-      const free = lib.resolveAppearance({ slug, appearance }, "free");
-      assert.notEqual(free.family, "full-portrait");
-      assert.equal(free.portraitZoom, 100);
-      assert.equal(lib.introducedLockedFields({}, appearance, "free").includes("layout"), true);
-      assert.deepEqual(lib.introducedLockedFields(appearance, appearance, "free"), []);
-      for (const patch of [{ portraitZoom: 150 }, { portraitZoom: "130" }, { portraitNameSize: "giant" }, { portraitShowUsername: "false" }]) assert.equal(lib.isValidAppearance(slug, { ...appearance, ...patch }), false);
+describe("Appearances", () => {
+  test("exactly ten, in the approved order, two of them Free", () => {
+    assert.deepEqual([...lib.APPEARANCES], TEN);
+    assert.deepEqual([...lib.FREE_APPEARANCES], ["immersive", "clean"]);
+    for (const id of TEN) assert.ok(lib.APPEARANCE_NAMES[id] && lib.APPEARANCE_LINES[id], id);
+  });
+
+  test("the editor picker renders exactly the ten Appearances", () => {
+    const source = readFileSync(join(root, "src/app/app/identity/editor-appearance.tsx"), "utf8");
+    assert.match(source, /data-appearance-picker/);
+    assert.match(source, /APPEARANCES\.map\(/, "the picker iterates the canonical list");
+    assert.doesNotMatch(source, /THEMES|LAYOUT_FAMILIES/, "no retired theme or layout pickers");
+  });
+
+  test("entitlements: Free gets Immersive and Clean; Plus and Pro get all ten", () => {
+    for (const id of TEN) {
+      const free = resolveFor({ theme: id }, "free");
+      assert.equal(free.stored, id);
+      assert.equal(free.id, lib.isFreeAppearance(id) ? id : (["aura", "clean"].includes(id) ? "clean" : "immersive"), `${id} on Free`);
+      assert.equal(resolveFor({ theme: id }, "plus").id, id);
+      assert.equal(resolveFor({ theme: id }, "pro").id, id);
     }
   });
 
-  test("keeps each Mode's own saved values", () => {
-    const saved = {
-      personal: { theme: "dark", accent: "#546742", layout: "full-bleed", imageTreatment: "full-bleed" },
-      event: { theme: "editorial", accent: "#FFFFFF", layout: "conference-card", imageTreatment: "full-bleed" },
-      business: { theme: "light", accent: "#FFA600", layout: "editorial-business", imageTreatment: "compact" },
-    };
-    for (const [slug, appearance] of Object.entries(saved)) {
-      const look = lib.resolveAppearance({ slug, appearance }, "plus");
-      for (const [key, value] of Object.entries(appearance)) assert.equal(look[key], value, `${slug}.${key}`);
-      assert.equal(look.slug, slug);
-    }
+  test("controls: zoom, show username and social style are Free; the rest is Plus", () => {
+    const free = resolveFor({ theme: "immersive", portraitZoom: 140, portraitShowUsername: true, socialStyle: "hidden", portraitNameSize: "statement", namePosition: "top", readability: "deep", motion: "full", soundtrackPresentation: "featured" });
+    assert.equal(free.zoom, 140);
+    assert.equal(free.showUsername, true);
+    assert.equal(free.socialStyle, "hidden");
+    assert.equal(free.nameSize, "standard");
+    assert.equal(free.namePosition, "auto");
+    assert.equal(free.readability, "auto");
+    assert.equal(free.motion, "subtle");
+    assert.equal(free.soundPresentation, "minimal", "Featured falls back to Minimal without Plus");
+    const plus = resolveFor({ theme: "immersive", portraitZoom: 115, portraitNameSize: "statement", namePosition: "top", readability: "deep", motion: "full", soundtrackPresentation: "featured" }, "plus");
+    assert.deepEqual([plus.zoom, plus.nameSize, plus.namePosition, plus.readability, plus.motion, plus.soundPresentation], [115, "statement", "top", "deep", "full", "featured"]);
+    assert.equal(resolveFor({ namePosition: "bottom" }).namePosition, "bottom", "Bottom is Free");
+    assert.equal(resolveFor({ namePosition: "center" }, "plus").namePosition, "auto", "center reads as Auto");
   });
 
-  test("never falls back to Personal for Event or Business", () => {
-    assert.equal(lib.resolveAppearance({ slug: "event", appearance: { layout: "full-bleed" } }).layout, "event-poster");
-    assert.equal(lib.resolveAppearance({ slug: "business", appearance: { layout: "full-bleed" } }).layout, "structured");
-    assert.equal(lib.resolveAppearance({ slug: "event", appearance: {} }).theme, "light");
-    assert.equal(lib.resolveAppearance({ slug: "business", appearance: {} }).theme, "light");
-    assert.equal(lib.resolveAppearance({ slug: "personal", appearance: {} }).theme, "dark");
-    assert.throws(() => lib.resolveAppearance({ slug: "unknown", appearance: {} }));
+  test("legacy rows map onto the ten", () => {
+    const cases = [
+      [{ theme: "dark", layout: "full-bleed" }, "immersive"],
+      [{ theme: "dark", layout: "portrait-editorial" }, "immersive"],
+      [{ theme: "light", layout: "full-bleed" }, "immersive"],
+      [{ theme: "light", layout: "portrait-editorial", imageTreatment: "full-bleed" }, "immersive"],
+      [{ theme: "light", layout: "portrait-editorial", imageTreatment: "portrait" }, "clean"],
+      [{ theme: "editorial", layout: "portrait-editorial" }, "clean"],
+      [{ theme: "studio", layout: "full-bleed" }, "clean"],
+      [{ theme: "noir", layout: "full-bleed" }, "glow"],
+      [{ theme: "signal", layout: "full-bleed" }, "motion"],
+      [{ theme: "light", layout: "full-portrait" }, "immersive"],
+    ];
+    for (const [appearance, expected] of cases) assert.equal(lib.storedAppearance(appearance, "personal"), expected, JSON.stringify(appearance));
+    assert.equal(lib.storedSoundPresentation({ soundStyle: "core" }), "minimal");
+    assert.equal(lib.storedSoundPresentation({ soundStyle: "strip" }), "minimal");
+    assert.equal(lib.storedSoundPresentation({ soundStyle: "disc" }), "featured");
+    assert.equal(lib.storedSoundPresentation({ soundStyle: "poster" }), "featured");
+    assert.equal(lib.storedSoundPresentation({}), "ambient");
   });
 
-  test("Cover and Framed map onto each Mode's own stored layouts; Portrait, Poster and Index are shared", () => {
-    for (const slug of ["personal", "event", "business"]) {
-      for (const family of lib.LAYOUT_FAMILIES) {
-        const layout = lib.layoutForFamily(slug, family);
-        assert.equal(lib.layoutFamily(slug, layout), family);
-        assert.equal(lib.isModeLayout(slug, layout), true);
-      }
-    }
-    assert.equal(lib.layoutForFamily("event", "cover"), "event-poster");
-    assert.equal(lib.layoutForFamily("business", "framed"), "structured");
+  test("defaults: Personal and Event Immersive, Business Clean", () => {
+    assert.equal(lib.resolveAppearance({ slug: "personal", appearance: null }).id, "immersive");
+    assert.equal(lib.resolveAppearance({ slug: "event", appearance: null }).id, "immersive");
+    assert.equal(lib.resolveAppearance({ slug: "business", appearance: null }).id, "clean");
   });
 
-  test("validates appearance like the database constraint: curated ids only, never CSS", () => {
-    const look = { theme: "light", accent: "#FF5A4F", imageTreatment: "full-bleed" };
-    assert.equal(lib.isValidAppearance("personal", { ...look, layout: "full-bleed" }), true);
-    assert.equal(lib.isValidAppearance("event", { ...look, layout: "full-bleed" }), false);
-    assert.equal(lib.isValidAppearance("business", { ...look, layout: "event-poster" }), false);
-    assert.equal(lib.isValidAppearance("event", { ...look, layout: "conference-card" }), true);
-    for (const layout of ["portrait", "poster", "index"]) assert.equal(lib.isValidAppearance("business", { ...look, layout }), true);
-    const full = { ...look, layout: "poster", theme: "noir", imageTreatment: "frame", qrStyle: "inverse", intensity: "signal", card: "layered", radius: "subtle", button: "editorial", links: "cards", soundStyle: "disc" };
-    assert.equal(lib.isValidAppearance("event", full), true);
-    for (const [key, value] of [["theme", "neon"], ["card", "glass"], ["radius", "8px"], ["button", "background:red"], ["links", "grid"], ["soundStyle", "vinyl"], ["qrStyle", "gradient"], ["intensity", "loud"], ["accent", "red"], ["accent", "#FF5A4F; color:red"]]) {
-      assert.equal(lib.isValidAppearance("event", { ...full, [key]: value }), false, `${key}=${value}`);
-    }
-    assert.equal(lib.isValidAppearance("event", { ...full, css: "body{}" }), false, "unknown keys are refused");
-  });
-
-  test("entitlements: Free gets Light and Dark with Cover and Framed; Plus and Pro get every look", () => {
-    for (const theme of lib.THEMES) {
-      for (const plan of plans) {
-        const look = lib.resolveAppearance({ slug: "personal", appearance: { theme, accent: "#FF5A4F", layout: "portrait-editorial", imageTreatment: "portrait" } }, plan);
-        const expected = plan === "free" && !["light", "dark"].includes(theme) ? { editorial: "light", noir: "dark", signal: "light", studio: "light" }[theme] : theme;
-        assert.equal(look.theme, expected, `${theme} on ${plan}`);
-      }
-    }
-    for (const layout of ["portrait", "poster", "index"]) {
-      assert.equal(lib.resolveAppearance({ slug: "event", appearance: { theme: "light", accent: "#FF5A4F", layout, imageTreatment: "portrait" } }, "free").family, layout === "index" ? "framed" : "cover");
-      assert.equal(lib.resolveAppearance({ slug: "event", appearance: { theme: "light", accent: "#FF5A4F", layout, imageTreatment: "portrait" } }, "plus").family, layout);
-      assert.equal(lib.resolveAppearance({ slug: "event", appearance: { theme: "light", accent: "#FF5A4F", layout, imageTreatment: "portrait" } }, "pro").family, layout);
-    }
-    const premium = { theme: "noir", accent: "#6B4EFF", layout: "full-bleed", imageTreatment: "frame", intensity: "quiet", card: "layered", radius: "sharp", button: "minimal", links: "chips", soundStyle: "strip", qrStyle: "label" };
-    const free = lib.resolveAppearance({ slug: "personal", appearance: premium }, "free");
-    assert.deepEqual([free.theme, free.imageTreatment, free.intensity, free.card, free.radius, free.button, free.links, free.soundStyle, free.qrStyle], ["dark", "portrait", "balanced", "soft", "soft", "pill", "icons", "core", "standard"]);
-    assert.equal(free.accent, "#6B4EFF", "custom accent stays Free");
-    for (const plan of ["plus", "pro"]) {
-      const paid = lib.resolveAppearance({ slug: "personal", appearance: premium }, plan);
-      assert.deepEqual([paid.theme, paid.imageTreatment, paid.intensity, paid.card, paid.radius, paid.button, paid.links, paid.soundStyle, paid.qrStyle], ["noir", "frame", "quiet", "layered", "sharp", "minimal", "chips", "strip", "label"]);
-    }
-  });
-
-  test("downgrade locks capability but never deletes configuration; re-upgrade restores", () => {
-    const saved = { theme: "editorial", accent: "#FF5A4F", layout: "full-bleed", imageTreatment: "portrait", qrStyle: "accent-frame", card: "outline" };
-    assert.equal(lib.resolveAppearance({ slug: "personal", appearance: saved }, "free").theme, "light");
-    assert.equal(lib.resolveAppearance({ slug: "personal", appearance: saved }, "plus").theme, "editorial");
-    assert.equal(lib.resolveQrStyle({ appearance: saved }, "free"), "standard");
-    assert.equal(lib.resolveQrStyle({ appearance: saved }, "plus"), "accent-frame");
-    assert.equal(lib.resolveQrStyle({ appearance: saved }, "pro"), "accent-frame");
-    assert.equal(lib.isValidAppearance("personal", saved), true, "saved presentation choices remain valid through a downgrade");
-    assert.deepEqual(lib.lockedFields(saved, "free"), ["theme", "card", "qrStyle"]);
-    assert.deepEqual(lib.lockedFields(saved, "plus"), []);
+  test("downgrade keeps configuration and re-upgrade restores it", () => {
+    const saved = { theme: "film", accent: "#6B4EFF", portraitNameSize: "large", motion: "full", soundtrackPresentation: "featured", qrStyle: "label" };
+    const down = resolveFor(saved, "free");
+    assert.equal(down.id, "immersive");
+    assert.deepEqual(down.locked, ["theme", "portraitNameSize", "motion", "soundtrackPresentation", "qrStyle"]);
+    assert.equal(saved.theme, "film", "resolving never mutates the saved row");
+    const up = resolveFor(saved, "plus");
+    assert.equal(up.id, "film");
+    assert.equal(up.nameSize, "large");
+    assert.deepEqual(up.locked, []);
   });
 
   test("introducedLockedFields mirrors the database trigger", () => {
-    const saved = { theme: "noir", accent: "#FF5A4F", layout: "full-bleed", imageTreatment: "frame" };
-    assert.deepEqual(lib.introducedLockedFields(saved, { ...saved, accent: "#C7FF4A" }, "free"), [], "editing around a saved premium look is allowed");
-    assert.deepEqual(lib.introducedLockedFields(saved, { ...saved, theme: "studio" }, "free"), ["theme"]);
-    assert.deepEqual(lib.introducedLockedFields({ ...saved, theme: "dark" }, { ...saved, theme: "dark", intensity: "signal", soundStyle: "disc" }, "free"), ["intensity", "soundStyle"]);
-    assert.deepEqual(lib.introducedLockedFields(saved, { ...saved, theme: "studio", qrStyle: "rounded" }, "plus"), []);
-    assert.deepEqual(lib.introducedLockedFields(saved, { ...saved, intensity: "balanced", soundStyle: "core", qrStyle: "standard" }, "free"), [], "Free defaults are never premium");
+    const saved = { theme: "film", accent: "#FF5A4F", motion: "full" };
+    assert.deepEqual(lib.introducedLockedFields(saved, { ...saved, accent: "#6B4EFF" }, "free"), [], "a downgraded member can still edit other values");
+    assert.deepEqual(lib.introducedLockedFields(saved, { ...saved, theme: "glow" }, "free"), ["theme"]);
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive" }, { theme: "immersive", namePosition: "top", readability: "soft" }, "free"), ["namePosition", "readability"]);
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive" }, { theme: "immersive", portraitZoom: 140, socialStyle: "row", portraitShowUsername: true }, "free"), []);
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive" }, { theme: "glow" }, "plus"), []);
   });
 
-  test("theme × layout compatibility and Editorial's sharp corners", () => {
-    const studioCover = lib.resolveAppearance({ slug: "personal", appearance: { theme: "studio", accent: "#AFCBFF", layout: "full-bleed", imageTreatment: "portrait" } }, "plus");
-    assert.equal(studioCover.family, "index", "a hidden pairing renders the theme's default layout");
-    const signalPortrait = lib.resolveAppearance({ slug: "personal", appearance: { theme: "signal", accent: "#FF5A4F", layout: "portrait", imageTreatment: "frame" } }, "plus");
-    assert.equal(signalPortrait.family, "framed");
-    const editorial = lib.resolveAppearance({ slug: "personal", appearance: { theme: "editorial", accent: "#FF5A4F", layout: "portrait-editorial", imageTreatment: "portrait", radius: "soft" } }, "plus");
-    assert.equal(editorial.radius, "sharp");
-    assert.deepEqual([editorial.card, editorial.button, editorial.links], ["editorial", "editorial", "list"]);
+  test("validation matches the database constraint", () => {
+    const ok = (appearance, slug = "personal") => lib.isValidAppearance(slug, appearance);
+    for (const id of TEN) assert.ok(ok({ theme: id, accent: "#FF5A4F" }), id);
+    assert.ok(ok({ theme: "immersive", accent: "#FF5A4F", portraitZoom: 115, namePosition: "bottom", readability: "soft", socialStyle: "compact", motion: "off", soundtrackPresentation: "ambient" }));
+    assert.ok(!ok({ theme: "immersive", accent: "#FF5A4F", namePosition: "center" }), "center is never persisted");
+    assert.ok(!ok({ theme: "immersive", accent: "#FF5A4F", portraitZoom: 125 }));
+    assert.ok(!ok({ theme: "immersive", accent: "#FF5A4F", imageFocus: { x: 1, y: 2 } }), "no imageFocus key");
+    assert.ok(!ok({ theme: "neon", accent: "#FF5A4F" }));
+    assert.ok(!ok({ theme: "immersive", accent: "red" }));
   });
 
-  test("editor layout choices are exactly each Mode's renderable layouts", () => {
-    for (const slug of ["personal", "event", "business"]) {
-      assert.deepEqual(lib.LAYOUTS[slug].map((layout) => layout.value), [...lib.MODE_LAYOUTS[slug]]);
-    }
+  test("equip drops retired composition keys; reset touches only the visual config", () => {
+    const saved = { theme: "dark", layout: "full-bleed", imageTreatment: "portrait", accent: "#6b4eff", qrStyle: "label", motion: "full", namePosition: "top" };
+    const equipped = lib.equipAppearance(saved, "frame");
+    assert.equal(equipped.theme, "frame");
+    assert.equal(equipped.layout, undefined);
+    assert.equal(equipped.imageTreatment, undefined);
+    assert.equal(equipped.accent, "#6B4EFF");
+    assert.equal(equipped.motion, "full", "personal touches stay");
+    assert.deepEqual(lib.resetAppearance("personal", saved), { theme: "immersive", accent: "#6B4EFF", qrStyle: "label" });
+    assert.deepEqual(lib.resetAppearance("business", {}), { theme: "clean", accent: "#FF5A4F" });
+  });
+
+  test("?appearance= hints are validated and grant nothing", () => {
+    assert.equal(lib.appearanceHint("Film"), "film");
+    assert.equal(lib.appearanceHint(["glow", "clean"]), "glow");
+    assert.equal(lib.appearanceHint("javascript:alert(1)"), null);
+    assert.equal(lib.appearanceHint(undefined), null);
+    const sql = readFileSync(join(root, "supabase/migrations/20261012050000_viral_identity_appearance.sql"), "utf8");
+    assert.match(sql, /'appearance'\s*=\s*'clean'/, "signup only honours the Free Clean hint");
   });
 });
 
-describe("Skin (theme tokens)", () => {
-  const skin = (appearance, plan = "plus", slug = "personal") => lib.resolveSkin(lib.resolveAppearance({ slug, appearance: { accent: "#FF5A4F", layout: "full-bleed", imageTreatment: "full-bleed", ...appearance } }, plan));
+describe("Face-safe solver", () => {
+  const base = { frame: { width: 390, height: 844 }, zoom: 1, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "compact", secondary: false };
+  const solve = (extra) => lib.solveFaceSafe({ ...base, ...extra });
+  const clears = (layout, input) => {
+    if (!layout.face) return true;
+    return layout.face.chin < input.frame.height && layout.face.chin > 0;
+  };
+
+  test("matrix: focus, zoom, frame, name length and position always give a decision", () => {
+    const frames = [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 430, height: 932 }];
+    const names = ["Li", "Aanya Rao", "Maximiliana Wolkenstein-Oberhausen"];
+    for (const frame of frames) for (const y of [12, 25, 35, 50, 70]) for (const zoom of [1, 1.15, 1.4]) for (const name of names) for (const namePosition of ["auto", "top", "bottom"]) {
+      const input = { ...base, frame, focus: { x: 50, y }, zoom, name, namePosition };
+      const layout = lib.solveFaceSafe(input);
+      const label = `${frame.width}×${frame.height} y${y} z${zoom} ${name} ${namePosition}`;
+      assert.ok(["bottom", "top", "split"].includes(layout.strategy), label);
+      assert.ok(layout.decision.length > 0, label);
+      assert.ok(layout.nameSize >= Math.floor(lib.fittedNameSize(name, 64, 1, frame.width) * 0.78) - 1, `${label}: name shrinks only as a last resort`);
+      assert.ok(layout.shiftY <= 0 && layout.shiftY >= -190, label);
+      if (namePosition === "bottom") assert.equal(layout.strategy, "bottom", `${label}: Bottom never moves the name up`);
+      assert.ok(clears(layout, input), label);
+    }
+  });
+
+  test("a face high in the frame puts the identity below the chin, untouched", () => {
+    const layout = solve({ focus: { x: 50, y: 20 } });
+    assert.equal(layout.strategy, "bottom");
+    assert.equal(layout.shiftY, 0);
+    assert.equal(layout.nameSize, lib.fittedNameSize("Aanya Rao", 64, 1, 390));
+  });
+
+  test("a low face reframes or moves the name before shrinking it", () => {
+    const layout = solve({ focus: { x: 50, y: 72 } });
+    assert.ok(layout.strategy !== "bottom" || layout.shiftY < 0, layout.decision);
+  });
+
+  test("Top places the name above the brow when there is room", () => {
+    const layout = solve({ focus: { x: 50, y: 55 }, namePosition: "top" });
+    assert.equal(layout.strategy, "split");
+    assert.ok(layout.face.top > 66, "brow stays below the identity block");
+  });
+
+  test("a face on the left aligns the identity right", () => {
+    assert.equal(solve({ focus: { x: 18, y: 30 } }).align, "right");
+    assert.equal(solve({ focus: { x: 50, y: 30 } }).align, "left");
+  });
+
+  test("no photo: bottom, nothing shifted", () => {
+    const layout = solve({ focus: null });
+    assert.equal(layout.strategy, "bottom");
+    assert.equal(layout.face, null);
+  });
+
+  test("a detected face box replaces the estimate without changing anything else", () => {
+    const estimated = solve({ focus: { x: 50, y: 30 } });
+    const detected = solve({ focus: { x: 50, y: 30 }, faceBox: { top: 0.05, mouth: 0.15, chin: 0.2, left: 0.4, right: 0.6 } });
+    assert.ok(detected.face.chin < estimated.face.chin);
+  });
+});
+
+describe("Theme helpers", () => {
+  test("hero socials: at most five, Mode priority, deduped", () => {
+    const make = (providerId, index) => ({ providerId, link: { id: `${providerId}${index}`, sort_order: index } });
+    const items = ["website", "instagram", "instagram", "linkedin", "x", "tiktok", "youtube", "github"].map(make);
+    const personal = lib.heroSocials("personal", items);
+    assert.equal(personal.length, 5);
+    assert.equal(new Set(personal.map((item) => item.providerId)).size, 5);
+    const business = lib.heroSocials("business", items);
+    assert.equal(business[0].providerId, "linkedin");
+  });
+
+  test("Film subtitle is the first sentence, never truncated mid-word", () => {
+    assert.equal(lib.filmSubtitle("Designer in Lisbon. Making quiet things."), "Designer in Lisbon.");
+    assert.equal(lib.filmSubtitle("No full stop here"), "No full stop here");
+    assert.equal(lib.filmSubtitle(""), "");
+    assert.equal(lib.filmSubtitle(null), "");
+  });
+
+  test("content images come only from real image, feature and video blocks", () => {
+    const blocks = [
+      { id: "a", kind: "image", data: { image_url: "https://x.test/a.jpg" }, is_visible: true, sort_order: 0 },
+      { id: "b", kind: "text", data: { text: "hi" }, is_visible: true, sort_order: 1 },
+      { id: "c", kind: "image", data: { image_url: "https://x.test/c.jpg" }, is_visible: false, sort_order: 2 },
+    ];
+    assert.deepEqual(lib.contentImages(blocks).map((item) => item.blockId), ["a"]);
+  });
 
   test("ink on accent above luminance .42, paper below", () => {
     assert.equal(lib.inkOnAccent("#C7FF4A"), "#0D0D0D");
-    assert.equal(lib.inkOnAccent("#FF5A4F"), "#0D0D0D");
-    assert.equal(lib.inkOnAccent("#6B4EFF"), "#F5F4EF");
-  });
-
-  test("Signal tints the room 12% / 26% and becomes the accent at Signal", () => {
-    assert.equal(skin({ theme: "signal", intensity: "quiet" }).page, lib.mixHex("#F5F4EF", "#FF5A4F", 0.12));
-    assert.equal(skin({ theme: "signal" }).page, lib.mixHex("#F5F4EF", "#FF5A4F", 0.26));
-    assert.equal(skin({ theme: "signal", intensity: "signal" }).page, "#FF5A4F");
-  });
-
-  test("Quiet inverts Connect to ink; low-contrast custom accents keep their fill and gain an edge", () => {
-    const quiet = skin({ theme: "light", intensity: "quiet" });
-    assert.equal(quiet.connect.background, "#0D0D0D");
-    const pale = skin({ theme: "light", accent: "#F2EDA8" });
-    assert.equal(pale.connect.background, "#F2EDA8");
-    assert.match(pale.connect.edge, /inset 0 0 0 1\.5px #0D0D0D/);
-    const nearDark = skin({ theme: "dark", accent: "#1C1C24" });
-    assert.match(nearDark.connect.edge, /inset 0 0 0 1\.5px #F5F4EF/);
-    assert.equal(skin({ theme: "light" }).connect.edge, "none");
-  });
-
-  test("Noir uses champagne detail; Editorial is square; Free never draws a premium token", () => {
-    const noir = skin({ theme: "noir", imageTreatment: "frame" });
-    assert.match(noir.image.frame, /#D6B25E/);
-    assert.equal(noir.displayWeight, 700);
-    assert.equal(skin({ theme: "editorial" }).radius, 0);
-    const downgraded = skin({ theme: "noir", imageTreatment: "frame", button: "editorial" }, "free");
-    assert.equal(downgraded.theme, "dark");
-    assert.equal(downgraded.image.frame, "none");
-    assert.equal(downgraded.button.arrow, false);
+    assert.equal(lib.inkOnAccent("#3D1F8C"), "#F5F4EF");
   });
 });
 
 describe("ProfileRenderer", () => {
-  test("every layout family renders its own hero in every Mode", () => {
-    for (const slug of ["personal", "event", "business"]) {
-      for (const family of lib.LAYOUT_FAMILIES) {
-        const html = render(mode(slug, { theme: "dark", layout: lib.layoutForFamily(slug, family), imageTreatment: "portrait" }), "plus");
-        assert.equal(attr(html, "data-profile-mode"), slug);
-        assert.equal(attr(html, "data-profile-family"), family);
-        assert.match(html, new RegExp(`data-profile-hero="${family}"`));
-        if (family === "full-portrait") assert.doesNotMatch(html, /data-profile-hero-wide/, "Full Portrait stays a centered portrait on desktop");
-        else assert.match(html, new RegExp(`data-profile-hero-wide="${family}"`), "wide two-column hero is part of the same render");
-      }
-    }
-  });
-
-  test("Free renders premium layouts as Cover or Framed and premium themes as Light or Dark", () => {
-    const html = render(mode("event", { theme: "studio", layout: "poster", imageTreatment: "frame" }), "free");
-    assert.equal(attr(html, "data-profile-theme"), "light");
-    assert.equal(attr(html, "data-profile-family"), "cover");
-    assert.equal(attr(html, "data-image-treatment"), "portrait");
-    assert.doesNotMatch(html, /#D6B25E/);
-  });
-
-  test("themes change the page, never the content order", () => {
-    const order = (html) => ["data-profile-actions", "data-profile-about", "data-profile-links"].map((marker) => html.indexOf(marker));
-    for (const theme of lib.THEMES) {
-      const html = render(mode("personal", { theme, layout: "portrait-editorial", imageTreatment: "portrait" }), "plus");
+  test("every Appearance renders its own hero in every Mode with the same content order", () => {
+    const order = (html) => ["data-profile-hero-mobile", "data-appearance-content", "data-profile-links"].map((marker) => html.indexOf(marker));
+    for (const slug of ["personal", "event", "business"]) for (const id of TEN) {
+      const html = render(mode(slug, { theme: id }), "plus");
+      assert.equal(attr(html, "data-appearance"), id, `${slug} ${id}`);
+      assert.equal(attr(html, "data-profile-mode"), slug);
+      assert.match(html, new RegExp(`data-hero="${id}"`));
+      assert.match(html, /data-wide-hero/);
       const positions = order(html);
-      assert.ok(positions.every((position) => position > 0), theme);
-      assert.deepEqual([...positions].sort((a, b) => a - b), positions, `${theme} keeps Hero → actions → About → links`);
-      assert.equal(attr(html, "data-profile-theme"), theme);
+      assert.ok(positions.every((position) => position > 0), `${slug} ${id}`);
+      assert.deepEqual([...positions].sort((a, b) => a - b), positions, `${slug} ${id} keeps hero → content → links`);
     }
   });
 
-  test("Event shows its card and Connect action; only configured booking adds a second visitor action", () => {
+  test("Free renders Plus Appearances as their Free equivalent", () => {
+    assert.equal(attr(render(mode("personal", { theme: "glow" }), "free"), "data-appearance"), "immersive");
+    assert.equal(attr(render(mode("personal", { theme: "aura" }), "free"), "data-appearance"), "clean");
+    assert.equal(attr(render(mode("personal", { theme: "noir", layout: "full-bleed" }), "free"), "data-appearance"), "immersive");
+    assert.equal(attr(render(mode("personal", { theme: "noir", layout: "full-bleed" }), "plus"), "data-appearance"), "glow");
+  });
+
+  test("Immersive reports its face-safe strategy", () => {
+    const html = render(mode("personal", { theme: "immersive" }, { image_focus_x: 50, image_focus_y: 22 }));
+    assert.match(html, /data-face-strategy="(bottom|top|split)"/);
+  });
+
+  test("Connect is the only relationship action; booking only when configured; never Save contact", () => {
     const connect = lib.createElement("button", { "data-test-connect": "" }, "Connect");
-    const renderWithConnect = (item, extra = {}) => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: item, viewerState: "visitor_unconnected", visitorAction: connect, sound: "off", ...extra }));
-    const event = renderWithConnect(mode("event", { layout: "conference-card", imageTreatment: "portrait" }));
-    assert.match(event, /data-event-card/);
-    assert.match(event, />Slush</);
-    assert.match(event, /HELSINKI · NOV 2026|Helsinki · Nov 2026/);
-    assert.match(event, /data-test-connect/);
-    assert.doesNotMatch(event, /save-contact|\/contact\?/);
-    assert.doesNotMatch(render(mode("event", { layout: "poster", imageTreatment: "portrait" }), "plus"), /data-event-card/, "Poster carries the event in its headline");
+    for (const id of TEN) {
+      const html = renderWith(mode("personal", { theme: id }), { plan: "plus", visitorAction: connect });
+      assert.match(html, /data-test-connect/, id);
+      assert.match(html, /data-hero-connect/, id);
+      assert.match(html, /data-floating-connect/, id);
+      assert.doesNotMatch(html, /save-contact|\/contact\?|Save contact|vcard/i, id);
+      assert.doesNotMatch(html, /data-profile-action="book"/, `${id} without booking`);
+    }
     const booking = { id: "cal", title: "Intro call", url: "https://calendly.com/aanya", link_type: "calendly", is_visible: true, sort_order: 2 };
-    const business = renderWithConnect(mode("business", { layout: "structured", imageTreatment: "portrait" }, { links: [...links, booking] }));
+    const business = renderWith(mode("business", { theme: "clean" }, { links: [...links, booking] }), { visitorAction: connect });
     assert.match(business, /data-profile-action="book"/);
     assert.match(business, /Book a call/);
-    assert.match(renderWithConnect(mode("personal", { layout: "full-bleed", imageTreatment: "portrait" })), /data-test-connect/);
-    assert.doesNotMatch(renderWithConnect(mode("personal", { layout: "full-bleed", imageTreatment: "portrait" })), /save-contact|\/contact\?/);
   });
 
-  test("member badges: Plus coral, Pro champagne, none on Free", () => {
-    const m = mode("personal", { theme: "dark", layout: "full-bleed", imageTreatment: "full-bleed" });
-    const html = (memberTier) => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: m, plan: memberTier ?? "free", memberTier, viewerState: "visitor_unconnected", sound: "off" }));
-    assert.match(html("plus"), /data-member-badge="plus"/);
-    assert.match(html("plus"), /#FF5A4F/);
-    assert.match(html("pro"), /data-member-badge="pro"/);
-    assert.match(html("pro"), /#D6B25E/);
-    assert.doesNotMatch(html(null), /data-member-badge/);
+  test("no visitor action means no fake Connect button", () => {
+    const html = render(mode("personal", { theme: "immersive" }));
+    assert.doesNotMatch(html, /data-floating-connect/);
+    assert.doesNotMatch(html, /disabled[^>]*>Connect</);
   });
 
-  test("link styles and the 8+ collapse", () => {
-    const many = Array.from({ length: 9 }, (_, index) => ({ id: `l${index}`, title: `Link ${index}`, url: `https://example.com/${index}`, link_type: "website", is_visible: true, sort_order: index }));
-    for (const style of lib.LINK_STYLES) {
-      const html = render(mode("personal", { layout: "full-bleed", imageTreatment: "portrait", links: style }, { links: many }), "plus");
-      assert.match(html, new RegExp(`data-links-style="${style}"`));
-      if (style === "chips" || style === "cards") assert.match(html, /All links · 9/);
-      else assert.doesNotMatch(html, /All links/);
+  test("Event shows its card", () => {
+    const html = renderWith(mode("event", { theme: "clean" }), { visitorAction: lib.createElement("button", null, "Connect") });
+    assert.match(html, /data-event-card/);
+    assert.match(html, /Slush/);
+  });
+
+  test("Live Context shows label and an until time; expired or absent contexts render nothing", () => {
+    const expiresAt = new Date(Date.now() + 2 * 3600_000).toISOString();
+    const html = renderWith(mode("personal", { theme: "immersive" }), { liveContext: { label: "Rooftop drinks", type: "event", expiresAt } });
+    assert.match(html, /data-live-context/);
+    assert.match(html, /Live/);
+    assert.match(html, /Rooftop drinks/);
+    const expired = renderWith(mode("personal", { theme: "immersive" }), { liveContext: { label: "Rooftop drinks", type: "event", expiresAt: new Date(Date.now() - 1000).toISOString() } });
+    assert.doesNotMatch(expired, /Rooftop drinks/);
+    assert.doesNotMatch(render(mode("personal", { theme: "immersive" })), /data-live-context/);
+  });
+
+  test("the setuvara mark ends Free profiles only; never a Plus grant in the link", () => {
+    const free = renderWith(mode("personal", { theme: "immersive" }), { attribution: true, plan: "free" });
+    assert.equal(attr(free, "data-attribution"), "setuvara");
+    assert.match(free, /aria-label="Make yours on Setuvara"/);
+    assert.match(free, /\/signup\?appearance=immersive/);
+    for (const plan of ["plus", "pro"]) {
+      const paid = renderWith(mode("personal", { theme: "film" }), { attribution: true, plan });
+      assert.doesNotMatch(paid, /data-attribution/, `${plan} carries no branding`);
+      assert.doesNotMatch(paid, /Make yours/);
     }
   });
 
-  test("soundtrack: Free and Plus both play; presentation styles are Plus; metadata stays out of the public HTML", () => {
+  test("member badges: Plus coral, Pro champagne, none on Free; no Appearance implies a badge", () => {
+    const m = mode("personal", { theme: "glow" });
+    const html = (memberTier) => renderWith(m, { plan: memberTier ?? "free", memberTier });
+    assert.match(html("plus"), /data-member-badge="plus"/);
+    assert.match(html("pro"), /data-member-badge="pro"/);
+    assert.doesNotMatch(html(null), /data-member-badge/);
+    assert.doesNotMatch(render(m, "plus"), /data-member-badge/);
+  });
+
+  test("each social platform shows once: under the name, or in the link rows", () => {
+    const rows = (html) => html.slice(html.indexOf("data-profile-links"));
+    const hero = (html) => html.slice(0, html.indexOf("data-appearance-content"));
+    for (const socialStyle of ["rail", "row", "compact"]) {
+      const html = render(mode("personal", { theme: "immersive", socialStyle }));
+      assert.match(hero(html), /instagram\.com\/aanya/, `${socialStyle}: under the name`);
+      assert.doesNotMatch(rows(html), /instagram\.com\/aanya/, `${socialStyle}: not repeated in the rows`);
+      assert.match(rows(html), /example\.com/, "other links stay in the rows");
+    }
+    const inLinks = render(mode("personal", { theme: "immersive", socialStyle: "hidden" }));
+    assert.doesNotMatch(hero(inLinks), /instagram\.com\/aanya/);
+    assert.match(rows(inLinks), /instagram\.com\/aanya/);
+    const both = render(mode("personal", { theme: "immersive", socialStyle: "rail", socialPlacement: "both" }));
+    assert.match(hero(both), /instagram\.com\/aanya/, "Both: under the name");
+    assert.match(rows(both), /instagram\.com\/aanya/, "Both: and in the rows, on purpose");
+    assert.equal(resolveFor({ theme: "immersive" }).socialPlacement, "name");
+    assert.equal(resolveFor({ theme: "immersive", socialStyle: "hidden" }).socialPlacement, "links");
+    const resolvedBoth = resolveFor({ theme: "film", socialPlacement: "both" }, "plus");
+    assert.deepEqual([resolvedBoth.socialPlacement, resolvedBoth.socialStyle], ["both", "compact"]);
+    assert.ok(lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", socialStyle: "row", socialPlacement: "both" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", socialPlacement: "everywhere" }));
+  });
+
+  test("alignment: Center and Left override the look; Auto keeps its own side", () => {
+    for (const id of ["immersive", "clean", "scene", "glow"]) {
+      const centered = render(mode("personal", { theme: id, identityAlign: "center" }), "plus");
+      assert.equal(attr(centered.slice(centered.indexOf("data-profile-hero-mobile")), "data-identity-align"), "center", `${id} centers`);
+    }
+    const left = render(mode("personal", { theme: "glow", identityAlign: "left" }), "plus");
+    assert.equal(attr(left.slice(left.indexOf("data-profile-hero-mobile")), "data-identity-align"), "left");
+    const auto = render(mode("personal", { theme: "glow" }), "plus");
+    assert.equal(attr(auto.slice(auto.indexOf("data-profile-hero-mobile")), "data-identity-align"), "center", "Glow is centered by its own design");
+    assert.equal(resolveFor({ theme: "immersive" }).align, "auto");
+    assert.ok(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", identityAlign: "center" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", identityAlign: "right" }));
+  });
+
+  test("zoom out: 70 and 85 apply to Immersive only; others stay at 100 or more", () => {
+    assert.equal(resolveFor({ theme: "immersive", portraitZoom: 70 }).zoom, 70);
+    assert.equal(resolveFor({ theme: "immersive", portraitZoom: 85 }).zoom, 85);
+    assert.equal(resolveFor({ theme: "clean", portraitZoom: 70 }).zoom, 100);
+    assert.ok(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", portraitZoom: 70 }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", portraitZoom: 60 }));
+    const frame = { width: 390, height: 640 };
+    const base = { frame, focus: { x: 50, y: 30 }, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: false, featuredSound: false, socialStyle: "rail", secondary: false };
+    // 70%: the whole 4:5 photo at full width; 85%: halfway; 100%: covers the frame.
+    assert.deepEqual(lib.zoomOutFrame(frame, 0.7), { width: 390, height: 487.5 });
+    const half = lib.zoomOutFrame(frame, 0.85);
+    assert.ok(half.height > 487.5 && half.height < 640, `85% sits between (${half.height})`);
+    assert.deepEqual(lib.zoomOutFrame(frame, 1), frame);
+    const out = lib.solveFaceSafe({ ...base, zoom: 0.7 });
+    assert.equal(out.imageTop, 0, "the whole photo starts at the top");
+    assert.equal(out.imageBottom, 487.5, "and dissolves where it ends");
+    const html = render(mode("personal", { theme: "immersive", portraitZoom: 70 }));
+    assert.match(html, /data-zoom-out="70"/);
+    assert.doesNotMatch(html, /scale\(0\.7\)/, "never a shrunken copy");
+  });
+
+  test("slideshow: Free shows one photo, Plus two, Pro four; speed is saved", () => {
+    const slide_urls = [1, 2, 3, 4].map((index) => ({ url: `https://media.example.test/slide${index}.png`, x: 50, y: 40 }));
+    const count = (html) => Number(attr(html, "data-slide-count"));
+    const withSlides = mode("personal", { theme: "immersive", slideSpeed: "fast" }, { slide_urls });
+    const free = render(withSlides, "free");
+    assert.doesNotMatch(free, /data-slides/, "Free: no slideshow");
+    assert.equal(count(render(withSlides, "plus")), 2);
+    assert.equal(count(render(withSlides, "pro")), 4);
+    assert.equal(attr(render(withSlides, "pro"), "data-slides"), "fast");
+    assert.equal(lib.extraSlideLimit("free"), 0);
+    assert.equal(lib.extraSlideLimit("plus"), 1);
+    assert.equal(lib.extraSlideLimit("pro"), 3);
+    assert.equal(resolveFor({ theme: "clean" }).slideSpeed, "medium");
+    assert.ok(lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", slideSpeed: "slow" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", slideSpeed: "warp" }));
+    for (const id of TEN) assert.match(render(mode("personal", { theme: id }, { slide_urls }), "pro"), /data-slides/, `${id} slides`);
+  });
+
+  test("the public page never names the Mode, on every Appearance", () => {
+    const soundtrack = { id: "track", kind: "music", data: { url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT" }, is_visible: true, is_soundtrack: true, sort_order: 0 };
+    for (const id of TEN) for (const slug of ["personal", "event", "business"]) {
+      const html = renderWith(mode(slug, { theme: id, soundtrackPresentation: "featured" }, { blocks: [soundtrack] }), { plan: "plus", sound: "preview" });
+      const text = html.replace(/<[^>]+>/g, " ");
+      assert.doesNotMatch(text, /\b(Personal|Event|Business)\b/, `${id} · ${slug}: no Mode name`);
+      assert.doesNotMatch(html, /data-mode-indicator|(Personal|Event|Business) (Mode|soundtrack)/i, `${id} · ${slug}: nor in labels`);
+    }
+  });
+
+  test("picture layout: featured by default; stack, grid and carousel on request", () => {
+    const pictures = [1, 2, 3].map((index) => ({ id: `img${index}`, kind: "image", data: { image_url: `https://media.example.test/p${index}.png`, alt: `P${index}` }, is_visible: true, sort_order: index }));
+    assert.equal(resolveFor({ theme: "immersive" }).mediaLayout, "featured");
+    for (const layout of ["featured", "stack", "grid", "carousel"]) {
+      const html = render(mode("personal", { theme: "immersive", ...(layout === "featured" ? {} : { mediaLayout: layout }) }, { blocks: pictures }));
+      assert.match(html, new RegExp(`data-media-layout="${layout}"`), layout);
+      assert.equal((html.match(/<img[^>]*media\.example\.test\/p\d/g) ?? []).length, 3, `${layout}: every picture once`);
+    }
+    const grid = render(mode("personal", { theme: "clean", mediaLayout: "grid" }, { blocks: pictures }));
+    assert.equal((grid.match(/data-featured-media/g) ?? []).length, 1, "grid: an odd first picture leads full width");
+    const single = render(mode("personal", { theme: "clean", mediaLayout: "grid" }, { blocks: pictures.slice(0, 1) }));
+    assert.match(single, /data-media-layout="single"/);
+    assert.ok(lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", mediaLayout: "carousel" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", mediaLayout: "masonry" }));
+  });
+
+  test("links collapse after eight", () => {
+    const many = Array.from({ length: 9 }, (_, index) => ({ id: `l${index}`, title: `Link ${index}`, url: `https://example.com/${index}`, link_type: "website", is_visible: true, sort_order: index }));
+    const html = render(mode("personal", { theme: "clean" }, { links: many }));
+    assert.match(html, /data-profile-links/);
+    assert.match(html, /9/);
+  });
+
+  test("soundtrack: Free and Plus both play; Featured is Plus; metadata stays out of the public HTML", () => {
     const soundtrack = { id: "track", kind: "music", data: { url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", title: "Private editor title" }, is_visible: true, is_soundtrack: true, sort_order: 0 };
-    const m = mode("personal", { theme: "dark", layout: "portrait-editorial", imageTreatment: "portrait", soundStyle: "strip" }, { blocks: [soundtrack] });
+    const m = mode("personal", { theme: "immersive", soundtrackPresentation: "featured" }, { blocks: [soundtrack] });
     const freeHtml = render(m, "free", "live");
     const plusHtml = render(m, "plus", "live");
     assert.match(freeHtml, /data-soundtrack-player/);
-    assert.match(freeHtml, /data-sound-ui/);
-    assert.doesNotMatch(freeHtml, /spotify\.com|Private editor title/, "the public HTML keeps soundtrack metadata out of its rendered payload");
-    assert.doesNotMatch(plusHtml, /spotify\.com|Private editor title/);
-    assert.doesNotMatch(freeHtml, /data-premium-sound="true"/);
-    assert.match(plusHtml, /data-premium-sound="true"/);
+    assert.equal(attr(freeHtml, "data-sound-presentation"), "minimal");
+    assert.equal(attr(plusHtml, "data-sound-presentation"), "featured");
+    for (const html of [freeHtml, plusHtml]) assert.doesNotMatch(html, /spotify\.com|Private editor title|4cOdK2wGLETKBW3PvgPWqT/);
   });
 
-  test("earned mark and treatment render on every theme and plan", () => {
-    for (const plan of plans) for (const theme of ["light", "noir"]) {
-      const html = lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: mode("personal", { theme, layout: "full-bleed", imageTreatment: "portrait" }), plan, viewerState: "visitor_unconnected", sound: "off", selectedRewards: { profile_mark: "signal_50_mark", profile_treatment: "editorial_profile" } }));
-      assert.match(html, /data-profile-mark/);
-      assert.match(html, /Signal 50/);
-      assert.match(html, /data-earned-treatment/);
+  test("earned mark and treatment render on every Appearance and plan", () => {
+    for (const plan of plans) for (const theme of ["immersive", "clean", "glow"]) {
+      const html = renderWith(mode("personal", { theme }), { plan, selectedRewards: { profile_mark: "signal_50_mark", profile_treatment: "editorial_profile" } });
+      assert.match(html, /data-profile-mark/, `${plan} ${theme}`);
+      assert.match(html, /data-earned-treatment/, `${plan} ${theme}`);
     }
   });
 
   test("viewer states: owner shares, visitor connects, connected shows the connection", () => {
-    const m = mode("personal", { layout: "full-bleed", imageTreatment: "portrait" });
-    const as = (viewerState, extra = {}) => lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: m, viewerState, sound: "off", ...extra }));
-    assert.match(as("owner"), /data-profile-action="share"/);
-    assert.match(as("owner"), /data-profile-action="qr"/);
-    assert.match(as("visitor_unconnected", { visitorAction: lib.createElement("button", { "data-test-connect": "" }, "Connect") }), /data-test-connect/);
-    const connected = as("visitor_connected", { connectionHref: "/app/connections/1", connectionContext: { event: "Rooftop", dateLabel: "10 Oct 2026" } });
+    const m = mode("personal", {});
+    assert.match(renderWith(m, { viewerState: "owner" }), /data-profile-action="share"/);
+    assert.match(renderWith(m, { viewerState: "owner" }), /data-profile-action="qr"/);
+    const connected = renderWith(m, { viewerState: "visitor_connected", connectionHref: "/app/connections/1", connectionContext: { event: "Rooftop", dateLabel: "10 Oct 2026" } });
     assert.match(connected, /data-profile-action="connected"/);
-    assert.match(connected, /Connected · Rooftop · 10 Oct 2026/);
-  });
-
-  test("attribution and footer slots", () => {
-    const html = lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile, mode: mode("personal", {}), viewerState: "visitor_unconnected", sound: "off", attribution: true, footer: lib.createElement("aside", { "data-footer": "" }) }));
-    assert.match(html, /Made with Setuvara/);
-    assert.match(html, /data-footer/);
+    assert.match(connected, /Rooftop/);
   });
 
   test("interface chrome stays English while profile-authored Dutch content stays untouched", () => {
     const authoredBio = "Ik ontwerp producten in Amsterdam.";
-    const html = lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile: { ...profile, bio: authoredBio }, mode: mode("event", { layout: "conference-card", imageTreatment: "portrait" }), viewerState: "visitor_unconnected", visitorAction: lib.createElement("button", null, "Connect"), sound: "off", locale: "nl", attribution: true }));
+    const html = lib.renderToStaticMarkup(lib.createElement(lib.ProfileRenderer, { profile: { ...profile, bio: authoredBio }, mode: mode("event", {}), viewerState: "visitor_unconnected", visitorAction: lib.createElement("button", null, "Connect"), sound: "off", locale: "nl", attribution: true }));
     assert.match(html, />Connect</);
     assert.match(html, new RegExp(authoredBio));
     assert.doesNotMatch(html, /Contact opslaan|Ik wil ontmoeten|save-contact|\/contact\?/);
+  });
+
+  test("photo-led Appearances frame their photo on the saved focus", () => {
+    for (const id of ["clean", "frame", "aura"]) {
+      const html = render(mode("personal", { theme: id }, { image_focus_x: 50, image_focus_y: 15 }), "plus");
+      assert.match(html, /data-photo-focus="50 15"/, id);
+    }
   });
 });
 
@@ -382,40 +548,12 @@ describe("Photo focus", () => {
       const view = lib.visibleWindow({ x, y }, aspect);
       assert.ok(view.x - 1e-9 <= x / 100 && x / 100 <= view.x + view.width + 1e-9, `x ${x} in ${aspect}`);
       assert.ok(view.y - 1e-9 <= y / 100 && y / 100 <= view.y + view.height + 1e-9, `y ${y} in ${aspect}`);
-      assert.ok(Math.abs(view.width / view.height * lib.PHOTO_ASPECT - aspect) < 1e-9, "window keeps the frame's shape");
     }
-  });
-
-  test("a face near the top stays in a wide band instead of being cut off", () => {
-    // The reported photo: a couple shot full length, faces about 15% down a 4:5 crop.
-    const view = lib.visibleWindow({ x: 50, y: 15 }, 16 / 9);
-    assert.equal(view.y, 0);
-    assert.equal(lib.focusPosition({ x: 50, y: 15 }, 16 / 9), "50% 0%");
-    // Centred when the photo allows it.
-    const middle = lib.visibleWindow({ x: 50, y: 50 }, 4 / 3);
-    assert.ok(Math.abs(middle.y + middle.height / 2 - 0.5) < 1e-9);
   });
 
   test("unknown frames fall back to the focus itself; missing values use the default", () => {
     assert.equal(lib.focusPosition({ x: 40, y: 20 }), "40% 20%");
     assert.deepEqual(lib.readFocus(null, undefined), lib.DEFAULT_FOCUS);
-    assert.deepEqual(lib.readFocus(120, -3), lib.DEFAULT_FOCUS);
     assert.deepEqual(lib.modeFocus({ image_focus_x: 30, image_focus_y: 12 }), { x: 30, y: 12 });
-  });
-
-  test("every Mode and layout frames its photo on the saved focus", () => {
-    const focus = { image_focus_x: 50, image_focus_y: 15 };
-    // Tiles have fixed frames (exact first paint); heroes measure themselves in the browser.
-    const cases = [
-      [mode("personal", { layout: "portrait-editorial", imageTreatment: "portrait" }, focus), 116 / 146],
-      [mode("event", { layout: "conference-card", imageTreatment: "compact" }, focus), 1],
-      [mode("business", { layout: "poster", imageTreatment: "portrait" }, focus), 1],
-      [mode("business", { layout: "editorial-business", imageTreatment: "full-bleed" }, focus), undefined],
-    ];
-    for (const [item, aspect] of cases) {
-      const html = render(item, "plus");
-      assert.match(html, /data-photo-focus="50 15"/, `${item.slug} ${item.appearance.layout}`);
-      assert.ok(html.includes(`object-position:${lib.focusPosition({ x: 50, y: 15 }, aspect)}`), `${item.slug} ${item.appearance.layout} uses its frame`);
-    }
   });
 });

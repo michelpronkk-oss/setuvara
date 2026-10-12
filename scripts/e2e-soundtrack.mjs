@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
+import { publicModePath, publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -296,7 +297,7 @@ try {
   // ---- No soundtrack: no sound UI at all, no player scripts.
   {
     const { context, page } = await newVisitor(browser, { preference: "on" });
-    for (const url of [`/${silent.username}`, `/${owner.username}?mode=business`]) {
+    for (const url of [`/${silent.username}`, await publicModePath(owner.username, "business")]) {
       await page.goto(appUrl + url);
       await page.locator('main[data-public-profile-surface="true"]').waitFor();
       assert.equal(await soundUi(page), 0, `${url}: a Mode without a soundtrack shows no sound UI`);
@@ -461,7 +462,7 @@ try {
   // ---- Event Mode with remembered sound retries an unacknowledged play on the first real gesture.
   const eventVisit = await newVisitor(browser, { preference: "on", requireGesture: true });
   const eventPage = eventVisit.page;
-  await eventPage.goto(`${appUrl}/${owner.username}?mode=event`);
+  await eventPage.goto(await publicModeUrl(owner.username, "event"));
   await waitForFake(eventPage, "youtube", { any: true, attached: false, minBlockedAttempts: 1 });
   await assertNoSoundtrackCard(eventPage, ["Nightcall · Kavinsky", "YouTube Music"]);
   const [eventPlayerBeforeTap] = await fake(eventPage, "youtube");
@@ -494,13 +495,13 @@ try {
   await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
   await waitForFake(page, "audio", { any: true, paused: false });
   await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
-  await page.goto(`${appUrl}/${clips.username}?mode=event`);
+  await page.goto(await publicModeUrl(clips.username, "event"));
   await assertNoSoundtrackCard(page, ["A Moment Apart"]);
   await page.getByRole("button", { name: "Enter with sound" }).click();
   await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
   await waitForFake(page, "soundcloud", { any: true, paused: false });
   await page.evaluate(() => localStorage.removeItem("setuvara:sound"));
-  await page.goto(`${appUrl}/${clips.username}?mode=business`);
+  await page.goto(await publicModeUrl(clips.username, "business"));
   await assertNoSoundtrackCard(page, ["Harder, Better, Faster, Stronger"]);
   await page.getByRole("button", { name: "Enter with sound" }).click();
   await page.getByRole("button", { name: /Sound on\. Mute\.|Tap to play sound/ }).waitFor();
@@ -611,7 +612,7 @@ try {
   // ---- Unavailable track: no stuck UI, profile intact.
   {
     const broken = await newVisitor(browser, { unavailable: true });
-    await broken.page.goto(`${appUrl}/${owner.username}?mode=event`);
+    await broken.page.goto(await publicModeUrl(owner.username, "event"));
     await broken.page.waitForFunction(() => window.__soundtest.unavailableFired);
     assert.equal(await broken.page.getByRole("button", { name: /Enter with sound|Sound on|Tap to play/ }).count(), 0, "An unavailable soundtrack shows no sound UI");
     await broken.page.getByRole("button", { name: "Play Studio session" }).waitFor();

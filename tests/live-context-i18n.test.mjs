@@ -116,8 +116,8 @@ describe("English-only interface and region formatting", () => {
     assert.equal(countries.formatCountryName("NL", "nl-NL"), "Netherlands");
     assert.equal(messages.getMessages("nl-NL").common.identity, "Identity");
     assert.equal(messages.getMessages("en").common.identity, "Identity");
-    assert.equal(messages.getMessages("en").appearance.layouts["full-portrait"], "Full Portrait");
-    assert.equal(messages.getMessages("nl-NL").appearance.portrait.showUsername, "Show username");
+    assert.equal(messages.getMessages("en").appearance.pickYourLook, messages.getMessages("nl-NL").appearance.pickYourLook);
+    assert.equal(messages.getMessages("nl-NL").appearance.showUsername, "Show username");
   });
 
   test("formatting never mutates member-authored text", () => {

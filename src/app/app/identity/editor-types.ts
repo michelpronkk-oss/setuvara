@@ -2,7 +2,7 @@ import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import type { ModeLayout } from "@/components/profile/appearance";
+import type { AppearanceId } from "@/components/profile/appearance";
 import type { LinkProvider } from "@/lib/links/providers";
 import type { RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
@@ -30,21 +30,8 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
   creator: { tagline: 280, category: 80 },
 };
 
-/** Labels for each Mode's layouts. Values come from MODE_LAYOUTS, the renderer's own list. */
-const SHARED_LAYOUT_LABELS = [
-  { value: "portrait", label: "Portrait", note: "Image-dominant, cinematic" },
-  { value: "poster", label: "Poster", note: "Graphic headline from Mode context" },
-  { value: "index", label: "Index", note: "Compact, dense, refined" },
-  { value: "full-portrait", label: "Full Portrait", note: "Immersive portrait · Plus" },
-] as const;
-export const LAYOUTS: { [S in ModeSlug]: { value: ModeLayout<S>; label: string; note: string }[] } = {
-  personal: [{ value: "full-bleed", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "portrait-editorial", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
-  event: [{ value: "event-poster", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "conference-card", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
-  business: [{ value: "editorial-business", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "structured", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
-  creator: [{ value: "full-bleed", label: "Cover", note: "Edge-to-edge photo, name over image" }, { value: "portrait-editorial", label: "Framed", note: "Framed portrait beside the name" }, ...SHARED_LAYOUT_LABELS],
-};
-
-export type PlusTrigger = { kind: "theme" | "layout" | "advanced" | "image" | "soundtrack" | "qr" | "restore"; name?: string };
+/** Why the Plus sheet opened. "appearance" carries the Appearance being applied to this Mode. */
+export type PlusTrigger = { kind: "appearance" | "advanced" | "soundtrack" | "qr" | "restore"; name?: string; appearance?: AppearanceId };
 
 export type EditorApi = {
   profile: ProfileIdentity;
@@ -71,6 +58,8 @@ export type EditorApi = {
   clearAppearancePreview: () => void;
   /** Saves the preview when the plan allows it, otherwise opens the Plus sheet. */
   applyAppearancePreview: () => void;
+  /** Resets this Mode's visual config to its Free default; nothing else changes. */
+  resetAppearance: () => void;
   openPlusSheet: (trigger: PlusTrigger) => void;
   requestCapability: (capability: CapabilityKey) => void;
   setModeEnabled: (enabled: boolean) => Promise<void>;
@@ -95,6 +84,9 @@ export type EditorApi = {
   recropPhoto: () => void;
   removePhoto: () => void;
   usePhotoFrom: (slug: ModeSlug) => void;
+  /** Add a slideshow photo (opens the Plus sheet on Free), or remove one by index. */
+  pickSlide: () => void;
+  removeSlide: (index: number) => void;
   equipReward: (category: RewardCategory, rewardId: string) => Promise<void>;
   go: (section: Section, slug?: ModeSlug) => void;
   toast: (text: string, action?: { label: string; run: () => void }) => void;

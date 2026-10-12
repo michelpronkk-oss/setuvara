@@ -7,6 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "rea
 
 import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
+import { MEDIA_LAYOUTS, resolveAppearance, type MediaLayout } from "@/components/profile/appearance";
 import { ProfileBlocks } from "@/components/profile/profile-blocks";
 import { SpeakerIcon } from "@/components/profile/soundtrack";
 import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
@@ -84,6 +85,7 @@ export function ContentSection({ api }: { api: EditorApi }) {
           </SortableContext>
         </DndContext>
       )}
+      {blocks.filter((block) => block.kind === "image" && block.is_visible).length > 1 && <PictureLayout api={api} />}
       {suggested.length > 0 && (
         <div className={`grid grid-cols-1 gap-2 sm:grid-cols-3 ${blocks.length ? "mt-2.5" : ""}`}>
           {suggested.map((kind) => (
@@ -494,5 +496,40 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
         </div>
       </div>
     </Sheet>
+  );
+}
+
+const LAYOUT_NAMES: Record<MediaLayout, string> = { featured: "Featured", stack: "Stack", grid: "Grid", carousel: "Carousel" };
+
+/** A tiny drawing of each picture layout, so the choice reads at a glance. */
+function LayoutGlyph({ layout }: { layout: MediaLayout }) {
+  const tile = "rounded-[3px] bg-current";
+  switch (layout) {
+    case "featured": return <span className="grid h-9 w-11 grid-rows-[1fr_9px] gap-[3px]"><span className={tile} /><span className="flex gap-[3px]"><span className={`w-3 ${tile} opacity-50`} /><span className={`w-3 ${tile} opacity-50`} /><span className={`w-3 ${tile} opacity-50`} /></span></span>;
+    case "stack": return <span className="grid h-9 w-11 grid-rows-3 gap-[3px] px-1"><span className={tile} /><span className={`${tile} opacity-70`} /><span className={`${tile} opacity-50`} /></span>;
+    case "grid": return <span className="grid h-9 w-11 grid-cols-2 grid-rows-2 gap-[3px] px-1"><span className={tile} /><span className={`${tile} opacity-70`} /><span className={`${tile} opacity-70`} /><span className={`${tile} opacity-50`} /></span>;
+    case "carousel": return <span className="flex h-9 w-11 items-stretch gap-[3px] overflow-hidden py-1"><span className={`w-2 shrink-0 ${tile} opacity-40`} /><span className={`w-6 shrink-0 ${tile}`} /><span className={`w-2 shrink-0 ${tile} opacity-40`} /></span>;
+  }
+}
+
+/** How this Mode's pictures sit under its Appearance. Saved on the Mode; every plan. */
+function PictureLayout({ api }: { api: EditorApi }) {
+  const current = resolveAppearance(api.mode, api.plan).mediaLayout;
+  return (
+    <fieldset className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-[18px] bg-white px-4 py-3 shadow-[inset_0_0_0_1px_#0D0D0D14]" data-picture-layout>
+      <legend className="sr-only">Picture layout</legend>
+      <span aria-hidden="true"><span className="block text-[13px] font-semibold">Picture layout</span><span className="block text-[12px] text-black/50">How your pictures sit together</span></span>
+      <div className="flex gap-1.5" role="radiogroup" aria-label="Picture layout">
+        {MEDIA_LAYOUTS.map((layout) => {
+          const on = layout === current;
+          return (
+            <button aria-checked={on} className={`flex w-[62px] flex-col items-center gap-1 rounded-[12px] px-1.5 pb-1.5 pt-2 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0D0D0D] ${on ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-black/55 hover:bg-black/[0.05] hover:text-black"}`} data-layout={layout} key={layout} onClick={() => api.updateAppearance({ mediaLayout: layout === "featured" ? undefined : layout })} role="radio" type="button">
+              <LayoutGlyph layout={layout} />
+              {LAYOUT_NAMES[layout]}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }

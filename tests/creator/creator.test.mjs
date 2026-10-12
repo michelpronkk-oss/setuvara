@@ -36,12 +36,15 @@ test("monetization requires approval, verified KYC, enabled payout, accepted ter
 });
 
 test("Creator is a fourth Mode with independent shared Appearance storage", () => {
-  assert.deepEqual(domain.MODE_LAYOUTS.creator.slice(0, 2), ["full-bleed", "portrait-editorial"]);
-  const creator = domain.resolveAppearance({ slug: "creator", appearance: { theme: "light", layout: "portrait-editorial", imageTreatment: "portrait", accent: "#FF5A4F" } }, "free");
-  const personal = domain.resolveAppearance({ slug: "personal", appearance: { theme: "light", layout: "portrait-editorial", imageTreatment: "portrait", accent: "#FF5A4F" } }, "free");
+  assert.deepEqual(domain.MODE_LAYOUTS.creator.slice(0, 2), ["portrait", "poster"]);
+  const creator = domain.resolveAppearance({ slug: "creator", appearance: { theme: "immersive", accent: "#FF5A4F", socialPlacement: "both", identityAlign: "center", mediaLayout: "grid" } }, "free");
+  const personal = domain.resolveAppearance({ slug: "personal", appearance: { theme: "clean", accent: "#FF5A4F" } }, "free");
   assert.equal(creator.slug, "creator");
-  assert.equal(creator.layout, personal.layout);
-  assert.equal(creator.family, personal.family);
+  assert.equal(creator.id, "immersive");
+  assert.equal(personal.id, "clean");
+  assert.equal(creator.socialPlacement, "both");
+  assert.equal(creator.align, "center");
+  assert.equal(creator.mediaLayout, "grid");
 });
 
 test("review, KYC, and payout transitions reject client-like promotion shortcuts", () => {

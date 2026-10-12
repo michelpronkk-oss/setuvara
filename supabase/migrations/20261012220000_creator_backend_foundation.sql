@@ -19,6 +19,12 @@ alter table public.tap_events drop constraint if exists tap_events_mode_slug_che
 alter table public.tap_events add constraint tap_events_mode_slug_check
   check (mode_slug is null or mode_slug in ('personal','event','business','creator'));
 
+-- The upstream product-feedback migration shipped while Creator was still
+-- unavailable. Keep feedback's current safeguards and include its fourth Mode.
+alter table public.product_feedback drop constraint if exists product_feedback_mode_check;
+alter table public.product_feedback add constraint product_feedback_mode_check
+  check (mode is null or mode in ('personal','event','business','creator'));
+
 -- These established RPCs resolve/authorize a Mode by slug. Extend only their
 -- accepted slug lists; mode-specific Event snapshots stay Event-only.
 do $migration$
@@ -41,9 +47,8 @@ begin
 end;
 $migration$;
 
--- Preserve the existing strict validation for the three established Modes and
--- add a deliberately small Creator settings contract. Appearance remains
--- Mode-scoped and uses the shared curated system.
+-- Preserve the latest strict validation for the three established Modes and
+-- add a deliberately small Creator settings contract.
 alter table public.profile_modes drop constraint if exists profile_modes_settings_fields_check;
 alter table public.profile_modes add constraint profile_modes_settings_fields_check check (
   case slug
@@ -78,39 +83,11 @@ alter table public.profile_modes add constraint profile_modes_settings_fields_ch
   end
 );
 
-alter table public.profile_modes drop constraint if exists profile_modes_appearance_check;
-alter table public.profile_modes add constraint profile_modes_appearance_check check (
-  jsonb_typeof(appearance) = 'object'
-  and appearance ?& array['theme','accent','layout','imageTreatment']
-  and appearance - array['theme','accent','layout','imageTreatment','qrStyle','intensity','card','radius','button','links','soundStyle','portraitZoom','portraitNameSize','portraitShowUsername'] = '{}'::jsonb
-  and jsonb_typeof(appearance->'theme') = 'string'
-  and appearance->>'theme' in ('light','dark','editorial','noir','signal','studio')
-  and jsonb_typeof(appearance->'accent') = 'string' and appearance->>'accent' ~ '^#[0-9A-Fa-f]{6}$'
-  and jsonb_typeof(appearance->'layout') = 'string'
-  and (appearance->>'layout' in ('portrait','poster','index')
-    or (slug='personal' and appearance->>'layout' in ('full-bleed','portrait-editorial'))
-    or (slug='event' and appearance->>'layout' in ('event-poster','conference-card'))
-    or (slug='business' and appearance->>'layout' in ('structured','editorial-business'))
-    or (slug='creator' and appearance->>'layout' in ('full-bleed','portrait-editorial')))
-  and jsonb_typeof(appearance->'imageTreatment') = 'string'
-  and appearance->>'imageTreatment' in ('full-bleed','portrait','compact','frame')
-  and (not (appearance ? 'qrStyle') or appearance->>'qrStyle' in ('standard','accent-frame','label','inverse','rounded'))
-  and (not (appearance ? 'intensity') or appearance->>'intensity' in ('quiet','balanced','signal'))
-  and (not (appearance ? 'card') or appearance->>'card' in ('flat','outline','soft','layered','editorial'))
-  and (not (appearance ? 'radius') or appearance->>'radius' in ('sharp','subtle','soft'))
-  and (not (appearance ? 'button') or appearance->>'button' in ('pill','block','editorial','minimal'))
-  and (not (appearance ? 'links') or appearance->>'links' in ('icons','list','chips','cards'))
-  and (not (appearance ? 'soundStyle') or appearance->>'soundStyle' in ('core','strip','disc','poster'))
-  and (not (appearance ? 'portraitZoom') or appearance->>'portraitZoom' in ('100','110','120','130','140'))
-  and (not (appearance ? 'portraitNameSize') or appearance->>'portraitNameSize' in ('compact','standard','large','statement'))
-  and (not (appearance ? 'portraitShowUsername') or jsonb_typeof(appearance->'portraitShowUsername')='boolean')
-);
-
 -- Existing accounts and future auth-trigger provisioning get an unpublished,
 -- disabled Creator row. No identity or links are copied from another Mode.
 insert into public.profile_modes (profile_id, slug, label, sort_order, is_enabled, appearance)
 select p.id, 'creator', 'Creator', 4, false,
-       '{"theme":"light","accent":"#FF5A4F","layout":"portrait-editorial","imageTreatment":"portrait"}'::jsonb
+       '{"theme":"immersive","accent":"#FF5A4F"}'::jsonb
 from public.profiles p
 on conflict (profile_id, slug) do nothing;
 
@@ -119,19 +96,25 @@ returns trigger language plpgsql security definer set search_path = '' as $funct
 declare
   requested_username text;
   requested_display_name text;
+  personal_theme text;
 begin
-  requested_username := lower(btrim(coalesce(new.raw_user_meta_data ->> 'username', '')));
-  requested_display_name := btrim(coalesce(new.raw_user_meta_data ->> 'display_name', ''));
+  requested_username := pg_catalog.lower(pg_catalog.btrim(coalesce(new.raw_user_meta_data ->> 'username', '')));
+  requested_display_name := pg_catalog.btrim(coalesce(new.raw_user_meta_data ->> 'display_name', ''));
+  personal_theme := case
+    when new.raw_user_meta_data ->> 'appearance' = 'clean' then 'clean'
+    else 'immersive'
+  end;
   if requested_username !~ '^[a-z0-9_]{3,24}$' then
     raise exception using errcode = '23514', message = 'Invalid username';
   end if;
-  if char_length(requested_display_name) not between 1 and 80 then requested_display_name := requested_username; end if;
+  if pg_catalog.char_length(requested_display_name) not between 1 and 80 then requested_display_name := requested_username; end if;
   insert into public.profiles (id, username, display_name) values (new.id, requested_username, requested_display_name);
   insert into public.profile_modes (profile_id, slug, label, sort_order, is_enabled, appearance)
-  values (new.id, 'personal', 'Personal', 1, true, '{"theme":"light","accent":"#FF5A4F","layout":"portrait-editorial","imageTreatment":"portrait"}'::jsonb),
-         (new.id, 'event', 'Event', 2, true, '{"theme":"light","accent":"#FF5A4F","layout":"conference-card","imageTreatment":"portrait"}'::jsonb),
-         (new.id, 'business', 'Business', 3, true, '{"theme":"light","accent":"#FF5A4F","layout":"structured","imageTreatment":"portrait"}'::jsonb),
-         (new.id, 'creator', 'Creator', 4, false, '{"theme":"light","accent":"#FF5A4F","layout":"portrait-editorial","imageTreatment":"portrait"}'::jsonb);
+  values
+    (new.id, 'personal', 'Personal', 1, true, pg_catalog.jsonb_build_object('theme', personal_theme, 'accent', '#FF5A4F')),
+    (new.id, 'event', 'Event', 2, true, '{"theme":"immersive","accent":"#FF5A4F"}'::jsonb),
+    (new.id, 'business', 'Business', 3, true, '{"theme":"clean","accent":"#FF5A4F"}'::jsonb),
+    (new.id, 'creator', 'Creator', 4, false, '{"theme":"immersive","accent":"#FF5A4F"}'::jsonb);
   insert into public.equipped_share_states (profile_id, mode_id, intent)
   select new.id, profile_modes.id, 'view_profile'
   from public.profile_modes
@@ -141,8 +124,9 @@ end;
 $function$;
 revoke all on function private.create_profile_for_new_user() from public, anon, authenticated;
 
--- The initial caller's migration has one canonical appearance check; Creator
--- shares common system layouts but is never assigned a business/event layout.
+-- Creator gets its own row in the existing shared Appearance system. The
+-- current Appearance constraint is intentionally left untouched: its full ID,
+-- personalization, zoom and media-layout vocabulary already works per Mode.
 -- Add all user-owned follower relationships without exposing follower identity.
 create table public.creator_follows (
   creator_user_id uuid not null references public.profiles(id) on delete cascade,

@@ -1,6 +1,6 @@
 begin;
 
-select plan(50);
+select plan(53);
 
 select ok((select relrowsecurity from pg_catalog.pg_class where oid='public.creator_follows'::regclass), 'creator_follows has RLS');
 select ok((select relrowsecurity from pg_catalog.pg_class where oid='public.creator_monetization_accounts'::regclass), 'creator_monetization_accounts has RLS');
@@ -39,6 +39,7 @@ select ok(has_function_privilege('authenticated','public.creator_submit_monetiza
 select ok(not has_function_privilege('authenticated','private.create_profile_for_new_user()','execute'), 'auth provisioning hook remains private');
 
 select ok((select pg_catalog.pg_get_constraintdef(oid) like '%creator%' from pg_catalog.pg_constraint where conrelid='public.profile_modes'::regclass and conname='profile_modes_slug_check'), 'profile_modes accepts creator as a real Mode');
+select ok(pg_catalog.pg_get_functiondef('public.resolve_mode_share(text)'::regprocedure) like '%creator%', 'opaque Mode share locators resolve Creator after slug extension');
 
 create temporary table creator_test_accounts(kind text primary key,user_id uuid not null unique,username text not null unique);
 with ids as materialized (
@@ -55,6 +56,14 @@ select is((select count(*)::integer from public.profile_modes m join creator_tes
 select is((select count(*)::integer from public.profile_modes m join creator_test_accounts a on a.user_id=m.profile_id where a.kind='creator' and m.slug='creator' and m.is_enabled),0,'new Creator Mode defaults disabled');
 select is((select count(*)::integer from public.profile_modes m join creator_test_accounts a on a.user_id=m.profile_id where a.kind='creator' and m.slug in ('personal','event','business') and m.is_enabled),3,'new Personal, Event and Business provisioning remains enabled as before');
 select ok((select c.id <> p.id from public.profile_modes c join creator_test_accounts a on a.user_id=c.profile_id and a.kind='creator' join public.profile_modes p on p.profile_id=c.profile_id and p.slug='personal' where c.slug='creator'),'Creator presentation is stored independently from Personal');
+update public.profile_modes set settings='{"tagline":"Independent creator identity","category":"artist"}'::jsonb
+where profile_id=(select user_id from creator_test_accounts where kind='creator') and slug='creator';
+select is((select settings->>'tagline' from public.profile_modes where profile_id=(select user_id from creator_test_accounts where kind='creator') and slug='creator'), 'Independent creator identity', 'Creator settings branch accepts its bounded identity fields');
+update public.profile_modes set appearance='{"theme":"social","accent":"#FF5A4F","socialPlacement":"both","identityAlign":"center","slideSpeed":"fast","mediaLayout":"carousel","portraitZoom":70}'::jsonb
+where profile_id=(select user_id from creator_test_accounts where kind='creator') and slug='creator';
+select is((select appearance from public.profile_modes where profile_id=(select user_id from creator_test_accounts where kind='creator') and slug='creator'),
+  '{"theme":"social","accent":"#FF5A4F","socialPlacement":"both","identityAlign":"center","slideSpeed":"fast","mediaLayout":"carousel","portraitZoom":70}'::jsonb,
+  'Creator accepts current Appearance IDs, social placement, alignment, slideshow, media layout, and zoom values');
 
 update public.profiles set is_published=true where id=(select user_id from creator_test_accounts where kind='creator');
 update public.profile_modes set is_enabled=true where profile_id=(select user_id from creator_test_accounts where kind='creator') and slug='creator';

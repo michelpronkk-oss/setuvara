@@ -51,7 +51,7 @@ function PreviewProfile({ api, state, setState }: { api: EditorApi; state: Previ
   const label = messages.profile.connect;
   // Same Connect trigger tokens as the public ConnectFlow button.
   const visitorAction = (
-    <button className="inline-flex h-[var(--sv-connect-h,52px)] w-full items-center justify-[var(--sv-connect-justify,center)] gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-fill)] px-5 text-[16px] font-semibold text-[var(--sv-connect-ink)] shadow-[var(--sv-connect-edge,none)] after:content-[var(--sv-connect-arrow,none)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" onClick={() => setState("connected")} type="button"><span>{label}</span></button>
+    <button className="inline-flex h-[var(--sv-connect-h,52px)] w-[var(--sv-connect-w,100%)] min-w-11 items-center justify-[var(--sv-connect-justify,center)] gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-fill)] px-[var(--sv-connect-px,20px)] text-[16px] font-semibold text-[var(--sv-connect-ink)] shadow-[var(--sv-connect-edge,none)] after:content-[var(--sv-connect-arrow,none)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" data-connect-trigger onClick={() => setState("connected")} type="button"><span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[var(--sv-connect-dot,transparent)] [display:var(--sv-connect-dot-display,none)]" /><span>{label}</span></button>
   );
   return (
     <ProfileRenderer

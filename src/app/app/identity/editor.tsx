@@ -7,7 +7,7 @@ import { z } from "zod";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
-import { introducedLockedFields, isModeLayout, isValidAppearance, lockedFields } from "@/components/profile/appearance";
+import { APPEARANCE_NAMES, extraSlideLimit, introducedLockedFields, isModeLayout, isValidAppearance, lockedFields, resetAppearance as resetVisualAppearance, resolveAppearance, storedAppearance } from "@/components/profile/appearance";
 import { focusPosition, modeFocus, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
@@ -19,6 +19,7 @@ import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
 import { isAllowedUsername } from "@/lib/usernames";
+import { publicModeUrl } from "@/lib/share/public-mode-url";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeaturePaywall } from "@/components/app/feature-paywall";
 import { CelebrationClient } from "../passport/passport-dashboard";
@@ -38,6 +39,8 @@ type EditorProps = {
   initialSection: string;
   initialShareIntent: "profile" | "in_person";
   publicOrigin: string;
+  /** Opaque share URLs for non-default Modes (`/s/<token>`); null when unavailable. */
+  modeShareUrls: Partial<Record<ModeSlug, string | null>>;
   error?: string;
   saved?: string;
   signOut: () => Promise<void>;
@@ -72,7 +75,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -91,7 +94,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   // Unsaved premium looks the owner is previewing, per Mode. Never written to the database.
   const [appearancePreviews, setAppearancePreviews] = useState<Record<string, ModeAppearance>>({});
   const [plusSheet, setPlusSheet] = useState<PlusTrigger | null>(null);
-  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus } | null>(null);
+  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus; slide?: boolean } | null>(null);
   const [busyPhoto, setBusyPhoto] = useState(false);
 
   const { messages } = useI18n();
@@ -105,6 +108,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const flushing = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const photoTarget = useRef<string | null>(null);
+  /** The next picked file becomes a slideshow photo rather than the main photo. */
+  const slideTarget = useRef(false);
   const toastTimer = useRef<number | null>(null);
 
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -315,8 +320,22 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     // Remember the previewed look so it applies when the member returns with Plus.
     try { window.localStorage.setItem(pendingAppearanceKey(current.id), JSON.stringify(preview)); } catch { /* private mode: the preview simply isn't remembered */ }
     const field = locked[0];
-    setPlusSheet(field === "theme" ? { kind: "theme", name: preview.theme } : field === "layout" ? { kind: "layout", name: preview.layout } : field === "imageTreatment" ? { kind: "image" } : field === "soundStyle" ? { kind: "soundtrack", name: preview.soundStyle } : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle } : { kind: "advanced" });
+    const appearance = storedAppearance(preview, current.slug);
+    setPlusSheet(field === "theme" || field === "layout" || field === "imageTreatment" ? { kind: "appearance", appearance }
+      : field === "soundStyle" || field === "soundtrackPresentation" ? { kind: "soundtrack", appearance }
+        : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle, appearance } : { kind: "advanced", appearance });
   }, [appearancePreviews, chooseAppearance, plan, slug]);
+
+  // Reset Appearance: only this Mode's visual config returns to its Free default (accent and QR
+  // frame kept). Photo, bio, links, blocks, soundtrack, connections and Live Context live in other
+  // columns and tables and are never touched here.
+  const resetAppearance = useCallback(() => {
+    const current = modesRef.current.find((item) => item.slug === slug);
+    if (!current) return;
+    setAppearancePreviews((previews) => { const rest = { ...previews }; delete rest[current.id]; return rest; });
+    const next = resetVisualAppearance(current.slug, current.appearance);
+    saveAppearanceFor(current.id, { ...Object.fromEntries(Object.keys(current.appearance).map((key) => [key, undefined])), ...next });
+  }, [saveAppearanceFor, slug]);
 
   // Back from checkout with Plus: a look previewed before upgrading applies once.
   useEffect(() => {
@@ -626,7 +645,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     await removeContentImageIfUnused(supabase, initialProfile.id, path);
   }, [initialProfile.id, supabase]);
 
-  const pickPhoto = useCallback(() => { photoTarget.current = mode.id; fileRef.current?.click(); }, [mode.id]);
+  const pickPhoto = useCallback(() => { photoTarget.current = mode.id; slideTarget.current = false; fileRef.current?.click(); }, [mode.id]);
   const recropPhoto = useCallback(() => { if (mode.image_url) setCrop({ source: mode.image_url, modeId: mode.id, revoke: false, focus: modeFocus(mode) }); }, [mode]);
 
   const savePhoto = useCallback(async (modeId: string, blob: Blob, focus: PhotoFocus) => {
@@ -658,6 +677,54 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null, image_focus_x: null, image_focus_y: null }).eq("id", target.id).eq("profile_id", initialProfile.id);
       if (updateError) { patchMode(target.id, previous); return "The photo couldn’t be removed."; }
       await removeIfUnused(previous.image_path);
+      return null;
+    });
+  }, [initialProfile.id, mode, patchMode, removeIfUnused, runNow, supabase]);
+
+  // Extra slideshow photos after the main one: Plus adds one, Pro three. The database enforces it too.
+  const pickSlide = useCallback(() => {
+    if (!extraSlideLimit(plan)) { setPlusSheet({ kind: "advanced" }); return; }
+    photoTarget.current = mode.id;
+    slideTarget.current = true;
+    fileRef.current?.click();
+  }, [mode.id, plan]);
+
+  const saveSlide = useCallback(async (modeId: string, blob: Blob, focus: PhotoFocus) => {
+    setBusyPhoto(true);
+    const target = modesRef.current.find((item) => item.id === modeId);
+    const failure = await runNow(async () => {
+      if (!target) return "That Mode couldn’t be found.";
+      const current = target.slide_photos ?? [];
+      if (current.length >= extraSlideLimit(plan)) return plan === "pro" ? "Your slideshow is full. Remove a photo first." : "Pro slideshows hold up to four photos.";
+      const path = `${initialProfile.id}/${crypto.randomUUID()}.webp`;
+      const { error: uploadError } = await supabase.storage.from(MEDIA).upload(path, blob, { contentType: "image/webp", upsert: false });
+      if (uploadError) return "The photo couldn’t be uploaded. Use a JPEG, PNG or WebP under 5 MB.";
+      const next = [...current, { path, x: focus.x, y: focus.y }];
+      const { error: updateError } = await supabase.from("profile_modes").update({ slide_photos: next }).eq("id", modeId).eq("profile_id", initialProfile.id);
+      if (updateError) {
+        await supabase.storage.from(MEDIA).remove([path]);
+        return updateError.message.includes("slideshow_requires_plan") ? "Slideshows need Plus. Pro holds up to four photos." : "The photo uploaded but couldn’t be added to the slideshow.";
+      }
+      const { data: signed } = await supabase.storage.from(MEDIA).createSignedUrl(path, 3600);
+      patchMode(modeId, { slide_photos: next, slide_urls: [...(target.slide_urls ?? []), { url: signed?.signedUrl ?? URL.createObjectURL(blob), x: focus.x, y: focus.y }] });
+      return null;
+    });
+    setBusyPhoto(false);
+    if (!failure) toast("Added to your slideshow");
+  }, [initialProfile.id, patchMode, plan, runNow, supabase, toast]);
+
+  const removeSlide = useCallback((index: number) => {
+    const target = mode;
+    const photos = target.slide_photos ?? [];
+    const removed = photos[index];
+    if (!removed) return;
+    const previous = { slide_photos: photos, slide_urls: target.slide_urls ?? [] };
+    const next = photos.filter((_, at) => at !== index);
+    patchMode(target.id, { slide_photos: next, slide_urls: previous.slide_urls.filter((_, at) => at !== index) });
+    void runNow(async () => {
+      const { error: updateError } = await supabase.from("profile_modes").update({ slide_photos: next }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      if (updateError) { patchMode(target.id, previous); return "That photo couldn’t be removed from the slideshow."; }
+      await removeIfUnused(removed.path);
       return null;
     });
   }, [initialProfile.id, mode, patchMode, removeIfUnused, runNow, supabase]);
@@ -703,13 +770,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     window.scrollTo({ top: 0 });
   }, [flush, slug]);
 
-  const publicUrl = useCallback((target: ModeSlug, source?: string) => {
-    const query = new URLSearchParams();
-    if (target !== "personal") query.set("mode", target);
-    if (source) query.set("source", source);
-    const suffix = query.toString();
-    return `${publicOrigin}/${savedUsername}${suffix ? `?${suffix}` : ""}`;
-  }, [publicOrigin, savedUsername]);
+  const publicUrl = useCallback((target: ModeSlug, source?: string) => publicModeUrl({ origin: publicOrigin, username: savedUsername, shareUrls: modeShareUrls, mode: target, source }), [publicOrigin, savedUsername, modeShareUrls]);
 
   const requestCapability = useCallback((capability: CapabilityKey) => {
     setPaywallCapability(capability);
@@ -719,10 +780,10 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const api: EditorApi = {
     profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
     updateProfile, updateSetting, updateAppearance, requestCapability,
-    appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
+    appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
-    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, equipReward, go, toast, publicUrl,
+    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, pickSlide, removeSlide, equipReward, go, toast, publicUrl,
   };
 
   if (!mode) return <main className="grid min-h-dvh place-items-center p-8 text-sm">Your Modes are being prepared.</main>;
@@ -797,7 +858,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           </nav>
           <div className="mt-auto px-2 pt-8">
             <p className="text-[13px] text-black/55">{profile.is_published ? "Live at" : "Will live at"}</p>
-            <p className="mt-1 break-all font-label text-[12px]">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
+            <p className="mt-1 truncate font-label text-[12px]" title={publicUrl(slug)}>{publicUrl(slug).replace(/^https?:\/\//, "") || "Link unavailable"}</p>
             <a className="mt-2 inline-flex min-h-9 items-center text-sm font-semibold underline underline-offset-4" href={publicUrl(slug)} rel="noreferrer" target="_blank">View live profile ↗</a>
             <div className="mt-5 flex items-center gap-4 border-t border-black/10 pt-4 text-[13px] text-black/55">
               <Link className="min-h-9 py-2 hover:text-black" href="/app">Home</Link>
@@ -835,13 +896,13 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       </nav>
 
       {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} />}
-      {crop && <CropDialog key={crop.source} busy={busyPhoto} initialFocus={crop.focus} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; fileRef.current?.click(); }} onSave={async (area, focus) => {
+      {crop && <CropDialog key={crop.source} busy={busyPhoto} initialFocus={crop.focus} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; slideTarget.current = Boolean(crop.slide); fileRef.current?.click(); }} onSave={async (area, focus) => {
         try {
           const blob = await cropToBlob(crop.source, area);
           const target = crop.modeId;
           if (crop.revoke) URL.revokeObjectURL(crop.source);
           setCrop(null);
-          await savePhoto(target, blob, focus);
+          await (crop.slide ? saveSlide : savePhoto)(target, blob, focus);
         } catch { toast("That photo couldn’t be prepared. Try a different file."); }
       }} source={crop.source} />}
 
@@ -852,7 +913,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast("Choose a JPEG, PNG or WebP image."); return; }
         if (file.size > 15 * 1024 * 1024) { toast("That image is too large. Choose one under 15 MB."); return; }
         if (crop?.revoke) URL.revokeObjectURL(crop.source);
-        setCrop({ source: URL.createObjectURL(file), modeId: photoTarget.current ?? mode.id, revoke: true });
+        setCrop({ source: URL.createObjectURL(file), modeId: photoTarget.current ?? mode.id, revoke: true, slide: slideTarget.current });
       }} ref={fileRef} type="file" />
 
       {toastState && (
@@ -864,7 +925,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         </div>
       )}
       {paywallCapability && <FeaturePaywall capability={paywallCapability} onClose={closePaywall} />}
-      {plusSheet && <AppearancePlusSheet onClose={() => setPlusSheet(null)} plan={plan} trigger={plusSheet} />}
+      {plusSheet && <AppearancePlusSheet currentName={APPEARANCE_NAMES[resolveAppearance(mode, plan).id]} modeLabel={mode.label} onClose={() => setPlusSheet(null)} plan={plan} trigger={plusSheet} />}
       <CelebrationClient name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} threshold={celebrationThreshold} />
     </div>
   );

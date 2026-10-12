@@ -13,6 +13,7 @@ import { resolveModeAccent, resolveQrStyle } from "@/components/profile/appearan
 import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeAppearance } from "@/components/profile/types";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
+import { publicModeUrl } from "@/lib/share/public-mode-url";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { hasCapability } from "@/lib/billing/capabilities";
 import type { ConnectPolicy } from "@/lib/connections/access";
@@ -44,8 +45,8 @@ function rememberedMode(): ModeSlug | null {
 }
 const noSubscription = () => () => {};
 
-export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modes, initialMode, hasRequestedMode }: {
-  displayName: string; username: string; plan: PlanCode; isPublished: boolean; publicOrigin: string; modes: StageMode[]; initialMode: ModeSlug; hasRequestedMode: boolean;
+export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode }: {
+  displayName: string; username: string; plan: PlanCode; isPublished: boolean; publicOrigin: string; modeShareUrls: Partial<Record<ModeSlug, string | null>>; modes: StageMode[]; initialMode: ModeSlug; hasRequestedMode: boolean;
 }) {
   const saved = useSyncExternalStore(subscribeMode, rememberedMode, () => null);
   const [selected, setSelected] = useState<ModeSlug | null>(null);
@@ -59,14 +60,8 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   const hasMemberBadge = hasCapability(plan, "identity.plus_badge") || hasCapability(plan, "identity.pro_badge");
   const live = isPublished && mode.enabled;
   const hasPhoto = Boolean(mode.imageUrl && mode.imageUrl !== failedImage);
-  const publicUrl = useCallback((target: ModeSlug, source?: string) => {
-    // Same URL format as the Identity editor's publicUrl().
-    const query = new URLSearchParams();
-    if (target !== "personal") query.set("mode", target);
-    if (source) query.set("source", source);
-    const suffix = query.toString();
-    return `${publicOrigin}/${username}${suffix ? `?${suffix}` : ""}`;
-  }, [publicOrigin, username]);
+  // Same URLs as the Identity editor: username for Personal, opaque /s/ links otherwise.
+  const publicUrl = useCallback((target: ModeSlug, source?: string) => publicModeUrl({ origin: publicOrigin, username, shareUrls: modeShareUrls, mode: target, source }), [publicOrigin, username, modeShareUrls]);
 
   const pick = useCallback((next: ModeSlug) => {
     setSelected(next);
