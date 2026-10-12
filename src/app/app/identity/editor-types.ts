@@ -27,6 +27,7 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
   personal: { note: 280, location: 80, pronouns: 40 },
   event: { eventName: 100, city: 80, dateLabel: 80, role: 80, hereToMeet: 280 },
   business: { role: 80, company: 100, city: 80, description: 280 },
+  creator: { tagline: 280, category: 80 },
 };
 
 /** Why the Plus sheet opened. "appearance" carries the Appearance being applied to this Mode. */

@@ -72,7 +72,7 @@ type ProfileRendererProps = {
 };
 
 type Copy = ReturnType<typeof getMessages>["profile"];
-const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
+const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
 const LINK_COLLAPSE_AT = 9;
 const LINK_VISIBLE = 6;
 

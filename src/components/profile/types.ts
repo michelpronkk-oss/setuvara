@@ -1,4 +1,4 @@
-export type ModeSlug = "personal" | "event" | "business";
+export type ModeSlug = "personal" | "event" | "business" | "creator";
 export type ViewerState = "owner" | "visitor_unconnected" | "visitor_connected";
 
 export type ConnectionContext = {

@@ -35,7 +35,7 @@ export function parseResolvedEquippedShare(value: unknown): ResolvedEquippedShar
 export async function currentVisitorPassTokens() {
   const cookieStore = await cookies();
   return cookieStore.getAll()
-    .filter(({ name, value }) => /^sv-pass-[a-z0-9_]{3,24}-(personal|event|business)$/.test(name) && passTokenPattern.test(value))
+    .filter(({ name, value }) => /^sv-pass-[a-z0-9_]{3,24}-(personal|event|business|creator)$/.test(name) && passTokenPattern.test(value))
     .slice(0, 32)
     .map(({ value }) => value);
 }

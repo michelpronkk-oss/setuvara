@@ -173,10 +173,11 @@ function BlockRow({ api, block, onEdit }: { api: EditorApi; block: ProfileBlock;
 // ---------------------------------------------------------------- Add sheet
 
 /** Apps offered when someone types a bare username, most likely first per Mode. */
-const HANDLE_APPS: Record<"personal" | "event" | "business", LinkProviderId[]> = {
+const HANDLE_APPS: Record<"personal" | "event" | "business" | "creator", LinkProviderId[]> = {
   personal: ["instagram", "tiktok", "x", "youtube", "threads", "snapchat", "twitch", "telegram"],
   event: ["instagram", "linkedin", "x", "tiktok", "threads", "youtube", "github", "telegram"],
   business: ["linkedin", "instagram", "x", "github", "youtube", "tiktok", "calendly", "telegram"],
+  creator: ["instagram", "tiktok", "youtube", "spotify", "substack", "patreon", "twitch", "threads", "x"],
 };
 
 function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => void; onPick: (next: SheetState) => void }) {

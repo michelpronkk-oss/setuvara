@@ -146,6 +146,7 @@ const HERO_PRIORITY: Record<ModeSlug, string[]> = {
   personal: ["instagram", "tiktok", "spotify", "x", "youtube", "threads", "soundcloud", "apple_music", "bluesky", "snapchat", "pinterest", "twitch", "kick", "facebook", "mastodon", "substack", "medium", "patreon", "behance", "dribbble", "github", "gitlab", "linkedin", "portfolio", "website", "email"],
   event: ["linkedin", "instagram", "x", "website", "company_website", "github", "behance", "dribbble", "tiktok", "youtube", "threads", "bluesky", "spotify", "portfolio", "email"],
   business: ["linkedin", "website", "company_website", "behance", "email", "dribbble", "github", "portfolio", "x", "instagram", "youtube", "medium", "substack", "threads", "bluesky", "tiktok"],
+  creator: ["instagram", "tiktok", "youtube", "spotify", "substack", "patreon", "twitch", "threads", "x", "soundcloud", "bluesky", "portfolio", "website"],
 };
 export const HERO_SOCIAL_LIMIT = 5;
 /** Sites and email keep their titled row; only social platforms become icons under the name. */

@@ -29,7 +29,7 @@ export type SeoPublicMode = {
 
 export type SeoPublicProfileRecord = { profile: SeoPublicProfile; mode: SeoPublicMode };
 
-const MODE_SLUGS = new Set<ModeSlug>(["personal", "event", "business"]);
+const MODE_SLUGS = new Set<ModeSlug>(["personal", "event", "business", "creator"]);
 
 /** Only published identities and enabled Modes are ever eligible for public SEO. */
 export const getPublishedPublicMode = cache(async (username: string, slug: ModeSlug): Promise<SeoPublicProfileRecord | null> => {

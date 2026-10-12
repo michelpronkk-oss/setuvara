@@ -29,11 +29,13 @@ const modeIntro: Record<ModeSlug, string> = {
   personal: "The version of you that you give personally, to friends, communities and people you choose.",
   event: "Temporary and specific to one event. Personal and Business stay untouched.",
   business: "Clean and structured. What a client, investor or recruiter needs.",
+  creator: "Your creative identity and audience-facing profile.",
 };
 const profileIntro: Record<ModeSlug, string> = {
   personal: "Expressive and personal. Only what you choose appears.",
   event: "Temporary and specific to this event. Personal and Business stay untouched.",
   business: "Clean and structured. What a client, investor or recruiter needs.",
+  creator: "A public identity for your creative work.",
 };
 const CONTACT_PROVIDERS = ["email", "phone", "sms", "whatsapp", "telegram", "signal", "messenger"];
 
@@ -441,7 +443,7 @@ export function AddLinkPanel({ api, initial, initialValue = "", onClose, bare = 
 export function SettingsSection({ api }: { api: EditorApi }) {
   const { mode, slug, profile } = api;
   const contacts = mode.links.filter((link) => CONTACT_PROVIDERS.includes(providerForLink(link.link_type).id));
-  const description = { personal: "Who sees what in Personal Mode.", event: "What this Event Mode shows, and what it remembers.", business: "Contact rules and what Business Mode shows." }[slug];
+  const description = { personal: "Who sees what in Personal Mode.", event: "What this Event Mode shows, and what it remembers.", business: "Contact rules and what Business Mode shows.", creator: "Creator identity and connection access." }[slug];
   return (
     <div>
       <SectionHeader description={description} slug={slug} title="Mode Settings" />
@@ -538,16 +540,16 @@ function AppearsIn({ api }: { api: EditorApi }) {
     const bySlug = Object.fromEntries(api.modes.map((mode) => [mode.slug, mode])) as Record<ModeSlug, ProfileMode | undefined>;
     const has = (slug: ModeSlug, test: (mode: ProfileMode) => boolean) => Boolean(bySlug[slug] && test(bySlug[slug]!));
     const list: { label: string; cells: Record<ModeSlug, boolean> }[] = [
-      { label: "Photo", cells: { personal: has("personal", (m) => Boolean(m.image_path)), event: has("event", (m) => Boolean(m.image_path)), business: has("business", (m) => Boolean(m.image_path)) } },
-      { label: "Personal line", cells: { personal: Boolean(api.profile.bio.trim()), event: false, business: false } },
-      { label: "Location or city", cells: { personal: has("personal", (m) => Boolean(text(m, "location").trim())), event: has("event", (m) => Boolean(text(m, "city").trim())), business: has("business", (m) => Boolean(text(m, "city").trim())) } },
-      { label: "Role & company", cells: { personal: false, event: has("event", (m) => Boolean(text(m, "role").trim())), business: has("business", (m) => Boolean(text(m, "role").trim() || text(m, "company").trim())) } },
-      { label: "Here to meet", cells: { personal: false, event: has("event", (m) => Boolean(text(m, "hereToMeet").trim())), business: false } },
+      { label: "Photo", cells: { personal: has("personal", (m) => Boolean(m.image_path)), event: has("event", (m) => Boolean(m.image_path)), business: has("business", (m) => Boolean(m.image_path)), creator: has("creator", (m) => Boolean(m.image_path)) } },
+      { label: "Personal line", cells: { personal: Boolean(api.profile.bio.trim()), event: false, business: false, creator: false } },
+      { label: "Location or city", cells: { personal: has("personal", (m) => Boolean(text(m, "location").trim())), event: has("event", (m) => Boolean(text(m, "city").trim())), business: has("business", (m) => Boolean(text(m, "city").trim())), creator: false } },
+      { label: "Role & company", cells: { personal: false, event: has("event", (m) => Boolean(text(m, "role").trim())), business: has("business", (m) => Boolean(text(m, "role").trim() || text(m, "company").trim())), creator: false } },
+      { label: "Here to meet", cells: { personal: false, event: has("event", (m) => Boolean(text(m, "hereToMeet").trim())), business: false, creator: false } },
     ];
     const names = new Map<string, Record<ModeSlug, boolean>>();
     for (const mode of api.modes) for (const link of mode.links) {
       const name = providerForLink(link.link_type).name;
-      const cells = names.get(name) ?? { personal: false, event: false, business: false };
+      const cells = names.get(name) ?? { personal: false, event: false, business: false, creator: false };
       if (link.is_visible) cells[mode.slug] = true;
       names.set(name, cells);
     }

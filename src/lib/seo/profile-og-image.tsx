@@ -11,8 +11,8 @@ import { isAllowedUsername } from "@/lib/usernames";
 
 const imageSize = { width: 1200, height: 630 };
 const maxPhotoBytes = 2 * 1024 * 1024;
-const modeColors = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF" } as const;
-const modeLabels = { personal: "PERSONAL MODE", event: "EVENT MODE", business: "BUSINESS MODE" } as const;
+const modeColors = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" } as const;
+const modeLabels = { personal: "PERSONAL MODE", event: "EVENT MODE", business: "BUSINESS MODE", creator: "CREATOR MODE" } as const;
 
 function cleanText(value: string, limit: number) {
   const normalized = value.normalize("NFC").replace(/\s+/g, " ").trim();
@@ -20,13 +20,15 @@ function cleanText(value: string, limit: number) {
   return points.length > limit ? `${points.slice(0, limit - 1).join("")}…` : normalized;
 }
 
-function settingContext(settings: Record<string, unknown>, mode: "personal" | "event" | "business") {
+function settingContext(settings: Record<string, unknown>, mode: "personal" | "event" | "business" | "creator") {
   const record = { settings };
   const values = mode === "personal"
     ? [publicSetting(record, "location", 80)]
     : mode === "event"
       ? [publicSetting(record, "eventName", 100), publicSetting(record, "city", 80), publicSetting(record, "dateLabel", 80), publicSetting(record, "role", 80)]
-      : [publicSetting(record, "role", 80), publicSetting(record, "company", 100), publicSetting(record, "city", 80)];
+      : mode === "business"
+        ? [publicSetting(record, "role", 80), publicSetting(record, "company", 100), publicSetting(record, "city", 80)]
+        : [publicSetting(record, "tagline", 280), publicSetting(record, "category", 80)];
   return cleanText(values.filter(Boolean).join(" · "), 96);
 }
 

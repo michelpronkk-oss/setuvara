@@ -49,6 +49,7 @@ export const MODE_LAYOUTS = {
   personal: ["full-bleed", "portrait-editorial", ...SHARED_LAYOUTS],
   event: ["event-poster", "conference-card", ...SHARED_LAYOUTS],
   business: ["editorial-business", "structured", ...SHARED_LAYOUTS],
+  creator: [...SHARED_LAYOUTS],
 } as const satisfies Record<ModeSlug, readonly string[]>;
 export type ModeLayout<S extends ModeSlug = ModeSlug> = (typeof MODE_LAYOUTS)[S][number];
 /** Legacy layouts whose photo filled the hero. */
@@ -125,7 +126,7 @@ const APPEARANCE_DEFAULTS: Record<AppearanceId, { socialStyle: SocialStyle; moti
 };
 
 /** Where new accounts and missing values start. Free defaults only. */
-export const MODE_DEFAULT_APPEARANCE: Record<ModeSlug, AppearanceId> = { personal: "immersive", event: "immersive", business: "clean" };
+export const MODE_DEFAULT_APPEARANCE: Record<ModeSlug, AppearanceId> = { personal: "immersive", event: "immersive", business: "clean", creator: "immersive" };
 
 /** A Mode's look with every value checked against the plan. */
 export type ResolvedAppearance = {

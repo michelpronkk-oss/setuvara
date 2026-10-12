@@ -76,7 +76,7 @@ update public.profile_modes set is_enabled = true from ca_accounts where profile
 
 select is(
   (select count(*)::integer from public.profile_modes join ca_accounts on ca_accounts.user_id = profile_modes.profile_id where connect_policy = 'anyone'),
-  9, 'new Modes default to anyone, preserving current Connect behavior'
+  12, 'all four Modes default to anyone, preserving current Connect behavior'
 );
 select throws_ok(
   $$update public.profile_modes set connect_policy = 'everyone' where profile_id = (select user_id from ca_accounts where name = 'michel')$$,
