@@ -624,7 +624,7 @@ describe("Photo originals", () => {
   });
 
   test("the migration keeps the original private, owner-scoped and paired with its crop", () => {
-    const sql = readFileSync(join(root, "supabase/migrations/20261012230000_photo_originals.sql"), "utf8");
+    const sql = readFileSync(join(root, "supabase/migrations/20261012230100_photo_originals.sql"), "utf8");
     assert.match(sql, /add column if not exists image_original_path text/);
     assert.match(sql, /\(image_original_path is null\) = \(image_crop is null\)/);
     assert.match(sql, /split_part\(image_original_path, '\/', 1\) = profile_id::text/);
