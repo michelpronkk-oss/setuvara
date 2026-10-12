@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
+import { landedMode } from "./lib/mode-share-url.mjs";
 
 const root = resolve(process.cwd());
 const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
@@ -180,8 +181,9 @@ async function openTap(browser, tapUrl, expectedUsername, expectedMode, viewport
   const initial = await directTapResponse(context, tapUrl);
   const location = new URL(initial.location, appUrl);
   assert.equal(location.origin, appUrl);
-  assert.equal(location.pathname, `/${expectedUsername}`, "Tap redirects only to the canonical public identity URL");
-  assert.equal(location.searchParams.get("mode"), expectedMode, "The currently equipped Mode drives this stable Tap URL");
+  if (expectedMode === "personal") assert.equal(location.pathname, `/${expectedUsername}`, "Tap redirects Personal to the canonical public identity URL");
+  else assert.match(location.pathname, /^\/s\/[A-Za-z0-9_-]{43}$/, "Tap redirects Event and Business to their opaque share locator");
+  assert.equal(location.searchParams.get("mode"), null, "Tap never relies on a ?mode= query");
   assert.equal(location.searchParams.get("source"), "tap", "Tap attribution remains a source context value");
   assert(!location.href.includes(new URL(tapUrl).pathname.split("/").at(-1)), "Redirect URL never repeats the bearer token");
   const response = await page.goto(tapUrl);
@@ -424,7 +426,7 @@ try {
   await setMode(owner, "personal", { connect_policy: "anyone" });
   const anyoneContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const anyonePass = await directTapResponse(anyoneContext, device.url);
-  assert.equal(new URL(anyonePass.location, appUrl).searchParams.get("mode"), "personal");
+  assert.equal(await landedMode(anyonePass.location), "personal");
   assert.equal((await anyoneContext.cookies(appUrl)).some((cookie) => cookie.name.startsWith("sv-pass-")), false, "Anyone policy does not issue a redundant Connection Pass");
   assert.equal(await grantCount(owner.id, device.id), 0);
   const anyonePage = await anyoneContext.newPage();
@@ -489,10 +491,10 @@ try {
     setEquipped(owner, "event", "view_profile"),
     directTapResponse(observer, device.url),
   ]);
-  const modeDuringEquip = new URL(tapDuringEquip.location, appUrl).searchParams.get("mode");
+  const modeDuringEquip = await landedMode(tapDuringEquip.location);
   assert(["personal", "event"].includes(modeDuringEquip), "Concurrent Equipped update and Tap resolve to one complete current Mode");
-  await directTapResponse(observer, device.url).then(({ location }) => {
-    assert.equal(new URL(location, appUrl).searchParams.get("mode"), "event", "A post-update Tap sees the new Equipped Mode");
+  await directTapResponse(observer, device.url).then(async ({ location }) => {
+    assert.equal(await landedMode(location), "event", "A post-update Tap sees the new Equipped Mode");
   });
   await setEquipped(owner, "personal", "view_profile");
   console.log("PASS concurrent Equipped update/Tap resolution linearizes to the new identity-wide Mode");

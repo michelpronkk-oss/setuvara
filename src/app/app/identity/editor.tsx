@@ -19,6 +19,7 @@ import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
 import { isAllowedUsername } from "@/lib/usernames";
+import { publicModeUrl } from "@/lib/share/public-mode-url";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeaturePaywall } from "@/components/app/feature-paywall";
 import { CelebrationClient } from "../passport/passport-dashboard";
@@ -38,6 +39,8 @@ type EditorProps = {
   initialSection: string;
   initialShareIntent: "profile" | "in_person";
   publicOrigin: string;
+  /** Opaque share URLs for non-default Modes (`/s/<token>`); null when unavailable. */
+  modeShareUrls: Partial<Record<ModeSlug, string | null>>;
   error?: string;
   saved?: string;
   signOut: () => Promise<void>;
@@ -72,7 +75,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -767,13 +770,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     window.scrollTo({ top: 0 });
   }, [flush, slug]);
 
-  const publicUrl = useCallback((target: ModeSlug, source?: string) => {
-    const query = new URLSearchParams();
-    if (target !== "personal") query.set("mode", target);
-    if (source) query.set("source", source);
-    const suffix = query.toString();
-    return `${publicOrigin}/${savedUsername}${suffix ? `?${suffix}` : ""}`;
-  }, [publicOrigin, savedUsername]);
+  const publicUrl = useCallback((target: ModeSlug, source?: string) => publicModeUrl({ origin: publicOrigin, username: savedUsername, shareUrls: modeShareUrls, mode: target, source }), [publicOrigin, savedUsername, modeShareUrls]);
 
   const requestCapability = useCallback((capability: CapabilityKey) => {
     setPaywallCapability(capability);
@@ -861,7 +858,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           </nav>
           <div className="mt-auto px-2 pt-8">
             <p className="text-[13px] text-black/55">{profile.is_published ? "Live at" : "Will live at"}</p>
-            <p className="mt-1 break-all font-label text-[12px]">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
+            <p className="mt-1 truncate font-label text-[12px]" title={publicUrl(slug)}>{publicUrl(slug).replace(/^https?:\/\//, "") || "Link unavailable"}</p>
             <a className="mt-2 inline-flex min-h-9 items-center text-sm font-semibold underline underline-offset-4" href={publicUrl(slug)} rel="noreferrer" target="_blank">View live profile ↗</a>
             <div className="mt-5 flex items-center gap-4 border-t border-black/10 pt-4 text-[13px] text-black/55">
               <Link className="min-h-9 py-2 hover:text-black" href="/app">Home</Link>

@@ -45,3 +45,7 @@ To program an owner-created Tap, copy the URL shown immediately after creation o
 ## Privacy
 
 Tap activity is best-effort and bounded under repeated hits. Events retain only the device/owner, timestamp, selected Mode, intent, and a closed outcome value. They do not store the raw Tap URL or token, claim secret, visitor identity, email, IP address, user agent, GPS, or location. Event tables are not directly readable by `anon` or `authenticated` roles and have no public analytics endpoint.
+
+## Mode share links
+
+The username URL (`/<username>`) only ever shows the default Personal Mode; a `?mode=` query is ignored. Event and Business open only through an opaque Mode share link, `/s/<token>`, which resolves server-side (`resolve_mode_share`) to one published identity and one enabled Mode and then renders the same public profile. `mode_share_locators` follows the Quick Share design: one row per Mode with a random nonce and the SHA-256 token hash, the token derived with `QUICK_SHARE_TOKEN_KEY` under its own domain string. Only the server (service role) mints locators. Tap, Quick QR and Connection Pass redirects land on the same links, and Event/Business preview images are served from `/og/s/<token>`. A share link is a pointer only: Connection Access is still decided per profile and Mode on the page.

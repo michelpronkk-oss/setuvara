@@ -10,6 +10,7 @@ import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
 import { readFocus } from "@/components/profile/photo-focus";
 import { parseConnectPolicy } from "@/lib/connections/access";
+import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { createClient } from "@/lib/supabase/server";
 
 const ORDER: ModeSlug[] = ["personal", "event", "business"];
@@ -32,6 +33,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   ]);
   if (!profile) redirect("/login?next=/app");
   const publicOrigin = await getPublicOrigin(requestHeaders);
+  const modeShareUrls = await ownerModeShareUrls(userId, profile.username, ORDER.filter((slug) => modeRows?.some((row) => row.slug === slug)), publicOrigin);
 
   const modes: StageMode[] = await Promise.all(ORDER.map(async (slug) => {
     const row = modeRows?.find((item) => item.slug === slug);
@@ -52,6 +54,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
         modes={modes}
         plan={billing.plan}
         publicOrigin={publicOrigin}
+        modeShareUrls={modeShareUrls}
         username={profile.username}
       />
       <div className="mt-5 flex min-h-0 flex-col gap-6 lg:mt-0 min-[1800px]:gap-8">

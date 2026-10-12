@@ -41,7 +41,7 @@ function StatusBar({ dark }: { dark: boolean }) {
 }
 
 function Url({ mode, dark }: { mode: string; dark: boolean }) {
-  return <p className={`mt-12 text-center font-label text-[9px] tracking-[0.08em] ${dark ? "text-paper/45" : "text-ink/45"}`}>setuvara.com/{person.username}?mode={mode}</p>;
+  return <p className={`mt-12 text-center font-label text-[9px] tracking-[0.08em] ${dark ? "text-paper/45" : "text-ink/45"}`}>{mode === "personal" ? `setuvara.com/${person.username}` : "setuvara.com/s/k7Qx…"}</p>;
 }
 
 function Row({ provider, title, tone }: { provider: string; title: string; tone: "dark" | "coral" | "light" }) {

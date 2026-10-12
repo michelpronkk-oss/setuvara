@@ -22,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     });
     const resolved = error ? null : parseResolvedEquippedShare(data);
     return resolved
-      ? resolvedShareRedirect(resolved, "tap")
+      ? await resolvedShareRedirect(resolved, "tap")
       : internalShareRedirect("/t/unavailable");
   } catch {
     return internalShareRedirect("/t/unavailable");

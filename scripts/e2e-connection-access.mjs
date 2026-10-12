@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
+import { publicModePath, publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.E2E_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -141,9 +142,9 @@ try {
     assert.equal(await connectCount(anon, `/${michel.username}`), 0, "Direct share only: canonical Personal has no Connect");
     await anon.getByRole("link", { name: /michel journal/i }).waitFor();
     await shot(anon, "03-direct-only-public-view-only");
-    assert.equal(await connectCount(anon, `/${michel.username}?mode=event`), 1, "Event Anyone shows Connect");
-    assert.equal(await connectCount(anon, `/${michel.username}?mode=business`), 0, "Business Nobody shows no Connect");
-    for (const tampered of ["?connect=1", "?source=qr", "?connect=true&source=share", "?mode=personal&connect=1"]) {
+    assert.equal(await connectCount(anon, await publicModePath(michel.username, "event")), 1, "Event Anyone shows Connect");
+    assert.equal(await connectCount(anon, await publicModePath(michel.username, "business")), 0, "Business Nobody shows no Connect");
+    for (const tampered of ["?connect=1", "?source=qr", "?connect=true&source=share", "?mode=personal&connect=1", "?mode=event"]) {
       assert.equal(await connectCount(anon, `/${michel.username}${tampered}`), 0, `URL tampering (${tampered}) cannot authorize Connect`);
     }
     await anon.context().addCookies([{ name: `sv-pass-${michel.username}-personal`, value: "A".repeat(43), url: appUrl }]);
@@ -179,7 +180,7 @@ try {
     assert.equal(await sheet.getByRole("radiogroup", { name: "What you are sharing" }).count(), 0, "Anyone Modes keep the normal share flow");
     await sheet.getByRole("radiogroup", { name: "Mode to share" }).getByRole("radio", { name: "Business" }).click();
     assert.equal(await sheet.getByRole("radio", { name: "Connect in person" }).count(), 0, "Nobody Modes never offer Connect in person");
-    assert.equal(await sheet.locator("[data-share-intent]").getAttribute("data-qr-value"), `${appUrl}/${michel.username}?mode=business&source=qr`);
+    assert.equal(await sheet.locator("[data-share-intent]").getAttribute("data-qr-value"), await publicModeUrl(michel.username, "business", { source: "qr" }));
     await sheet.getByRole("button", { name: "Close" }).click();
 
     // Reopen at 360px: the same pass comes back instead of a new grant.
@@ -228,14 +229,14 @@ try {
     assert.equal(guestEncounter?.source, "direct_share", "Pass-authorized guest Connect is recorded as direct_share");
     assert.equal(guestEncounter?.shared_mode_slug, "personal");
 
-    assert.equal(await connectCount(page, `/${michel.username}?mode=event`), 1, "With a Personal pass, Event stays Connect because Anyone");
-    assert.equal(await connectCount(page, `/${michel.username}?mode=business`), 0, "With a Personal pass, Business stays closed");
+    assert.equal(await connectCount(page, await publicModePath(michel.username, "event")), 1, "With a Personal pass, Event stays Connect because Anyone");
+    assert.equal(await connectCount(page, await publicModePath(michel.username, "business")), 0, "With a Personal pass, Business stays closed");
     assert.equal(await connectCount(page, `/${rayz.username}`), 1, "Another profile follows its own policy");
     const blocked = await page.request.post(`${appUrl}/api/connections`, { headers: { "content-type": "application/json", "x-setuvara-request": "same-origin", origin: appUrl }, data: { username: michel.username, mode: "business", source: "qr", requestId: crypto.randomUUID() } });
     assert.equal(blocked.status(), 403, "The Connect API refuses a Nobody Mode even with a Personal pass cookie");
     // A Personal pass copied into the Business cookie slot still fails server-side.
     await guest.addCookies([{ name: `sv-pass-${michel.username}-business`, value: passUrl.split("/").at(-1), url: appUrl }]);
-    assert.equal(await connectCount(page, `/${michel.username}?mode=business`), 0, "A pass is bound to its own Mode in the database");
+    assert.equal(await connectCount(page, await publicModePath(michel.username, "business")), 0, "A pass is bound to its own Mode in the database");
     console.log("PASS guest Connect through a pass, clean URL, HttpOnly scope and Mode isolation");
   }
 

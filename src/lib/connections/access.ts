@@ -23,7 +23,3 @@ export function visitorPassCookie(username: string, mode: ModeSlug) {
 export function ownerPassCookie(mode: ModeSlug) {
   return `sv-own-pass-${mode}`;
 }
-
-export function profilePath(username: string, mode: ModeSlug) {
-  return `/${username}${mode === "personal" ? "" : `?mode=${mode}`}`;
-}

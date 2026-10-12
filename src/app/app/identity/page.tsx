@@ -8,6 +8,7 @@ import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { parseConnectPolicy } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 import { getViewerPlan } from "@/lib/app/viewer";
+import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 
 import { signOut } from "./actions";
@@ -87,6 +88,8 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       })),
     };
   }));
+  // Event and Business are shared through opaque locators, never `?mode=`.
+  const modeShareUrls = await ownerModeShareUrls(userId, profile.username, modes.map((mode) => mode.slug), publicOrigin);
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";
   const passport = (passportResult.data ?? {}) as { rewards?: { id: string }[]; preferences?: Partial<Record<RewardCategory, string>>; milestones?: { threshold: number; seenAt: string | null }[] };
   const unseenMilestone = passport.milestones?.filter((milestone) => !milestone.seenAt).at(-1)?.threshold ?? null;
@@ -105,6 +108,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       memberTier={memberTierForPlan(viewer.plan)}
       plan={viewer.plan}
       publicOrigin={publicOrigin}
+      modeShareUrls={modeShareUrls}
       saved={query.saved}
       signOut={signOut}
     />

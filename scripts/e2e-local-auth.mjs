@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium, webkit } from "playwright";
 import { validateFreshHome, validateHomeWithData } from "./e2e-app-home.mjs";
+import { publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const mailpitUrl = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
@@ -217,7 +218,7 @@ const asRgb = (hex) => `rgb(${[1, 3, 5].map((index) => Number.parseInt(hex.slice
 async function assertPublicProfileTheme(page, username, mode, theme, label, refresh = false) {
   const expected = profileThemeColors[theme];
   assert(expected, `${label} uses a supported profile tone`);
-  const url = `${appUrl}/${username}${mode === "personal" ? "" : `?mode=${mode}`}`;
+  const url = await publicModeUrl(username, mode);
   const response = await page.goto(url, { waitUntil: "domcontentloaded" });
   assert.equal(response?.status(), 200, `${label} should load publicly`);
   const html = await response.text();
@@ -492,7 +493,7 @@ async function setAndAssertAccent(page, mode, hex) {
 }
 
 async function assertPublicConnectAccent(page, username, mode, hex) {
-  const response = await page.goto(`${appUrl}/${username}?mode=${mode}`);
+  const response = await page.goto(await publicModeUrl(username, mode));
   assert.equal(response?.status(), 200, `Published ${mode} profile should load for an anonymous visitor`);
   const label = "Connect";
   const expected = cssRgb(hex);
@@ -1109,7 +1110,7 @@ try {
 
   await openSection(page, "Share");
   await page.locator("svg title").filter({ hasText: "Business Mode QR code" }).waitFor({ state: "attached" });
-  await page.getByText(`${owner.username}?mode=business`, { exact: false }).filter({ visible: true }).first().waitFor();
+  await page.getByText((await publicModeUrl(owner.username, "business")).replace(/^https?:\/\//, ""), { exact: false }).filter({ visible: true }).first().waitFor();
   await page.getByRole("button", { name: "Copy link" }).click();
   await page.getByRole("button", { name: /Copied/ }).waitFor();
   await page.getByRole("button", { name: "Full-screen QR" }).click();
@@ -1277,7 +1278,7 @@ try {
   await publicVideo.waitFor();
   console.log("PASS Image/Video public rendering, hide/show RLS, native playback, replacement cleanup, feature image priority, and optional image alt");
   await anonPage.getByRole("link", { name: "Slush connections" }).waitFor({ state: "detached" });
-  const eventResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=event`);
+  const eventResponse = await anonPage.goto(await publicModeUrl(owner.username, "event"));
   assert.equal(eventResponse?.status(), 200);
   await assertPublicConnectAccent(anonPage, owner.username, "event", eventCustomAccent);
   assert.equal(await anonPage.locator("figure").filter({ hasText: "A candid image block" }).count(), 0, "Personal Mode content images must not appear in Event Mode");
@@ -1291,7 +1292,7 @@ try {
   assert.equal(await anonPage.getByRole("link", { name: /Event X/ }).getAttribute("href"), "https://x.com/slushdotorg");
   assert.equal(await anonPage.getByRole("link", { name: /Schedule/ }).getAttribute("href"), "https://slush.org/schedule");
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor({ state: "detached" });
-  const businessResponse = await anonPage.goto(`${appUrl}/${owner.username}?mode=business`);
+  const businessResponse = await anonPage.goto(await publicModeUrl(owner.username, "business"));
   assert.equal(businessResponse?.status(), 200);
   await assertPublicConnectAccent(anonPage, owner.username, "business", businessCustomAccent);
   await anonPage.getByText("Head of Sales · Lumen Labs · Berlin", { exact: true }).filter({ visible: true }).first().waitFor();
@@ -1306,7 +1307,7 @@ try {
   const eventMode = (await modeAccess.client.from("profile_modes").select("id").eq("profile_id", modeAccess.user.id).eq("slug", "event").single()).data;
   assert(eventMode);
   assert.ifError((await modeAccess.client.from("profile_modes").update({ is_enabled: false }).eq("id", eventMode.id)).error);
-  assert.equal((await anonPage.goto(`${appUrl}/${owner.username}?mode=event`))?.status(), 404, "Disabled Mode must be inaccessible to visitors");
+  assert.equal((await anonPage.goto(await publicModeUrl(owner.username, "event")))?.status(), 404, "Disabled Mode must be inaccessible to visitors");
   assert.ifError((await modeAccess.client.from("profile_modes").update({ is_enabled: true }).eq("id", eventMode.id)).error);
   await modeAccess.client.auth.signOut({ scope: "local" });
   console.log("PASS published Personal/Event/Business root profiles show only their Mode data and links");
@@ -1315,7 +1316,7 @@ try {
   await openSection(page, "Links");
   await page.getByRole("switch", { name: "Hide Portfolio work" }).click();
   await waitSaved(page);
-  await anonPage.goto(`${appUrl}/${owner.username}?mode=personal`);
+  await anonPage.goto(`${appUrl}/${owner.username}`);
   await anonPage.getByRole("link", { name: "Portfolio work" }).waitFor({ state: "detached" });
   await page.getByRole("switch", { name: "Show Portfolio work" }).waitFor();
   await page.getByRole("switch", { name: "Show Portfolio work" }).click();
@@ -1334,7 +1335,7 @@ try {
   assert.equal((await anonPage.goto(`${appUrl}/${owner.username}`))?.status(), 200);
   const legacy = await anonContext.request.get(`${appUrl}/u/${owner.username}?mode=event`, { maxRedirects: 0 });
   assert.equal(legacy.status(), 308);
-  assert.equal(legacy.headers().location, `/${owner.username}?mode=event`);
+  assert.equal(legacy.headers().location, `/${owner.username}`, "Legacy redirect drops ?mode=");
   console.log("PASS publish → unpublished 404 → republish and permanent legacy redirect");
 
   await page.locator("input[type=checkbox]").count().then((count) => assert.equal(count, 0));
@@ -1408,7 +1409,7 @@ try {
   assert.ifError(otherPersonalMode.error, "Account 2 can attach its own photo to Personal Mode");
 
   // A registered visitor connects with their own selected share-back Mode.
-  await otherPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
+  await otherPage.goto(await publicModeUrl(owner.username, "event", { source: "qr" }));
   await otherPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
   await otherPage.getByRole("button", { name: "Business", exact: true }).click();
   await otherPage.getByRole("button", { name: "Connect", exact: true }).last().click();
@@ -1520,7 +1521,7 @@ try {
   assert((await businessSpecificPhoto.getAttribute("src"))?.includes(`/${otherBusinessPhotoPath}`), "Business Mode's own image should take precedence over Personal fallback");
 
   // The reverse direction must reuse the same symmetric edge and append an encounter.
-  await page.goto(`${appUrl}/${other.username}?mode=personal&source=link`);
+  await page.goto(`${appUrl}/${other.username}?source=link`);
   await page.getByRole("button", { name: "Connect again", exact: true }).click();
   await page.getByRole("button", { name: "Personal", exact: true }).click();
   await page.getByRole("button", { name: "Connect", exact: true }).last().click();
@@ -1529,7 +1530,7 @@ try {
   await otherPage.getByRole("heading", { name: "Aanya Rao", exact: true }).waitFor();
   await otherPage.getByText("One person, three thoughtful contexts.", { exact: true }).waitFor();
   await otherPage.locator('aside[aria-label="About Aanya Rao"] img[alt="Aanya Rao"]').waitFor();
-  await otherPage.goto(`${appUrl}/${owner.username}?mode=business&source=profile`);
+  await otherPage.goto(await publicModeUrl(owner.username, "business", { source: "profile" }));
   await otherPage.getByRole("button", { name: "Connect again", exact: true }).click();
   await otherPage.getByRole("button", { name: "Business", exact: true }).click();
   await otherPage.getByRole("button", { name: "Connect", exact: true }).last().click();
@@ -1604,7 +1605,7 @@ try {
   // Guest identity uses a random HttpOnly cookie; the email is never returned by guest RPCs.
   const guestContext = await newDutchContext(browser, { viewport: { width: 390, height: 844 } });
   const guestPage = await guestContext.newPage();
-  await guestPage.goto(`${appUrl}/${owner.username}?mode=event&source=qr`);
+  await guestPage.goto(await publicModeUrl(owner.username, "event", { source: "qr" }));
   await guestPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
   await guestPage.getByLabel("Name").fill("E2E Guest");
   await guestPage.getByLabel("Email").fill(guestClaim.email);
@@ -1620,7 +1621,7 @@ try {
   await guestPage.goto(`${appUrl}${guestDetailHref}`);
   await guestPage.getByText("Connected with Aanya Rao").waitFor();
   assert((await guestPage.locator("body").innerText()).includes("Claim your Setuvara"));
-  await guestPage.goto(`${appUrl}/${other.username}?mode=business`);
+  await guestPage.goto(await publicModeUrl(other.username, "business"));
   await guestPage.getByRole("button", { name: /^Connect(?: at .+)?$/ }).click();
   await guestPage.getByText("Continue as E2E Guest").waitFor();
   await guestPage.getByRole("button", { name: "Connect", exact: true }).last().click();
@@ -1860,7 +1861,7 @@ try {
   assert([307, 308].includes(confirmationWithBadCode.status()), "An invalid PKCE confirmation code should redirect");
   assert(confirmationWithBadCode.headers().location?.includes("/login?error=confirmation_failed"), "An invalid PKCE confirmation code should show the confirmation error");
   const rootDefault = await anonPage.goto(`${appUrl}/${owner.username}`); assert.equal(rootDefault?.status(), 200);
-  const rootPersonal = await anonPage.goto(`${appUrl}/${owner.username}?mode=personal`); assert.equal(rootPersonal?.status(), 200);
+  const rootPersonal = await anonPage.goto(`${appUrl}/${owner.username}`); assert.equal(rootPersonal?.status(), 200);
   const ownerTone = await assertPublicProfileTheme(page, owner.username, "personal", "dark", "Owner Personal Full Bleed");
   const visitorTone = await assertPublicProfileTheme(anonPage, owner.username, "personal", "dark", "Logged-out Personal Full Bleed");
   assert.equal(ownerTone.themeColor, visitorTone.themeColor, "Owner and visitor see the same Mode browser tone");
@@ -1961,7 +1962,7 @@ try {
     await expectNoHorizontalOverflow(page, `Editor preview ${width}x${height}`);
     await page.getByRole("button", { name: "Close preview" }).click();
     await page.screenshot({ path: `.next/home-qa/identity-${width}.png`, fullPage: true });
-    const response = await anonPage.setViewportSize({ width, height }).then(() => anonPage.goto(`${appUrl}/${owner.username}?mode=personal`));
+    const response = await anonPage.setViewportSize({ width, height }).then(() => anonPage.goto(`${appUrl}/${owner.username}`));
     assert.equal(response?.status(), 200);
     await expectNoHorizontalOverflow(anonPage, `Public profile ${width}x${height}`);
     const responsiveVideo = anonPage.locator('video[aria-label="Setuvara E2E uploaded video"]');
