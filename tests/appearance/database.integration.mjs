@@ -138,3 +138,48 @@ describe("get_public_live_context", () => {
     assert.equal((await anon.from("live_contexts").select("id").eq("owner_user_id", free.id)).data?.length ?? 0, 0, "the table itself stays owner-only");
   });
 });
+
+describe("profile_modes slideshow and zoom out", () => {
+  // Own members: the suites above expire the shared Plus subscription.
+  let plus;
+  let pro;
+  before(async () => {
+    plus = await member("dbslideplus", "plus");
+    pro = await member("dbslidepro", "pro");
+  });
+  const slide = (user, x = 50) => ({ path: `${user.id}/${crypto.randomUUID()}.webp`, x, y: 40 });
+  const setSlides = (user, slide_photos) => user.client.from("profile_modes").update({ slide_photos }).eq("profile_id", user.id).eq("slug", "personal").select("slide_photos");
+
+  test("zoom out (70, 85) and slideshow speed are Free settings", async () => {
+    for (const portraitZoom of [70, 85]) assert.ifError((await save(free, { theme: "immersive", accent: "#FF5A4F", portraitZoom })).error);
+    for (const slideSpeed of ["slow", "medium", "fast"]) assert.ifError((await save(free, { theme: "immersive", accent: "#FF5A4F", slideSpeed })).error);
+    assert(await save(free, { theme: "immersive", accent: "#FF5A4F", portraitZoom: 60 }).then((result) => result.error), "zoom 60 rejected");
+    assert(await save(free, { theme: "immersive", accent: "#FF5A4F", slideSpeed: "warp" }).then((result) => result.error), "unknown speed rejected");
+  });
+
+  test("Free adds no slides; Plus one extra; Pro three", async () => {
+    assert.match((await setSlides(free, [slide(free)])).error?.message ?? "", /slideshow_requires_plan/);
+    assert.equal((await setSlides(plus, [slide(plus)])).error?.message, undefined, "Plus adds one");
+    assert.match((await setSlides(plus, [slide(plus), slide(plus)])).error?.message ?? "", /slideshow_requires_plan/);
+    assert.equal((await setSlides(pro, [slide(pro), slide(pro), slide(pro)])).error?.message, undefined, "Pro adds three");
+    assert((await setSlides(pro, [slide(pro), slide(pro), slide(pro), slide(pro)])).error, "never more than three extras");
+  });
+
+  test("a downgraded member can still remove slides", async () => {
+    const kept = [slide(free), slide(free)];
+    assert.ifError((await admin.from("profile_modes").update({ slide_photos: kept }).eq("profile_id", free.id).eq("slug", "personal")).error);
+    assert.ifError((await setSlides(free, kept.slice(1))).error);
+    assert.ifError((await setSlides(free, [])).error);
+  });
+
+  test("slides must be the owner's own photo paths with a face point in range", async () => {
+    for (const bad of [
+      [{ path: `${free.id}/../x.webp`, x: 50, y: 50 }],
+      [slide(free)],
+      [{ ...slide(plus), x: 120 }],
+      [{ ...slide(plus), extra: true }],
+      [{ path: `${plus.id}/${crypto.randomUUID()}.gif`, x: 50, y: 50 }],
+      [{ path: 123, x: 50, y: 50 }],
+    ]) assert((await setSlides(plus, bad)).error, `rejected: ${JSON.stringify(bad)}`);
+  });
+});

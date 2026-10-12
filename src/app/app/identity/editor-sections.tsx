@@ -13,7 +13,7 @@ import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/br
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { modeFocus } from "@/components/profile/photo-focus";
-import { APPEARANCE_NAMES, QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
+import { APPEARANCE_NAMES, extraSlideLimit, QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
 import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { hasCapability } from "@/lib/billing/capabilities";
@@ -176,7 +176,37 @@ function PhotoBlock({ api }: { api: EditorApi }) {
         </div>
         <p className="mt-2.5 text-[13px] leading-5 text-black/55">JPG, PNG or WebP. This photo belongs to {modeMeta[slug].name} Mode only.</p>
         {canBorrow && <button className="mt-1.5 min-h-9 text-[13px] font-semibold underline underline-offset-4" onClick={() => api.usePhotoFrom("personal")} type="button">Use my Personal photo</button>}
+        {mode.image_url && <SlideshowRow api={api} />}
       </div>
+    </div>
+  );
+}
+
+/** Extra photos that cross-fade with the main one. Plus adds one, Pro three. */
+function SlideshowRow({ api }: { api: EditorApi }) {
+  const { mode, plan } = api;
+  const limit = extraSlideLimit(plan);
+  const slides = (mode.slide_urls ?? []).slice(0, limit);
+  if (!limit) {
+    return (
+      <button className="mt-3 flex min-h-9 items-center gap-2 text-[13px] font-semibold" data-slideshow-upsell onClick={api.pickSlide} type="button">
+        Slideshow<span className="rounded-full bg-[#FF5A4F] px-2 py-0.5 text-[11px] font-bold text-[#0D0D0D]">Plus</span>
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3" data-slideshow-editor>
+      <p className="text-[13px] font-semibold">Slideshow <span className="font-normal text-black/55">{slides.length + 1} of {limit + 1}</span></p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {slides.map((slide, index) => (
+          <div className="relative h-[60px] w-12 overflow-hidden rounded-[10px] bg-[#E4E2DA]" data-slide-thumb key={`${slide.url}-${index}`}>
+            <FocusedPhoto alt={`Slideshow photo ${index + 2}`} focus={{ x: slide.x, y: slide.y }} frameAspect={4 / 5} sizes="48px" src={slide.url} />
+            <button aria-label={`Remove slideshow photo ${index + 2}`} className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-[#0D0D0D]/75 text-[11px] font-bold text-white" onClick={() => api.removeSlide(index)} type="button">×</button>
+          </div>
+        ))}
+        {slides.length < limit && <button aria-label="Add a slideshow photo" className="grid h-[60px] w-12 place-items-center rounded-[10px] border border-dashed border-black/25 text-lg font-semibold text-black/55 transition hover:bg-black/5" data-slide-add disabled={api.busyPhoto} onClick={api.pickSlide} type="button">+</button>}
+      </div>
+      {plan !== "pro" && slides.length >= limit && <p className="mt-1.5 text-[12.5px] text-black/55">Pro slideshows hold up to four photos.</p>}
     </div>
   );
 }

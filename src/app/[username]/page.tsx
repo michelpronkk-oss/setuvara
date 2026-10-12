@@ -9,7 +9,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
-import { resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
+import { extraSlideLimit, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { getMessages } from "@/lib/i18n/messages";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
@@ -22,6 +22,7 @@ import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
 import { getPublishedPublicMode, publicProfileDescription, publicProfileTitle, publicSetting, safePublicHttpUrl } from "@/lib/seo/public-profile";
 import { createClient } from "@/lib/supabase/server";
+import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
 type PublicProfilePageProps = {
@@ -152,6 +153,9 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     imageUrl = image?.signedUrl ?? null;
   }
 
+  // Only the slides the owner's plan shows are signed (Plus 1, Pro 3 after the main photo).
+  const slideUrls = imageUrl ? await signSlidePhotos(supabase, parseSlidePhotos(rawMode.slide_photos), extraSlideLimit(plan)) : [];
+
   const { data: claims } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   const owner = userId === profile.id;
@@ -239,6 +243,8 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     settings: rawMode.settings as Record<string, string | boolean>,
     appearance: rawMode.appearance as ProfileMode["appearance"],
     image_url: imageUrl,
+    slide_photos: undefined,
+    slide_urls: slideUrls,
     links: (links ?? []) as ProfileLink[],
     blocks: publicBlocks,
   };

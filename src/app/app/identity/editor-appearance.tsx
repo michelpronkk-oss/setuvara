@@ -8,9 +8,9 @@ import { MemberBadge } from "@/components/app/status-badge";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { QrFrame } from "@/components/profile/qr-frame";
 import {
-  ACCENT_PRESETS, APPEARANCE_LINES, APPEARANCE_NAMES, APPEARANCES, EDITOR_ZOOMS, MOTION_LEVELS, NAME_POSITIONS, NAME_SIZES, QR_STYLES, READABILITY, SOCIAL_STYLES, SOUND_PRESENTATIONS,
+  ACCENT_PRESETS, APPEARANCE_LINES, APPEARANCE_NAMES, APPEARANCES, EDITOR_ZOOMS, EDITOR_ZOOMS_WITH_OUT, ZOOM_OUT_APPEARANCES, MOTION_LEVELS, NAME_POSITIONS, NAME_SIZES, QR_STYLES, READABILITY, SOCIAL_STYLES, SOUND_PRESENTATIONS,
   capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
-  type AppearanceId, type ResolvedAppearance, defaultSocialStyle, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
+  type AppearanceId, type ResolvedAppearance, defaultSocialStyle, extraSlideLimit, SLIDE_SPEEDS, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import type { ModeAppearance } from "@/components/profile/types";
 import { soundtrackBlock } from "@/lib/blocks/registry";
@@ -30,7 +30,7 @@ import { Pill, Sheet, modeMeta } from "./editor-ui";
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus";
+type ControlKey = "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed";
 type MoreKey = "qr" | "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
@@ -48,7 +48,7 @@ const CONTROLS: Record<AppearanceId, ControlKey[]> = {
   social: ["nameSize", "align", "accent", "sound"],
   film: ["nameSize", "align", "socials", "accent", "sound", "motion"],
 };
-const ALWAYS: ControlKey[] = ["username", "focus"];
+const ALWAYS: ControlKey[] = ["username", "focus", "slideSpeed"];
 
 const PLUS_TAG = "#A43D36";
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]";
@@ -266,7 +266,7 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
     case "motion":
       return <Segment copy={copy} label={copy.motion} locked={previewLocked("motion")} onPick={(value) => choose({ motion: value })} options={MOTION_LEVELS.map((value) => ({ value, label: copy.motions[value], plus: premium("motion", value) }))} value={look.motion} />;
     case "zoom":
-      return <Segment copy={copy} label={copy.zoom} locked={false} onPick={(value) => choose({ portraitZoom: value === 100 ? undefined : value })} options={EDITOR_ZOOMS.map((value) => ({ value, label: `${value}%`, plus: false }))} value={look.zoom} />;
+      return <Segment copy={copy} label={copy.zoom} locked={false} onPick={(value) => choose({ portraitZoom: value === 100 ? undefined : value })} options={(ZOOM_OUT_APPEARANCES.has(look.id) ? EDITOR_ZOOMS_WITH_OUT : EDITOR_ZOOMS).map((value) => ({ value, label: `${value}%`, plus: false }))} value={look.zoom} />;
     case "sound":
       return (
         <div className="flex flex-col gap-1.5">
@@ -283,6 +283,10 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
           <span aria-hidden="true" className={`relative h-7 w-12 rounded-full ${look.showUsername ? "bg-[#0D0D0D]" : "bg-black/20"}`}><span className={`absolute top-1 size-5 rounded-full bg-white transition-transform ${look.showUsername ? "left-6" : "left-1"}`} /></span>
         </button>
       );
+    case "slideSpeed":
+      // Only once the Mode has a slideshow the plan shows.
+      if (!api.mode.image_url || !(api.mode.slide_photos?.length && extraSlideLimit(plan))) return null;
+      return <Segment copy={copy} label={copy.slideSpeed} locked={false} onPick={(value) => choose({ slideSpeed: value === "medium" ? undefined : value })} options={SLIDE_SPEEDS.map((value) => ({ value, label: copy.slideSpeeds[value], plus: false }))} value={look.slideSpeed} />;
     case "focus":
       return api.mode.image_url ? <Pill className="self-start" onClick={api.recropPhoto}>{copy.adjustFocus}</Pill> : <p className="text-[12.5px] text-black/60">{copy.noPhoto}</p>;
   }

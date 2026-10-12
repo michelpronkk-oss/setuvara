@@ -18,7 +18,7 @@ export type FaceSafeInput = {
   frame: { width: number; height: number };
   /** Null when the Mode has no photo. */
   focus: PhotoFocus | null;
-  /** Zoom factor (1–1.4), scaled around the focus. */
+  /** Zoom factor: 1–1.4 scales around the focus; 0.7–1 shows more of the photo (zoomOutFrame). */
   zoom?: number;
   photoAspect?: number;
   /** A detected face in photo fractions (0–1). Optional; estimated from the focus otherwise. */
@@ -98,6 +98,21 @@ export function estimateFace(focus: PhotoFocus, frame: { width: number; height: 
   return { top: zy(raw.top), mouth: zy(raw.mouth), chin: zy(raw.chin), left: zx(raw.left), right: zx(raw.right) };
 }
 
+/** The lowest zoom: the whole photo, full width at the top of the frame. */
+export const ZOOM_OUT_MIN = 0.7;
+
+/**
+ * Zoomed out (below 100%), the photo sits in a full-width box at the top of the frame instead of
+ * covering it. The box's aspect moves from the frame's own (100%) to the photo's (70%), so each
+ * step reveals more of the photo at full sharpness, never a smaller copy with bars beside it.
+ */
+export function zoomOutFrame(frame: { width: number; height: number }, zoom: number, photoAspect = PHOTO_ASPECT) {
+  const frameAspect = frame.width / frame.height;
+  if (zoom >= 1 || frameAspect >= photoAspect) return frame;
+  const t = Math.min(1, (1 - zoom) / (1 - ZOOM_OUT_MIN));
+  return { width: frame.width, height: frame.width / (frameAspect + t * (photoAspect - frameAspect)) };
+}
+
 export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
   const { frame } = input;
   const width = frame.width;
@@ -117,8 +132,11 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
   }
 
   const focus = input.focus;
+  // Zoomed out, the photo fills a shorter box at the top of the frame and dissolves below it.
+  const photoFrame = zoomOutFrame(frame, zoom, input.photoAspect);
+  const scale = Math.max(1, zoom);
   let shiftY = 0;
-  let face = estimateFace(focus, frame, { zoom, shiftY, photoAspect: input.photoAspect, faceBox: input.faceBox });
+  let face = estimateFace(focus, photoFrame, { zoom: scale, shiftY, photoAspect: input.photoAspect, faceBox: input.faceBox });
   const clearTop = () => face.top - MARGIN;
   const clearBottom = () => face.chin + MARGIN;
   const fitAboveBrow = () => {
@@ -157,7 +175,7 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
       // Reframe within bounds before touching the name, then shrink only as far as needed.
       const need = Math.ceil(total(base) - roomBelow);
       shiftY = -Math.min(Math.max(need, 0), MAX_SHIFT);
-      face = estimateFace(focus, frame, { zoom, shiftY, photoAspect: input.photoAspect, faceBox: input.faceBox });
+      face = estimateFace(focus, photoFrame, { zoom: scale, shiftY, photoAspect: input.photoAspect, faceBox: input.faceBox });
       let size = base;
       while (total(size) > bottomLimit - clearBottom() && size > base * 0.78) size -= 2;
       strategy = "bottom";
@@ -169,9 +187,9 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
   const centre = (face.left + face.right) / 2;
   const align = centre < width * 0.4 ? "right" : "left";
   if (align === "right") decision += " · ALIGN RIGHT";
-  const point = facePoint(focus, frame, input.photoAspect);
-  const imageTop = point.y * (1 - zoom) + shiftY;
-  const imageBottom = point.y + (height - point.y) * zoom + shiftY;
+  const point = facePoint(focus, photoFrame, input.photoAspect);
+  const imageTop = point.y * (1 - scale) + shiftY;
+  const imageBottom = point.y + (photoFrame.height - point.y) * scale + shiftY;
   return { strategy, nameSize, shiftY, align, face, imageTop, imageBottom, decision };
 }
 

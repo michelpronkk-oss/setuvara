@@ -58,7 +58,7 @@ const messages = {
       motion: "Motion", motions: { off: "Off", subtle: "Subtle", full: "Full" },
       soundtrack: "Soundtrack", soundPresentations: { ambient: "Ambient", minimal: "Minimal", featured: "Featured" },
       noSoundtrack: "Add a soundtrack in Content to choose how it appears.",
-      zoom: "Photo zoom", adjustFocus: "Adjust crop and face point", noPhoto: "No photo yet. Initials sit on your accent.",
+      zoom: "Photo zoom", slideSpeed: "Slideshow speed", slideSpeeds: { slow: "Slow", medium: "Medium", fast: "Fast" }, adjustFocus: "Adjust crop and face point", noPhoto: "No photo yet. Initials sit on your accent.",
       showUsername: "Show username", colour: "Accent", accents: { coral: "Coral", lime: "Lime", blue: "Blue", lilac: "Lilac", gold: "Gold" },
       custom: "Custom", customAccent: "Custom accent colour", accentLabel: "{name} accent",
       qr: "QR & sharing", qrStyles: { standard: "Standard", "accent-frame": "Accent frame", label: "Identity label", inverse: "Inverse", rounded: "Rounded" },

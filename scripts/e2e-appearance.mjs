@@ -252,6 +252,95 @@ try {
         await context.close();
       }
     }
+    // Zoom out: on Immersive the whole photo shows from the top and dissolves into the page.
+    for (const portraitZoom of [100, 85, 70]) {
+      await setAppearance(mla, "personal", { theme: "immersive", portraitZoom });
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`${appUrl}/${mla.username}`);
+      await page.locator('article[data-appearance="immersive"]').waitFor();
+      await page.waitForLoadState("networkidle");
+      await inspect(page, `zoom ${portraitZoom}`);
+      const photo = await page.locator("[data-profile-hero-mobile] img").first().evaluate((node) => { const rect = node.getBoundingClientRect(); const hero = node.closest("[data-hero]").getBoundingClientRect(); return { top: rect.top - hero.top, width: rect.width, height: rect.height, heroWidth: hero.width, complete: node.complete && node.naturalWidth > 0 }; });
+      assert(photo.complete, `zoom ${portraitZoom}: photo loaded`);
+      assert(Math.abs(photo.width - photo.heroWidth) < 1, `zoom ${portraitZoom}: the photo spans the full width, no bars`);
+      if (portraitZoom === 70) assert(Math.abs(photo.height / photo.width - 1.25) < 0.01, `zoom 70: the whole 4:5 photo shows (${photo.height}/${photo.width})`);
+      if (portraitZoom < 100) assert(Math.abs(photo.top) < 2, `zoom ${portraitZoom}: the photo starts at the top (${photo.top})`);
+      await shot(page, `zoom-${portraitZoom}`);
+      await context.close();
+    }
+
+    // Slideshow: Plus shows two photos, cross-fading at the chosen speed; reduced motion holds the first.
+    const slides = [];
+    for (const [fx, palette] of [[46, ["#20323a", "#8fb3a8", "#0b1113"]], [54, ["#3b1d2a", "#e08a6e", "#140a0e"]]]) slides.push({ path: await upload(mla.id, await portrait(browser, fx, 32, palette)), x: fx, y: 32 });
+    await admin(`/rest/v1/profile_modes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ slide_photos: slides, appearance: { theme: "immersive", accent: "#FF5A4F", slideSpeed: "fast" } }) });
+    for (const reducedMotion of ["no-preference", "reduce"]) {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
+      const page = await context.newPage();
+      await page.goto(`${appUrl}/${mla.username}`);
+      const show = page.locator("[data-profile-hero-mobile] [data-slides]");
+      await show.waitFor();
+      assert.equal(await show.getAttribute("data-slide-count"), "2", "Plus: main photo plus one");
+      assert.equal(await show.getAttribute("data-slides"), "fast");
+      await page.waitForFunction(() => [...document.querySelectorAll("[data-profile-hero-mobile] [data-slides] img")].every((img) => img.complete && img.naturalWidth > 0));
+      if (reducedMotion === "reduce") {
+        await page.waitForTimeout(3500);
+        assert.equal(await show.getAttribute("data-slide-active"), "0", "reduced motion holds the first photo");
+      } else {
+        await page.waitForFunction(() => document.querySelector("[data-profile-hero-mobile] [data-slides]")?.getAttribute("data-slide-active") === "1", null, { timeout: 6000 });
+        await page.waitForTimeout(700);
+        await shot(page, "slides-crossfade");
+        await page.waitForTimeout(900);
+        await shot(page, "slides-second");
+      }
+      await context.close();
+    }
+    // Editor: the slideshow row sits under the photo; removing a photo saves at once.
+    {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`${appUrl}/login`);
+      await page.getByLabel("Email").fill(mla.email);
+      await page.getByLabel("Password", { exact: true }).fill(mla.password);
+      await page.getByRole("button", { name: /log in|sign in/i }).click();
+      await page.waitForURL(/\/app/);
+      await page.goto(`${appUrl}/app/identity?mode=personal&section=profile`);
+      const editor = page.locator("[data-slideshow-editor]:visible").first();
+      await editor.waitFor();
+      assert.equal(await editor.locator("[data-slide-thumb]").count(), 1, "Plus edits one extra photo");
+      await page.waitForLoadState("networkidle");
+      await shot(page, "slides-editor-plus");
+      const savedSlides = async (length) => {
+        for (let tries = 0; tries < 40; tries += 1) {
+          const [saved] = await admin(`/rest/v1/profile_modes?id=eq.${row.id}&select=slide_photos`);
+          if (saved.slide_photos.length === length) return saved.slide_photos;
+          await new Promise((done) => setTimeout(done, 250));
+        }
+        assert.fail(`slide_photos never reached ${length}`);
+      };
+      // Two were stored (as after a Pro downgrade); Plus edits the first, then the one kept.
+      await editor.getByRole("button", { name: "Remove slideshow photo 2" }).click();
+      assert.deepEqual((await savedSlides(1)).map((item) => item.path), [slides[1].path], "removal saved");
+      await editor.getByRole("button", { name: "Remove slideshow photo 2" }).click();
+      await savedSlides(0);
+      await editor.locator("[data-slide-add]").waitFor();
+      // Add one back through the crop dialog.
+      const chooser = page.waitForEvent("filechooser");
+      await editor.locator("[data-slide-add]").click();
+      await (await chooser).setFiles({ name: "slide.jpg", mimeType: "image/jpeg", buffer: await portrait(browser, 50, 30, ["#14213d", "#fca311", "#000000"]) });
+      const dialog = page.getByRole("dialog", { name: "Crop photo" });
+      await dialog.waitFor();
+      await dialog.getByRole("button", { name: "Save" }).first().click();
+      await dialog.waitFor({ state: "detached" });
+      await editor.locator("[data-slide-thumb]").waitFor();
+      await page.getByText("Added to your slideshow").waitFor();
+      const [after] = await admin(`/rest/v1/profile_modes?id=eq.${row.id}&select=slide_photos`);
+      assert.equal(after.slide_photos.length, 1, "added back");
+      assert.match(after.slide_photos[0].path, new RegExp(`^${mla.id}/[0-9a-f-]{36}\\.webp$`));
+      await shot(page, "slides-editor-added");
+      await context.close();
+    }
+
     // Free carries the refined setuvara mark at the end of the profile; it links to Make yours.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
     const page = await context.newPage();
@@ -263,7 +352,7 @@ try {
     await page.waitForTimeout(250);
     await shot(page, "content-free-branding");
     await context.close();
-    console.log("PASS content is refined, the hero dissolves, branding is Free only, socials show once, Center aligns");
+    console.log("PASS content is refined, the hero dissolves, branding is Free only, socials show once, Center aligns, zoom out shows the whole photo, the slideshow cross-fades");
   }
 
   if (!only) {

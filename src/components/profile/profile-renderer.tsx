@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { MeetMark } from "@/components/marketing/brand";
@@ -16,11 +16,11 @@ import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { getMessages } from "@/lib/i18n/messages";
 import { modeFocus, type PhotoFocus } from "./photo-focus";
-import { resolveAppearance, type ResolvedAppearance } from "./appearance";
+import { extraSlideLimit, resolveAppearance, SLIDE_SECONDS, type ResolvedAppearance } from "./appearance";
 import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
-import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./face-safe";
+import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe, zoomOutFrame } from "./face-safe";
 import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, ModeIndicator, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
-import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, ViewerState } from "./types";
+import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
 
 export { BOOKING_PROVIDERS } from "./appearance-theme";
 
@@ -114,6 +114,8 @@ type Scene = {
   who: Identity;
   mode: ProfileMode;
   photo: string | null;
+  /** The main photo first, then the slideshow photos the plan allows (one entry: no slideshow). */
+  slides: SlideImage[];
   focus: PhotoFocus;
   images: string[];
   bio: string;
@@ -148,6 +150,7 @@ function Profile(props: ProfileProps) {
   const scene: Scene = {
     look, theme, who, mode, photo, copy, memberTier,
     focus: modeFocus(mode),
+    slides: photo ? [{ url: photo, ...modeFocus(mode) }, ...(mode.slide_urls ?? []).slice(0, extraSlideLimit(props.plan ?? "free"))] : [],
     images: contentImages(mode.blocks).map((image) => image.url),
     bio: profile.bio ?? "",
     treatment: Boolean(selectedRewards.profile_treatment),
@@ -243,10 +246,35 @@ function AppearanceEnvironment({ scene }: { scene: Scene }) {
   );
 }
 
-function Photo({ scene, alt = "", sizes = "100vw", priority = false, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; style?: CSSProperties; className?: string }) {
+function Photo({ scene, alt = "", sizes = "100vw", priority = false, outHeight, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; /** Zoomed out (phone Immersive only): the photo's box height at the top of the frame. */ outHeight?: string; style?: CSSProperties; className?: string }) {
   if (!scene.photo) return null;
   const { focus, look } = scene;
-  return <FocusedPhoto alt={alt} className={className} focus={focus} priority={priority} sizes={sizes} src={scene.photo} style={{ transform: `scale(${look.zoom / 100})`, transformOrigin: `${focus.x}% ${focus.y}%`, ...style }} />;
+  const zoom = outHeight ? 1 : Math.max(1, look.zoom / 100);
+  const frame = (src: string, at: PhotoFocus, extra?: CSSProperties) => <FocusedPhoto alt={alt} className={className} focus={at} priority={priority} sizes={sizes} src={src} style={{ transform: `scale(${zoom})`, transformOrigin: `${at.x}% ${at.y}%`, ...style, ...extra }} />;
+  // The slideshow belongs to the main photo only, never to decorative copies of it.
+  const body = !priority || scene.slides.length < 2 ? frame(scene.photo, focus) : <Slides render={frame} scene={scene} />;
+  return outHeight ? <span className="absolute inset-x-0 top-0 block" data-zoom-out={look.zoom} style={{ height: outHeight }}>{body}</span> : body;
+}
+
+/** Plus/Pro slideshow: the Mode's photos cross-fade at the chosen pace. Motion off or reduced motion holds the first. */
+function Slides({ scene, render }: { scene: Scene; render: (src: string, at: PhotoFocus, extra?: CSSProperties) => ReactNode }) {
+  const [index, setIndex] = useState(0);
+  const count = scene.slides.length;
+  const seconds = SLIDE_SECONDS[scene.look.slideSpeed];
+  useEffect(() => {
+    if (scene.still || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % count), seconds * 1000);
+    return () => window.clearInterval(timer);
+  }, [count, seconds, scene.still]);
+  return (
+    <span className="absolute inset-0 block" data-slide-active={index} data-slide-count={count} data-slides={scene.look.slideSpeed}>
+      {scene.slides.map((slide, at) => (
+        <span className="absolute inset-0 block transition-opacity duration-[1400ms] ease-in-out" data-slide={at} key={at} style={{ opacity: at === index ? 1 : 0 }}>
+          {render(slide.url, { x: slide.x, y: slide.y })}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 /** Initials on the accent when a Mode has no photo; never a broken frame. */
@@ -392,6 +420,7 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
     secondary: scene.secondary,
   });
   const percent = (value: number) => `${((value / frame.height) * 100).toFixed(2)}%`;
+  const out = look.zoom < 100 ? zoomOutFrame(frame, look.zoom / 100) : null;
   const position: CSSProperties = layout.strategy === "split" ? { top: 66, bottom: 34 } : layout.strategy === "top" ? { top: 66 } : { bottom: 34 };
   const mask = scene.photo ? immersiveMask(layout, frame.height).replace(/(-?\d+)px/g, (_, px) => percent(Number(px))) : undefined;
   const scrimOpacity = look.readability === "soft" ? 0.72 : 1;
@@ -401,7 +430,7 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
         <div className="absolute inset-0 overflow-hidden" data-face-strategy={layout.strategy} data-face-shift={layout.shiftY} style={{ maskImage: mask, WebkitMaskImage: mask }}>
           <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
             <div className="absolute inset-0" style={{ transform: `translateY(${percent(layout.shiftY)})` }}>
-              <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
+              <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} outHeight={out ? percent(out.height) : undefined} priority scene={scene} />
             </div>
           </div>
         </div>
