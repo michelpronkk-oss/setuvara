@@ -47,7 +47,7 @@ const noopSubscribe = () => () => {};
 const PLAYBACK_ACK_TIMEOUT_MS = 3500;
 const bumpPlaybackGeneration = (generation: { current: number }) => { generation.current += 1; };
 
-export function SoundtrackProvider({ block, preview = false, premiumPresentation = false, pill = true, children }: { block: ProfileBlock; preview?: boolean; premiumPresentation?: boolean; /** False when the Appearance draws its own sound control. */ pill?: boolean; children: ReactNode }) {
+export function SoundtrackProvider({ block, preview = false, gate = true, premiumPresentation = false, pill = true, children }: { block: ProfileBlock; preview?: boolean; /** Previews only: false skips the first-visit sound choice so it never covers the profile. */ gate?: boolean; premiumPresentation?: boolean; /** False when the Appearance draws its own sound control. */ pill?: boolean; children: ReactNode }) {
   const media = useMemo(() => parseMusic(str(block.data.url))!, [block.data.url]);
   const sourceKey = `${block.id}:${media.provider}:${media.url}`;
   const owner = useId();
@@ -451,12 +451,12 @@ export function SoundtrackProvider({ block, preview = false, premiumPresentation
     status,
     premiumPresentation,
     on,
-    asking: hydrated && !decided && (preview || stored === null) && status !== "loading" && status !== "unavailable" && status !== "playing",
+    asking: hydrated && !decided && (preview ? gate : stored === null) && status !== "loading" && status !== "unavailable" && status !== "playing",
     waiting: on && !held && (status === "blocked" || (status === "ready" && !tapped && !preview)),
     soundOn,
     soundOff,
     continueMuted: soundOff,
-  }), [decided, held, hydrated, on, premiumPresentation, preview, soundOff, soundOn, status, stored, tapped]);
+  }), [decided, gate, held, hydrated, on, premiumPresentation, preview, soundOff, soundOn, status, stored, tapped]);
 
   return (
     <SoundtrackContext.Provider value={api}>

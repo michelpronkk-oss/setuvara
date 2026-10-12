@@ -633,7 +633,14 @@ try {
     await ep.waitForURL(/\/app/);
     await ep.goto(`${appUrl}/app/identity?mode=personal&section=links`);
     await ep.getByText("PROFILE SOUNDTRACK").first().waitFor();
-    await ep.getByRole("button", { name: "Enter with sound" }).waitFor();
+    // The sound intro never covers the editor preview; it shows only on request.
+    const pane = ep.getByRole("complementary", { name: "Live preview" });
+    await pane.locator("[data-sound-control]").first().waitFor();
+    assert.equal(await pane.getByRole("button", { name: "Enter with sound" }).count(), 0, "Editor preview skips the sound intro by default");
+    await pane.getByRole("button", { name: "Sound intro" }).click();
+    await pane.getByRole("button", { name: "Enter with sound" }).waitFor();
+    await pane.getByRole("button", { name: "Sound intro" }).click();
+    assert.equal(await pane.getByRole("button", { name: "Enter with sound" }).count(), 0, "Turning the intro off hides it again");
     assert.equal((await fake(ep, "spotify")).every((item) => item.plays === 0), true, "Editor preview never starts the soundtrack on its own");
     await assertSourceMetadataAbsent(ep, ["Golden Hour · JVKE"]);
     await shot(ep, "12-editor-desktop");
@@ -673,7 +680,18 @@ try {
     await mp.waitForURL(/\/app/);
     await mp.goto(`${appUrl}/app/identity?mode=event&section=links`);
     await mp.getByText("SOUNDTRACK").first().waitFor();
+    // Phones: the live preview is docked under the editor, without the sound intro over it.
+    const peek = mp.locator("[data-preview-peek]");
+    await peek.waitFor();
+    assert.equal(await peek.getByRole("button", { name: "Enter with sound" }).count(), 0, "Docked preview skips the sound intro");
     await shot(mp, "14-editor-mobile");
+    await peek.getByRole("button", { name: "Hide live preview" }).click();
+    await peek.waitFor({ state: "detached" });
+    await mp.reload();
+    await mp.getByText("SOUNDTRACK").first().waitFor();
+    assert.equal(await peek.count(), 0, "A hidden dock stays hidden on this device");
+    await mp.getByRole("button", { name: "Show live preview" }).click();
+    await peek.waitFor();
     await mp.getByRole("button", { name: /Nightcall/ }).first().click();
     await mp.getByRole("switch", { name: "Use as profile soundtrack" }).waitFor();
     await shot(mp, "15-editor-mobile-sheet");
