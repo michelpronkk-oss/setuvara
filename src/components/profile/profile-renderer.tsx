@@ -174,7 +174,7 @@ function Profile(props: ProfileProps) {
     "--sv-focus": theme.identity.fg,
   };
   const blockTone: BlockTone = { bg: theme.base, ink: theme.fg, sub: theme.muted, chip: theme.card.bg, line: theme.card.edge, dark: !theme.light };
-  const plusMark = hasCapability(props.plan ?? "free", "appearance.premium");
+  const branded = !hasCapability(props.plan ?? "free", "appearance.premium");
   const soundTop = look.id === "clean" || look.id === "social" ? 28 : 18;
   const soundRight = look.id === "clean" || look.id === "social" ? 28 : 16;
   const floating = !owner && !connected && Boolean(props.visitorAction);
@@ -208,7 +208,7 @@ function Profile(props: ProfileProps) {
         <WideHero scene={scene} />
       </div>
 
-      <AppearanceContent attribution={attribution} blockTone={blockTone} copy={copy} footer={footer} links={links} owner={owner} plusMark={plusMark} profile={profile} rewards={selectedRewards} scene={scene} />
+      <AppearanceContent attribution={attribution} blockTone={blockTone} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
       {floating && <FloatingConnect dot={connect.dot} label={copy.connect} style={{ background: connect.bg, color: connect.fg, boxShadow: [connect.edge !== "none" ? connect.edge : "", "0 14px 34px -12px #0D0D0D99"].filter(Boolean).join(","), outlineColor: theme.identity.fg }} />}
     </article>
   );
@@ -276,9 +276,21 @@ function AppearanceHero({ scene }: { scene: Scene }) {
       {look.id === "stack" && <StackHero frame={frame} scene={scene} />}
       {look.id === "social" && <SocialHero scene={scene} />}
       {look.id === "film" && <FilmHero scene={scene} />}
+      <HeroFoot scene={scene} />
       <ModeIndicator accent={look.accent} className="absolute left-4 top-[18px] z-[4]" label={MODE_NAMES[look.slug]} theme={scene.theme} />
     </div>
   );
+}
+
+/**
+ * The hero dissolves into the page: its last stretch eases into the Appearance base, so the
+ * photo and atmosphere never end on a hard edge, wherever the page is shown (a phone, a full
+ * page capture, the editor preview). It sits under the identity, so Connect stays on top.
+ */
+function HeroFoot({ scene, className = "" }: { scene: Scene; className?: string }) {
+  if (!scene.theme.atmosphere.on) return null;
+  const base = scene.theme.base;
+  return <div aria-hidden="true" className={`pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[30%] ${className}`} data-hero-foot style={{ background: `linear-gradient(180deg,${base}00 0%,${base}24 22%,${base}73 48%,${base}C7 72%,${base}F2 88%,${base} 100%)` }} />;
 }
 
 type IdentityOptions = {
@@ -560,7 +572,7 @@ function SocialHero({ scene }: { scene: Scene }) {
       {/* With tiles, the identity sits inside the card's lower edge so Connect never straddles it. */}
       <IdentityLayer options={{ nameSize: nameSizeCss(scene, 36), style: full ? { left: 30, right: 30, bottom: 44 } : { left: 30, right: 30, bottom: `calc(var(--sv-h) - ${y(490)} + 22px)` } }} scene={scene} />
       {!full && (
-        <div aria-hidden="true" className="absolute inset-x-3.5 z-[2] grid gap-2" data-social-tiles style={{ top: y(612), gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
+        <div aria-hidden="true" className="absolute inset-x-3.5 z-[2] grid gap-2" data-social-tiles style={{ top: y(612), gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))`, maskImage: "linear-gradient(180deg,#000 40%,#0000 92%)", WebkitMaskImage: "linear-gradient(180deg,#000 40%,#0000 92%)" }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
           {tiles.map((url) => <img alt="" className="w-full rounded-[22px] bg-[#333] object-cover" decoding="async" key={url} src={url} style={{ height: y(250) }} />)}
         </div>
@@ -600,7 +612,8 @@ function WideHero({ scene }: { scene: Scene }) {
   const inset = theme.wide.inset;
   const align = "flex-start";
   return (
-    <div className="grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
+    <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
+      <HeroFoot className="!h-[22%]" scene={scene} />
       {STAGED.has(look.id) ? <WideStage scene={scene} /> : (
         <div className="relative overflow-hidden" style={{ margin: inset, borderRadius: theme.wide.radius, maskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, WebkitMaskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, background: scene.photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18" }}>
           <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
@@ -611,7 +624,7 @@ function WideHero({ scene }: { scene: Scene }) {
           {look.id === "motion" && <WideMarquee scene={scene} />}
         </div>
       )}
-      <div className="relative flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align }}>
+      <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align }}>
         <ModeIndicator accent={look.accent} label={MODE_NAMES[look.slug]} theme={theme} />
         <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
         <h1 className={`max-w-full break-words leading-[0.92] [overflow-wrap:anywhere] [text-wrap:balance] ${theme.identity.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`} data-name style={{ fontSize: nameSize, fontWeight: theme.identity.weight, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
@@ -620,12 +633,6 @@ function WideHero({ scene }: { scene: Scene }) {
         <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
         <div className="flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect>{scene.actions}</div>
         <WideBio scene={scene} />
-        {scene.images.length > 0 && (
-          <div aria-hidden="true" className="flex max-w-[560px] gap-2.5 self-stretch">
-            {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content images */}
-            {scene.images.slice(0, 2).map((url, index) => <img alt="" className="min-w-0 rounded-[20px] bg-[#333] object-cover" decoding="async" key={url} src={url} style={{ flex: index ? 1 : 1.4, height: "max(110px, 13.9cqw)" }} />)}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -807,13 +814,14 @@ function aboutParagraphs(scene: Scene, bio = "") {
   return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 
-function AppearanceContent({ scene, profile, links, owner, footer, attribution, plusMark, rewards, blockTone, copy }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; plusMark: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy }) {
+function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy }) {
   const { theme, mode, look } = scene;
   const bio = profile.bio?.trim() ?? "";
   const paragraphs = aboutParagraphs(scene, bio);
   const hasBlocks = Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
   return (
-    <div className="relative z-[3] mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10" data-appearance-content>
+    <div className="relative z-[3]" data-appearance-page style={{ background: theme.base }}>
+    <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10" data-appearance-content>
       {paragraphs.length > 0 && (
         <section aria-label={copy.about} className="mb-2 flex flex-col gap-3" data-profile-about>
           {paragraphs.map((text, index) => (
@@ -827,13 +835,16 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
       <Links copy={copy} links={links} scene={scene} />
       {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
       {footer}
-      {attribution && (
-        <div className="flex justify-center pt-[22px]" data-attribution={plusMark ? "mark" : "make-yours"}>
-          {plusMark
-            ? <Link className="inline-flex min-h-11 items-center gap-1.5 text-[12px] focus-visible:outline focus-visible:outline-2" href="/" style={{ color: theme.muted }}><MeetMark className="size-3.5" />setuvara</Link>
-            : <Link className="inline-flex h-10 items-center gap-2 rounded-full pl-3 pr-4 text-[13px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={`/signup?appearance=${look.id}`} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, color: theme.fg, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }}><MeetMark className="size-[18px]" />{copy.makeYours}</Link>}
-        </div>
+      {attribution && branded && (
+        <footer className="mt-10 flex flex-col items-center gap-3.5" data-attribution="setuvara">
+          <span aria-hidden="true" className="h-px w-16" style={{ background: `linear-gradient(90deg,transparent,${theme.card.edge},transparent)` }} />
+          <Link aria-label={copy.makeYours} className="group flex min-h-11 flex-col items-center gap-1.5 rounded-[14px] px-4 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={`/signup?appearance=${look.id}`} style={{ color: theme.fg, outlineColor: theme.fg }}>
+            <span className="flex items-center gap-[7px] text-[15px] font-semibold tracking-[-0.02em] opacity-90 transition group-hover:opacity-100"><MeetMark className="size-4" />setuvara</span>
+            <span className="flex items-center gap-1 font-label text-[9.5px] uppercase tracking-[0.22em] transition group-hover:opacity-100" style={{ color: theme.muted }}>{copy.makeYoursShort}<span aria-hidden="true">↗</span></span>
+          </Link>
+        </footer>
       )}
+    </div>
     </div>
   );
 }

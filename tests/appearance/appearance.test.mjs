@@ -351,14 +351,16 @@ describe("ProfileRenderer", () => {
     assert.doesNotMatch(render(mode("personal", { theme: "immersive" })), /data-live-context/);
   });
 
-  test("Make yours for Free, a small mark for Plus; never a Plus grant in the link", () => {
+  test("the setuvara mark ends Free profiles only; never a Plus grant in the link", () => {
     const free = renderWith(mode("personal", { theme: "immersive" }), { attribution: true, plan: "free" });
-    assert.equal(attr(free, "data-attribution"), "make-yours");
-    assert.match(free, /Make yours on Setuvara/);
+    assert.equal(attr(free, "data-attribution"), "setuvara");
+    assert.match(free, /aria-label="Make yours on Setuvara"/);
     assert.match(free, /\/signup\?appearance=immersive/);
-    const plus = renderWith(mode("personal", { theme: "film" }), { attribution: true, plan: "plus" });
-    assert.equal(attr(plus, "data-attribution"), "mark");
-    assert.doesNotMatch(plus, /Make yours/);
+    for (const plan of ["plus", "pro"]) {
+      const paid = renderWith(mode("personal", { theme: "film" }), { attribution: true, plan });
+      assert.doesNotMatch(paid, /data-attribution/, `${plan} carries no branding`);
+      assert.doesNotMatch(paid, /Make yours/);
+    }
   });
 
   test("member badges: Plus coral, Pro champagne, none on Free; no Appearance implies a badge", () => {

@@ -26,8 +26,8 @@ export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt
     return (
       <div className={`grid gap-3.5 text-left ${className}`}>
         {runs.map((run) => run[0].kind === "image"
-          ? <ImageRun blocks={run} key={run[0].id} />
-          : <Block accent={accent} accentInk={accentInk} block={run[0]} key={run[0].id} tone={tone} />)}
+          ? <ImageRun blocks={run} key={run[0].id} tone={tone} />
+          : <Block accent={accent} accentInk={accentInk} block={run[0]} compact key={run[0].id} tone={tone} />)}
       </div>
     );
   }
@@ -38,8 +38,15 @@ export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt
   );
 }
 
-/** Consecutive images: the first is featured, the rest scroll as a carousel, in their saved order. */
-function ImageRun({ blocks }: { blocks: ProfileBlock[] }) {
+/** The frame every Appearance picture sits in: soft edge, a hairline and a long, quiet shadow. */
+const mediaFrame = (tone: BlockTone) => ({ background: tone.dark ? "#0D0D0D" : "#E9E6E0", boxShadow: `inset 0 0 0 1px ${tone.line}, 0 28px 56px -36px ${tone.dark ? "#000000CC" : "#0D0D0D59"}` });
+
+/**
+ * Consecutive images: the first is featured, the rest scroll as a carousel, in their saved order.
+ * The featured picture keeps a calm 4:3 (16:10 wide) frame and is shown whole: whatever the frame
+ * does not cover is filled by a soft blur of the same picture, so nothing is cropped or oversized.
+ */
+function ImageRun({ blocks, tone }: { blocks: ProfileBlock[]; tone: BlockTone }) {
   const [failed, setFailed] = useState<string[]>([]);
   const images = blocks.map((block) => ({ id: block.id, url: str(block.data.image_url), alt: str(block.data.alt), caption: str(block.data.caption) })).filter((image) => image.url && !failed.includes(image.url));
   if (!images.length) return null;
@@ -47,23 +54,27 @@ function ImageRun({ blocks }: { blocks: ProfileBlock[] }) {
   const fail = (url: string) => setFailed((current) => [...current, url]);
   return (
     <>
-      <figure className="relative h-[380px] overflow-hidden rounded-[var(--sv-card-r,26px)] bg-[#333]" data-featured-media>
-        {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-        <img alt={first.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => fail(first.url)} src={first.url} />
-        {first.caption && (
-          <>
-            <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_45%,#0D0D0DCC_100%)]" />
-            <figcaption className="absolute inset-x-[18px] bottom-4 text-[17px] font-bold leading-snug tracking-[-0.01em] text-[#F5F4EF]">{first.caption}</figcaption>
-          </>
-        )}
+      <figure className="flex flex-col gap-2.5">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[22px] @min-[700px]/profile:aspect-[16/10]" data-featured-media style={mediaFrame(tone)}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the same picture, blurred, fills the frame */}
+          <img alt="" aria-hidden="true" className="absolute -inset-8 size-[calc(100%+64px)] max-w-none scale-110 object-cover blur-3xl brightness-[.72] saturate-150" decoding="async" loading="lazy" src={first.url} />
+          {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
+          <img alt={first.alt} className="absolute inset-0 size-full object-contain drop-shadow-[0_18px_32px_#0D0D0D66]" decoding="async" loading="lazy" onError={() => fail(first.url)} src={first.url} />
+        </div>
+        {first.caption && <figcaption className="px-1 text-[13px] leading-5" style={{ color: tone.sub }}>{first.caption}</figcaption>}
       </figure>
       {rest.length > 0 && (
-        <ul aria-label="More images" className="-mr-4 flex snap-x gap-2 overflow-x-auto pb-1 pr-4 [scrollbar-width:none]" data-media-carousel>
+        <ul aria-label="More images" className="-mr-4 flex snap-x gap-2.5 overflow-x-auto pb-1 pr-4 [scrollbar-width:none]" data-media-carousel>
           {rest.map((image) => (
-            <li className="relative h-[196px] w-[150px] shrink-0 snap-start overflow-hidden rounded-[var(--sv-card-r-small,18px)] bg-[#333]" key={image.id}>
+            <li className="relative h-[156px] w-[124px] shrink-0 snap-start overflow-hidden rounded-[16px]" key={image.id} style={mediaFrame(tone)}>
               {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
               <img alt={image.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => fail(image.url)} src={image.url} />
-              {image.caption && <span className="absolute inset-x-2.5 bottom-2.5 line-clamp-2 text-[12px] font-semibold text-[#F5F4EF] [text-shadow:0_1px_6px_#000]">{image.caption}</span>}
+              {image.caption && (
+                <>
+                  <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_55%,#0D0D0DB3_100%)]" />
+                  <span className="absolute inset-x-2.5 bottom-2.5 line-clamp-2 text-[12px] font-semibold text-[#F5F4EF]">{image.caption}</span>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -72,13 +83,13 @@ function ImageRun({ blocks }: { blocks: ProfileBlock[] }) {
   );
 }
 
-function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string }) {
+function Block({ block, tone, accent, accentInk, compact = false }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string; /** Appearance content: link previews read as a compact row. */ compact?: boolean }) {
   const data = block.data;
   const surface = { background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` };
   switch (block.kind) {
-    case "video": return <VideoBlock accent={accent} accentInk={accentInk} data={data} id={block.id} tone={tone} />;
+    case "video": return <VideoBlock accent={accent} data={data} id={block.id} tone={tone} />;
     case "music": return <MusicBlock accent={accent} accentInk={accentInk} block={block} tone={tone} />;
-    case "feature": return <FeatureBlock data={data} tone={tone} />;
+    case "feature": return compact ? <FeatureRow data={data} tone={tone} /> : <FeatureBlock data={data} tone={tone} />;
     case "image": return <ImageBlock data={data} tone={tone} />;
     case "services": {
       const items = (data.items as { name?: string; detail?: string; price?: string }[] | undefined) ?? [];
@@ -120,7 +131,7 @@ function Block({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: 
   }
 }
 
-function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: Record<string, unknown>; tone: BlockTone; accent: string; accentInk: string }) {
+function VideoBlock({ id, data, tone, accent }: { id: string; data: Record<string, unknown>; tone: BlockTone; accent: string }) {
   const [playing, setPlaying] = useState(false);
   const media = parseVideo(str(data.url));
   const focus = useMediaFocus(`video:${id}`);
@@ -138,7 +149,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
     return (
       <figure>
         {title && <p className="mb-2 px-1 text-[14px] font-semibold leading-snug">{title}</p>}
-        <div className="overflow-hidden rounded-[var(--sv-card-r,16px)] bg-[#0D0D0D]">
+        <div className="overflow-hidden rounded-[22px] bg-[#0D0D0D]" style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
           <video
             aria-label={title || "Uploaded video"}
             className="block max-h-[80vh] w-full object-contain"
@@ -165,7 +176,7 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
   const frame = media.vertical ? "mx-auto aspect-[9/16] w-full max-w-[300px]" : "aspect-video w-full";
   return (
     <figure>
-      <div className={`relative overflow-hidden rounded-[var(--sv-card-r,16px)] ${frame}`} style={{ background: tone.dark ? "#1C1C1C" : "#0D0D0D" }}>
+      <div className={`relative overflow-hidden rounded-[22px] ${frame}`} style={mediaFrame({ ...tone, dark: true })}>
         {playing ? (
           focus.active ? <TrackedVideo key={media.embedUrl} focus={focus} media={media} onClose={close} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} /> : (
             <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowFullScreen className="absolute inset-0 size-full" referrerPolicy="strict-origin-when-cross-origin" src={media.embedUrl} title={title || `${VIDEO_PROVIDER_NAMES[media.provider]} video`} />
@@ -174,13 +185,14 @@ function VideoBlock({ id, data, tone, accent, accentInk }: { id: string; data: R
           <button aria-label={`Play ${title || "video"}`} className="group absolute inset-0 size-full" onClick={start} type="button">
             {/* eslint-disable-next-line @next/next/no-img-element -- third-party video thumbnail */}
             {thumbnail && <img alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" referrerPolicy="no-referrer" src={thumbnail} />}
-            <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-            <span className="absolute left-1/2 top-1/2 grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full shadow-[0_10px_40px_-10px_rgba(0,0,0,.6)] transition group-hover:scale-105" style={{ background: accent, color: accentInk }}>
-              <svg aria-hidden="true" className="ml-1 size-6" fill="currentColor" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5L7 4.5Z" /></svg>
+            <span className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_45%,#0D0D0DB3_100%)]" />
+            {/* A quiet glass play control; the accent stays a small detail, never a big disc. */}
+            <span className="absolute left-1/2 top-1/2 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#FFFFFF29] text-white shadow-[0_12px_32px_-12px_#000000B3,inset_0_0_0_1px_#FFFFFF4D] backdrop-blur-md transition group-hover:scale-105 group-hover:bg-[#FFFFFF3D]">
+              <svg aria-hidden="true" className="ml-0.5 size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5L7 4.5Z" /></svg>
             </span>
-            <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3.5 text-left text-white">
-              <span className="min-w-0 truncate text-[14px] font-semibold drop-shadow">{title}</span>
-              <span className="shrink-0 font-label text-[10px] uppercase tracking-[0.14em] text-white/80">{VIDEO_PROVIDER_NAMES[media.provider]}</span>
+            <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 px-4 pb-3.5 text-left text-white">
+              <span className="min-w-0 truncate text-[14px] font-semibold">{title}</span>
+              <span className="flex shrink-0 items-center gap-1.5 font-label text-[10px] uppercase tracking-[0.14em] text-white/75"><span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: accent }} />{VIDEO_PROVIDER_NAMES[media.provider]}</span>
             </span>
           </button>
         )}
@@ -372,6 +384,31 @@ function FeatureBlock({ data, tone }: { data: Record<string, unknown>; tone: Blo
         {str(data.description) && <span className="mt-1 line-clamp-2 block text-[13px] leading-5" style={{ color: tone.sub }}>{str(data.description)}</span>}
         <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold">{str(data.cta) || "Open"} <span aria-hidden="true" className="transition group-hover:translate-x-0.5">↗</span></span>
       </span>
+    </a>
+  );
+}
+
+/** A link preview as one refined row: a small picture, the title and where it goes. */
+function FeatureRow({ data, tone }: { data: Record<string, unknown>; tone: BlockTone }) {
+  const [failedImage, setFailedImage] = useState("");
+  const url = str(data.url);
+  const image = str(data.image_url) || str(data.image);
+  let site = str(data.siteName);
+  if (!site) { try { site = new URL(url).hostname.replace(/^www\./, ""); } catch { site = ""; } }
+  const description = str(data.description);
+  return (
+    <a className="group flex min-h-[92px] items-center gap-3.5 rounded-[20px] p-2.5 pr-4 transition hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" data-feature-row href={url} rel="noopener noreferrer" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target="_blank">
+      <span className="relative size-[72px] shrink-0 overflow-hidden rounded-[14px]" style={{ background: tone.bg, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- third-party link preview image */}
+        {image && failedImage !== image && <img alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" loading="lazy" onError={() => setFailedImage(image)} referrerPolicy="no-referrer" src={image} />}
+        {(!image || failedImage === image) && <span aria-hidden="true" className="absolute inset-0 grid place-items-center font-display text-[24px] font-bold" style={{ color: tone.sub }}>{(str(data.title) || site || "·").slice(0, 1).toUpperCase()}</span>}
+      </span>
+      <span className="min-w-0 flex-1">
+        {site && <span className="block truncate font-label text-[10px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>{site}</span>}
+        <span className="mt-0.5 block truncate text-[16px] font-semibold leading-snug">{str(data.title) || site}</span>
+        {description && <span className="mt-0.5 line-clamp-1 block text-[13px] leading-5" style={{ color: tone.sub }}>{description}</span>}
+      </span>
+      <span aria-hidden="true" className="shrink-0 text-[15px] transition group-hover:translate-x-0.5" style={{ color: tone.sub }}>↗</span>
     </a>
   );
 }
