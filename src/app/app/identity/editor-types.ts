@@ -91,4 +91,6 @@ export type EditorApi = {
   go: (section: Section, slug?: ModeSlug) => void;
   toast: (text: string, action?: { label: string; run: () => void }) => void;
   publicUrl: (slug: ModeSlug, source?: string) => string;
+  /** Rotates an Event or Business share link. Resolves false if it could not. */
+  regenerateShareLink: (slug: ModeSlug) => Promise<boolean>;
 };

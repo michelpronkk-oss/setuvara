@@ -287,7 +287,7 @@ try {
   await modeQr.waitFor();
   const modeUrl = new URL(await modeQr.getAttribute("data-qr-value"));
   assert.equal(modeUrl.origin, appUrl);
-  assert.match(modeUrl.pathname, /^\/s\/[A-Za-z0-9_-]{43}$/, "Business Share uses its opaque locator");
+  assert.match(modeUrl.pathname, /^\/s\/[0-9A-Za-z]{8}$/, "Business Share uses its short share id");
   assert.equal(await landedMode(modeUrl.href), "business");
   assert(!modeUrl.pathname.startsWith("/q/"), "Mode-specific Share retains its own canonical QR URL");
   console.log("PASS existing Mode-specific Share QR remains separate from Quick QR");

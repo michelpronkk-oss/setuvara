@@ -75,7 +75,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls: initialModeShareUrls, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -770,6 +770,27 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     window.scrollTo({ top: 0 });
   }, [flush, slug]);
 
+  const [modeShareUrls, setModeShareUrls] = useState(initialModeShareUrls);
+  // Regenerates one Mode's link; every older link to that Mode stops opening.
+  const regenerateShareLink = useCallback(async (target: ModeSlug) => {
+    const current = modeShareUrls[target]?.match(/\/s\/([0-9A-Za-z]{8})$/)?.[1];
+    if (target === "personal" || !current) return false;
+    try {
+      const response = await fetch("/api/share/mode-link", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: target, current }),
+      });
+      const payload = await response.json().catch(() => null) as { path?: unknown } | null;
+      if (!response.ok || typeof payload?.path !== "string" || !/^\/s\/[0-9A-Za-z]{8}$/.test(payload.path)) return false;
+      const path = payload.path;
+      setModeShareUrls((urls) => ({ ...urls, [target]: `${publicOrigin}${path}` }));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [modeShareUrls, publicOrigin]);
   const publicUrl = useCallback((target: ModeSlug, source?: string) => publicModeUrl({ origin: publicOrigin, username: savedUsername, shareUrls: modeShareUrls, mode: target, source }), [publicOrigin, savedUsername, modeShareUrls]);
 
   const requestCapability = useCallback((capability: CapabilityKey) => {
@@ -783,7 +804,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
-    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, pickSlide, removeSlide, equipReward, go, toast, publicUrl,
+    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, pickSlide, removeSlide, equipReward, go, toast, publicUrl, regenerateShareLink,
   };
 
   if (!mode) return <main className="grid min-h-dvh place-items-center p-8 text-sm">Your Modes are being prepared.</main>;
