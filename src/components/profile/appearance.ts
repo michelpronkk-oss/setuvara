@@ -79,6 +79,9 @@ export type SocialStyle = (typeof SOCIAL_STYLES)[number];
 /** Where platforms show: under the name, only in the link rows, or both (each twice, on purpose). */
 export const SOCIAL_PLACEMENTS = ["name", "links", "both"] as const;
 export type SocialPlacement = (typeof SOCIAL_PLACEMENTS)[number];
+/** Identity alignment. Auto is each look's own (and Immersive's face-aware side). */
+export const IDENTITY_ALIGNS = ["auto", "left", "center"] as const;
+export type IdentityAlign = (typeof IDENTITY_ALIGNS)[number];
 export const MOTION_LEVELS = ["off", "subtle", "full"] as const;
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 export const SOUND_PRESENTATIONS = ["ambient", "minimal", "featured"] as const;
@@ -124,6 +127,7 @@ export type ResolvedAppearance = {
   /** How icons look under the name; "hidden" exactly when placement is "links". */
   socialStyle: SocialStyle;
   socialPlacement: SocialPlacement;
+  align: IdentityAlign;
   motion: MotionLevel;
   soundPresentation: SoundPresentation;
   zoom: PortraitZoom;
@@ -260,6 +264,7 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     readability: savedReadability !== "auto" && !advanced ? "auto" : savedReadability,
     socialStyle: placement === "links" ? "hidden" : savedStyle === "hidden" ? defaults.socialStyle : savedStyle,
     socialPlacement: placement,
+    align: includes(IDENTITY_ALIGNS, saved.identityAlign) ? saved.identityAlign : "auto",
     // An Appearance whose character is motion keeps its own motion; Full needs Plus elsewhere.
     motion: savedMotion === "full" && !advanced ? "subtle" : savedMotion,
     soundPresentation: sound === "featured" && !can("soundtrack.premium_treatment") ? "minimal" : sound,
@@ -282,7 +287,7 @@ export function previewAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
 export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
-  "socialStyle", "socialPlacement", "motion", "soundtrackPresentation",
+  "socialStyle", "socialPlacement", "identityAlign", "motion", "soundtrackPresentation",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -311,7 +316,7 @@ export function equipAppearance(saved: Partial<ModeAppearance> | null | undefine
 
 /** Whether a saved appearance is valid as-is for its Mode (what the database accepts). */
 export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", ...PREMIUM_FIELDS]);
+  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", "identityAlign", ...PREMIUM_FIELDS]);
   const optional = (value: unknown, list: readonly string[]) => value === undefined || includes(list, value);
   return Boolean(appearance) && typeof appearance === "object"
     && Object.keys(appearance).every((key) => known.has(key))
@@ -333,6 +338,7 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.readability, READABILITY)
     && optional(appearance.socialStyle, SOCIAL_STYLES)
     && optional(appearance.socialPlacement, SOCIAL_PLACEMENTS)
+    && optional(appearance.identityAlign, IDENTITY_ALIGNS)
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
 }

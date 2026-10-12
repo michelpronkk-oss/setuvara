@@ -66,6 +66,8 @@ export type ModeAppearance = {
   socialStyle?: "rail" | "row" | "compact" | "hidden";
   /** Where platforms show. Absent: In links when socialStyle is hidden, else Under name. "both" repeats them on purpose. */
   socialPlacement?: "name" | "links" | "both";
+  /** Name, details, icons and buttons: the look's own alignment (absent/auto), left or centered. */
+  identityAlign?: "auto" | "left" | "center";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };
