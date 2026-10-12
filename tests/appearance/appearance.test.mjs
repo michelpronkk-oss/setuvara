@@ -424,7 +424,10 @@ describe("ProfileRenderer", () => {
     const at100 = lib.solveFaceSafe({ ...base, zoom: 1 });
     const out = lib.solveFaceSafe({ ...base, zoom: 0.7 });
     assert.ok(out.imageBottom - out.imageTop < at100.imageBottom - at100.imageTop, "zoomed out shows the photo smaller");
-    assert.ok(Math.abs(lib.estimateFace(lib.focusSource({ x: 50, y: 30 }), frame, { zoom: 0.7 }).mouth - lib.estimateFace(lib.focusSource({ x: 50, y: 30 }), frame).mouth) < 40, "the face stays where it was");
+    assert.equal(out.imageTop, 0, "where the photo runs out, it stays on the top edge: no atmosphere above the head");
+    const legacy = lib.placePhoto(lib.legacySource(PHOTO, { x: 50, y: 30 }), 390 / 844, 0.7);
+    assert.equal(legacy.top, 0);
+    assert.ok(legacy.top + legacy.height < 1, "the spare space is below, behind the name");
     const html = render(mode("personal", { theme: "immersive", portraitZoom: 70 }));
     assert.match(html, /data-photo-zoom="70"/);
     assert.doesNotMatch(html, /scale\(0\.7\)/, "never a shrunken copy by transform");

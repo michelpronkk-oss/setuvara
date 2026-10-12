@@ -132,7 +132,8 @@ export type PhotoPlacement = { left: number; top: number; width: number; height:
  *
  * Zooming scales around where the face sits at 100%, so the face holds its place on screen. Zoomed
  * out, the window grows past the crop and reveals the original's real pixels; only beyond the
- * original itself is the frame left to the Appearance's atmosphere (`covers` is false).
+ * original itself is the frame left to the Appearance's atmosphere (`covers` is false), and that
+ * space is always below the image, never above it: the top edge stays sharp.
  */
 export function placePhoto(source: Pick<PhotoSource, "aspect" | "crop" | "focus">, frameAspect: number, zoom = 1): PhotoPlacement {
   const A = Number.isFinite(frameAspect) && frameAspect > 0 ? frameAspect : PHOTO_ASPECT;
@@ -158,9 +159,11 @@ export function placePhoto(source: Pick<PhotoSource, "aspect" | "crop" | "focus"
   const zw = w / z;
   const zh = h / z;
   const wx = clampRange(fx - u * zw, 0, W - zw);
-  const wy = clampRange(fy - v * zh, 0, 1 - zh);
-  const left = -wx / zw;
-  const top = -wy / zh;
+  // Where the image runs out vertically, it stays on the frame's top edge: heads are never
+  // dissolved into atmosphere, and the spare space goes below, behind the name and actions.
+  const wy = zh > 1 ? 0 : clampRange(fy - v * zh, 0, 1 - zh);
+  const left = -wx / zw || 0;
+  const top = -wy / zh || 0;
   const width = W / zw;
   const height = 1 / zh;
   const e = 1e-6;
