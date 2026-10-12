@@ -6,12 +6,12 @@ import { cookies, headers } from "next/headers";
 import { cache } from "react";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
-import { MeetMark } from "@/components/marketing/brand";
 import { ConnectFlow } from "@/components/connections/connect-flow";
-import { ProfileRenderer, profileTone, resolvedBrowserThemeColor } from "@/components/profile/profile-renderer";
+import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
 import { resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { getMessages } from "@/lib/i18n/messages";
-import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { visitorPassCookie } from "@/lib/connections/access";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
@@ -114,7 +114,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
   const { profile, mode: rawMode, plan } = record;
   const supabase = await createClient();
 
-  const [{ data: publicCosmetics }, { data: links, error: linksError }, { data: passportHighlight }] = await Promise.all([
+  const [{ data: publicCosmetics }, { data: links, error: linksError }, { data: passportHighlight }, { data: liveContextRows }] = await Promise.all([
     supabase.from("passport_preferences")
       .select("category,reward_id")
       .eq("user_id", profile.id)
@@ -126,7 +126,13 @@ export default async function PublicProfilePage({ params, searchParams }: Public
       .eq("is_visible", true)
       .order("sort_order"),
     supabase.rpc("get_public_passport_featured_stamp", { p_username: username }),
+    // Only the label, type and expiry of a currently effective Live Context are public.
+    supabase.rpc("get_public_live_context", { p_username: username }),
   ]);
+  const liveRow = Array.isArray(liveContextRows) ? liveContextRows[0] as { context_type?: string; label?: string; expires_at?: string } | undefined : undefined;
+  const liveContext: PublicLiveContext | null = liveRow?.label && liveRow.expires_at && ["event", "meeting", "place", "custom"].includes(liveRow.context_type ?? "")
+    ? { label: liveRow.label, type: liveRow.context_type as PublicLiveContext["type"], expiresAt: liveRow.expires_at }
+    : null;
   // Member status and premium presentation come from canonical billing, never profile data.
   const memberTier = memberTierForPlan(plan);
   if (linksError) notFound();
@@ -269,17 +275,14 @@ export default async function PublicProfilePage({ params, searchParams }: Public
     : null;
 
   return (
-    <main data-public-profile-surface="true" data-public-profile-theme={resolvedLook.theme} data-public-profile-layout={resolvedLook.layout} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
+    <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       <JsonLd data={personStructuredData} />
       <ProfileRenderer
         attribution
         className="min-h-dvh"
-        chrome={(
-          <header className="flex items-center justify-between gap-3 px-4 pt-2 @3xl/profile:px-[clamp(32px,5cqw,72px)] @3xl/profile:pt-6">
-            <Link aria-label="Setuvara home" className="inline-flex min-h-11 items-center gap-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href="/"><MeetMark className="size-5" /><span className="font-display text-[17px] font-bold tracking-[-0.05em]">setuvara</span></Link>
-            {owner && <Link className="inline-flex min-h-11 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-4 text-xs font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md [text-shadow:none] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>}
-          </header>
-        )}
+        chrome={owner ? (
+          <Link className="inline-flex h-8 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-3.5 text-[12.5px] font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>
+        ) : undefined}
         footer={sharedPassportStamp ? (
           <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
             <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
@@ -295,6 +298,7 @@ export default async function PublicProfilePage({ params, searchParams }: Public
         guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
         memberTier={memberTier}
         plan={plan}
+        liveContext={liveContext}
         sound="live"
         visitorAction={canInitiateConnection ? <ConnectFlow
           username={username}

@@ -10,6 +10,7 @@
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-brand: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-label: var(--font-geist-mono), ui-monospace, monospace;
+  --font-serif-display: var(--font-instrument-serif), "Instrument Serif", ui-serif, Georgia, serif;
 }
 
 :root {
@@ -44,6 +45,42 @@ html:has(head > meta[name="theme-color"][content="#FFFFFF"]) body {
 html:has(head > meta[name="theme-color"][content="#F5F4EF"]),
 html:has(head > meta[name="theme-color"][content="#F5F4EF"]) body {
   background-color: #f5f4ef !important;
+  color-scheme: light;
+}
+
+html:has(head > meta[name="theme-color"][content="#120F0D"]),
+html:has(head > meta[name="theme-color"][content="#120F0D"]) body {
+  background-color: #120f0d !important;
+  color-scheme: dark;
+}
+
+html:has(head > meta[name="theme-color"][content="#07070A"]),
+html:has(head > meta[name="theme-color"][content="#07070A"]) body {
+  background-color: #07070a !important;
+  color-scheme: dark;
+}
+
+html:has(head > meta[name="theme-color"][content="#141210"]),
+html:has(head > meta[name="theme-color"][content="#141210"]) body {
+  background-color: #141210 !important;
+  color-scheme: dark;
+}
+
+html:has(head > meta[name="theme-color"][content="#0B0A09"]),
+html:has(head > meta[name="theme-color"][content="#0B0A09"]) body {
+  background-color: #0b0a09 !important;
+  color-scheme: dark;
+}
+
+html:has(head > meta[name="theme-color"][content="#F4F2EE"]),
+html:has(head > meta[name="theme-color"][content="#F4F2EE"]) body {
+  background-color: #f4f2ee !important;
+  color-scheme: light;
+}
+
+html:has(head > meta[name="theme-color"][content="#F1ECEA"]),
+html:has(head > meta[name="theme-color"][content="#F1ECEA"]) body {
+  background-color: #f1ecea !important;
   color-scheme: light;
 }
 
@@ -148,8 +185,45 @@ html:has(head > meta[name="theme-color"][content="#F5F4EF"]) body {
   to { transform: rotate(360deg); }
 }
 
+/* Viral identity Appearances (ViralProfile design motion tokens). CSS only; reduced motion stops all of it. */
+@keyframes sv-drift {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to { transform: scale(1.14) translate3d(-2%, -1.5%, 0); }
+}
+
+@keyframes sv-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes sv-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sv-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes sv-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes sv-sheen {
+  0% { transform: translateX(-140%); }
+  55%, 100% { transform: translateX(320%); }
+}
+
+@keyframes sv-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-sv-motion] { animation: none !important; }
+  [data-sv-marquee] { transform: translateX(-4%) !important; }
 }
 
 /* Passport: a newly earned stamp is pressed onto the page (Passport .dc, frame 10). */

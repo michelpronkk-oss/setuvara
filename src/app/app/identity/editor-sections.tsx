@@ -13,7 +13,7 @@ import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/br
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { modeFocus } from "@/components/profile/photo-focus";
-import { QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
+import { APPEARANCE_NAMES, QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
 import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { hasCapability } from "@/lib/billing/capabilities";
@@ -22,7 +22,7 @@ import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, provider
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
-import { LAYOUTS, MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
+import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
 import { Card, Counter, Field, MonoLabel, Pill, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper } from "./editor-ui";
 
 const modeIntro: Record<ModeSlug, string> = {
@@ -38,8 +38,6 @@ const profileIntro: Record<ModeSlug, string> = {
 const CONTACT_PROVIDERS = ["email", "phone", "sms", "whatsapp", "telegram", "signal", "messenger"];
 
 const text = (mode: ProfileMode, key: string) => (typeof mode.settings[key] === "string" ? String(mode.settings[key]) : "");
-const layoutLabel = (mode: ProfileMode) => LAYOUTS[mode.slug].find((layout) => layout.value === mode.appearance.layout)?.label ?? "Cover";
-const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   const { mode, profile } = api;
@@ -48,7 +46,7 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   return {
     profile: [profile.display_name || "Add your name", contextLine, mode.image_path ? "photo set" : "no photo yet"].filter(Boolean).join(" · "),
     links: [mode.blocks?.length ? `${mode.blocks.length} block${mode.blocks.length === 1 ? "" : "s"}` : "", mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : ""].filter(Boolean).join(" · ") || "Nothing added yet",
-    appearance: `${cap(resolveAppearance(mode, api.plan).theme)} · ${layoutLabel(mode)}`,
+    appearance: `${APPEARANCE_NAMES[resolveAppearance(mode, api.plan).id]} · equipped for ${mode.label}`,
     settings: `${mode.is_enabled ? "Mode is live" : "Mode is off"} · ${profile.is_published ? "public" : "draft"} · ${{ anyone: "anyone can connect", direct_only: "direct share only", nobody: "view-only" }[mode.connect_policy ?? "anyone"]}`,
     share: api.publicUrl(mode.slug).replace(/^https?:\/\//, ""),
   };

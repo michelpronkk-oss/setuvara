@@ -1,10 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
+import { MeetMark } from "@/components/marketing/brand";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { ProfileBlocks, type BlockTone } from "@/components/profile/profile-blocks";
-import { SoundtrackPresentation, SoundtrackProvider, type SoundtrackSkin } from "@/components/profile/soundtrack";
+import { SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MemberBadge } from "@/components/app/status-badge";
 import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -12,21 +15,23 @@ import { hasCapability } from "@/lib/billing/capabilities";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { getMessages } from "@/lib/i18n/messages";
-import { modeFocus } from "./photo-focus";
+import { modeFocus, type PhotoFocus } from "./photo-focus";
 import { resolveAppearance, type ResolvedAppearance } from "./appearance";
-import { PAPER, resolveSkin, type Skin } from "./profile-skin";
-import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, ViewerState } from "./types";
+import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
+import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./face-safe";
+import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, ModeIndicator, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
+import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, ViewerState } from "./types";
+
+export { BOOKING_PROVIDERS } from "./appearance-theme";
 
 /**
  * The one profile renderer. The public page, the editor preview and every thumbnail draw a Mode
- * through this component, following the approved Appearance design (ProfilePreview reference):
+ * through this component, following the approved ViralProfile design: one of ten Appearances,
+ * each composed from the same primitives (environment, hero, identity, Mode indicator, Live
+ * Context, socials, Connect, content, sound, floating Connect).
  *
- *   hero (Cover · Framed · Portrait · Poster · Index · Full Portrait) → mark → event card → Connect + secondary
- *   → About → links → soundtrack → media → attribution
- *
- * The composition answers to its own width (container queries), not the window: below 768px it
- * is the single-column phone layout; from 768px the hero becomes a full-height column (44%,
- * Portrait 50%) beside the body.
+ * The composition answers to its own width (container queries), not the window: below 700px it
+ * is the phone composition; from 700px it becomes a split (photo beside the identity).
  */
 
 type ProfileRendererProps = {
@@ -50,12 +55,14 @@ type ProfileRendererProps = {
   memberTier?: MemberTier | null;
   /** Server-resolved plan controls paid visual treatments while preserving saved choices. */
   plan?: PlanCode;
-  /** Page chrome (logo, Edit profile) placed over the hero on phones and atop the body when wide. */
+  /** Page chrome (the owner's Edit profile) placed top-right over the hero. */
   chrome?: ReactNode;
-  /** Extra content after the media (the public page's shared Passport stamp). */
+  /** Extra content after the links (the public page's shared Passport stamp). */
   footer?: ReactNode;
-  /** "Made with Setuvara" under the profile. */
+  /** "Make yours on Setuvara" (Free) or the small Setuvara mark (Plus) at the end. */
   attribution?: boolean;
+  /** The owner's currently effective Live Context, if any (public RPC). */
+  liveContext?: PublicLiveContext | null;
   /**
    * An unsaved look to draw instead of the plan-resolved one (the editor's preview-before-
    * upgrade). Never used by the public page.
@@ -64,35 +71,10 @@ type ProfileRendererProps = {
   className?: string;
 };
 
-type ResolvedLink = { link: ProfileLink; name: string; url: string; display: string; external: boolean; providerId: string; icon: ReturnType<typeof providerForLink>["icon"] };
 type Copy = ReturnType<typeof getMessages>["profile"];
-
-/** Booking providers become the Business "Book a call" action instead of a list row. */
-export const BOOKING_PROVIDERS = ["calendly", "cal_com", "booking_link", "calendar"];
 const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business" };
-/** Text on photos: always paper over the design's ink gradient. */
-const ON_PHOTO = PAPER;
-const ON_PHOTO_MUTED = "#F5F4EFD9";
-/** Chips and cards collapse after this many links once a Mode has eight or more. */
-const LINK_COLLAPSE_AT = 8;
+const LINK_COLLAPSE_AT = 9;
 const LINK_VISIBLE = 6;
-
-/** Whether a Mode's hero runs its photo edge to edge (Cover with the Full image). */
-export function isFullBleed(mode: ProfileMode, plan: PlanCode = "free") {
-  const look = resolveAppearance(mode, plan);
-  return look.family === "full-portrait" || Boolean(mode.image_url) && look.family === "cover" && look.imageTreatment === "full-bleed";
-}
-
-/** Background and darkness of a Mode's look, so a page can continue it past the profile. */
-export function profileTone(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free") {
-  const skin = resolveSkin(resolveAppearance(mode, plan));
-  return { bg: skin.page, dark: skin.dark };
-}
-
-/** Single browser/page surface color derived from the same skin as the renderer. */
-export function resolvedBrowserThemeColor(mode: Pick<ProfileMode, "slug" | "appearance">, plan: PlanCode = "free"): string {
-  return profileTone(mode, plan).bg;
-}
 
 export function ProfileRenderer(props: ProfileRendererProps) {
   const { mode } = props;
@@ -105,503 +87,815 @@ export function ProfileRenderer(props: ProfileRendererProps) {
   const look = props.previewLook ?? resolveAppearance(mode, plan);
   const profile = <Profile {...props} hasSoundtrack={Boolean(track)} look={look} mode={renderedMode} />;
   if (!track) return profile;
-  // The public player only needs the URL. Keep editor-only titles/artwork out
-  // of the public server payload while retaining the saved block in the editor.
+  // The public player only needs the URL. Keep editor-only titles/artwork out of the public
+  // server payload. The provider sits above the Appearance, so changing look never restarts it.
   const playerBlock = isLive ? { ...track, data: { url: track.data.url } } : track;
-  return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} premiumPresentation={premiumSoundtrack} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
+  return <SoundtrackProvider block={playerBlock} key={`${mode.id}:${track.id}:${String(track.data.url)}`} pill={false} premiumPresentation={premiumSoundtrack} preview={props.sound === "preview"}>{profile}</SoundtrackProvider>;
 }
 
-type Identity = {
-  name: string;
-  initials: string;
-  eyebrow: string;
-  role: string;
-  roleShort: string;
-  headline: string;
-  posterMeta: string;
-};
+type Identity = { name: string; initials: string; username: string; roleLine: string };
 
 function identityFor(profile: ProfileIdentity, mode: ProfileMode): Identity {
   const name = profile.display_name.trim() || `@${profile.username}`;
-  const initials = name.replace(/^@/, "").split(/\s+/).map((part) => part[0] ?? "").slice(0, 2).join("").toUpperCase();
-  const eventName = setting(mode, "eventName");
-  const city = setting(mode, "city");
+  const initials = name.replace(/^@/, "").split(/\s+/).map((part) => [...part][0] ?? "").slice(0, 2).join("").toUpperCase();
   const join = (...parts: string[]) => parts.filter(Boolean).join(" · ");
-  const shared = { name, initials };
-  if (mode.slug === "event") {
-    const role = setting(mode, "role");
-    return { ...shared, eyebrow: join("EVENT", eventName.toUpperCase()), role: join(role, city), roleShort: role.split(/[·,]/)[0].trim().toUpperCase(), headline: eventName || name, posterMeta: join(city, setting(mode, "dateLabel")).toUpperCase() || "EVENT" };
-  }
-  if (mode.slug === "business") {
-    const role = setting(mode, "role");
-    const company = setting(mode, "company");
-    return { ...shared, eyebrow: "BUSINESS", role: join(role, company, city), roleShort: role.toUpperCase(), headline: company || name, posterMeta: join(role, city).toUpperCase() || "BUSINESS" };
-  }
-  const location = setting(mode, "location");
-  return { ...shared, eyebrow: "PERSONAL", role: join(location, setting(mode, "pronouns")), roleShort: location.toUpperCase(), headline: name, posterMeta: join("PERSONAL", location.toUpperCase()) };
+  const roleLine = mode.slug === "event" ? join(setting(mode, "role"), setting(mode, "city"))
+    : mode.slug === "business" ? join(setting(mode, "role"), setting(mode, "company"), setting(mode, "city"))
+      : join(setting(mode, "location"), setting(mode, "pronouns"));
+  return { name, initials, username: profile.username, roleLine };
 }
 
 type ProfileProps = ProfileRendererProps & { look: ResolvedAppearance; hasSoundtrack: boolean };
 
+/** Everything a hero composition needs, resolved once. */
+type Scene = {
+  look: ResolvedAppearance;
+  theme: AppearanceTheme;
+  who: Identity;
+  mode: ProfileMode;
+  photo: string | null;
+  focus: PhotoFocus;
+  images: string[];
+  bio: string;
+  copy: Copy;
+  memberTier: MemberTier | null;
+  treatment: boolean;
+  still: boolean;
+  drift: string | undefined;
+  live: PublicLiveContext | null;
+  sound: "ambient" | "minimal" | "featured" | null;
+  socials: ResolvedLink[];
+  secondary: boolean;
+  actions: ReactNode;
+  soundTitle: string;
+};
+
 function Profile(props: ProfileProps) {
   const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
-  if (look.family === "full-portrait") return <FullPortraitProfile {...props} />;
-  const skin = resolveSkin(look);
   const copy = getMessages("en").profile;
+  const photo = mode.image_url ?? null;
+  const theme = appearanceTheme(look.id, look.accent, Boolean(photo));
   const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
-  const photo = mode.image_url ?? null;
-  const treatment = Boolean(selectedRewards.profile_treatment);
-  const family = look.family;
-  const overlay = family === "cover" || family === "portrait";
+  const connected = viewerState === "visitor_connected" && !previewAsVisitor;
   const all = resolveLinks(mode.links);
   const booking = mode.slug === "business" && !owner ? all.find((item) => BOOKING_PROVIDERS.includes(item.providerId)) : undefined;
   const links = all.filter((item) => item !== booking);
-  const blockTone: BlockTone = { bg: skin.page, ink: skin.fg, sub: skin.muted, chip: skin.chip.background, line: skin.border, dark: skin.dark };
-  const style = { background: skin.page, color: skin.fg, "--sv-card-r": `${skin.radius}px`, ...skin.connectVars } as CSSProperties;
-  // Chrome over a photo reads paper; with no photo, the accent field carries it.
-  const heroInk = photo ? ON_PHOTO : skin.onAccent;
-  const chromeTone = (onHero: boolean) => ({
-    color: onHero ? heroInk : skin.fg,
-    "--sv-chrome-chip-bg": onHero ? "rgba(13,13,13,.45)" : skin.fg,
-    "--sv-chrome-chip-fg": onHero ? PAPER : skin.page,
-    textShadow: onHero && photo ? "0 1px 12px rgba(0,0,0,.35)" : undefined,
-  }) as CSSProperties;
+  const still = look.motion === "off";
+  const full = look.motion === "full" || look.id === "motion";
+  const scene: Scene = {
+    look, theme, who, mode, photo, copy, memberTier,
+    focus: modeFocus(mode),
+    images: contentImages(mode.blocks).map((image) => image.url),
+    bio: profile.bio ?? "",
+    treatment: Boolean(selectedRewards.profile_treatment),
+    still,
+    drift: still ? undefined : `sv-drift ${full ? 22 : 34}s ease-in-out infinite alternate`,
+    live: props.liveContext ?? null,
+    sound: props.hasSoundtrack ? look.soundPresentation : null,
+    socials: heroSocials(mode.slug, links),
+    secondary: owner || Boolean(booking),
+    actions: <Actions {...props} booking={booking} connected={connected} copy={copy} owner={owner} theme={theme} />,
+    soundTitle: copy.soundtrackOf.replace("{mode}", MODE_NAMES[mode.slug]),
+  };
+  const connect = theme.connect;
+  const connectVars = {
+    "--sv-connect-fill": connect.bg,
+    "--sv-connect-ink": connect.fg,
+    "--sv-connect-edge": [connect.edge !== "none" ? connect.edge : "", connect.shadow ?? ""].filter(Boolean).join(",") || "none",
+    "--sv-connect-radius": "999px",
+    "--sv-connect-h": "52px",
+    "--sv-connect-px": "26px",
+    "--sv-connect-w": connect.full ? "100%" : "auto",
+    "--sv-connect-dot": connect.dot ?? "transparent",
+    "--sv-connect-dot-display": connect.dot ? "block" : "none",
+    "--sv-connect-sheen": connect.sheen && !still ? "sv-sheen 5s 1.4s ease-in-out infinite" : "none",
+    "--sv-connect-sheen-display": connect.sheen && !still ? "block" : "none",
+    "--sv-focus": theme.identity.fg,
+  };
+  const blockTone: BlockTone = { bg: theme.base, ink: theme.fg, sub: theme.muted, chip: theme.card.bg, line: theme.card.edge, dark: !theme.light };
+  const plusMark = hasCapability(props.plan ?? "free", "appearance.premium");
+  const soundTop = look.id === "clean" || look.id === "social" ? 28 : 18;
+  const soundRight = look.id === "clean" || look.id === "social" ? 28 : 16;
+  const floating = !owner && !connected && Boolean(props.visitorAction);
 
   return (
     <article
-      className={`@container/profile relative isolate w-full font-brand ${className}`}
-      data-image-treatment={look.imageTreatment}
-      data-profile-family={family}
-      data-profile-intensity={look.intensity}
-      data-profile-layout={look.layout}
+      className={`@container/profile relative isolate w-full overflow-x-clip font-brand ${className}`}
+      data-appearance={look.id}
+      data-motion={look.motion}
       data-profile-mode={look.slug}
-      data-profile-theme={look.theme}
-      style={style}
+      data-sound-presentation={scene.sound ?? "none"}
+      style={{
+        background: theme.base,
+        color: theme.fg,
+        "--sv-h": "clamp(560px, var(--profile-vh, 100svh), 1000px)",
+        "--sv-card-r": `${theme.radius}px`,
+        "--sv-card-r-small": `${theme.radiusSmall}px`,
+        ...connectVars,
+      } as CSSProperties}
     >
-      <div className="flex min-h-[inherit] flex-col @3xl/profile:flex-row">
-        <WideHero copy={copy} look={look} memberTier={memberTier} mode={mode} photo={photo} skin={skin} treatment={treatment} who={who} />
+      <AppearanceEnvironment scene={scene} />
+      {theme.grain && <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[2] opacity-40 mix-blend-overlay" data-film-grain style={{ backgroundImage: FILM_GRAIN }} />}
+      {scene.sound && <SoundControl copy={copy} presentation={scene.sound} right={soundRight} theme={theme} title={scene.soundTitle} top={soundTop} />}
+      {chrome && <div className="absolute z-20 [&_a]:shadow-none" data-profile-chrome style={{ top: soundTop, right: scene.sound ? soundRight + 52 : soundRight, color: theme.pill.fg, "--sv-chrome-chip-bg": theme.pill.bg, "--sv-chrome-chip-fg": theme.pill.fg } as CSSProperties}>{chrome}</div>}
+      {scene.sound && <SoundGate accent={look.accent} copy={copy} initials={who.initials} name={who.name} photo={photo} theme={theme} />}
 
-        <div className="relative flex min-w-0 flex-1 flex-col">
-          {chrome && (
-            <>
-              <div className={`z-20 @3xl/profile:hidden ${overlay ? "absolute inset-x-0 top-0" : "relative"}`} data-profile-chrome="mobile" style={chromeTone(overlay)}>{chrome}</div>
-              <div className="hidden @3xl/profile:block" data-profile-chrome="wide" style={chromeTone(false)}>{chrome}</div>
-            </>
-          )}
-          <MobileHero chrome={Boolean(chrome)} look={look} memberTier={memberTier} mode={mode} photo={photo} skin={skin} treatment={treatment} who={who} />
-
-          <div className="flex flex-1 flex-col gap-4 px-[22px] pb-6 pt-[18px] @3xl/profile:gap-[22px] @3xl/profile:px-[clamp(32px,5cqw,72px)] @3xl/profile:pb-10 @3xl/profile:pt-[clamp(36px,4.4cqw,64px)]">
-            <div className="flex w-full max-w-[680px] flex-1 flex-col gap-[inherit]">
-              {!overlay && <WideIdentity memberTier={memberTier} skin={skin} who={who} />}
-              {overlay && <WideIdentity hiddenOnWide memberTier={memberTier} skin={skin} who={who} />}
-              <EarnedMark copy={copy} rewards={selectedRewards} skin={skin} />
-              {mode.slug === "event" && family !== "poster" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} skin={skin} />}
-              <Actions {...props} booking={booking} copy={copy} owner={owner} skin={skin} />
-              <About copy={copy} mode={mode} profile={profile} skin={skin} />
-              <Links copy={copy} links={links} skin={skin} />
-              {props.hasSoundtrack && <SoundtrackPresentation copy={{ soundOn: copy.soundOn, soundOff: copy.soundOff, soundtrack: copy.soundtrack, nowPlaying: copy.nowPlaying, onRepeat: copy.onRepeat, title: copy.soundtrackOf.replace("{mode}", MODE_NAMES[mode.slug]) }} skin={soundtrackSkin(skin)} style={look.soundStyle} />}
-              <ProfileBlocks accent={skin.accent} accentInk={skin.onAccent} blocks={mode.blocks} className="" tone={blockTone} />
-              {owner && links.length === 0 && !hasBlocks(mode) && <p className="px-4 py-4 text-[13px]" style={{ color: skin.muted, borderRadius: `${skin.radius}px`, boxShadow: `inset 0 0 0 1px ${skin.border}` }}>{copy.noLinks}</p>}
-              {footer}
-              {attribution && <p className="mt-auto self-center pt-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: skin.muted }}>{copy.madeWith}</p>}
-            </div>
-          </div>
-        </div>
+      <div className="relative z-[3] @min-[900px]/profile:hidden" data-profile-hero-mobile>
+        <AppearanceHero scene={scene} />
       </div>
+      <div className="relative z-[3] hidden @min-[900px]/profile:block" data-profile-hero-wide>
+        <WideHero scene={scene} />
+      </div>
+
+      <AppearanceContent attribution={attribution} blockTone={blockTone} copy={copy} footer={footer} links={links} owner={owner} plusMark={plusMark} profile={profile} rewards={selectedRewards} scene={scene} />
+      {floating && <FloatingConnect dot={connect.dot} label={copy.connect} style={{ background: connect.bg, color: connect.fg, boxShadow: [connect.edge !== "none" ? connect.edge : "", "0 14px 34px -12px #0D0D0D99"].filter(Boolean).join(","), outlineColor: theme.identity.fg }} />}
     </article>
   );
 }
 
-/** One portrait composition for the public page and every editor preview. */
-function FullPortraitProfile(props: ProfileProps) {
-  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
-  const skin = resolveSkin(look);
-  const copy = getMessages("en").profile;
-  const who = identityFor(profile, mode);
-  const owner = viewerState === "owner" && !previewAsVisitor;
-  const photo = mode.image_url;
-  const focus = modeFocus(mode);
-  const zoom = look.portraitZoom / 100;
-  const all = resolveLinks(mode.links);
-  const booking = mode.slug === "business" && !owner ? all.find((item) => BOOKING_PROVIDERS.includes(item.providerId)) : undefined;
-  const links = all.filter((item) => item !== booking);
-  const blockTone: BlockTone = { bg: skin.page, ink: skin.fg, sub: skin.muted, chip: skin.chip.background, line: skin.border, dark: skin.dark };
-  const nameSize = { compact: "clamp(32px,8cqw,42px)", standard: "clamp(40px,11cqw,52px)", large: "clamp(48px,12cqw,62px)", statement: "clamp(56px,14cqw,72px)" }[look.portraitNameSize];
-  const photoStyle: CSSProperties = { transform: `scale(${zoom})`, transformOrigin: `${focus.x}% ${focus.y}%` };
+// ---------------------------------------------------------------- Environment
+
+const y = (px: number) => `calc(var(--sv-h) * ${+(px / 844).toFixed(4)})`;
+const sized = (px: number) => `min(${px}px, ${y(px)})`;
+
+/**
+ * The photo atmosphere: one blurred layer of the same image (no second download, no seams),
+ * pinned behind the page while it scrolls. Scene uses its environment; Clean has none.
+ */
+function AppearanceEnvironment({ scene }: { scene: Scene }) {
+  const { theme, photo, look } = scene;
+  const atmosphere = theme.atmosphere;
+  if (!atmosphere.on) return null;
+  const source = look.id === "scene" ? scene.images[0] ?? photo : photo;
+  const field = photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18";
   return (
-    <article className={`@container/profile relative isolate w-full bg-[#0D0D0D] font-brand text-[#F5F4EF] ${className}`} data-image-treatment={look.imageTreatment} data-portrait-zoom={look.portraitZoom} data-profile-photo={photo ? "full-portrait" : "none"} data-profile-family="full-portrait" data-profile-layout={look.layout} data-profile-mode={look.slug} data-profile-theme={look.theme} style={{ "--sv-card-r": `${skin.radius}px`, ...skin.connectVars } as CSSProperties}>
-      <div className="mx-auto w-full max-w-[480px]">
-        <div className="relative isolate flex flex-col justify-end overflow-hidden px-6 pb-7 pt-28 text-center" data-profile-hero="full-portrait" style={{ minHeight: photo ? "min(830px,var(--profile-vh,100svh))" : "min(460px,75svh)" }}>
-          {photo && <>
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" style={{ maskImage: "linear-gradient(to bottom, transparent 42%, #000 61%, #000 76%, transparent 98%)" }}><FocusedPhoto alt="" className="!blur-[16px]" focus={focus} priority sizes="(max-width: 480px) 100vw, 480px" src={photo} style={{ ...photoStyle, transform: `scale(${zoom * 1.06})` }} /></div>
-            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" style={{ maskImage: "linear-gradient(to bottom, #000 0%, #000 51%, transparent 79%)" }}><FocusedPhoto alt={`${who.name} portrait`} focus={focus} priority sizes="(max-width: 480px) 100vw, 480px" src={photo} style={photoStyle} /></div>
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ background: "linear-gradient(to bottom, rgba(13,13,13,.66) 0%, transparent 22%, transparent 40%, rgba(13,13,13,.36) 58%, rgba(13,13,13,.85) 75%, #0D0D0D 100%)" }} />
-          </>}
-          {!photo && <div aria-hidden="true" className="pointer-events-none absolute inset-x-8 top-1/3 -z-10 h-px bg-white/15" />}
-          {selectedRewards.profile_treatment && <span aria-hidden="true" className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />}
-          {chrome ? <div className="absolute inset-x-0 top-0 z-20 text-left" style={{ color: PAPER, "--sv-chrome-chip-bg": "rgba(13,13,13,.55)", "--sv-chrome-chip-fg": PAPER } as CSSProperties}>{chrome}</div> : <span className="absolute left-6 top-6 font-label text-[11px] font-semibold lowercase tracking-[0.12em]">setuvara</span>}
-          <span className={`absolute right-6 font-label text-[10px] font-semibold uppercase tracking-[0.16em] [text-shadow:0_1px_12px_rgba(0,0,0,.6)] ${chrome ? "top-16" : "top-6"}`}>{mode.slug}</span>
-          <div className="mx-auto w-full max-w-[38rem]">
-            {owner && <p className="mb-2 font-label text-[10px] uppercase tracking-[0.16em] text-white/75">{copy.viewingProfile}</p>}
-            <h1 className="mx-auto max-w-[16ch] break-words font-display font-extrabold leading-[0.9] tracking-[-0.06em] [text-wrap:balance]" style={{ fontSize: who.name.length > 32 ? "clamp(30px,8cqw,42px)" : nameSize, textShadow: photo ? "0 2px 24px rgba(0,0,0,.52)" : undefined }}>{who.name}<NameBadge size={22} tier={memberTier} /></h1>
-            {look.portraitShowUsername && <p className="mt-2 font-label text-[12px] tracking-[0.06em] text-white/85">@{profile.username}</p>}
-            {who.role && <p className="mx-auto mt-4 max-w-[34ch] text-[14px] font-medium leading-5 text-white/85">{who.role}</p>}
-            <div className="mt-6 text-left"><Actions {...props} booking={booking} copy={copy} owner={owner} skin={skin} /></div>
-          </div>
-        </div>
-        <div className="flex flex-col gap-4 px-6 pb-10 pt-5">
-          <EarnedMark copy={copy} rewards={selectedRewards} skin={skin} />
-          {mode.slug === "event" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} skin={skin} />}
-          <About copy={copy} mode={mode} profile={profile} skin={skin} />
-          <Links copy={copy} links={links} skin={skin} />
-          {props.hasSoundtrack && <SoundtrackPresentation copy={{ soundOn: copy.soundOn, soundOff: copy.soundOff, soundtrack: copy.soundtrack, nowPlaying: copy.nowPlaying, onRepeat: copy.onRepeat, title: copy.soundtrackOf.replace("{mode}", MODE_NAMES[mode.slug]) }} skin={soundtrackSkin(skin)} style={look.soundStyle} />}
-          <ProfileBlocks accent={skin.accent} accentInk={skin.onAccent} blocks={mode.blocks} tone={blockTone} />
-          {owner && links.length === 0 && !hasBlocks(mode) && <p className="px-4 py-4 text-[13px]" style={{ color: skin.muted, borderRadius: `${skin.radius}px`, boxShadow: `inset 0 0 0 1px ${skin.border}` }}>{copy.noLinks}</p>}
-          {footer}
-          {attribution && <p className="self-center pt-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: skin.muted }}>{copy.madeWith}</p>}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-// ---------------------------------------------------------------- Hero
-
-type HeroProps = { look: ResolvedAppearance; skin: Skin; who: Identity; mode: ProfileMode; photo: string | null; treatment: boolean; memberTier: MemberTier | null };
-
-/** Big image surfaces never become ovals: Compact (the circle) applies to tiles only. */
-const surfaceRadius = (skin: Skin, look: ResolvedAppearance) => (look.imageTreatment === "compact" ? `${skin.radius}px` : skin.image.radius);
-
-function MobileHero({ look, skin, who, mode, photo, treatment, memberTier, chrome }: HeroProps & { chrome: boolean }) {
-  const display = { fontWeight: skin.displayWeight } as const;
-  const long = who.name.length > 18;
-
-  if (look.family === "cover") {
-    const full = look.imageTreatment === "full-bleed";
-    const inset = full ? 0 : 14;
-    return (
-      <div className="@3xl/profile:hidden" data-profile-hero="cover" style={{ padding: `${inset}px ${inset}px 0` }}>
-        <div className="relative overflow-hidden" style={{ height: full ? 470 : 430, borderRadius: surfaceRadius(skin, look), boxShadow: skin.image.frame, background: skin.accent }}>
-          <HeroImage initials={who.initials} initialsStyle={{ fontSize: 150, paddingBottom: 90 }} mode={mode} name={who.name} photo={photo} priority sizes="100vw" skin={skin} treatment={treatment} />
-          <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[58%]" style={{ background: "linear-gradient(#0D0D0D00,#0D0D0DB8)" }} />
-          <div className="absolute inset-x-[22px] bottom-5 flex flex-col gap-[7px]" style={{ color: ON_PHOTO }}>
-            <Eyebrow size={11} text={who.eyebrow} />
-            <h1 className="break-words font-display leading-[0.92] tracking-[-0.05em] [text-wrap:balance]" style={{ ...display, fontSize: long ? 32 : 44 }}>{who.name}<NameBadge size={22} tier={memberTier} /></h1>
-            {who.role && <p className="text-[15px]" style={{ color: ON_PHOTO_MUTED }}>{who.role}</p>}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (look.family === "portrait") {
-    return (
-      <div className="relative @3xl/profile:hidden" data-profile-hero="portrait" style={{ height: "calc(var(--profile-vh, 100svh) * .72)", background: skin.accent, boxShadow: skin.image.frame }}>
-        <HeroImage initials={who.initials} initialsStyle={{ fontSize: 180, paddingBottom: 120 }} mode={mode} name={who.name} photo={photo} priority sizes="100vw" skin={skin} treatment={treatment} />
-        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: "linear-gradient(#0D0D0D00,#0D0D0DCC)" }} />
-        <div className="absolute inset-x-[22px] bottom-[26px] flex flex-col gap-2" style={{ color: ON_PHOTO }}>
-          <h1 className="break-words font-display font-extrabold leading-[0.86] tracking-[-0.06em] [text-wrap:balance]" style={{ fontSize: long ? 40 : 60 }}>{who.name}<NameBadge size={24} tier={memberTier} /></h1>
-          <p className="font-label text-[11px] uppercase tracking-[0.14em]" style={{ color: ON_PHOTO_MUTED }}>{[who.eyebrow, who.roleShort].filter(Boolean).join(" · ")}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (look.family === "framed") {
-    const compact = look.imageTreatment === "compact";
-    return (
-      <div className={`flex items-end gap-[18px] px-[22px] pb-1 @3xl/profile:hidden ${chrome ? "pt-3" : "pt-7"}`} data-profile-hero="framed">
-        <Tile height={compact ? 116 : 146} initialsSize={44} look={look} mode={mode} name={who.name} initials={who.initials} photo={photo} skin={skin} treatment={treatment} width={116} />
-        <div className="flex min-w-0 flex-col gap-[7px] pb-1">
-          <Eyebrow color={skin.muted} size={11} text={who.eyebrow} />
-          <h1 className="break-words font-display leading-[0.95] tracking-[-0.045em] [text-wrap:balance]" style={{ ...display, fontSize: long ? 26 : 34 }}>{who.name}<NameBadge size={18} tier={memberTier} /></h1>
-          {who.role && <p className="text-[14px] leading-[1.35]" style={{ color: skin.muted }}>{who.role}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  if (look.family === "poster") {
-    return (
-      <div className={`flex flex-col gap-4 px-[18px] @3xl/profile:hidden ${chrome ? "pt-2" : "pt-[22px]"}`} data-profile-hero="poster">
-        <PosterBlock skin={skin} who={who} />
-        <div className="flex items-center gap-3.5 px-1">
-          <Tile height={72} initialsSize={28} look={look} mode={mode} name={who.name} initials={who.initials} photo={photo} skin={skin} treatment={treatment} width={72} />
-          <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="break-words font-display text-[24px] font-extrabold leading-none tracking-[-0.04em]">{who.name}<NameBadge size={16} tier={memberTier} /></h1>
-            {who.role && <p className="text-[13.5px]" style={{ color: skin.muted }}>{who.role}</p>}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`flex items-center gap-3.5 px-[22px] @3xl/profile:hidden ${chrome ? "pt-3" : "pt-[26px]"}`} data-profile-hero="index">
-      <div className="relative size-[60px] shrink-0 overflow-hidden rounded-full" style={{ background: skin.accent }}>
-        <HeroImage initials={who.initials} initialsStyle={{ fontSize: 22 }} mode={mode} name={who.name} photo={photo} sizes="60px" skin={skin} treatment={false} />
-      </div>
-      <div className="flex min-w-0 flex-col gap-[3px]">
-        <h1 className="break-words font-display text-[24px] leading-none tracking-[-0.04em]" style={display}>{who.name}<NameBadge size={16} tier={memberTier} /></h1>
-        {who.role && <p className="text-[13.5px]" style={{ color: skin.muted }}>{who.role}</p>}
+    <div aria-hidden="true" className="pointer-events-none sticky top-0 -z-10 h-0" data-appearance-environment>
+      {/* Beside a wide hero the atmosphere must read as colour, never as a second face. */}
+      <div className="absolute inset-x-0 top-0 h-[100lvh] [--sv-env-blur:18px] @min-[900px]/profile:[--sv-env-blur:72px] min-h-[var(--sv-h)] overflow-hidden" style={{ background: field }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- the hero's own image, reused from cache */}
+        {source && <img alt="" className="absolute -inset-10 size-[calc(100%+80px)] max-w-none object-cover" decoding="async" src={source} style={{ filter: `blur(var(--sv-env-blur)) saturate(${atmosphere.saturate}) brightness(${atmosphere.brightness})` }} />}
+        <div className="absolute inset-0" style={{ background: atmosphere.veil }} />
       </div>
     </div>
   );
 }
 
-/** From 768px: the hero is a full-height column beside the body (44%, Portrait 50%). */
-function WideHero({ look, skin, who, mode, photo, treatment, memberTier }: HeroProps & { copy: Copy }) {
-  const overlay = look.family === "cover" || look.family === "portrait";
-  const inset = look.imageTreatment === "full-bleed" ? 0 : 28;
+function Photo({ scene, alt = "", sizes = "100vw", priority = false, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; style?: CSSProperties; className?: string }) {
+  if (!scene.photo) return null;
+  const { focus, look } = scene;
+  return <FocusedPhoto alt={alt} className={className} focus={focus} priority={priority} sizes={sizes} src={scene.photo} style={{ transform: `scale(${look.zoom / 100})`, transformOrigin: `${focus.x}% ${focus.y}%`, ...style }} />;
+}
+
+/** Initials on the accent when a Mode has no photo; never a broken frame. */
+function Initials({ scene, size, color, className = "" }: { scene: Scene; size: number | string; color?: string; className?: string }) {
+  if (scene.photo) return null;
+  return <span aria-hidden="true" className={`pointer-events-none absolute inset-0 flex items-center justify-center font-display font-extrabold leading-none tracking-[-0.06em] ${className}`} data-initials style={{ fontSize: size, color: color ?? (scene.theme.light ? "#0D0D0D" : scene.look.accent) }}>{scene.who.initials}</span>;
+}
+
+function Treatment({ scene }: { scene: Scene }) {
+  if (!scene.treatment) return null;
+  return <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />;
+}
+
+// ---------------------------------------------------------------- Hero (phones)
+
+function AppearanceHero({ scene }: { scene: Scene }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const frame = useFrame(ref);
+  const { look } = scene;
   return (
-    <div className={`sticky top-0 hidden h-[var(--profile-vh,100dvh)] shrink-0 flex-col gap-[22px] @3xl/profile:flex ${look.family === "portrait" ? "w-1/2" : "w-[44%]"}`} data-profile-hero-wide={look.family} style={{ padding: inset }}>
-      {look.family === "poster" && <PosterBlock skin={skin} who={who} wide />}
-      <div className="relative min-h-0 flex-1 overflow-hidden" style={{ borderRadius: surfaceRadius(skin, look), boxShadow: skin.image.frame, background: skin.accent }}>
-        <HeroImage initials={who.initials} initialsStyle={{ fontSize: "clamp(120px,14cqw,200px)" }} mode={mode} name={who.name} photo={photo} priority sizes="50vw" skin={skin} treatment={treatment} />
-        {overlay && (
-          <>
-            <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[55%]" style={{ background: "linear-gradient(#0D0D0D00,#0D0D0DB8)" }} />
-            <div className="absolute inset-x-8 bottom-[30px] flex flex-col gap-2.5" style={{ color: ON_PHOTO }}>
-              <Eyebrow size={12} text={who.eyebrow} />
-              <p aria-hidden="true" className="break-words font-display leading-[0.92] tracking-[-0.05em] [text-wrap:balance]" style={{ fontWeight: skin.displayWeight, fontSize: who.name.length > 18 ? "clamp(36px,4.2cqw,60px)" : "clamp(44px,5.8cqw,84px)" }}>{who.name}<NameBadge decorative size={30} tier={memberTier} /></p>
-              {who.role && <p className="text-[17px]" style={{ color: ON_PHOTO_MUTED }}>{who.role}</p>}
+    <div className="relative h-[var(--sv-h)] overflow-hidden" data-hero={look.id} ref={ref}>
+      {look.id === "immersive" && <ImmersiveHero frame={frame} scene={scene} />}
+      {look.id === "motion" && <MotionHero scene={scene} />}
+      {look.id === "aura" && <AuraHero scene={scene} />}
+      {look.id === "clean" && <CleanHero scene={scene} />}
+      {look.id === "glow" && <GlowHero scene={scene} />}
+      {look.id === "scene" && <SceneHero scene={scene} />}
+      {look.id === "frame" && <FrameHero scene={scene} />}
+      {look.id === "stack" && <StackHero frame={frame} scene={scene} />}
+      {look.id === "social" && <SocialHero scene={scene} />}
+      {look.id === "film" && <FilmHero scene={scene} />}
+      <ModeIndicator accent={look.accent} className="absolute left-4 top-[18px] z-[4]" label={MODE_NAMES[look.slug]} theme={scene.theme} />
+    </div>
+  );
+}
+
+type IdentityOptions = {
+  align?: "left" | "center" | "right";
+  nameSize: string;
+  /** Motion: the real heading is the small name under the marquee. */
+  smallName?: boolean;
+  split?: boolean;
+  style?: CSSProperties;
+  socialSize?: number;
+  connectFull?: boolean;
+};
+
+/** Name, meta, Live Context, sound line, socials and Connect, in source order. */
+function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOptions }) {
+  const { theme, look, copy } = scene;
+  const align = options.align ?? theme.identity.align;
+  const flex = align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
+  const id = theme.identity;
+  const top = (
+    <div className="flex flex-col gap-3 self-stretch" style={{ alignItems: flex }}>
+      <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
+      <Name options={options} scene={scene} />
+      <Meta align={flex} scene={scene} />
+    </div>
+  );
+  const bottom = (
+    <div className="flex flex-col gap-3 self-stretch" style={{ alignItems: flex }}>
+      {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={id.muted} still={scene.still} title={scene.soundTitle} />}
+      <SocialPresentation align={flex} copy={copy} links={scene.socials} size={options.socialSize} style={look.socialStyle} theme={theme} />
+      <ConnectRow align={flex}>{scene.actions}</ConnectRow>
+    </div>
+  );
+  return (
+    <div
+      className="absolute z-[3] flex flex-col gap-3"
+      data-identity-align={align}
+      style={{ color: id.fg, textAlign: align, alignItems: flex, justifyContent: options.split ? "space-between" : "flex-start", animation: look.id === "motion" && !scene.still ? "sv-rise .9s .25s both" : undefined, ...options.style }}
+    >
+      {top}
+      {bottom}
+    </div>
+  );
+}
+
+function Name({ scene, options }: { scene: Scene; options: IdentityOptions }) {
+  const { theme, who, memberTier } = scene;
+  if (options.smallName) {
+    return <h1 className="break-words text-[22px] font-semibold leading-tight tracking-[-0.02em]">{who.name}<NameBadge size={18} tier={memberTier} /></h1>;
+  }
+  const id = theme.identity;
+  return (
+    <h1
+      className={`max-w-full break-words leading-[0.94] [overflow-wrap:anywhere] [text-wrap:balance] ${id.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`}
+      data-name
+      style={{ fontSize: options.nameSize, fontWeight: id.weight, textShadow: id.shadow ?? undefined }}
+    >
+      {who.name}<NameBadge size={22} tier={memberTier} />
+    </h1>
+  );
+}
+
+function Meta({ scene, align }: { scene: Scene; align: string }) {
+  const { who, look, theme } = scene;
+  if (!look.showUsername && !who.roleLine) return null;
+  return (
+    <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-[15px]" data-meta style={{ color: theme.identity.muted, justifyContent: align }}>
+      {look.showUsername && <span className="font-semibold" style={{ color: theme.identity.fg }}>@{who.username}</span>}
+      {who.roleLine && <span>{who.roleLine}</span>}
+    </p>
+  );
+}
+
+/** CSS name size for the non-solved heroes: the Appearance base, scaled, fitted to the width. */
+function nameSizeCss(scene: Scene, base: number, fitWidth = "calc(100cqw - 44px)", charWidth = 0.55) {
+  const name = scene.who.name.trim();
+  const longest = Math.max(1, ...name.split(/\s+/).map((part) => [...part].length));
+  const factor = [...name].length > 22 ? 0.8 : 1;
+  const scale = NAME_SCALE[scene.look.nameSize];
+  return `calc(min(${base * scale}px, ${fitWidth} / ${+(charWidth * longest).toFixed(3)}) * ${factor})`;
+}
+
+function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number; height: number } }) {
+  const { look, theme } = scene;
+  const layout = solveFaceSafe({
+    frame,
+    focus: scene.photo ? scene.focus : null,
+    zoom: look.zoom / 100,
+    name: scene.who.name,
+    nameBase: theme.name.base,
+    nameScale: NAME_SCALE[look.nameSize],
+    namePosition: look.namePosition,
+    liveContext: Boolean(scene.live),
+    meta: Boolean(look.showUsername || scene.who.roleLine),
+    featuredSound: scene.sound === "featured",
+    socialStyle: scene.socials.length ? look.socialStyle : "hidden",
+    secondary: scene.secondary,
+  });
+  const percent = (value: number) => `${((value / frame.height) * 100).toFixed(2)}%`;
+  const position: CSSProperties = layout.strategy === "split" ? { top: 66, bottom: 34 } : layout.strategy === "top" ? { top: 66 } : { bottom: 34 };
+  const mask = scene.photo ? immersiveMask(layout, frame.height).replace(/(-?\d+)px/g, (_, px) => percent(Number(px))) : undefined;
+  const scrimOpacity = look.readability === "soft" ? 0.72 : 1;
+  return (
+    <>
+      {scene.photo && (
+        <div className="absolute inset-0 overflow-hidden" data-face-strategy={layout.strategy} data-face-shift={layout.shiftY} style={{ maskImage: mask, WebkitMaskImage: mask }}>
+          <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
+            <div className="absolute inset-0" style={{ transform: `translateY(${percent(layout.shiftY)})` }}>
+              <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
             </div>
-          </>
+          </div>
+        </div>
+      )}
+      <Initials className="-translate-y-[12%]" scene={scene} size={150} />
+      {scene.photo && <div aria-hidden="true" className="absolute inset-0" style={{ background: immersiveScrim(layout.strategy, look.readability), opacity: scrimOpacity }} />}
+      {scene.photo && look.readability === "deep" && layout.strategy !== "bottom" && <div aria-hidden="true" className="absolute inset-0 bg-[#0D0D0D33]" />}
+      <Treatment scene={scene} />
+      <IdentityLayer options={{ align: layout.align, nameSize: `${layout.nameSize}px`, split: layout.strategy === "split", style: { left: 20, right: 20, ...position } }} scene={scene} />
+    </>
+  );
+}
+
+function MotionHero({ scene }: { scene: Scene }) {
+  const { look, who, focus } = scene;
+  // The marquee band sits below the chin inside the 640px photo frame.
+  const chinFraction = scene.photo ? estimateFace(focus, { width: 390, height: 640 }, { zoom: look.zoom / 100 }).chin / 640 : 0;
+  const band = `max(${y(404)}, calc(var(--sv-h) * ${+(0.7583 * chinFraction).toFixed(4)} + 14px))`;
+  const marquee = Math.round(94 * NAME_SCALE[look.nameSize]);
+  return (
+    <>
+      <div className="absolute inset-x-0 top-0 overflow-hidden" style={{ height: y(640), maskImage: "linear-gradient(#000 58%,#0000 100%)", WebkitMaskImage: "linear-gradient(#000 58%,#0000 100%)" }}>
+        <div className="absolute inset-0 scale-[1.06]" data-sv-motion style={{ animation: scene.drift }}>
+          <Photo alt={scene.copy.photoOf.replace("{name}", who.name)} priority scene={scene} />
+        </div>
+        <Initials scene={scene} size={150} />
+      </div>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 overflow-hidden whitespace-nowrap" data-motion-marquee style={{ top: band }}>
+        <div className="inline-flex" data-sv-marquee data-sv-motion style={{ animation: scene.still ? undefined : "sv-marquee 30s linear infinite", transform: scene.still ? "translateX(-4%)" : undefined }}>
+          {[0, 1, 2, 3].map((copy) => (
+            <span className="pr-[.3em] font-display font-extrabold leading-[1.02] tracking-[-0.05em] text-[#F5F4EF]" key={copy} style={{ fontSize: marquee }}>{who.name}<span className="pl-[.3em]" style={{ color: look.accent }}>/</span></span>
+          ))}
+        </div>
+      </div>
+      <Treatment scene={scene} />
+      <IdentityLayer options={{ nameSize: "22px", smallName: true, connectFull: true, style: { left: 20, right: 20, top: `calc(${band} + ${Math.round(marquee * 1.02) + 12}px)` } }} scene={scene} />
+    </>
+  );
+}
+
+function AuraHero({ scene }: { scene: Scene }) {
+  const { who } = scene;
+  const field = scene.photo ? "#2A2622" : scene.look.accent;
+  return (
+    <>
+      <div aria-hidden="true" className="absolute left-1/2 overflow-hidden rounded-full opacity-85" data-sv-motion style={{ top: y(86), width: sized(390), height: sized(390), translate: "-50% 0", background: field, filter: "blur(22px) saturate(2.2)", animation: scene.still ? undefined : "sv-float 9s ease-in-out infinite" }}>
+        <Photo scene={scene} sizes="200px" />
+      </div>
+      <div className="absolute left-1/2 overflow-hidden rounded-full" style={{ top: y(118), width: sized(300), height: sized(300), translate: "-50% 0", background: field, boxShadow: "0 0 0 6px #FFFFFF99, 0 40px 70px -30px #0D0D0D80" }}>
+        <Photo alt={scene.copy.photoOf.replace("{name}", who.name)} priority scene={scene} sizes="300px" />
+        <Initials color={scene.photo ? undefined : "#0D0D0D"} scene={scene} size={110} />
+        <Treatment scene={scene} />
+      </div>
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 40), style: { left: 20, right: 20, top: y(462) } }} scene={scene} />
+    </>
+  );
+}
+
+function CleanHero({ scene }: { scene: Scene }) {
+  return (
+    <>
+      <div className="absolute inset-x-2.5 top-2.5 overflow-hidden rounded-[30px]" style={{ height: y(548), background: scene.photo ? "#2A2622" : scene.look.accent }}>
+        <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
+        <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={150} />
+        {scene.photo && <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D40_0%,#0D0D0D00_22%,#0D0D0D00_75%,#0D0D0D59_100%)]" />}
+        <Treatment scene={scene} />
+      </div>
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44), style: { left: 20, right: 20, top: `calc(${y(548)} + 30px)` } }} scene={scene} />
+    </>
+  );
+}
+
+function GlowHero({ scene }: { scene: Scene }) {
+  const tall = !(scene.live || scene.secondary);
+  return (
+    <>
+      <div aria-hidden="true" className="absolute inset-x-10 rounded-full opacity-[.42] blur-[50px]" style={{ top: y(150), height: y(460), background: scene.look.accent }} />
+      <div className="absolute inset-x-[30px] overflow-hidden rounded-[200px_200px_30px_30px]" style={{ top: y(70), height: y(tall ? 500 : 470), background: scene.photo ? "#2A2622" : "#1E1B18", boxShadow: `0 0 0 1px ${scene.look.accent}80, 0 30px 80px -30px ${scene.look.accent}` }}>
+        <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} style={{ filter: "contrast(1.08) brightness(.9)" }} />
+        <Initials scene={scene} size={130} />
+        <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#07070A00_55%,#07070AB3_100%)]" />
+        <Treatment scene={scene} />
+      </div>
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 40), style: { left: 20, right: 20, bottom: 34 } }} scene={scene} />
+    </>
+  );
+}
+
+function SceneHero({ scene }: { scene: Scene }) {
+  // The environment is the Mode's own first image (or video poster); otherwise the portrait itself.
+  const environment = scene.images[0] ?? null;
+  const cardTop = scene.live || scene.secondary ? 250 : 290;
+  return (
+    <>
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 overflow-hidden" data-scene-environment={environment ? "content" : scene.photo ? "portrait" : "accent"} style={{ height: y(660), maskImage: "linear-gradient(#000 62%,#0000 100%)", WebkitMaskImage: "linear-gradient(#000 62%,#0000 100%)", background: scene.photo || environment ? "#222" : `linear-gradient(160deg, ${scene.look.accent}, #120F0D 75%)` }}>
+        <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+          {environment ? <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={environment} style={{ filter: "brightness(.62) saturate(1.1)" }} />
+            : <Photo scene={scene} style={{ filter: "blur(10px) brightness(.55) saturate(1.2)", transform: "scale(1.35)" }} />}
+        </div>
+      </div>
+      <div className="absolute left-5 overflow-hidden rounded-[24px]" style={{ top: y(cardTop), width: 150, height: sized(196), background: scene.photo ? "#2A2622" : scene.look.accent, boxShadow: "0 0 0 3px #F5F4EF, 0 30px 50px -20px #000000" }}>
+        <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} sizes="300px" />
+        <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={56} />
+        <Treatment scene={scene} />
+      </div>
+      <IdentityLayer options={{ align: "left", nameSize: nameSizeCss(scene, 34, "196px"), style: { left: 20, right: 20, bottom: 34 } }} scene={scene} />
+    </>
+  );
+}
+
+function FrameHero({ scene }: { scene: Scene }) {
+  const short = scene.live || scene.secondary;
+  return (
+    <>
+      <div className="absolute left-1/2 w-[min(calc(100%-80px),400px)] -translate-x-1/2 bg-[#F5F4EF] p-3 shadow-[0_50px_80px_-30px_#000000D9,inset_0_2px_0_#FFFFFF]" data-frame-print style={{ top: y(84), height: y(short ? 410 : 440) }}>
+        <div className="relative size-full overflow-hidden" style={{ background: scene.photo ? "#2A2622" : scene.look.accent }}>
+          <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
+          <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={120} />
+          <Treatment scene={scene} />
+        </div>
+      </div>
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44), style: { left: 20, right: 20, bottom: 34 } }} scene={scene} />
+    </>
+  );
+}
+
+function StackHero({ scene, frame }: { scene: Scene; frame: { width: number; height: number } }) {
+  // Up to two of the Mode's existing images fan out behind the portrait; never invented.
+  const [first, second] = scene.images;
+  const k = Math.min(1, frame.height / 844);
+  const card = (image: string | undefined, fallback: string): CSSProperties => (image ? {} : { background: fallback });
+  return (
+    <>
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 origin-top" style={{ height: 844, transform: `scale(${k})` }}>
+        <div className="absolute left-3 top-[126px] h-[262px] w-[196px] rotate-[-9deg] overflow-hidden rounded-[20px] bg-[#333] shadow-[0_30px_50px_-24px_#000000]" data-stack-layer={first ? "content" : "accent"} style={card(first, `linear-gradient(150deg, ${scene.look.accent}, ${scene.look.accent}55)`)}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+          {first ? <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={first} /> : scene.photo && <Photo scene={scene} sizes="200px" style={{ filter: "grayscale(1) contrast(1.1)", mixBlendMode: "multiply", opacity: 0.55 }} />}
+        </div>
+        <div className="absolute right-3 top-[108px] h-[262px] w-[196px] rotate-[8deg] overflow-hidden rounded-[20px] bg-[#333] shadow-[0_30px_50px_-24px_#000000]" data-stack-layer={second ? "content" : "accent"} style={card(second, `linear-gradient(200deg, #F5F4EF22, ${scene.look.accent}99)`)}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+          {second && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={second} />}
+        </div>
+      </div>
+      <div className="absolute left-1/2 top-0 h-[844px] w-[246px] origin-top" style={{ transform: `translateX(-50%) scale(${k})` }}>
+        <div className="absolute inset-x-0 top-[74px] h-[328px] rotate-[-1.5deg] overflow-hidden rounded-[22px] shadow-[0_0_0_4px_#F5F4EF,0_40px_60px_-24px_#000000]" style={{ background: scene.photo ? "#2A2622" : scene.look.accent }}>
+          <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} sizes="300px" />
+          <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={96} />
+          <Treatment scene={scene} />
+        </div>
+      </div>
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 46), style: { left: 20, right: 20, bottom: 34 } }} scene={scene} />
+    </>
+  );
+}
+
+function SocialHero({ scene }: { scene: Scene }) {
+  const tiles = scene.images.slice(0, 2);
+  // Tiles come only from the Mode's real images; without them the card fills the hero instead
+  // of leaving an empty band, and the identity sits inside it like a story card.
+  const full = tiles.length === 0;
+  return (
+    <>
+      <div className="absolute inset-x-3.5 top-3.5 overflow-hidden rounded-[30px]" style={{ height: full ? "calc(var(--sv-h) - 28px)" : y(476), background: scene.photo ? "#2A2622" : scene.look.accent }}>
+        <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
+        <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={130} className="-translate-y-[18%]" />
+        <div aria-hidden="true" className={`absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_38%,#0D0D0DD9_100%)]`} />
+        <Treatment scene={scene} />
+      </div>
+      {/* With tiles, the identity sits inside the card's lower edge so Connect never straddles it. */}
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 36), style: full ? { left: 30, right: 30, bottom: 44 } : { left: 30, right: 30, bottom: `calc(var(--sv-h) - ${y(490)} + 22px)` } }} scene={scene} />
+      {!full && (
+        <div aria-hidden="true" className="absolute inset-x-3.5 z-[2] grid gap-2" data-social-tiles style={{ top: y(612), gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+          {tiles.map((url) => <img alt="" className="w-full rounded-[22px] bg-[#333] object-cover" decoding="async" key={url} src={url} style={{ height: y(250) }} />)}
+        </div>
+      )}
+    </>
+  );
+}
+
+function FilmHero({ scene }: { scene: Scene }) {
+  // The subtitle is the bio's first sentence; no bio means no subtitle (no new field).
+  const subtitle = filmSubtitle(scene.bio);
+  return (
+    <>
+      <div className="absolute inset-x-0 overflow-hidden" style={{ top: y(56), height: y(534), background: scene.photo ? "#2A2622" : "#1E1B18" }}>
+        <div className="absolute inset-0 scale-[1.04]" data-sv-motion style={{ animation: scene.drift }}>
+          <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} style={{ filter: "sepia(.18) saturate(.85) contrast(1.06)" }} />
+        </div>
+        <Initials scene={scene} size={140} />
+        <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0B0A0900_60%,#0B0A09A6_100%)]" />
+        <Treatment scene={scene} />
+      </div>
+      {subtitle && <p className="absolute inset-x-6 line-clamp-3 text-center text-[16px] leading-[1.35] text-[#F7E9B8] [text-shadow:0_1px_2px_#000,0_0_12px_#000]" data-film-subtitle style={{ top: y(496) }}>{subtitle}</p>}
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44, "calc(100cqw - 44px)", 0.42), style: { left: 20, right: 20, bottom: 28 } }} scene={scene} />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Wide (≥700px)
+
+function WideHero({ scene }: { scene: Scene }) {
+  const { theme, look, who, copy } = scene;
+  const name = who.name.trim();
+  const longest = Math.max(1, ...name.split(/\s+/).map((part) => [...part].length));
+  const charWidth = theme.name.charWidth || 0.55;
+  const scale = NAME_SCALE[look.nameSize];
+  const nameSize = `min(max(${Math.round((look.id === "film" ? 66 : 57) * scale)}px, ${+((look.id === "film" ? 8.333 : 7.222) * scale).toFixed(3)}cqw), ${+(42 / (charWidth * longest)).toFixed(3)}cqw)`;
+  const inset = theme.wide.inset;
+  const align = "flex-start";
+  return (
+    <div className="grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
+      {STAGED.has(look.id) ? <WideStage scene={scene} /> : (
+        <div className="relative overflow-hidden" style={{ margin: inset, borderRadius: theme.wide.radius, maskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, WebkitMaskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, background: scene.photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18" }}>
+          <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
+            <Photo alt={copy.photoOf.replace("{name}", who.name)} priority scene={scene} sizes="56vw" />
+          </div>
+          <Initials scene={scene} size="clamp(120px,14cqw,200px)" />
+          <Treatment scene={scene} />
+          {look.id === "motion" && <WideMarquee scene={scene} />}
+        </div>
+      )}
+      <div className="relative flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align }}>
+        <ModeIndicator accent={look.accent} label={MODE_NAMES[look.slug]} theme={theme} />
+        <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
+        <h1 className={`max-w-full break-words leading-[0.92] [overflow-wrap:anywhere] [text-wrap:balance] ${theme.identity.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`} data-name style={{ fontSize: nameSize, fontWeight: theme.identity.weight, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
+        {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
+        {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
+        <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
+        <div className="flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect>{scene.actions}</div>
+        <WideBio scene={scene} />
+        {scene.images.length > 0 && (
+          <div aria-hidden="true" className="flex max-w-[560px] gap-2.5 self-stretch">
+            {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content images */}
+            {scene.images.slice(0, 2).map((url, index) => <img alt="" className="min-w-0 rounded-[20px] bg-[#333] object-cover" decoding="async" key={url} src={url} style={{ flex: index ? 1 : 1.4, height: "max(110px, 13.9cqw)" }} />)}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-/**
- * The name block in the body. Wide Framed/Poster/Index show it here; Cover/Portrait carry the
- * name on the photo, so for them this is the accessible heading on wide screens only.
- */
-function WideIdentity({ skin, who, memberTier, hiddenOnWide = false }: { skin: Skin; who: Identity; memberTier: MemberTier | null; hiddenOnWide?: boolean }) {
-  if (hiddenOnWide) {
-    return <h1 className="sr-only hidden @3xl/profile:block">{who.name}<NameBadge size={16} tier={memberTier} /></h1>;
-  }
-  return (
-    <div className="hidden flex-col gap-2.5 @3xl/profile:flex" data-profile-identity="wide">
-      <Eyebrow color={skin.muted} size={12} text={who.eyebrow} />
-      <h1 className="break-words font-display leading-[0.92] tracking-[-0.05em] [text-wrap:balance]" style={{ fontWeight: skin.displayWeight, fontSize: who.name.length > 18 ? "clamp(36px,4.2cqw,60px)" : "clamp(44px,5.8cqw,84px)" }}>{who.name}<NameBadge size={28} tier={memberTier} /></h1>
-      {who.role && <p className="text-[17px]" style={{ color: skin.muted }}>{who.role}</p>}
-    </div>
-  );
-}
+/** Appearances whose wide hero is a composition on the page rather than a full photo panel. */
+const STAGED = new Set(["aura", "glow", "scene", "frame", "stack", "film"]);
 
-function PosterBlock({ skin, who, wide = false }: { skin: Skin; who: Identity; wide?: boolean }) {
-  const filled = skin.poster.filled;
-  return (
-    <div className={`flex flex-col ${wide ? "gap-2.5" : "gap-3"}`} data-poster-filled={filled} style={{ background: skin.poster.background, color: skin.poster.color, padding: filled ? "18px 18px 20px" : "4px 4px 0", borderRadius: `${skin.radius}px` }}>
-      <Eyebrow size={wide ? 12 : 11} text={who.posterMeta} />
-      <p className="break-words font-display font-extrabold leading-[0.84] tracking-[-0.06em] [text-wrap:balance]" style={{ fontSize: wide ? "clamp(52px,5.8cqw,84px)" : who.headline.length > 12 ? "min(58px,15cqw)" : "min(72px,18.5cqw)" }}>{who.headline}</p>
-    </div>
-  );
-}
-
-function Tile({ width, height, initialsSize, look, skin, mode, photo, name, initials, treatment }: { width: number; height: number; initialsSize: number; look: ResolvedAppearance; skin: Skin; mode: ProfileMode; photo: string | null; name: string; initials: string; treatment: boolean }) {
-  return (
-    <div className="relative shrink-0 overflow-hidden" style={{ width, height, borderRadius: skin.image.radius, boxShadow: skin.image.frame, background: skin.accent }}>
-      <HeroImage frameAspect={width / height} initials={initials} initialsStyle={{ fontSize: initialsSize }} mode={mode} name={name} photo={photo} priority sizes={`${width * 2}px`} skin={skin} treatment={treatment && look.imageTreatment !== "compact"} />
-    </div>
-  );
-}
-
-function HeroImage({ photo, mode, name, initials, initialsStyle, skin, treatment, priority, sizes, frameAspect }: { photo: string | null; mode: ProfileMode; name: string; initials: string; initialsStyle: CSSProperties; skin: Skin; treatment: boolean; priority?: boolean; sizes: string; frameAspect?: number }) {
-  return (
+/** The wide (tablet and desktop) left half for composed Appearances, mirroring each phone hero. */
+function WideStage({ scene }: { scene: Scene }) {
+  const { look, who, copy } = scene;
+  const alt = copy.photoOf.replace("{name}", who.name);
+  const field = scene.photo ? "#2A2622" : look.accent;
+  const portrait = (sizes: string, style?: CSSProperties) => (
     <>
-      {photo
-        ? <FocusedPhoto alt={name} focus={modeFocus(mode)} frameAspect={frameAspect} priority={priority} sizes={sizes} src={photo} />
-        : <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center font-display font-extrabold leading-none tracking-[-0.06em]" style={{ color: skin.onAccent, ...initialsStyle }}>{initials}</span>}
-      {/* Earned profile treatment: a quiet coral ring on the image. */}
-      {treatment && <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />}
+      <Photo alt={alt} priority scene={scene} sizes={sizes} style={style} />
+      <Initials color={scene.photo ? undefined : inkOn(look.accent)} scene={scene} size="clamp(80px,10cqw,160px)" />
+      <Treatment scene={scene} />
     </>
   );
+  const box = "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2";
+  switch (look.id) {
+    case "aura":
+      return (
+        <div className="relative" data-wide-stage="aura">
+          <div aria-hidden="true" className={`${box} aspect-square w-[min(84%,calc(var(--sv-h)*.7))] overflow-hidden rounded-full opacity-85`} data-sv-motion style={{ background: field, filter: "blur(30px) saturate(2.2)" }}><Photo scene={scene} sizes="300px" /></div>
+          <div className={`${box} aspect-square w-[min(66%,calc(var(--sv-h)*.56))] overflow-hidden rounded-full`} style={{ background: field, boxShadow: "0 0 0 8px #FFFFFF99, 0 50px 90px -40px #0D0D0D80" }}>{portrait("40vw")}</div>
+        </div>
+      );
+    case "glow":
+      return (
+        <div className="relative" data-wide-stage="glow">
+          <div aria-hidden="true" className={`${box} h-[66%] w-[52%] rounded-full opacity-[.42] blur-[70px]`} style={{ background: look.accent }} />
+          <div className={`${box} aspect-[4/5] h-[min(80%,calc(var(--sv-h)*.8))] max-w-[78%] overflow-hidden rounded-[999px_999px_36px_36px]`} style={{ background: scene.photo ? "#2A2622" : "#1E1B18", boxShadow: `0 0 0 1px ${look.accent}80, 0 40px 100px -30px ${look.accent}` }}>
+            {portrait("40vw", { filter: "contrast(1.08) brightness(.9)" })}
+          </div>
+        </div>
+      );
+    case "frame":
+      return (
+        <div className="relative" data-wide-stage="frame">
+          <div className={`${box} aspect-[4/5] h-[min(76%,calc(var(--sv-h)*.76))] max-w-[80%] bg-[#F5F4EF] p-[clamp(10px,1.2cqw,18px)] shadow-[0_60px_90px_-34px_#000000D9,inset_0_2px_0_#FFFFFF]`} data-frame-print>
+            <div className="relative size-full overflow-hidden" style={{ background: field }}>{portrait("40vw")}</div>
+          </div>
+        </div>
+      );
+    case "stack": {
+      const [first, second] = scene.images;
+      const layer = "absolute top-1/2 aspect-[3/4] h-[min(56%,calc(var(--sv-h)*.56))] overflow-hidden rounded-[22px] bg-[#333] shadow-[0_30px_60px_-24px_#000000]";
+      return (
+        <div className="relative" data-wide-stage="stack">
+          <div aria-hidden="true" className={`${layer} left-[14%] -translate-y-[54%] rotate-[-9deg]`} data-stack-layer={first ? "content" : "accent"} style={first ? undefined : { background: `linear-gradient(150deg, ${look.accent}, ${look.accent}55)` }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+            {first && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={first} />}
+          </div>
+          <div aria-hidden="true" className={`${layer} right-[14%] -translate-y-[58%] rotate-[8deg]`} data-stack-layer={second ? "content" : "accent"} style={second ? undefined : { background: `linear-gradient(200deg, #F5F4EF22, ${look.accent}99)` }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+            {second && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={second} />}
+          </div>
+          <div className={`${box} aspect-[3/4] h-[min(66%,calc(var(--sv-h)*.66))] rotate-[-1.5deg] overflow-hidden rounded-[24px] shadow-[0_0_0_5px_#F5F4EF,0_50px_70px_-28px_#000000]`} style={{ background: field }}>{portrait("30vw")}</div>
+        </div>
+      );
+    }
+    case "scene": {
+      const environment = scene.images[0] ?? null;
+      return (
+        <div className="relative m-5 overflow-hidden rounded-[28px]" data-scene-environment={environment ? "content" : scene.photo ? "portrait" : "accent"} data-wide-stage="scene" style={{ background: scene.photo || environment ? "#222" : `linear-gradient(160deg, ${look.accent}, #120F0D 75%)` }}>
+          <div aria-hidden="true" className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
+            {environment ? <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={environment} style={{ filter: "brightness(.66) saturate(1.1)" }} />
+              : <Photo scene={scene} style={{ filter: "blur(14px) brightness(.55) saturate(1.2)", transform: "scale(1.3)" }} />}
+          </div>
+          <div className="absolute bottom-[7%] left-[7%] aspect-[3/4] h-[min(48%,calc(var(--sv-h)*.46))] overflow-hidden rounded-[24px]" style={{ background: field, boxShadow: "0 0 0 4px #F5F4EF, 0 40px 60px -20px #000000" }}>{portrait("25vw")}</div>
+        </div>
+      );
+    }
+    default: {
+      // Film: letterboxed, warm, with the bio's first sentence as a subtitle.
+      const subtitle = filmSubtitle(scene.bio);
+      return (
+        <div className="relative overflow-hidden bg-[#050404]" data-wide-stage="film">
+          <div className="absolute inset-x-0 top-[11%] bottom-[11%] overflow-hidden" style={{ background: scene.photo ? "#2A2622" : "#1E1B18" }}>
+            <div className="absolute inset-0 scale-[1.04]" data-sv-motion style={{ animation: scene.drift }}>
+              <Photo alt={alt} priority scene={scene} sizes="56vw" style={{ filter: "sepia(.18) saturate(.85) contrast(1.06)" }} />
+            </div>
+            <Initials scene={scene} size="clamp(100px,12cqw,180px)" />
+            <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0B0A0900_60%,#0B0A09A6_100%)]" />
+            <Treatment scene={scene} />
+            {subtitle && <p className="absolute inset-x-[8%] bottom-[7%] line-clamp-2 text-center text-[max(16px,1.4cqw)] leading-[1.35] text-[#F7E9B8] [text-shadow:0_1px_2px_#000,0_0_12px_#000]" data-film-subtitle>{subtitle}</p>}
+          </div>
+        </div>
+      );
+    }
+  }
 }
 
-function Eyebrow({ text, size, color }: { text: string; size: number; color?: string }) {
+/** Motion's name band, running across the bottom of the wide photo. */
+function WideMarquee({ scene }: { scene: Scene }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-[6%] overflow-hidden whitespace-nowrap" data-motion-marquee>
+      <div className="inline-flex" data-sv-marquee data-sv-motion style={{ animation: scene.still ? undefined : "sv-marquee 30s linear infinite", transform: scene.still ? "translateX(-4%)" : undefined }}>
+        {[0, 1, 2, 3].map((copy) => (
+          <span className="pr-[.3em] font-display text-[clamp(64px,8cqw,128px)] font-extrabold leading-[1.02] tracking-[-0.05em] text-[#F5F4EF]" key={copy}>{scene.who.name}<span className="pl-[.3em]" style={{ color: scene.look.accent }}>/</span></span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WideBio({ scene }: { scene: Scene }) {
+  const text = aboutParagraphs(scene, scene.bio ?? "")[0];
   if (!text) return null;
-  return <p className="font-label uppercase tracking-[0.16em]" style={{ fontSize: size, color }}>{text}</p>;
+  return <p className="max-w-[460px] whitespace-pre-line text-[max(15px,1.25cqw)] leading-[1.45] [text-wrap:pretty]" style={{ color: scene.theme.fg }}>{text}</p>;
 }
 
-/** Member status beside the person's name (Plus coral, Pro champagne). */
+// ---------------------------------------------------------------- Identity helpers
+
+/** Member status beside the person's name (Plus coral, Pro champagne). Derived from billing only. */
 function NameBadge({ tier, size, decorative = false }: { tier: MemberTier | null; size: number; decorative?: boolean }) {
   if (!tier) return null;
   return <span className="ml-[0.2em] inline-block align-middle leading-none" data-name-badge={tier}><MemberBadge decorative={decorative} size={size} tier={tier} /></span>;
 }
 
-// ---------------------------------------------------------------- Body
-
-function EarnedMark({ rewards, skin, copy }: { rewards: Partial<Record<string, string>>; skin: Skin; copy: Copy }) {
-  const mark = rewards.profile_mark === "signal_50_mark" ? { badge: "50", label: "Signal 50" } : rewards.profile_mark === "thousand_mark" ? { badge: "1K", label: "Thousand met" } : null;
-  if (!mark) return null;
-  return (
-    <p aria-label={`${copy.profileMark}: ${mark.label}`} className="flex h-7 items-center gap-[7px] self-start rounded-full pl-1.5 pr-[11px] font-label text-[10.5px] uppercase tracking-[0.14em]" data-profile-mark style={{ boxShadow: `inset 0 0 0 1px ${skin.border}` }}>
-      <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border-[1.5px] border-current text-[7px]">{mark.badge}</span>{mark.label}
-    </p>
-  );
+function inkOn(hex: string) {
+  const value = /^#([\da-f]{6})$/i.exec(hex)?.[1] ?? "FF5A4F";
+  const [r, g, b] = [0, 2, 4].map((index) => parseInt(value.slice(index, index + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.42 ? INK : PAPER;
 }
 
-function EventCard({ mode, skin, copy }: { mode: ProfileMode; skin: Skin; copy: Copy }) {
-  const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3.5" data-event-card style={{ background: skin.eventCard.background, color: skin.eventCard.color, borderRadius: `${skin.radius}px` }}>
-      <div className="flex min-w-0 flex-col gap-[3px]">
-        <span className="font-label text-[10px] uppercase tracking-[0.16em]">{copy.atTheEvent}</span>
-        <span className="break-words text-[16px] font-bold">{setting(mode, "eventName")}</span>
-      </div>
-      {where && <span className="shrink-0 text-right font-label text-[10.5px] uppercase tracking-[0.08em]">{where}</span>}
-    </div>
-  );
-}
+// ---------------------------------------------------------------- Actions
 
-function Actions({ mode, owner, skin, copy, visitorAction, viewerState, previewAsVisitor, connectionContext, connectionHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; skin: Skin; copy: Copy; booking?: ResolvedLink }) {
-  const connected = viewerState === "visitor_connected" && !previewAsVisitor;
+function Actions({ mode, owner, connected, theme, copy, visitorAction, connectionContext, connectionHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; connected: boolean; theme: AppearanceTheme; copy: Copy; booking?: ResolvedLink }) {
   const share = `/app/identity?mode=${mode.slug}&section=share`;
   const onShareClick = onShare ? (event: { preventDefault: () => void }) => { event.preventDefault(); onShare(); } : undefined;
-  const primary = { height: skin.button.height, borderRadius: skin.button.radius, background: skin.connect.background, color: skin.connect.color, boxShadow: skin.connect.edge, justifyContent: skin.button.arrow ? "space-between" : "center" } as CSSProperties;
-  const secondaryStyle = { height: skin.button.secondaryHeight, borderRadius: skin.button.radius, boxShadow: skin.secondary.edge, color: skin.secondary.color, justifyContent: skin.button.arrow ? "space-between" : "center", textDecoration: skin.secondary.underline ? "underline" : undefined, textUnderlineOffset: 4 } as CSSProperties;
-  const button = "flex w-full items-center gap-2.5 px-5 font-semibold transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
-  const focus = { outlineColor: skin.fg };
-  const arrow = skin.button.arrow ? <span aria-hidden="true">→</span> : null;
+  const id = theme.identity;
+  const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+  const primary = `inline-flex h-[var(--sv-connect-h,52px)] w-[var(--sv-connect-w,auto)] items-center justify-center gap-2.5 whitespace-nowrap rounded-full px-[var(--sv-connect-px,26px)] text-[16px] font-semibold transition hover:brightness-95 ${focus}`;
+  const secondary = `inline-flex h-[var(--sv-connect-h,52px)] items-center justify-center whitespace-nowrap rounded-full px-[18px] text-[15px] font-semibold transition hover:opacity-80 ${focus}`;
+  const fill = { background: "var(--sv-connect-fill)", color: "var(--sv-connect-ink)", boxShadow: "var(--sv-connect-edge)", outlineColor: id.fg } as CSSProperties;
+  const line = { boxShadow: `inset 0 0 0 1.5px ${id.line}`, color: id.fg, outlineColor: id.fg } as CSSProperties;
+  const dot = theme.connect.dot ? <span aria-hidden="true" className="size-2 rounded-full" style={{ background: theme.connect.dot }} /> : null;
   const eventName = setting(mode, "eventName");
 
-  let first: ReactNode;
   if (owner) {
-    first = <a className={`${button} text-[16px]`} data-profile-action="share" href={share} onClick={onShareClick} style={{ ...primary, ...focus }}><span>{copy.shareMode.replace("{mode}", MODE_NAMES[mode.slug])}</span>{arrow}</a>;
-  } else if (connected) {
+    return (
+      <>
+        <a className={primary} data-profile-action="share" href={share} onClick={onShareClick} style={fill}>{dot}{copy.shareMode.replace("{mode}", MODE_NAMES[mode.slug])}</a>
+        <a className={secondary} data-profile-action="qr" href={share} onClick={onShareClick} style={line}>{copy.showMyQr}</a>
+      </>
+    );
+  }
+  if (connected) {
     const since = [connectionContext?.event, connectionContext?.dateLabel].filter(Boolean).join(" · ");
     const label = <span className="truncate">{copy.connected}{since ? ` · ${since}` : ""}</span>;
-    const connectedStyle = { ...primary, background: "transparent", color: skin.fg, boxShadow: `inset 0 0 0 1.5px ${skin.fg}`, ...focus };
-    first = connectionHref
-      ? <Link aria-label={`${copy.connected}. ${copy.viewConnection}`} className={`${button} text-[16px]`} data-profile-action="connected" href={connectionHref} style={connectedStyle}>{label}{arrow}</Link>
-      : <p aria-live="polite" className={`${button} text-[16px]`} data-profile-action="connected" style={connectedStyle}>{label}</p>;
-  } else {
-    first = visitorAction ?? null;
+    return (
+      <>
+        {connectionHref
+          ? <Link aria-label={`${copy.connected}. ${copy.viewConnection}`} className={`${primary} max-w-full`} data-profile-action="connected" href={connectionHref} style={line}>{label}</Link>
+          : <p aria-live="polite" className={`${primary} max-w-full`} data-profile-action="connected" style={line}>{label}</p>}
+        {guestClaimHref && <Link className={`inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D] ${focus}`} href={guestClaimHref} style={{ outlineColor: id.fg }}>{copy.claimSetuvara}</Link>}
+      </>
+    );
   }
-
-  let second: ReactNode;
-  if (owner) {
-    second = <a className={`${button} text-[15px]`} data-profile-action="qr" href={share} onClick={onShareClick} style={{ ...secondaryStyle, ...focus }}><span>{copy.showMyQr}</span></a>;
-  } else if (booking) {
-    second = <a className={`${button} text-[15px]`} data-profile-action="book" href={booking.url} rel="noopener noreferrer" style={{ ...secondaryStyle, ...focus }} target="_blank"><span>{copy.bookCall}</span>{arrow && <span aria-hidden="true">↗</span>}</a>;
-  } else {
-    second = null;
-  }
-
+  // No access: no fake disabled button. Only a real booking link adds a secondary action.
   return (
-    <div className="flex flex-col gap-2" data-profile-actions>
-      {first}
-      {second}
-      {!owner && !connected && first && mode.slug === "event" && eventName && <p className="text-center text-[11px]" style={{ color: skin.muted }}>{copy.eventSaved.replace("{event}", eventName)}</p>}
-      {connected && guestClaimHref && (
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={guestClaimHref} style={focus}>{copy.claimSetuvara}</Link>
-          <p className="text-[11px] leading-5" style={{ color: skin.muted }}>{copy.keepConnection}</p>
+    <>
+      {visitorAction}
+      {booking && <a className={secondary} data-profile-action="book" href={booking.url} rel="noopener noreferrer" style={line} target="_blank">{copy.bookCall}</a>}
+      {visitorAction && mode.slug === "event" && eventName && <p className="basis-full text-[11px]" style={{ color: id.muted }}>{copy.eventSaved.replace("{event}", eventName)}</p>}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Content continuation
+
+function aboutParagraphs(scene: Scene, bio = "") {
+  const mode = scene.mode;
+  const modeText = setting(mode, mode.slug === "event" ? "hereToMeet" : mode.slug === "business" ? "description" : "note");
+  return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
+}
+
+function AppearanceContent({ scene, profile, links, owner, footer, attribution, plusMark, rewards, blockTone, copy }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; plusMark: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy }) {
+  const { theme, mode, look } = scene;
+  const bio = profile.bio?.trim() ?? "";
+  const paragraphs = aboutParagraphs(scene, bio);
+  const hasBlocks = Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
+  return (
+    <div className="relative z-[3] mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10" data-appearance-content>
+      {paragraphs.length > 0 && (
+        <section aria-label={copy.about} className="mb-2 flex flex-col gap-3" data-profile-about>
+          {paragraphs.map((text, index) => (
+            <p className={`whitespace-pre-line text-[19px] leading-[1.42] [text-wrap:pretty] ${index === 0 ? "@min-[900px]/profile:hidden" : ""}`} key={text} style={{ color: theme.fg, textAlign: theme.bioAlign }}>{text}</p>
+          ))}
+        </section>
+      )}
+      <EarnedMark copy={copy} rewards={rewards} theme={theme} />
+      {mode.slug === "event" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} theme={theme} />}
+      <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="" gallery tone={blockTone} />
+      <Links copy={copy} links={links} scene={scene} />
+      {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
+      {footer}
+      {attribution && (
+        <div className="flex justify-center pt-[22px]" data-attribution={plusMark ? "mark" : "make-yours"}>
+          {plusMark
+            ? <Link className="inline-flex min-h-11 items-center gap-1.5 text-[12px] focus-visible:outline focus-visible:outline-2" href="/" style={{ color: theme.muted }}><MeetMark className="size-3.5" />setuvara</Link>
+            : <Link className="inline-flex h-10 items-center gap-2 rounded-full pl-3 pr-4 text-[13px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={`/signup?appearance=${look.id}`} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, color: theme.fg, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }}><MeetMark className="size-[18px]" />{copy.makeYours}</Link>}
         </div>
       )}
     </div>
   );
 }
 
-function About({ profile, mode, skin, copy }: { profile: ProfileIdentity; mode: ProfileMode; skin: Skin; copy: Copy }) {
-  const modeText = setting(mode, mode.slug === "event" ? "hereToMeet" : mode.slug === "business" ? "description" : "note");
-  const bio = profile.bio?.trim() ?? "";
-  const paragraphs = [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
-  if (!paragraphs.length) return null;
-  const label = mode.slug === "event" && modeText ? copy.hereToMeet : copy.about;
+function EarnedMark({ rewards, theme, copy }: { rewards: Partial<Record<string, string>>; theme: AppearanceTheme; copy: Copy }) {
+  const mark = rewards.profile_mark === "signal_50_mark" ? { badge: "50", label: "Signal 50" } : rewards.profile_mark === "thousand_mark" ? { badge: "1K", label: "Thousand met" } : null;
+  if (!mark) return null;
   return (
-    <section aria-label={label} className="flex flex-col gap-1.5" data-profile-about style={{ ...skin.card.style, color: skin.card.color }}>
-      <h2 className="font-label text-[10.5px] font-normal uppercase tracking-[0.16em]" style={{ color: skin.card.muted }}>{label}</h2>
-      {paragraphs.map((text) => <p className="max-w-[560px] whitespace-pre-line text-[15px] leading-[1.5] [text-wrap:pretty] @3xl/profile:text-[17px]" key={text}>{text}</p>)}
-    </section>
+    <p aria-label={`${copy.profileMark}: ${mark.label}`} className="flex h-7 items-center gap-[7px] self-start rounded-full pl-1.5 pr-[11px] font-label text-[10.5px] uppercase tracking-[0.14em]" data-profile-mark style={{ boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>
+      <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border-[1.5px] border-current text-[7px]">{mark.badge}</span>{mark.label}
+    </p>
   );
 }
 
-function Links({ links, skin, copy }: { links: ResolvedLink[]; skin: Skin; copy: Copy }) {
+function EventCard({ mode, theme, copy }: { mode: ProfileMode; theme: AppearanceTheme; copy: Copy }) {
+  const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[18px] px-4 py-3.5" data-event-card style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>
+      <div className="flex min-w-0 flex-col gap-[3px]">
+        <span className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: theme.muted }}>{copy.atTheEvent}</span>
+        <span className="break-words text-[16px] font-bold">{setting(mode, "eventName")}</span>
+      </div>
+      {where && <span className="shrink-0 text-right font-label text-[10.5px] uppercase tracking-[0.08em]" style={{ color: theme.muted }}>{where}</span>}
+    </div>
+  );
+}
+
+/** Compact link rows (62px) in their stored order. Social shows brand colour discs. */
+function Links({ links, scene, copy }: { links: ResolvedLink[]; scene: Scene; copy: Copy }) {
   if (!links.length) return null;
-  const style = skin.links;
-  const collapse = (style === "chips" || style === "cards") && links.length >= LINK_COLLAPSE_AT;
+  const { theme } = scene;
+  const brand = theme.id === "social";
+  const collapse = links.length >= LINK_COLLAPSE_AT;
   const shown = collapse ? links.slice(0, LINK_VISIBLE) : links;
   const rest = collapse ? links.slice(LINK_VISIBLE) : [];
-  const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
-  const anchor = (item: ResolvedLink) => ({ href: item.url, rel: item.external ? "noopener noreferrer" : undefined, target: item.external ? "_blank" : undefined, style: { outlineColor: skin.fg } });
-
-  const list = (items: ResolvedLink[]) => (
-    <ul className="flex flex-col" data-links-style="list" style={{ color: skin.fg }}>
-      {items.map((item) => (
-        <li key={item.link.id} style={{ borderTop: `1px solid ${skin.rule}` }}>
-          <a {...anchor(item)} className={`flex min-h-[50px] items-center justify-between gap-3 transition hover:opacity-75 ${focus}`}>
-            <span className="flex min-w-0 items-center gap-3 [&>img]:size-[18px] [&>svg]:size-[18px]"><LinkGlyph icon={item.icon} url={item.url} /><span className="min-w-0 truncate text-[16px] font-semibold">{item.link.title}</span></span>
-            <span className="max-w-[48%] shrink-0 truncate font-label text-[11px]" style={{ color: skin.muted }}>{item.display} <span aria-hidden="true">↗</span></span>
-          </a>
-        </li>
-      ))}
-    </ul>
+  const row = (item: ResolvedLink) => (
+    <li key={item.link.id}>
+      <a className="flex h-[62px] items-center gap-3 rounded-[var(--sv-card-r-small,18px)] pl-2.5 pr-4 transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }} target={item.external ? "_blank" : undefined}>
+        <span aria-hidden="true" className="grid size-[42px] shrink-0 place-items-center rounded-full [&_img]:size-[19px] [&_svg]:size-[19px]" style={{ background: brand ? brandColour(item.providerId) : theme.light ? "#0D0D0D0D" : "#F5F4EF14", color: brand ? "#FFFFFF" : theme.fg }}><LinkGlyph icon={item.icon} url={item.url} /></span>
+        <span className="flex min-w-0 flex-1 flex-col gap-px">
+          <span className="truncate text-[15.5px] font-semibold">{item.link.title}</span>
+          <span className="truncate text-[12.5px]" style={{ color: theme.muted }}>{item.display}</span>
+        </span>
+        <span aria-hidden="true" style={{ color: theme.muted }}>↗</span>
+      </a>
+    </li>
   );
-
-  let body: ReactNode;
-  if (style === "list") {
-    body = list(shown);
-  } else if (style === "icons") {
-    body = (
-      <ul className="flex flex-wrap gap-2.5" data-links-style="icons">
-        {shown.map((item) => (
-          <li key={item.link.id}>
-            <a {...anchor(item)} aria-label={item.link.title} className={`grid size-12 place-items-center rounded-full transition hover:scale-105 [&>img]:size-5 [&>svg]:size-5 ${focus}`} style={{ ...anchor(item).style, background: skin.icon.background, color: skin.icon.color, boxShadow: skin.icon.edge }} title={item.link.title}>
-              <LinkGlyph icon={item.icon} url={item.url} />
-            </a>
-          </li>
-        ))}
-      </ul>
-    );
-  } else if (style === "chips") {
-    body = (
-      <ul className="flex flex-wrap gap-2" data-links-style="chips">
-        {shown.map((item) => (
-          <li className="min-w-0 max-w-full" key={item.link.id}>
-            <a {...anchor(item)} className={`flex h-11 max-w-full items-center gap-2 rounded-full pl-3.5 pr-4 text-[14px] font-semibold transition hover:opacity-80 [&>img]:size-4 [&>svg]:size-4 ${focus}`} style={{ ...anchor(item).style, background: skin.chip.background, color: skin.chip.color }}><LinkGlyph icon={item.icon} url={item.url} /><span className="truncate">{item.link.title}</span></a>
-          </li>
-        ))}
-      </ul>
-    );
-  } else {
-    body = (
-      <ul className="grid grid-cols-2 gap-2" data-links-style="cards">
-        {shown.map((item) => (
-          <li className="min-w-0" key={item.link.id}>
-            <a {...anchor(item)} className={`flex min-h-[72px] flex-col justify-between gap-1.5 px-3.5 py-3 transition hover:opacity-85 ${focus}`} style={{ ...anchor(item).style, borderRadius: `${skin.radius}px`, background: skin.card.style.background === "transparent" ? "transparent" : skin.card.style.background, boxShadow: skin.card.edge, color: skin.card.color }}>
-              <span className="flex min-w-0 items-center justify-between gap-2 [&>img]:size-[18px] [&>svg]:size-[18px]"><LinkGlyph icon={item.icon} url={item.url} /><span className="min-w-0 truncate font-label text-[10px]" style={{ color: skin.card.muted }}>{item.display}</span></span>
-              <span className="truncate text-[15px] font-semibold">{item.link.title}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
   return (
-    <nav aria-label={copy.links} className="flex flex-col gap-2" data-profile-links>
-      {body}
+    <nav aria-label={copy.links} className="mt-1.5 flex flex-col gap-2 scroll-mt-6" data-profile-links id="profile-links">
+      <ul className="flex flex-col gap-2">{shown.map(row)}</ul>
       {rest.length > 0 && (
         <details className="group">
-          <summary className={`flex h-11 cursor-pointer list-none items-center justify-center rounded-full text-[14px] font-semibold [&::-webkit-details-marker]:hidden ${focus}`} style={{ boxShadow: `inset 0 0 0 1.5px ${skin.border}`, outlineColor: skin.fg }}>{copy.allLinks} · {links.length}</summary>
-          <div className="mt-2">{list(rest)}</div>
+          <summary className="flex h-11 cursor-pointer list-none items-center justify-center rounded-full text-[14px] font-semibold [&::-webkit-details-marker]:hidden" style={{ boxShadow: `inset 0 0 0 1.5px ${theme.card.edge}` }}>{copy.allLinks} · {links.length}</summary>
+          <ul className="mt-2 flex flex-col gap-2">{rest.map(row)}</ul>
         </details>
       )}
     </nav>
   );
 }
 
+
 // ---------------------------------------------------------------- Helpers
-
-function soundtrackSkin(skin: Skin): SoundtrackSkin {
-  return { fg: skin.fg, page: skin.page, muted: skin.muted, border: skin.border, accent: skin.accent, onAccent: skin.onAccent, cardRadius: `${skin.radius}px`, artRadius: `${skin.artRadius}px`, strip: skin.strip };
-}
-
-const hasBlocks = (mode: ProfileMode) => Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
 
 function resolveLinks(links: ProfileLink[]): ResolvedLink[] {
   return links.filter((link) => link.is_visible).flatMap((link) => {

@@ -13,13 +13,62 @@ export type BlockTone = { bg: string; ink: string; sub: string; chip: string; li
 const str = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /** Renders a Mode's content blocks inside any profile layout. */
-export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7" }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string }) {
+export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7", gallery = false }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string; /** Appearance continuation: a run of images becomes one featured image plus a carousel. Order is kept. */ gallery?: boolean }) {
   const visible = (blocks ?? []).filter((block) => block.is_visible && !block.is_soundtrack);
   if (!visible.length) return null;
+  if (gallery) {
+    const runs: ProfileBlock[][] = [];
+    for (const block of visible) {
+      const last = runs.at(-1);
+      if (block.kind === "image" && last?.[0]?.kind === "image") last.push(block);
+      else runs.push([block]);
+    }
+    return (
+      <div className={`grid gap-3.5 text-left ${className}`}>
+        {runs.map((run) => run[0].kind === "image"
+          ? <ImageRun blocks={run} key={run[0].id} />
+          : <Block accent={accent} accentInk={accentInk} block={run[0]} key={run[0].id} tone={tone} />)}
+      </div>
+    );
+  }
   return (
     <div className={`grid gap-3 text-left ${className}`}>
       {visible.map((block) => <Block accent={accent} accentInk={accentInk} block={block} key={block.id} tone={tone} />)}
     </div>
+  );
+}
+
+/** Consecutive images: the first is featured, the rest scroll as a carousel, in their saved order. */
+function ImageRun({ blocks }: { blocks: ProfileBlock[] }) {
+  const [failed, setFailed] = useState<string[]>([]);
+  const images = blocks.map((block) => ({ id: block.id, url: str(block.data.image_url), alt: str(block.data.alt), caption: str(block.data.caption) })).filter((image) => image.url && !failed.includes(image.url));
+  if (!images.length) return null;
+  const [first, ...rest] = images;
+  const fail = (url: string) => setFailed((current) => [...current, url]);
+  return (
+    <>
+      <figure className="relative h-[380px] overflow-hidden rounded-[var(--sv-card-r,26px)] bg-[#333]" data-featured-media>
+        {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
+        <img alt={first.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => fail(first.url)} src={first.url} />
+        {first.caption && (
+          <>
+            <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_45%,#0D0D0DCC_100%)]" />
+            <figcaption className="absolute inset-x-[18px] bottom-4 text-[17px] font-bold leading-snug tracking-[-0.01em] text-[#F5F4EF]">{first.caption}</figcaption>
+          </>
+        )}
+      </figure>
+      {rest.length > 0 && (
+        <ul aria-label="More images" className="-mr-4 flex snap-x gap-2 overflow-x-auto pb-1 pr-4 [scrollbar-width:none]" data-media-carousel>
+          {rest.map((image) => (
+            <li className="relative h-[196px] w-[150px] shrink-0 snap-start overflow-hidden rounded-[var(--sv-card-r-small,18px)] bg-[#333]" key={image.id}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
+              <img alt={image.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => fail(image.url)} src={image.url} />
+              {image.caption && <span className="absolute inset-x-2.5 bottom-2.5 line-clamp-2 text-[12px] font-semibold text-[#F5F4EF] [text-shadow:0_1px_6px_#000]">{image.caption}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
