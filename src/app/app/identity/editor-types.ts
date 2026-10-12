@@ -31,7 +31,7 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
 };
 
 /** Why the Plus sheet opened. "appearance" carries the Appearance being applied to this Mode. */
-export type PlusTrigger = { kind: "appearance" | "advanced" | "soundtrack" | "qr" | "restore"; name?: string; appearance?: AppearanceId };
+export type PlusTrigger = { kind: "appearance" | "advanced" | "soundtrack" | "qr" | "type" | "restore"; name?: string; appearance?: AppearanceId };
 
 export type EditorApi = {
   profile: ProfileIdentity;

@@ -18,6 +18,7 @@ import { getMessages } from "@/lib/i18n/messages";
 import { legacySource, photoSource, type PhotoSource } from "./photo-focus";
 import { extraSlideLimit, resolveAppearance, SLIDE_SECONDS, type ResolvedAppearance } from "./appearance";
 import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
+import { nameType, nameTypeStyle, type NameType } from "./name-type";
 import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./face-safe";
 import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
@@ -111,6 +112,8 @@ type ProfileProps = ProfileRendererProps & { look: ResolvedAppearance; hasSoundt
 type Scene = {
   look: ResolvedAppearance;
   theme: AppearanceTheme;
+  /** The name's display type: the chosen style, or the Appearance's own. */
+  type: NameType;
   who: Identity;
   mode: ProfileMode;
   photo: string | null;
@@ -151,6 +154,7 @@ function Profile(props: ProfileProps) {
   const full = look.motion === "full" || look.id === "motion";
   const scene: Scene = {
     look, theme, who, mode, photo, source, copy, memberTier,
+    type: nameType(look.nameFont, theme.identity, theme.name.charWidth),
     slides: source ? [source, ...(mode.slide_urls ?? []).slice(0, extraSlideLimit(props.plan ?? "free")).map((slide: SlideImage) => legacySource(slide.url, { x: slide.x, y: slide.y }))] : [],
     images: contentImages(mode.blocks).map((image) => image.url),
     bio: profile.bio ?? "",
@@ -385,9 +389,10 @@ function Name({ scene, options }: { scene: Scene; options: IdentityOptions }) {
   const id = theme.identity;
   return (
     <h1
-      className={`max-w-full break-words leading-[0.94] [overflow-wrap:anywhere] [text-wrap:balance] ${id.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`}
+      className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]"
       data-name
-      style={{ fontSize: options.nameSize, fontWeight: id.weight, textShadow: id.shadow ?? undefined }}
+      data-name-font={scene.look.nameFont}
+      style={{ ...nameTypeStyle(scene.type), fontSize: options.nameSize, textShadow: id.shadow ?? undefined }}
     >
       {who.name}<NameBadge size={22} tier={memberTier} />
     </h1>
@@ -406,12 +411,12 @@ function Meta({ scene, align }: { scene: Scene; align: string }) {
 }
 
 /** CSS name size for the non-solved heroes: the Appearance base, scaled, fitted to the width. */
-function nameSizeCss(scene: Scene, base: number, fitWidth = "calc(100cqw - 44px)", charWidth = 0.55) {
+function nameSizeCss(scene: Scene, base: number, fitWidth = "calc(100cqw - 44px)") {
   const name = scene.who.name.trim();
   const longest = Math.max(1, ...name.split(/\s+/).map((part) => [...part].length));
   const factor = [...name].length > 22 ? 0.8 : 1;
-  const scale = NAME_SCALE[scene.look.nameSize];
-  return `calc(min(${base * scale}px, ${fitWidth} / ${+(charWidth * longest).toFixed(3)}) * ${factor})`;
+  const scale = NAME_SCALE[scene.look.nameSize] * scene.type.scale;
+  return `calc(min(${+(base * scale).toFixed(2)}px, ${fitWidth} / ${+(scene.type.charWidth * longest).toFixed(3)}) * ${factor})`;
 }
 
 function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number; height: number } }) {
@@ -423,7 +428,9 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
     zoom: look.zoom / 100,
     name: scene.who.name,
     nameBase: theme.name.base,
-    nameScale: NAME_SCALE[look.nameSize],
+    nameScale: NAME_SCALE[look.nameSize] * scene.type.scale,
+    nameCharWidth: scene.type.charWidth,
+    nameLeading: scene.type.leading,
     namePosition: look.namePosition,
     liveContext: Boolean(scene.live),
     meta: Boolean(look.showUsername || scene.who.roleLine),
@@ -472,7 +479,7 @@ function MotionHero({ scene }: { scene: Scene }) {
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 overflow-hidden whitespace-nowrap" data-motion-marquee style={{ top: band }}>
         <div className="inline-flex" data-sv-marquee data-sv-motion style={{ animation: scene.still ? undefined : "sv-marquee 30s linear infinite", transform: scene.still ? "translateX(-4%)" : undefined }}>
           {[0, 1, 2, 3].map((copy) => (
-            <span className="pr-[.3em] font-display font-extrabold leading-[1.02] tracking-[-0.05em] text-[#F5F4EF]" key={copy} style={{ fontSize: marquee }}>{who.name}<span className="pl-[.3em]" style={{ color: look.accent }}>/</span></span>
+            <span className="pr-[.3em] text-[#F5F4EF]" key={copy} style={{ ...marqueeType(scene), fontSize: marquee }}>{who.name}<span className="pl-[.3em]" style={{ color: look.accent }}>/</span></span>
           ))}
         </div>
       </div>
@@ -637,7 +644,7 @@ function FilmHero({ scene }: { scene: Scene }) {
         <Treatment scene={scene} />
       </div>
       {subtitle && <p className="absolute inset-x-6 line-clamp-3 text-center text-[16px] leading-[1.35] text-[#F7E9B8] [text-shadow:0_1px_2px_#000,0_0_12px_#000]" data-film-subtitle style={{ top: y(496) }}>{subtitle}</p>}
-      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44, "calc(100cqw - 44px)", 0.42), style: { left: 20, right: 20, bottom: 28 } }} scene={scene} />
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44), style: { left: 20, right: 20, bottom: 28 } }} scene={scene} />
     </>
   );
 }
@@ -648,8 +655,8 @@ function WideHero({ scene }: { scene: Scene }) {
   const { theme, look, who, copy } = scene;
   const name = who.name.trim();
   const longest = Math.max(1, ...name.split(/\s+/).map((part) => [...part].length));
-  const charWidth = theme.name.charWidth || 0.55;
-  const scale = NAME_SCALE[look.nameSize];
+  const charWidth = scene.type.charWidth;
+  const scale = NAME_SCALE[look.nameSize] * scene.type.scale;
   const nameSize = `min(max(${Math.round((look.id === "film" ? 66 : 57) * scale)}px, ${+((look.id === "film" ? 8.333 : 7.222) * scale).toFixed(3)}cqw), ${+(42 / (charWidth * longest)).toFixed(3)}cqw)`;
   const inset = theme.wide.inset;
   const centered = look.align === "center";
@@ -669,7 +676,7 @@ function WideHero({ scene }: { scene: Scene }) {
       )}
       <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
         <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
-        <h1 className={`max-w-full break-words leading-[0.92] [overflow-wrap:anywhere] [text-wrap:balance] ${theme.identity.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`} data-name style={{ fontSize: nameSize, fontWeight: theme.identity.weight, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
+        <h1 className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
         {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
         {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
         <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
@@ -771,13 +778,20 @@ function WideStage({ scene }: { scene: Scene }) {
   }
 }
 
+/** Motion's marquee: the signature's heavy cut, or the chosen name style. */
+function marqueeType(scene: Scene): CSSProperties {
+  return scene.look.nameFont === "setuvara"
+    ? { fontFamily: "var(--font-bricolage), ui-sans-serif, system-ui, sans-serif", fontWeight: 800, letterSpacing: "-0.05em", lineHeight: 1.02 }
+    : { ...nameTypeStyle(scene.type), lineHeight: 1.02 };
+}
+
 /** Motion's name band, running across the bottom of the wide photo. */
 function WideMarquee({ scene }: { scene: Scene }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-[6%] overflow-hidden whitespace-nowrap" data-motion-marquee>
       <div className="inline-flex" data-sv-marquee data-sv-motion style={{ animation: scene.still ? undefined : "sv-marquee 30s linear infinite", transform: scene.still ? "translateX(-4%)" : undefined }}>
         {[0, 1, 2, 3].map((copy) => (
-          <span className="pr-[.3em] font-display text-[clamp(64px,8cqw,128px)] font-extrabold leading-[1.02] tracking-[-0.05em] text-[#F5F4EF]" key={copy}>{scene.who.name}<span className="pl-[.3em]" style={{ color: scene.look.accent }}>/</span></span>
+          <span className="pr-[.3em] text-[clamp(64px,8cqw,128px)] text-[#F5F4EF]" key={copy} style={marqueeType(scene)}>{scene.who.name}<span className="pl-[.3em]" style={{ color: scene.look.accent }}>/</span></span>
         ))}
       </div>
     </div>

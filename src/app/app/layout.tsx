@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
+import { nameFontClasses } from "@/components/profile/name-fonts";
 import { AppShell } from "@/components/app/app-shell";
 import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
@@ -38,7 +39,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <I18nProvider>
-      <div className={marketingFontClasses} lang="en">
+      <div className={`${marketingFontClasses} ${nameFontClasses}`} lang="en">
         <AppShell
           avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
           avatarUrl={avatarUrl}

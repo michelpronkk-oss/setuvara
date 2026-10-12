@@ -29,6 +29,9 @@ export type FaceSafeInput = {
   /** The Appearance's base name size in px at 390 wide, and the chosen scale. */
   nameBase: number;
   nameScale: number;
+  /** The name style's average glyph width in em (0.55 when absent) and its line height. */
+  nameCharWidth?: number;
+  nameLeading?: number;
   namePosition: "auto" | "top" | "bottom";
   liveContext: boolean;
   meta: boolean;
@@ -129,9 +132,11 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
   const zoom = input.zoom ?? 1;
   const name = input.name.trim();
   const words = name.split(/\s+/).filter(Boolean);
-  const base = fittedNameSize(name, input.nameBase, input.nameScale, width);
-  const lines = (size: number) => Math.min(Math.max(1, Math.ceil((chars(name) * size * 0.53) / (width - 40))), Math.max(words.length, 1), 3);
-  const above = (size: number) => (input.liveContext ? 42 : 0) + Math.round(lines(size) * size * 0.94) + 12 + (input.meta ? 30 : 0);
+  const charWidth = input.nameCharWidth ?? 0.55;
+  const leading = Math.max(0.94, input.nameLeading ?? 0.94);
+  const base = fittedNameSize(name, input.nameBase, input.nameScale, width, width - 44, charWidth);
+  const lines = (size: number) => Math.min(Math.max(1, Math.ceil((chars(name) * size * (charWidth - 0.02)) / (width - 40))), Math.max(words.length, 1), 3);
+  const above = (size: number) => (input.liveContext ? 42 : 0) + Math.round(lines(size) * size * leading) + 12 + (input.meta ? 30 : 0);
   const below = (input.featuredSound ? 27 : 0) + SOCIAL_HEIGHT[input.socialStyle] + 68 + (input.secondary && width < 360 ? 62 : 0);
   const total = (size: number) => above(size) + below;
   const bottomLimit = height - SAFE_BOTTOM;

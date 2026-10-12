@@ -12,6 +12,7 @@ import {
   capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
   type AppearanceId, type ResolvedAppearance, defaultSocialStyle, extraSlideLimit, SLIDE_SPEEDS, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
+import { NAME_FONT_NAMES, NAME_FONTS, isFreeNameFont, nameType, nameTypeStyle } from "@/components/profile/name-type";
 import type { PhotoSource } from "@/components/profile/photo-focus";
 import type { ModeAppearance, ProfileMode } from "@/components/profile/types";
 import { soundtrackBlock } from "@/lib/blocks/registry";
@@ -31,7 +32,7 @@ import { Pill, Sheet, modeMeta } from "./editor-ui";
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed";
+type ControlKey = "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed";
 type MoreKey = "qr" | "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
@@ -50,6 +51,8 @@ const CONTROLS: Record<AppearanceId, ControlKey[]> = {
   film: ["nameSize", "align", "socials", "accent", "sound", "motion"],
 };
 const ALWAYS: ControlKey[] = ["username", "focus", "slideSpeed"];
+/** Name type leads every look's controls: it is the most visible personal choice after the look itself. */
+const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], ...ALWAYS];
 
 const PLUS_TAG = "#A43D36";
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]";
@@ -184,7 +187,7 @@ function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State;
       <section className="flex flex-col gap-4" aria-labelledby="personalize-heading">
         <h2 className="font-label text-[11px] font-normal uppercase tracking-[0.14em]" id="personalize-heading">2 · {copy.personalize.replace("{name}", APPEARANCE_NAMES[look.id].toUpperCase())}</h2>
         <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[20px] bg-white px-4 py-1.5 shadow-[inset_0_0_0_1px_#0D0D0D12,0_18px_40px_-34px_#0D0D0D66]" data-personalize-panel>
-          {[...CONTROLS[look.id], ...ALWAYS].map((key) => <Control api={api} control={key} key={key} state={state} />)}
+          {controlsFor(look.id).map((key) => <Control api={api} control={key} key={key} state={state} />)}
         </div>
       </section>
 
@@ -291,6 +294,8 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
   const premium = (field: keyof ModeAppearance, value: unknown) => !allowed(plan, field, value);
   const previewLocked = (field: keyof ModeAppearance) => state.previewing && premium(field, working[field]);
   switch (control) {
+    case "nameFont":
+      return <NameFontControl api={api} state={state} />;
     case "nameSize":
       return <Segment copy={copy} label={copy.nameSize} locked={previewLocked("portraitNameSize")} onPick={(value) => choose({ portraitNameSize: value === "standard" ? undefined : value })} options={NAME_SIZES.map((value) => ({ value, label: copy.sizes[value], plus: premium("portraitNameSize", value) }))} value={look.nameSize} />;
     case "namePosition":
@@ -338,6 +343,37 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
         ? <button className={`flex min-h-12 items-center justify-between gap-3 text-left text-[12.5px] font-semibold text-[#0D0D0D]/80 ${focusRing}`} onClick={api.recropPhoto} type="button">{copy.adjustFocus}<span aria-hidden="true" className="text-[15px] text-black/45">›</span></button>
         : <p className="py-3 text-[12px] text-black/55">{copy.noPhoto}</p>;
   }
+}
+
+/**
+ * Name type: six curated styles, each tile set in its own face with the member's first name.
+ * Plus styles preview freely (the preview opens as with any Plus value); only Apply asks for Plus.
+ */
+function NameFontControl({ api, state }: { api: EditorApi; state: State }) {
+  const { copy, look, working } = state;
+  const identity = appearanceTheme(look.id, look.accent, true).identity;
+  const sample = firstName(api).replace(/^@/, "");
+  const locked = state.previewing && !allowed(api.plan, "nameFont", working.nameFont);
+  return (
+    <ControlRow label={copy.nameFont} note={locked && <span className="font-label text-[9px] uppercase tracking-[0.1em]" style={{ color: PLUS_TAG }}>{copy.plusPreviewing}</span>}>
+      <div aria-label={copy.nameFont} className="grid grid-cols-3 gap-1.5" data-name-font-picker role="radiogroup">
+        {NAME_FONTS.map((font) => {
+          const on = look.nameFont === font;
+          const plus = !isFreeNameFont(font) && !hasCapability(api.plan, "appearance.premium");
+          const type = nameType(font, identity);
+          return (
+            <button aria-checked={on} aria-label={`${NAME_FONT_NAMES[font]}${plus ? ` · ${copy.plus}` : ""}`} className={`flex min-h-[58px] min-w-0 flex-col justify-between gap-1 rounded-[12px] px-2.5 py-2 text-left transition-colors ${on ? "" : "hover:bg-[#0D0D0D]/[0.06]"} ${focusRing}`} data-name-font={font} key={font} onClick={() => api.chooseAppearance({ nameFont: font === "setuvara" ? undefined : font })} role="radio" style={{ background: on ? "#0D0D0D" : "#0D0D0D0A", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
+              <span aria-hidden="true" className="block truncate text-[19px]" style={{ ...nameTypeStyle(type), lineHeight: 1.1 }}>{sample}</span>
+              <span className="flex items-center justify-between gap-1 text-[11px] font-semibold opacity-80">
+                {NAME_FONT_NAMES[font]}
+                {plus && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[#FF5A4F]" />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </ControlRow>
+  );
 }
 
 function AccentControl({ api, state }: { api: EditorApi; state: State }) {
@@ -508,7 +544,7 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const zoom = usePreviewZoom();
-  const controls = [...CONTROLS[look.id], ...ALWAYS];
+  const controls = controlsFor(look.id);
   const visible = expanded ? controls : controls.slice(0, 3);
   const sheetHeight = collapsed ? "148px" : "min(400px, calc(100dvh - 200px))";
 
@@ -627,7 +663,8 @@ export function AppearancePlusSheet({ trigger, plan, modeLabel, currentName, onC
   }, [onClose]);
 
   const name = trigger.appearance ? APPEARANCE_NAMES[trigger.appearance] : "";
-  const title = name && trigger.kind !== "qr" ? copy.sheetTitle.replace("{name}", name).replace("{mode}", modeLabel) : copy.sheetTitleGeneric;
+  const title = trigger.kind === "type" && trigger.name ? copy.sheetTitleType.replace("{name}", trigger.name)
+    : name && trigger.kind !== "qr" ? copy.sheetTitle.replace("{name}", name).replace("{mode}", modeLabel) : copy.sheetTitleGeneric;
   const body = trigger.kind === "restore" ? copy.sheetRestore : copy.sheetBody;
   const monthly = price(offer.monthlyPriceMinor);
   const yearly = price(offer.yearlyPriceMinor);

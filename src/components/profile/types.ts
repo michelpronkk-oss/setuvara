@@ -72,6 +72,8 @@ export type ModeAppearance = {
   slideSpeed?: "slow" | "medium" | "fast";
   /** How a run of pictures shows under the Appearance. Absent: featured. */
   mediaLayout?: "featured" | "stack" | "grid" | "carousel";
+  /** Display style of the name (name-type.ts). Absent: Setuvara, the Appearance's own. */
+  nameFont?: "setuvara" | "modern" | "editorial" | "condensed" | "impact" | "soft";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };

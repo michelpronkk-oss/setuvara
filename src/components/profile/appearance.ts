@@ -1,6 +1,7 @@
 import type { AppearanceId, LegacyThemeId, ModeAppearance, ModeSlug, ProfileMode } from "./types";
 import { hasCapability, type CapabilityKey } from "@/lib/billing/capabilities";
 import type { PlanCode } from "@/lib/billing/catalog";
+import { isFreeNameFont, isNameFont, NAME_FONTS, type NameFont } from "./name-type";
 
 /**
  * Setuvara Appearance: one of ten visual identities equipped per Mode, stored in
@@ -148,6 +149,8 @@ export type ResolvedAppearance = {
   align: IdentityAlign;
   slideSpeed: SlideSpeed;
   mediaLayout: MediaLayout;
+  /** Display style of the name; a Plus style renders Setuvara without Plus. */
+  nameFont: NameFont;
   motion: MotionLevel;
   soundPresentation: SoundPresentation;
   zoom: PortraitZoom;
@@ -212,6 +215,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
     case "card": case "radius": case "button": case "links": return "appearance.advanced_controls";
     case "soundStyle": return value === "core" ? null : "soundtrack.premium_treatment";
     case "qrStyle": return value === "standard" ? null : "share.qr_premium";
+    case "nameFont": return isNameFont(value) && isFreeNameFont(value) ? null : "appearance.premium";
     default: return null;
   }
 }
@@ -220,7 +224,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
 export const PREMIUM_FIELDS = [
   "theme", "layout", "portraitZoom", "portraitNameSize", "portraitShowUsername",
   "namePosition", "readability", "socialStyle", "motion", "soundtrackPresentation",
-  "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle",
+  "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle", "nameFont",
 ] as const;
 export type PremiumField = (typeof PREMIUM_FIELDS)[number];
 
@@ -291,6 +295,7 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     zoom: includes(PORTRAIT_ZOOMS, saved.portraitZoom) && (saved.portraitZoom >= 100 || ZOOM_OUT_APPEARANCES.has(id)) ? saved.portraitZoom : 100,
     slideSpeed: includes(SLIDE_SPEEDS, saved.slideSpeed) ? saved.slideSpeed : "medium",
     mediaLayout: includes(MEDIA_LAYOUTS, saved.mediaLayout) ? saved.mediaLayout : "featured",
+    nameFont: isNameFont(saved.nameFont) && (isFreeNameFont(saved.nameFont) || can("appearance.premium")) ? saved.nameFont : "setuvara",
     showUsername: typeof saved.portraitShowUsername === "boolean" ? saved.portraitShowUsername : defaults.showUsername,
     qrStyle: resolveQrStyle(mode, plan),
     locked: lockedFields(saved, plan),
@@ -309,7 +314,7 @@ export function previewAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
 export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
-  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "motion", "soundtrackPresentation",
+  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "nameFont", "motion", "soundtrackPresentation",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -363,6 +368,7 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.identityAlign, IDENTITY_ALIGNS)
     && optional(appearance.slideSpeed, SLIDE_SPEEDS)
     && optional(appearance.mediaLayout, MEDIA_LAYOUTS)
+    && optional(appearance.nameFont, NAME_FONTS)
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
 }
