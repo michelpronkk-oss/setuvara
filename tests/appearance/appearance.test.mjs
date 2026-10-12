@@ -448,6 +448,32 @@ describe("ProfileRenderer", () => {
     for (const id of TEN) assert.match(render(mode("personal", { theme: id }, { slide_urls }), "pro"), /data-slides/, `${id} slides`);
   });
 
+  test("the public page never names the Mode, on every Appearance", () => {
+    const soundtrack = { id: "track", kind: "music", data: { url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT" }, is_visible: true, is_soundtrack: true, sort_order: 0 };
+    for (const id of TEN) for (const slug of ["personal", "event", "business"]) {
+      const html = renderWith(mode(slug, { theme: id, soundtrackPresentation: "featured" }, { blocks: [soundtrack] }), { plan: "plus", sound: "preview" });
+      const text = html.replace(/<[^>]+>/g, " ");
+      assert.doesNotMatch(text, /\b(Personal|Event|Business)\b/, `${id} · ${slug}: no Mode name`);
+      assert.doesNotMatch(html, /data-mode-indicator|(Personal|Event|Business) (Mode|soundtrack)/i, `${id} · ${slug}: nor in labels`);
+    }
+  });
+
+  test("picture layout: featured by default; stack, grid and carousel on request", () => {
+    const pictures = [1, 2, 3].map((index) => ({ id: `img${index}`, kind: "image", data: { image_url: `https://media.example.test/p${index}.png`, alt: `P${index}` }, is_visible: true, sort_order: index }));
+    assert.equal(resolveFor({ theme: "immersive" }).mediaLayout, "featured");
+    for (const layout of ["featured", "stack", "grid", "carousel"]) {
+      const html = render(mode("personal", { theme: "immersive", ...(layout === "featured" ? {} : { mediaLayout: layout }) }, { blocks: pictures }));
+      assert.match(html, new RegExp(`data-media-layout="${layout}"`), layout);
+      assert.equal((html.match(/<img[^>]*media\.example\.test\/p\d/g) ?? []).length, 3, `${layout}: every picture once`);
+    }
+    const grid = render(mode("personal", { theme: "clean", mediaLayout: "grid" }, { blocks: pictures }));
+    assert.equal((grid.match(/data-featured-media/g) ?? []).length, 1, "grid: an odd first picture leads full width");
+    const single = render(mode("personal", { theme: "clean", mediaLayout: "grid" }, { blocks: pictures.slice(0, 1) }));
+    assert.match(single, /data-media-layout="single"/);
+    assert.ok(lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", mediaLayout: "carousel" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", mediaLayout: "masonry" }));
+  });
+
   test("links collapse after eight", () => {
     const many = Array.from({ length: 9 }, (_, index) => ({ id: `l${index}`, title: `Link ${index}`, url: `https://example.com/${index}`, link_type: "website", is_visible: true, sort_order: index }));
     const html = render(mode("personal", { theme: "clean" }, { links: many }));

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { MemberBadge } from "@/components/app/status-badge";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
@@ -120,7 +120,7 @@ function firstName(api: EditorApi) {
 function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State; onMore: (key: MoreKey) => void }) {
   const { copy, previewing, locked, look } = state;
   return (
-    <div className="flex flex-col gap-7 pb-24">
+    <div className="flex flex-col gap-6 pb-24">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-2">
@@ -140,14 +140,14 @@ function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State;
 
       <section className="flex flex-col gap-3" aria-labelledby="equip-heading">
         <h2 className="font-label text-[11px] font-normal uppercase tracking-[0.14em]" id="equip-heading">1 · {copy.equipDirection}</h2>
-        <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(118px,1fr))]" data-appearance-picker>
+        <ul className="grid gap-x-2.5 gap-y-3.5 [grid-template-columns:repeat(auto-fill,minmax(104px,1fr))]" data-appearance-picker>
           {APPEARANCES.map((id) => <li key={id}><DirectionTile api={api} id={id} state={state} /></li>)}
         </ul>
       </section>
 
       <section className="flex flex-col gap-4" aria-labelledby="personalize-heading">
         <h2 className="font-label text-[11px] font-normal uppercase tracking-[0.14em]" id="personalize-heading">2 · {copy.personalize.replace("{name}", APPEARANCE_NAMES[look.id].toUpperCase())}</h2>
-        <div className="flex flex-col gap-5 rounded-[22px] bg-white p-5 shadow-[inset_0_0_0_1px_#0D0D0D14]">
+        <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[20px] bg-white px-4 py-1.5 shadow-[inset_0_0_0_1px_#0D0D0D12,0_18px_40px_-34px_#0D0D0D66]" data-personalize-panel>
           {[...CONTROLS[look.id], ...ALWAYS].map((key) => <Control api={api} control={key} key={key} state={state} />)}
         </div>
       </section>
@@ -191,7 +191,7 @@ function EquippedChips({ api }: { api: EditorApi }) {
   );
 }
 
-function DirectionTile({ api, state, id, width, height = 196, zoom }: { api: EditorApi; state: State; id: AppearanceId; width?: number; height?: number; zoom?: number }) {
+function DirectionTile({ api, state, id, width, height = 168, zoom }: { api: EditorApi; state: State; id: AppearanceId; width?: number; height?: number; zoom?: number }) {
   const { copy, look, locked, effective } = state;
   const on = look.id === id;
   const equipped = effective.id === id && !state.previewing;
@@ -216,25 +216,35 @@ function DirectionTile({ api, state, id, width, height = 196, zoom }: { api: Edi
 
 type Option<T extends string | number> = { value: T; label: string; plus: boolean };
 
+/** One setting: label on the left and its control on the right when the panel is wide, stacked when narrow. */
+function ControlRow({ label, note, children }: { label: string; note?: ReactNode; children: ReactNode }) {
+  const id = useId();
+  return (
+    <div aria-labelledby={id} className="grid items-center gap-x-4 gap-y-2 py-2.5 @[500px]/controls:grid-cols-[120px_minmax(0,1fr)]" data-control-row role="group">
+      <span className="flex items-baseline justify-between gap-2 text-[12.5px] font-semibold text-[#0D0D0D]/80 @[500px]/controls:flex-col @[500px]/controls:gap-0.5" id={id}>
+        {label}
+        {note}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 function Segment<T extends string | number>({ label, options, value, onPick, locked, copy }: { label: string; options: Option<T>[]; value: T; onPick: (value: T) => void; locked: boolean; copy: Copy }) {
   return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 flex w-full items-baseline justify-between gap-3 text-[13px] font-semibold">
-        <span>{label}</span>
-        {locked && <span className="font-label text-[9.5px] uppercase tracking-[0.1em]" style={{ color: PLUS_TAG }}>{copy.plusPreviewing}</span>}
-      </legend>
-      <div className="flex flex-wrap gap-1 rounded-[18px] bg-[#0D0D0D]/[0.06] p-1" role="radiogroup" aria-label={label}>
+    <ControlRow label={label} note={locked && <span className="font-label text-[9px] uppercase tracking-[0.1em]" style={{ color: PLUS_TAG }}>{copy.plusPreviewing}</span>}>
+      <div className="flex flex-wrap gap-0.5 rounded-full bg-[#0D0D0D]/[0.05] p-[3px]" role="radiogroup" aria-label={label}>
         {options.map((option) => {
           const on = option.value === value;
           return (
-            <button aria-checked={on} className={`${hitArea} flex min-h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12.5px] font-semibold ${focusRing}`} key={String(option.value)} onClick={() => onPick(option.value)} role="radio" style={{ background: on ? "#0D0D0D" : "transparent", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
+            <button aria-checked={on} className={`${hitArea} flex min-h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] font-semibold transition-colors ${on ? "" : "hover:bg-[#0D0D0D]/[0.06]"} ${focusRing}`} key={String(option.value)} onClick={() => onPick(option.value)} role="radio" style={{ background: on ? "#0D0D0D" : undefined, color: on ? "#F5F4EF" : "#0D0D0DCC", boxShadow: on ? "0 6px 14px -8px #0D0D0D99" : undefined }} type="button">
               {option.label}
               {option.plus && <span aria-label={copy.plus} className="size-1.5 rounded-full bg-[#FF5A4F]" />}
             </button>
           );
         })}
       </div>
-    </fieldset>
+    </ControlRow>
   );
 }
 
@@ -258,7 +268,7 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
     }
     case "socials":
       return (
-        <div className="flex flex-col gap-3" data-social-control>
+        <div className="flex flex-col" data-social-control>
           <Segment copy={copy} label={copy.socials} locked={false} onPick={(value) => choose(value === "links" ? { socialStyle: "hidden", socialPlacement: undefined } : { socialStyle: look.socialStyle === "hidden" ? defaultSocialStyle(look.id) : look.socialStyle, socialPlacement: value === "both" ? "both" : undefined })} options={SOCIAL_PLACEMENTS.map((value) => ({ value, label: copy.socialPlacements[value], plus: false }))} value={look.socialPlacement} />
           {look.socialPlacement !== "links" && <Segment copy={copy} label={copy.socialStyle} locked={false} onPick={(value) => choose({ socialStyle: value })} options={SOCIAL_STYLES.filter((value) => value !== "hidden").map((value) => ({ value, label: copy.socialStyles[value], plus: false }))} value={look.socialStyle} />}
         </div>
@@ -269,18 +279,18 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
       return <Segment copy={copy} label={copy.zoom} locked={false} onPick={(value) => choose({ portraitZoom: value === 100 ? undefined : value })} options={(ZOOM_OUT_APPEARANCES.has(look.id) ? EDITOR_ZOOMS_WITH_OUT : EDITOR_ZOOMS).map((value) => ({ value, label: `${value}%`, plus: false }))} value={look.zoom} />;
     case "sound":
       return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col pb-1">
           <Segment copy={copy} label={copy.soundtrack} locked={previewLocked("soundtrackPresentation")} onPick={(value) => choose({ soundtrackPresentation: value, soundStyle: undefined })} options={SOUND_PRESENTATIONS.map((value) => ({ value, label: copy.soundPresentations[value], plus: premium("soundtrackPresentation", value) }))} value={look.soundPresentation} />
-          {!soundtrackBlock(api.mode) && <p className="text-[12.5px] text-black/60">{copy.noSoundtrack}</p>}
+          {!soundtrackBlock(api.mode) && <p className="-mt-1 pb-1.5 text-[12px] text-black/50 @[500px]/controls:pl-[136px]">{copy.noSoundtrack}</p>}
         </div>
       );
     case "accent":
       return <AccentControl api={api} state={state} />;
     case "username":
       return (
-        <button aria-checked={look.showUsername} className={`flex min-h-11 items-center justify-between gap-3 text-left text-[13px] font-semibold ${focusRing}`} onClick={() => choose({ portraitShowUsername: !look.showUsername })} role="switch" type="button">
+        <button aria-checked={look.showUsername} className={`flex min-h-12 items-center justify-between gap-3 text-left text-[12.5px] font-semibold text-[#0D0D0D]/80 ${focusRing}`} onClick={() => choose({ portraitShowUsername: !look.showUsername })} role="switch" type="button">
           <span>{copy.showUsername}</span>
-          <span aria-hidden="true" className={`relative h-7 w-12 rounded-full ${look.showUsername ? "bg-[#0D0D0D]" : "bg-black/20"}`}><span className={`absolute top-1 size-5 rounded-full bg-white transition-transform ${look.showUsername ? "left-6" : "left-1"}`} /></span>
+          <span aria-hidden="true" className={`relative h-6 w-10 rounded-full transition-colors ${look.showUsername ? "bg-[#0D0D0D]" : "bg-black/15"}`}><span className={`absolute top-[3px] size-[18px] rounded-full bg-white shadow-[0_1px_3px_#0D0D0D40] transition-transform ${look.showUsername ? "left-[19px]" : "left-[3px]"}`} /></span>
         </button>
       );
     case "slideSpeed":
@@ -288,7 +298,9 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
       if (!api.mode.image_url || !(api.mode.slide_photos?.length && extraSlideLimit(plan))) return null;
       return <Segment copy={copy} label={copy.slideSpeed} locked={false} onPick={(value) => choose({ slideSpeed: value === "medium" ? undefined : value })} options={SLIDE_SPEEDS.map((value) => ({ value, label: copy.slideSpeeds[value], plus: false }))} value={look.slideSpeed} />;
     case "focus":
-      return api.mode.image_url ? <Pill className="self-start" onClick={api.recropPhoto}>{copy.adjustFocus}</Pill> : <p className="text-[12.5px] text-black/60">{copy.noPhoto}</p>;
+      return api.mode.image_url
+        ? <button className={`flex min-h-12 items-center justify-between gap-3 text-left text-[12.5px] font-semibold text-[#0D0D0D]/80 ${focusRing}`} onClick={api.recropPhoto} type="button">{copy.adjustFocus}<span aria-hidden="true" className="text-[15px] text-black/45">›</span></button>
+        : <p className="py-3 text-[12px] text-black/55">{copy.noPhoto}</p>;
   }
 }
 
@@ -296,19 +308,18 @@ function AccentControl({ api, state }: { api: EditorApi; state: State }) {
   const { copy, look } = state;
   const custom = !ACCENT_PRESETS.some((preset) => preset.hex === look.accent);
   return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-[13px] font-semibold">{copy.colour}</legend>
-      <div className="flex flex-wrap items-center gap-2.5">
+    <ControlRow label={copy.colour}>
+      <div className="flex flex-wrap items-center gap-2">
         {ACCENT_PRESETS.map((preset) => {
           const on = look.accent === preset.hex;
-          return <button aria-label={copy.accentLabel.replace("{name}", copy.accents[preset.id])} aria-pressed={on} className={`size-11 rounded-full ${focusRing}`} key={preset.id} onClick={() => api.chooseAppearance({ accent: preset.hex })} style={{ background: preset.hex, boxShadow: on ? "0 0 0 3px #F5F4EF, 0 0 0 5px #0D0D0D" : "none" }} title={copy.accents[preset.id]} type="button" />;
+          return <button aria-label={copy.accentLabel.replace("{name}", copy.accents[preset.id])} aria-pressed={on} className={`size-8 rounded-full ${focusRing}`} key={preset.id} onClick={() => api.chooseAppearance({ accent: preset.hex })} style={{ background: preset.hex, boxShadow: on ? "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" : "inset 0 0 0 1px #0D0D0D14" }} title={copy.accents[preset.id]} type="button" />;
         })}
-        <label className="relative grid size-11 cursor-pointer place-items-center rounded-full text-lg focus-within:outline focus-within:outline-2 focus-within:outline-offset-2" style={custom ? { background: look.accent, boxShadow: "0 0 0 3px #F5F4EF, 0 0 0 5px #0D0D0D" } : { boxShadow: "inset 0 0 0 1.5px #0D0D0D59" }} title={copy.custom}>
+        <label className="relative grid size-8 cursor-pointer place-items-center rounded-full text-base focus-within:outline focus-within:outline-2 focus-within:outline-offset-2" style={custom ? { background: look.accent, boxShadow: "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" } : { boxShadow: "inset 0 0 0 1px #0D0D0D47" }} title={copy.custom}>
           {!custom && <span aria-hidden="true">+</span>}
           <input aria-label={copy.customAccent} className="absolute inset-0 size-full cursor-pointer opacity-0" onChange={(event) => { if (/^#[\da-f]{6}$/i.test(event.target.value)) api.chooseAppearance({ accent: event.target.value.toUpperCase() }); }} type="color" value={look.accent.toLowerCase()} />
         </label>
       </div>
-    </fieldset>
+    </ControlRow>
   );
 }
 
@@ -505,7 +516,7 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
               </>
             )}
             {tab === "personalize" && (
-              <div className="flex flex-col gap-4 pb-2">
+              <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] pb-2">
                 {visible.map((key) => <Control api={api} control={key} key={key} state={state} />)}
                 <button className={`min-h-11 self-start rounded-full px-4 text-[13px] font-semibold shadow-[inset_0_0_0_1px_#0D0D0D33] ${focusRing}`} onClick={() => setExpanded((value) => !value)} type="button">{expanded ? copy.less : copy.more}</button>
                 {expanded && <><MoreRows api={api} onMore={onMore} state={state} /><ResetAppearance api={api} state={state} /></>}

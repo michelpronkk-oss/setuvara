@@ -34,7 +34,7 @@ const messages = {
       about: "About", atTheEvent: "At the event", bookCall: "Book a call", showMyQr: "Show my QR",
       madeWith: "Made with Setuvara", allLinks: "All links", links: "Links",
       soundOn: "Sound on", soundOff: "Sound off", soundtrack: "Soundtrack", nowPlaying: "Now playing", onRepeat: "On repeat",
-      soundtrackOf: "{mode} soundtrack", eventSaved: "{event} and the time are saved to the connection.",
+      eventSaved: "{event} and the time are saved to the connection.",
       profileMark: "Earned Setuvara mark",
       makeYours: "Make yours on Setuvara", makeYoursShort: "Make yours", live: "Live", until: "until {time}", today: "today",
       hasSoundtrack: "This identity has a soundtrack", enterWithSound: "Enter with sound", continueMuted: "Continue muted",

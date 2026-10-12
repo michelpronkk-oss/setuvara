@@ -51,7 +51,7 @@ export type FaceSafeLayout = {
   decision: string;
 };
 
-/** Top of the identity block (below the Mode pill) and bottom inset, at any frame size. */
+/** Top of the identity block (below the top controls) and bottom inset, at any frame size. */
 export const SAFE_TOP = 66;
 export const SAFE_BOTTOM = 34;
 const MARGIN = 18;

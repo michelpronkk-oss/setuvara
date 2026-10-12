@@ -89,6 +89,9 @@ export const MOTION_LEVELS = ["off", "subtle", "full"] as const;
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 export const SOUND_PRESENTATIONS = ["ambient", "minimal", "featured"] as const;
 export const SLIDE_SPEEDS = ["slow", "medium", "fast"] as const;
+/** How a run of pictures shows: the first large and the rest in a swipe row (default), stacked, two columns, or one swipe row. */
+export const MEDIA_LAYOUTS = ["featured", "stack", "grid", "carousel"] as const;
+export type MediaLayout = (typeof MEDIA_LAYOUTS)[number];
 export type SlideSpeed = (typeof SLIDE_SPEEDS)[number];
 /** Seconds each slide holds. */
 export const SLIDE_SECONDS: Record<SlideSpeed, number> = { slow: 7, medium: 4.5, fast: 2.8 };
@@ -140,6 +143,7 @@ export type ResolvedAppearance = {
   socialPlacement: SocialPlacement;
   align: IdentityAlign;
   slideSpeed: SlideSpeed;
+  mediaLayout: MediaLayout;
   motion: MotionLevel;
   soundPresentation: SoundPresentation;
   zoom: PortraitZoom;
@@ -282,6 +286,7 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     soundPresentation: sound === "featured" && !can("soundtrack.premium_treatment") ? "minimal" : sound,
     zoom: includes(PORTRAIT_ZOOMS, saved.portraitZoom) && (saved.portraitZoom >= 100 || ZOOM_OUT_APPEARANCES.has(id)) ? saved.portraitZoom : 100,
     slideSpeed: includes(SLIDE_SPEEDS, saved.slideSpeed) ? saved.slideSpeed : "medium",
+    mediaLayout: includes(MEDIA_LAYOUTS, saved.mediaLayout) ? saved.mediaLayout : "featured",
     showUsername: typeof saved.portraitShowUsername === "boolean" ? saved.portraitShowUsername : defaults.showUsername,
     qrStyle: resolveQrStyle(mode, plan),
     locked: lockedFields(saved, plan),
@@ -300,7 +305,7 @@ export function previewAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
 export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
-  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "motion", "soundtrackPresentation",
+  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "motion", "soundtrackPresentation",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -329,7 +334,7 @@ export function equipAppearance(saved: Partial<ModeAppearance> | null | undefine
 
 /** Whether a saved appearance is valid as-is for its Mode (what the database accepts). */
 export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", "identityAlign", "slideSpeed", ...PREMIUM_FIELDS]);
+  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", ...PREMIUM_FIELDS]);
   const optional = (value: unknown, list: readonly string[]) => value === undefined || includes(list, value);
   return Boolean(appearance) && typeof appearance === "object"
     && Object.keys(appearance).every((key) => known.has(key))
@@ -353,6 +358,7 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.socialPlacement, SOCIAL_PLACEMENTS)
     && optional(appearance.identityAlign, IDENTITY_ALIGNS)
     && optional(appearance.slideSpeed, SLIDE_SPEEDS)
+    && optional(appearance.mediaLayout, MEDIA_LAYOUTS)
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
 }

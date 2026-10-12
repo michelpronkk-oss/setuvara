@@ -70,6 +70,8 @@ export type ModeAppearance = {
   identityAlign?: "auto" | "left" | "center";
   /** Photo slideshow pace (Plus and Pro). */
   slideSpeed?: "slow" | "medium" | "fast";
+  /** How a run of pictures shows under the Appearance. Absent: featured. */
+  mediaLayout?: "featured" | "stack" | "grid" | "carousel";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };
