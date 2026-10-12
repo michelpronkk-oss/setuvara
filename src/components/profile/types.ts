@@ -85,6 +85,14 @@ export type ProfileMode = {
   appearance: ModeAppearance;
   image_path: string | null;
   image_url?: string | null;
+  /**
+   * The kept original upload (size-capped) and the member's crop on it, as fractions plus the
+   * original's pixel size. Null for photos saved before originals were kept: those render from
+   * image_path alone. See photo-focus `photoSource`.
+   */
+  image_original_path?: string | null;
+  image_original_url?: string | null;
+  image_crop?: PhotoCropValue | null;
   /** Focus point inside the saved photo, 0–100. Null means the default (see photo-focus). */
   image_focus_x?: number | null;
   image_focus_y?: number | null;
@@ -114,6 +122,9 @@ export type PublicLiveContext = {
 };
 
 /** One stored slideshow photo: owner-scoped object path and its face point (0–100). */
+/** Stored crop metadata on a kept original (see photo-focus `readCrop`). */
+export type PhotoCropValue = { x: number; y: number; w: number; h: number; width: number; height: number };
+
 export type SlidePhoto = { path: string; x: number; y: number };
 /** A slideshow photo ready to render. */
 export type SlideImage = { url: string; x: number; y: number };

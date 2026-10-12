@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { MeetMark } from "@/components/marketing/brand";
-import { FocusedPhoto } from "@/components/profile/focused-photo";
+import { FramedPhoto } from "@/components/profile/focused-photo";
 import { ProfileBlocks, type BlockTone } from "@/components/profile/profile-blocks";
 import { SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MemberBadge } from "@/components/app/status-badge";
@@ -15,10 +15,10 @@ import { hasCapability } from "@/lib/billing/capabilities";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { getMessages } from "@/lib/i18n/messages";
-import { modeFocus, type PhotoFocus } from "./photo-focus";
+import { legacySource, photoSource, type PhotoSource } from "./photo-focus";
 import { extraSlideLimit, resolveAppearance, SLIDE_SECONDS, type ResolvedAppearance } from "./appearance";
 import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
-import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe, zoomOutFrame } from "./face-safe";
+import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./face-safe";
 import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
 
@@ -114,9 +114,10 @@ type Scene = {
   who: Identity;
   mode: ProfileMode;
   photo: string | null;
+  /** The main photo as every surface frames it: the kept original and its crop, or the saved photo. */
+  source: PhotoSource | null;
   /** The main photo first, then the slideshow photos the plan allows (one entry: no slideshow). */
-  slides: SlideImage[];
-  focus: PhotoFocus;
+  slides: PhotoSource[];
   images: string[];
   bio: string;
   copy: Copy;
@@ -135,7 +136,8 @@ type Scene = {
 function Profile(props: ProfileProps) {
   const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
   const copy = getMessages("en").profile;
-  const photo = mode.image_url ?? null;
+  const source = photoSource(mode);
+  const photo = source ? mode.image_url ?? source.url : null;
   const lookTheme = appearanceTheme(look.id, look.accent, Boolean(photo));
   // A chosen alignment moves the identity and the About text together; Auto keeps the look's own.
   const theme = look.align === "auto" ? lookTheme : { ...lookTheme, bioAlign: look.align, identity: { ...lookTheme.identity, align: look.align } };
@@ -148,9 +150,8 @@ function Profile(props: ProfileProps) {
   const still = look.motion === "off";
   const full = look.motion === "full" || look.id === "motion";
   const scene: Scene = {
-    look, theme, who, mode, photo, copy, memberTier,
-    focus: modeFocus(mode),
-    slides: photo ? [{ url: photo, ...modeFocus(mode) }, ...(mode.slide_urls ?? []).slice(0, extraSlideLimit(props.plan ?? "free"))] : [],
+    look, theme, who, mode, photo, source, copy, memberTier,
+    slides: source ? [source, ...(mode.slide_urls ?? []).slice(0, extraSlideLimit(props.plan ?? "free")).map((slide: SlideImage) => legacySource(slide.url, { x: slide.x, y: slide.y }))] : [],
     images: contentImages(mode.blocks).map((image) => image.url),
     bio: profile.bio ?? "",
     treatment: Boolean(selectedRewards.profile_treatment),
@@ -233,7 +234,8 @@ function AppearanceEnvironment({ scene }: { scene: Scene }) {
   const { theme, photo, look } = scene;
   const atmosphere = theme.atmosphere;
   if (!atmosphere.on) return null;
-  const source = look.id === "scene" ? scene.images[0] ?? photo : photo;
+  // The hero's own image (the kept original when there is one), reused from cache.
+  const source = look.id === "scene" ? scene.images[0] ?? scene.source?.url ?? photo : scene.source?.url ?? photo;
   const field = photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18";
   return (
     <div aria-hidden="true" className="pointer-events-none sticky top-0 -z-10 h-0" data-appearance-environment>
@@ -247,18 +249,27 @@ function AppearanceEnvironment({ scene }: { scene: Scene }) {
   );
 }
 
-function Photo({ scene, alt = "", sizes = "100vw", priority = false, outHeight, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; /** Zoomed out (phone Immersive only): the photo's box height at the top of the frame. */ outHeight?: string; style?: CSSProperties; className?: string }) {
-  if (!scene.photo) return null;
-  const { focus, look } = scene;
-  const zoom = outHeight ? 1 : Math.max(1, look.zoom / 100);
-  const frame = (src: string, at: PhotoFocus, extra?: CSSProperties) => <FocusedPhoto alt={alt} className={className} focus={at} priority={priority} sizes={sizes} src={src} style={{ transform: `scale(${zoom})`, transformOrigin: `${at.x}% ${at.y}%`, ...style, ...extra }} />;
+/** The atmosphere filter for frames where even the original runs out: the Appearance's own. */
+function atmosphereFilter(theme: AppearanceTheme) {
+  const { saturate, brightness } = theme.atmosphere.on ? theme.atmosphere : { saturate: 1.15, brightness: 0.8 };
+  return `blur(26px) saturate(${saturate}) brightness(${brightness})`;
+}
+
+/**
+ * The Mode photo in its frame, framed from the kept original at the Appearance's zoom. `fill`
+ * "page" leaves uncovered space to the page atmosphere already behind the frame (Immersive).
+ */
+function Photo({ scene, alt = "", sizes = "100vw", priority = false, fill = "frame", frameAspect, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; fill?: "frame" | "page"; frameAspect?: number; style?: CSSProperties; className?: string }) {
+  if (!scene.source) return null;
+  const { look, theme } = scene;
+  const atmosphere = fill === "page" && theme.atmosphere.on ? "none" : atmosphereFilter(theme);
+  const frame = (source: PhotoSource, extra?: CSSProperties) => <FramedPhoto alt={alt} className={className} fill={atmosphere} frameAspect={frameAspect} priority={priority} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
   // The slideshow belongs to the main photo only, never to decorative copies of it.
-  const body = !priority || scene.slides.length < 2 ? frame(scene.photo, focus) : <Slides render={frame} scene={scene} />;
-  return outHeight ? <span className="absolute inset-x-0 top-0 block" data-zoom-out={look.zoom} style={{ height: outHeight }}>{body}</span> : body;
+  return !priority || scene.slides.length < 2 ? frame(scene.source) : <Slides render={frame} scene={scene} />;
 }
 
 /** Plus/Pro slideshow: the Mode's photos cross-fade at the chosen pace. Motion off or reduced motion holds the first. */
-function Slides({ scene, render }: { scene: Scene; render: (src: string, at: PhotoFocus, extra?: CSSProperties) => ReactNode }) {
+function Slides({ scene, render }: { scene: Scene; render: (source: PhotoSource, extra?: CSSProperties) => ReactNode }) {
   const [index, setIndex] = useState(0);
   const count = scene.slides.length;
   const seconds = SLIDE_SECONDS[scene.look.slideSpeed];
@@ -271,7 +282,7 @@ function Slides({ scene, render }: { scene: Scene; render: (src: string, at: Pho
     <span className="absolute inset-0 block" data-slide-active={index} data-slide-count={count} data-slides={scene.look.slideSpeed}>
       {scene.slides.map((slide, at) => (
         <span className="absolute inset-0 block transition-opacity duration-[1400ms] ease-in-out" data-slide={at} key={at} style={{ opacity: at === index ? 1 : 0 }}>
-          {render(slide.url, { x: slide.x, y: slide.y })}
+          {render(slide)}
         </span>
       ))}
     </span>
@@ -407,7 +418,8 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
   const { look, theme } = scene;
   const layout = solveFaceSafe({
     frame,
-    focus: scene.photo ? scene.focus : null,
+    focus: scene.source ? scene.source.focus : null,
+    source: scene.source,
     zoom: look.zoom / 100,
     name: scene.who.name,
     nameBase: theme.name.base,
@@ -420,7 +432,6 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
     secondary: scene.secondary,
   });
   const percent = (value: number) => `${((value / frame.height) * 100).toFixed(2)}%`;
-  const out = look.zoom < 100 ? zoomOutFrame(frame, look.zoom / 100) : null;
   const position: CSSProperties = layout.strategy === "split" ? { top: 66, bottom: 34 } : layout.strategy === "top" ? { top: 66 } : { bottom: 34 };
   const mask = scene.photo ? immersiveMask(layout, frame.height).replace(/(-?\d+)px/g, (_, px) => percent(Number(px))) : undefined;
   const scrimOpacity = look.readability === "soft" ? 0.72 : 1;
@@ -430,7 +441,7 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
         <div className="absolute inset-0 overflow-hidden" data-face-strategy={layout.strategy} data-face-shift={layout.shiftY} style={{ maskImage: mask, WebkitMaskImage: mask }}>
           <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
             <div className="absolute inset-0" style={{ transform: `translateY(${percent(layout.shiftY)})` }}>
-              <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} outHeight={out ? percent(out.height) : undefined} priority scene={scene} />
+              <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} fill="page" frameAspect={frame.width / frame.height} priority scene={scene} />
             </div>
           </div>
         </div>
@@ -445,9 +456,9 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
 }
 
 function MotionHero({ scene }: { scene: Scene }) {
-  const { look, who, focus } = scene;
+  const { look, who } = scene;
   // The marquee band sits below the chin inside the 640px photo frame.
-  const chinFraction = scene.photo ? estimateFace(focus, { width: 390, height: 640 }, { zoom: look.zoom / 100 }).chin / 640 : 0;
+  const chinFraction = scene.source ? estimateFace(scene.source, { width: 390, height: 640 }, { zoom: look.zoom / 100 }).chin / 640 : 0;
   const band = `max(${y(404)}, calc(var(--sv-h) * ${+(0.7583 * chinFraction).toFixed(4)} + 14px))`;
   const marquee = Math.round(94 * NAME_SCALE[look.nameSize]);
   return (

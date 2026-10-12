@@ -6,9 +6,9 @@ import { z } from "zod";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
-import type { BlockKind, ModeAppearance, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { BlockKind, ModeAppearance, ModeSlug, PhotoCropValue, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { APPEARANCE_NAMES, extraSlideLimit, introducedLockedFields, isModeLayout, isValidAppearance, lockedFields, resetAppearance as resetVisualAppearance, resolveAppearance, storedAppearance } from "@/components/profile/appearance";
-import { focusPosition, modeFocus, type PhotoFocus } from "@/components/profile/photo-focus";
+import { focusPosition, modeFocus, readCrop, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
@@ -24,11 +24,11 @@ import { useI18n } from "@/lib/i18n/provider";
 import { FeaturePaywall } from "@/components/app/feature-paywall";
 import { CelebrationClient } from "../passport/passport-dashboard";
 import { createProviderLink, updateProviderLink } from "./actions";
-import { CropDialog, cropToBlob } from "./editor-crop";
+import { CropDialog, cropToBlob, originalToBlob } from "./editor-crop";
 import { FullPreview, PreviewPane } from "./editor-preview";
 import { ContentSection } from "./editor-content";
 import { HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
-import { AppearancePlusSheet, AppearanceSection, pendingAppearanceKey } from "./editor-appearance";
+import { AppearancePlusSheet, AppearanceSection, pendingAppearanceKey, PhotoPreviews } from "./editor-appearance";
 import { MODE_SLUGS, SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PlusTrigger, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
 import { modeMeta } from "./editor-ui";
 
@@ -94,7 +94,9 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   // Unsaved premium looks the owner is previewing, per Mode. Never written to the database.
   const [appearancePreviews, setAppearancePreviews] = useState<Record<string, ModeAppearance>>({});
   const [plusSheet, setPlusSheet] = useState<PlusTrigger | null>(null);
-  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus; slide?: boolean } | null>(null);
+  // A crop session: a new file (its object URL), or a re-crop of the kept original (or, for photos
+  // saved before originals were kept, of the saved photo itself, which then becomes the original).
+  const [crop, setCrop] = useState<{ source: string; modeId: string; revoke: boolean; focus?: PhotoFocus; slide?: boolean; initialCrop?: PhotoCropValue | null; keepOriginal?: string; savedOnly?: boolean } | null>(null);
   const [busyPhoto, setBusyPhoto] = useState(false);
 
   const { messages } = useI18n();
@@ -646,22 +648,45 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   }, [initialProfile.id, supabase]);
 
   const pickPhoto = useCallback(() => { photoTarget.current = mode.id; slideTarget.current = false; fileRef.current?.click(); }, [mode.id]);
-  const recropPhoto = useCallback(() => { if (mode.image_url) setCrop({ source: mode.image_url, modeId: mode.id, revoke: false, focus: modeFocus(mode) }); }, [mode]);
+  const recropPhoto = useCallback(() => {
+    if (!mode.image_url || !mode.image_path) return;
+    const kept = readCrop(mode.image_crop);
+    if (mode.image_original_url && mode.image_original_path && kept) {
+      setCrop({ source: mode.image_original_url, modeId: mode.id, revoke: false, focus: modeFocus(mode), initialCrop: kept, keepOriginal: mode.image_original_path });
+      return;
+    }
+    // Saved before originals were kept: the saved photo is all there is, and becomes the original.
+    setCrop({ source: mode.image_url, modeId: mode.id, revoke: false, focus: modeFocus(mode), keepOriginal: mode.image_path, savedOnly: true });
+  }, [mode]);
 
-  const savePhoto = useCallback(async (modeId: string, blob: Blob, focus: PhotoFocus) => {
+  /**
+   * Saves a Mode photo: the 4:5 crop as image_path (avatars, share cards and older surfaces use it),
+   * and the original it was cut from with the crop as metadata, which every profile surface frames
+   * from. `original` is a new upload, or the path of the original already in Storage (re-crop).
+   */
+  const savePhoto = useCallback(async (modeId: string, blob: Blob, focus: PhotoFocus, original: { blob: Blob; crop: PhotoCropValue } | { path: string; crop: PhotoCropValue }) => {
     setBusyPhoto(true);
     const target = modesRef.current.find((item) => item.id === modeId);
     const failure = await runNow(async () => {
       if (!target) return "That Mode couldn’t be found.";
       const path = `${initialProfile.id}/${crypto.randomUUID()}.webp`;
-      const { error: uploadError } = await supabase.storage.from(MEDIA).upload(path, blob, { contentType: "image/webp", upsert: false });
-      if (uploadError) return "The photo couldn’t be uploaded. Use a JPEG, PNG or WebP under 5 MB.";
-      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: path, image_focus_x: focus.x, image_focus_y: focus.y }).eq("id", modeId).eq("profile_id", initialProfile.id);
-      if (updateError) { await supabase.storage.from(MEDIA).remove([path]); return "The photo uploaded but couldn’t be attached."; }
-      const { data: signed } = await supabase.storage.from(MEDIA).createSignedUrl(path, 3600);
-      const previous = target.image_path;
-      patchMode(modeId, { image_path: path, image_url: signed?.signedUrl ?? URL.createObjectURL(blob), image_focus_x: focus.x, image_focus_y: focus.y });
-      await removeIfUnused(previous);
+      const originalPath = "path" in original ? original.path : `${initialProfile.id}/${crypto.randomUUID()}.webp`;
+      const uploads = [supabase.storage.from(MEDIA).upload(path, blob, { contentType: "image/webp", upsert: false })];
+      if ("blob" in original) uploads.push(supabase.storage.from(MEDIA).upload(originalPath, original.blob, { contentType: "image/webp", upsert: false }));
+      const uploaded = await Promise.all(uploads);
+      const fresh = "blob" in original ? [path, originalPath] : [path];
+      if (uploaded.some((result) => result.error)) { await supabase.storage.from(MEDIA).remove(fresh); return "The photo couldn’t be uploaded. Use a JPEG, PNG or WebP under 15 MB."; }
+      const row = { image_path: path, image_original_path: originalPath, image_crop: original.crop, image_focus_x: focus.x, image_focus_y: focus.y };
+      const { error: updateError } = await supabase.from("profile_modes").update(row).eq("id", modeId).eq("profile_id", initialProfile.id);
+      if (updateError) { await supabase.storage.from(MEDIA).remove(fresh); return "The photo uploaded but couldn’t be attached."; }
+      const { data: signed } = await supabase.storage.from(MEDIA).createSignedUrls([path, originalPath], 3600);
+      const previous = [target.image_path, target.image_original_path];
+      patchMode(modeId, {
+        ...row,
+        image_url: signed?.[0]?.signedUrl ?? URL.createObjectURL(blob),
+        image_original_url: signed?.[1]?.signedUrl ?? ("blob" in original ? URL.createObjectURL(original.blob) : target.image_original_url ?? target.image_url ?? null),
+      });
+      for (const old of previous) if (old && old !== path && old !== originalPath) await removeIfUnused(old);
       return null;
     });
     setBusyPhoto(false);
@@ -671,12 +696,13 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const removePhoto = useCallback(() => {
     const target = mode;
     if (!target.image_path) return;
-    const previous = { image_path: target.image_path, image_url: target.image_url, image_focus_x: target.image_focus_x ?? null, image_focus_y: target.image_focus_y ?? null };
-    patchMode(target.id, { image_path: null, image_url: null, image_focus_x: null, image_focus_y: null });
+    const previous = photoFields(target);
+    patchMode(target.id, { image_path: null, image_url: null, image_original_path: null, image_original_url: null, image_crop: null, image_focus_x: null, image_focus_y: null });
     void runNow(async () => {
-      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null, image_focus_x: null, image_focus_y: null }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: null, image_original_path: null, image_crop: null, image_focus_x: null, image_focus_y: null }).eq("id", target.id).eq("profile_id", initialProfile.id);
       if (updateError) { patchMode(target.id, previous); return "The photo couldn’t be removed."; }
       await removeIfUnused(previous.image_path);
+      await removeIfUnused(previous.image_original_path);
       return null;
     });
   }, [initialProfile.id, mode, patchMode, removeIfUnused, runNow, supabase]);
@@ -733,14 +759,15 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const from = modesRef.current.find((item) => item.slug === source);
     const target = mode;
     if (!from?.image_path || from.id === target.id) return;
-    const previous = { image_path: target.image_path, image_url: target.image_url, image_focus_x: target.image_focus_x ?? null, image_focus_y: target.image_focus_y ?? null };
-    // The photo's face point travels with it, so it frames the same way in this Mode.
-    const focus = { image_focus_x: from.image_focus_x ?? null, image_focus_y: from.image_focus_y ?? null };
-    patchMode(target.id, { image_path: from.image_path, image_url: from.image_url, ...focus });
+    const previous = photoFields(target);
+    // The photo's original, crop and face point travel with it, so it frames the same way in this Mode.
+    const row = { image_path: from.image_path, image_original_path: from.image_original_path ?? null, image_crop: from.image_crop ?? null, image_focus_x: from.image_focus_x ?? null, image_focus_y: from.image_focus_y ?? null };
+    patchMode(target.id, { ...row, image_url: from.image_url, image_original_url: from.image_original_url ?? null });
     void runNow(async () => {
-      const { error: updateError } = await supabase.from("profile_modes").update({ image_path: from.image_path, ...focus }).eq("id", target.id).eq("profile_id", initialProfile.id);
+      const { error: updateError } = await supabase.from("profile_modes").update(row).eq("id", target.id).eq("profile_id", initialProfile.id);
       if (updateError) { patchMode(target.id, previous); return "That photo couldn’t be used here."; }
       await removeIfUnused(previous.image_path);
+      await removeIfUnused(previous.image_original_path);
       return null;
     }).then((failure) => { if (!failure) toast(`Using your ${modeMeta[source].name} photo`); });
   }, [initialProfile.id, mode, patchMode, removeIfUnused, runNow, supabase, toast]);
@@ -896,15 +923,25 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       </nav>
 
       {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} />}
-      {crop && <CropDialog key={crop.source} busy={busyPhoto} initialFocus={crop.focus} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; slideTarget.current = Boolean(crop.slide); fileRef.current?.click(); }} onSave={async (area, focus) => {
+      {crop && <CropDialog key={crop.source} busy={busyPhoto} initialCrop={crop.initialCrop} initialFocus={crop.focus} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; slideTarget.current = Boolean(crop.slide); fileRef.current?.click(); }} onSave={async ({ pixels, crop: area, natural, focus }) => {
         try {
-          const blob = await cropToBlob(crop.source, area);
+          const blob = await cropToBlob(crop.source, pixels);
           const target = crop.modeId;
+          if (crop.slide) {
+            if (crop.revoke) URL.revokeObjectURL(crop.source);
+            setCrop(null);
+            await saveSlide(target, blob, focus);
+            return;
+          }
+          // Keep the whole photo beside the crop: the new upload (capped), or the original already stored.
+          const original = crop.keepOriginal
+            ? { path: crop.keepOriginal, crop: { ...area, width: natural.width, height: natural.height } }
+            : await originalToBlob(crop.source).then((kept) => ({ blob: kept.blob, crop: { ...area, width: kept.width, height: kept.height } }));
           if (crop.revoke) URL.revokeObjectURL(crop.source);
           setCrop(null);
-          await (crop.slide ? saveSlide : savePhoto)(target, blob, focus);
+          await savePhoto(target, blob, focus, original);
         } catch { toast("That photo couldn’t be prepared. Try a different file."); }
-      }} source={crop.source} />}
+      }} preview={crop.slide ? undefined : (pending) => <PhotoPreviews api={api} pending={pending} />} savedOnly={crop.savedOnly} source={crop.source} />}
 
       <input accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => {
         const file = event.currentTarget.files?.[0];
@@ -1003,3 +1040,15 @@ function Avatar({ mode, name }: { mode: ProfileMode; name: string }) {
   );
 }
 
+/** A Mode's photo columns, to restore them if a write fails. */
+function photoFields(mode: ProfileMode) {
+  return {
+    image_path: mode.image_path,
+    image_url: mode.image_url ?? null,
+    image_original_path: mode.image_original_path ?? null,
+    image_original_url: mode.image_original_url ?? null,
+    image_crop: mode.image_crop ?? null,
+    image_focus_x: mode.image_focus_x ?? null,
+    image_focus_y: mode.image_focus_y ?? null,
+  };
+}

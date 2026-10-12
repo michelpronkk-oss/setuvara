@@ -409,25 +409,24 @@ describe("ProfileRenderer", () => {
     assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", identityAlign: "right" }));
   });
 
-  test("zoom out: 70 and 85 apply to Immersive only; others stay at 100 or more", () => {
+  test("zoom out: 70 and 85 apply where the photo has a zoom control; others stay at 100 or more", () => {
     assert.equal(resolveFor({ theme: "immersive", portraitZoom: 70 }).zoom, 70);
     assert.equal(resolveFor({ theme: "immersive", portraitZoom: 85 }).zoom, 85);
-    assert.equal(resolveFor({ theme: "clean", portraitZoom: 70 }).zoom, 100);
+    assert.equal(resolveFor({ theme: "clean", portraitZoom: 70 }).zoom, 70);
+    assert.equal(resolveFor({ theme: "aura", portraitZoom: 85, }, "plus").zoom, 85);
+    assert.equal(resolveFor({ theme: "frame", portraitZoom: 70 }, "plus").zoom, 100);
     assert.ok(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", portraitZoom: 70 }));
     assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", portraitZoom: 60 }));
     const frame = { width: 390, height: 640 };
     const base = { frame, focus: { x: 50, y: 30 }, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: false, featuredSound: false, socialStyle: "rail", secondary: false };
-    // 70%: the whole 4:5 photo at full width; 85%: halfway; 100%: covers the frame.
-    assert.deepEqual(lib.zoomOutFrame(frame, 0.7), { width: 390, height: 487.5 });
-    const half = lib.zoomOutFrame(frame, 0.85);
-    assert.ok(half.height > 487.5 && half.height < 640, `85% sits between (${half.height})`);
-    assert.deepEqual(lib.zoomOutFrame(frame, 1), frame);
+    // A saved 4:5 photo has nothing beyond itself: zoomed out it is smaller, and the face holds its place.
+    const at100 = lib.solveFaceSafe({ ...base, zoom: 1 });
     const out = lib.solveFaceSafe({ ...base, zoom: 0.7 });
-    assert.equal(out.imageTop, 0, "the whole photo starts at the top");
-    assert.equal(out.imageBottom, 487.5, "and dissolves where it ends");
+    assert.ok(out.imageBottom - out.imageTop < at100.imageBottom - at100.imageTop, "zoomed out shows the photo smaller");
+    assert.ok(Math.abs(lib.estimateFace(lib.focusSource({ x: 50, y: 30 }), frame, { zoom: 0.7 }).mouth - lib.estimateFace(lib.focusSource({ x: 50, y: 30 }), frame).mouth) < 40, "the face stays where it was");
     const html = render(mode("personal", { theme: "immersive", portraitZoom: 70 }));
-    assert.match(html, /data-zoom-out="70"/);
-    assert.doesNotMatch(html, /scale\(0\.7\)/, "never a shrunken copy");
+    assert.match(html, /data-photo-zoom="70"/);
+    assert.doesNotMatch(html, /scale\(0\.7\)/, "never a shrunken copy by transform");
   });
 
   test("slideshow: Free shows one photo, Plus two, Pro four; speed is saved", () => {
@@ -555,5 +554,80 @@ describe("Photo focus", () => {
     assert.equal(lib.focusPosition({ x: 40, y: 20 }), "40% 20%");
     assert.deepEqual(lib.readFocus(null, undefined), lib.DEFAULT_FOCUS);
     assert.deepEqual(lib.modeFocus({ image_focus_x: 30, image_focus_y: 12 }), { x: 30, y: 12 });
+  });
+});
+
+describe("Photo originals", () => {
+  // A 3:4 phone photo, 3000×4000, with a 4:5 crop of 2400×3000 starting 300px in and 400px down.
+  const crop = { x: 300 / 3000, y: 400 / 4000, w: 2400 / 3000, h: 3000 / 4000, width: 3000, height: 4000 };
+  const ORIGINAL = "https://media.example.test/original.webp";
+  const withOriginal = (appearance, extra = {}) => mode("personal", appearance, { image_original_path: "y", image_original_url: ORIGINAL, image_crop: crop, image_focus_x: 50, image_focus_y: 30, ...extra });
+  const source = () => lib.photoSource({ image_url: PHOTO, image_original_url: ORIGINAL, image_crop: crop, image_focus_x: 50, image_focus_y: 30 });
+
+  test("a Mode with a kept original frames from it; older photos fall back to the saved crop", () => {
+    const kept = source();
+    assert.equal(kept.url, ORIGINAL);
+    assert.equal(kept.original, true);
+    assert.equal(kept.aspect, 0.75);
+    const legacy = lib.photoSource({ image_url: PHOTO, image_original_url: null, image_crop: null, image_focus_x: 50, image_focus_y: 30 });
+    assert.equal(legacy.url, PHOTO);
+    assert.equal(legacy.original, false);
+    assert.deepEqual(legacy.crop, { x: 0, y: 0, w: 1, h: 1 });
+    // Malformed metadata never renders the wrong framing: it falls back to the saved crop.
+    assert.equal(lib.photoSource({ image_url: PHOTO, image_original_url: ORIGINAL, image_crop: { x: 0.5, y: 0, w: 0.8, h: 1, width: 10, height: 10 } }).url, PHOTO);
+    assert.equal(lib.readCrop({ ...crop, extra: 1 })?.w, crop.w);
+    assert.equal(lib.readCrop("nope"), null);
+  });
+
+  test("at 100% the profile frame shows exactly the member's crop", () => {
+    const placement = lib.placePhoto(source(), 4 / 5, 1);
+    // The crop fills the frame: its left/top edges sit at the frame's edges.
+    const near = (a, b) => Math.abs(a - b) < 1e-9;
+    assert.ok(near(placement.left + crop.x * placement.width, 0));
+    assert.ok(near(placement.top + crop.y * placement.height, 0));
+    assert.ok(near(crop.w * placement.width, 1));
+    assert.ok(near(crop.h * placement.height, 1));
+    assert.equal(placement.covers, true);
+  });
+
+  test("the same face at the same scale, but a wide frame shows real image beyond the crop", () => {
+    const wide = lib.placePhoto(source(), 16 / 9, 1);
+    assert.equal(wide.covers, true, "never empty at 100%");
+    // The crop is narrower than the wide frame: the original fills the rest with real pixels.
+    assert.ok(crop.w * wide.width < 1, "more than the crop is visible");
+    const legacy = lib.placePhoto(lib.legacySource(PHOTO, { x: 50, y: 30 }), 16 / 9, 1);
+    assert.ok(Math.abs(legacy.width - 1) < 1e-9, "a saved crop can only be zoomed in to fill a wide frame");
+  });
+
+  test("zoom out reveals the original first, and leaves the frame to the atmosphere only past it", () => {
+    const at100 = lib.placePhoto(source(), 390 / 844, 1);
+    const at70 = lib.placePhoto(source(), 390 / 844, 0.7);
+    assert.ok(at70.width < at100.width && at70.height < at100.height, "the image is drawn smaller");
+    const visible = (p) => Math.min(1, p.left + p.width) - Math.max(0, p.left);
+    assert.ok(visible(at70) / at70.width > visible(at100) / at100.width, "a larger share of the original is visible");
+    const legacy70 = lib.placePhoto(lib.legacySource(PHOTO, { x: 50, y: 30 }), 390 / 844, 0.7);
+    assert.equal(legacy70.covers, false, "a saved crop runs out: the atmosphere fills the rest");
+    const html = render(withOriginal({ theme: "immersive", portraitZoom: 70 }));
+    assert.match(html, /data-photo-source="original"/);
+    assert.match(html, new RegExp(ORIGINAL.replace(/[.]/g, "\\.")));
+    const framed = render(withOriginal({ theme: "clean", portraitZoom: 70 }));
+    assert.match(framed, /data-photo-zoom="70"/);
+  });
+
+  test("the face model is measured against the crop, so it is the same face from the original or the crop", () => {
+    const frame = { width: 390, height: 844 };
+    const fromOriginal = lib.estimateFace(source(), frame);
+    const fromCrop = lib.estimateFace(lib.legacySource(PHOTO, { x: 50, y: 30 }), frame);
+    for (const key of ["top", "mouth", "chin", "left", "right"]) assert.ok(Math.abs(fromOriginal[key] - fromCrop[key]) < 1e-6, key);
+    const layout = lib.solveFaceSafe({ frame, focus: { x: 50, y: 30 }, source: source(), zoom: 0.85, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "compact", secondary: false });
+    assert.ok(["bottom", "top", "split"].includes(layout.strategy));
+  });
+
+  test("the migration keeps the original private, owner-scoped and paired with its crop", () => {
+    const sql = readFileSync(join(root, "supabase/migrations/20261012230000_photo_originals.sql"), "utf8");
+    assert.match(sql, /add column if not exists image_original_path text/);
+    assert.match(sql, /\(image_original_path is null\) = \(image_crop is null\)/);
+    assert.match(sql, /split_part\(image_original_path, '\/', 1\) = profile_id::text/);
+    assert.match(sql, /modes\.image_original_path = storage\.objects\.name\s+and modes\.is_enabled\s+and profiles\.is_published/);
   });
 });

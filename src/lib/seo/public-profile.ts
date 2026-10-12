@@ -21,6 +21,8 @@ export type SeoPublicMode = {
   settings: Record<string, unknown>;
   appearance: unknown;
   image_path: string | null;
+  image_original_path: string | null;
+  image_crop: unknown;
   slide_photos?: unknown;
   image_focus_x: number | null;
   image_focus_y: number | null;
@@ -47,7 +49,7 @@ export const getPublishedPublicMode = cache(async (username: string, slug: ModeS
 
     const { data: mode, error: modeError } = await supabase
       .from("profile_modes")
-      .select("id, slug, label, is_enabled, settings, appearance, image_path, slide_photos, image_focus_x, image_focus_y, updated_at")
+      .select("id, slug, label, is_enabled, settings, appearance, image_path, image_original_path, image_crop, slide_photos, image_focus_x, image_focus_y, updated_at")
       .eq("profile_id", profile.id)
       .eq("slug", slug)
       .eq("is_enabled", true)

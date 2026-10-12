@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type CSSProperties, type ReactEventHandler } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactEventHandler } from "react";
 
-import { focusPosition, PHOTO_ASPECT, type PhotoFocus } from "./photo-focus";
+import { focusPosition, placePhoto, PHOTO_ASPECT, type PhotoFocus, type PhotoPlacement, type PhotoSource } from "./photo-focus";
 
 /**
  * A Mode photo that fills its frame (`object-fit: cover`) and keeps the saved focus point in
@@ -58,4 +58,92 @@ export function FocusedPhoto({ src, alt, focus, frameAspect, className = "", siz
       unoptimized
     />
   );
+}
+
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+const pct = (value: number) => `${+(value * 100).toFixed(3)}%`;
+
+/**
+ * A Mode photo framed from its kept original (see `placePhoto`): the crop sets the scale, the
+ * face holds its place, and `zoom` below 1 reveals more of the original. Where even the original
+ * runs out, its edges feather into `fill`: the Appearance's blurred, photo-derived atmosphere
+ * (drawn here), or "none" when the page's own atmosphere already sits behind the frame.
+ *
+ * The frame is measured on the client; before that (server render) `frameAspect` is used.
+ */
+export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none", className = "", sizes, priority, fetchPriority, onError, style }: {
+  source: PhotoSource;
+  alt: string;
+  zoom?: number;
+  frameAspect?: number;
+  /** A CSS filter for the atmosphere layer (blur, saturate, brightness), or "none". */
+  fill?: string;
+  className?: string;
+  sizes?: string;
+  priority?: boolean;
+  fetchPriority?: "high" | "low" | "auto";
+  onError?: ReactEventHandler<HTMLImageElement>;
+  style?: CSSProperties;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [measured, setMeasured] = useState<number | null>(null);
+  const [natural, setNatural] = useState<{ url: string; aspect: number } | null>(null);
+
+  useIsoLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const measure = () => {
+      const aspect = node.clientHeight ? node.clientWidth / node.clientHeight : 0;
+      if (aspect) setMeasured((current) => (current && Math.abs(current - aspect) < 0.001 ? current : aspect));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  // The stored size is exact for originals; a legacy photo reports its own on load.
+  const aspect = natural?.url === source.url ? natural.aspect : source.aspect;
+  const placement = placePhoto({ ...source, aspect }, measured ?? frameAspect ?? PHOTO_ASPECT, zoom);
+  const feather = placement.covers ? undefined : featherMask(placement);
+  return (
+    <span className="absolute inset-0 block overflow-hidden" data-photo-covers={placement.covers ? "true" : "false"} data-photo-source={source.original ? "original" : "saved"} data-photo-zoom={Math.round(zoom * 100)} ref={ref}>
+      {!placement.covers && fill !== "none" && (
+        // eslint-disable-next-line @next/next/no-img-element -- the same image, blurred: the atmosphere where the original runs out
+        <img alt="" aria-hidden="true" className="absolute -inset-8 size-[calc(100%+64px)] max-w-none object-cover" data-photo-atmosphere decoding="async" src={source.url} style={{ filter: fill }} />
+      )}
+      <span className="absolute block" data-photo-placement={`${pct(placement.left)} ${pct(placement.top)} ${pct(placement.width)} ${pct(placement.height)}`} style={{ left: pct(placement.left), top: pct(placement.top), width: pct(placement.width), height: pct(placement.height), maskImage: feather, WebkitMaskImage: feather, maskComposite: feather ? "intersect" : undefined, WebkitMaskComposite: feather ? "source-in" : undefined }}>
+        <Image
+          alt={alt}
+          className={`object-cover ${className}`}
+          data-photo-focus={`${source.focus.x} ${source.focus.y}`}
+          fetchPriority={fetchPriority}
+          fill
+          onError={onError}
+          onLoad={(event) => {
+            const image = event.currentTarget;
+            if (!source.original && image.naturalWidth && image.naturalHeight) setNatural({ url: source.url, aspect: image.naturalWidth / image.naturalHeight });
+          }}
+          priority={priority}
+          sizes={sizes ?? "100vw"}
+          src={source.url}
+          style={style}
+          unoptimized
+        />
+      </span>
+    </span>
+  );
+}
+
+/** Soft edges only where the image ends inside the frame, so it melts into the atmosphere. */
+function featherMask(placement: PhotoPlacement) {
+  const edge = (start: boolean, end: boolean, length: number) => {
+    // A feather of ~10% of the frame, expressed in the image box's own percent.
+    const f = Math.min(30, (0.1 / length) * 100);
+    return `${start ? `#0000 0%,#000 ${f.toFixed(2)}%` : "#000 0%"},${end ? `#000 ${(100 - f).toFixed(2)}%,#0000 100%` : "#000 100%"}`;
+  };
+  const e = 1e-6;
+  const horizontal = `linear-gradient(90deg,${edge(placement.left > e, placement.left + placement.width < 1 - e, placement.width)})`;
+  const vertical = `linear-gradient(180deg,${edge(placement.top > e, placement.top + placement.height < 1 - e, placement.height)})`;
+  return `${horizontal},${vertical}`;
 }

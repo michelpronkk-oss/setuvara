@@ -12,7 +12,8 @@ import {
   capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
   type AppearanceId, type ResolvedAppearance, defaultSocialStyle, extraSlideLimit, SLIDE_SPEEDS, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
-import type { ModeAppearance } from "@/components/profile/types";
+import type { PhotoSource } from "@/components/profile/photo-focus";
+import type { ModeAppearance, ProfileMode } from "@/components/profile/types";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { getPublicPlan, type BillingInterval, type PlanCode } from "@/lib/billing/catalog";
 import { hasCapability } from "@/lib/billing/capabilities";
@@ -76,14 +77,49 @@ const allowed = (plan: PlanCode, field: keyof ModeAppearance, value: unknown) =>
 };
 
 /** A real ProfileRenderer at thumbnail scale. Never interactive, never plays sound. */
-export function LookThumb({ api, appearance, look, width, height, zoom, radius = 14, style }: { api: EditorApi; appearance?: ModeAppearance; look?: ResolvedAppearance; width: number | string; height: number; zoom: number; radius?: number; style?: CSSProperties }) {
+export function LookThumb({ api, appearance, look, mode, canvas = PHONE_CANVAS, width, height, zoom, radius = 14, style }: { api: EditorApi; appearance?: ModeAppearance; look?: ResolvedAppearance; /** A pending version of the Mode (the crop dialog). */ mode?: ProfileMode; /** The page size drawn: a phone, or a wide screen. */ canvas?: { width: number; height: number }; width: number | string; height: number; zoom: number; radius?: number; style?: CSSProperties }) {
   const resolved = look ?? previewAppearance({ slug: api.slug, appearance: appearance ?? api.mode.appearance });
   return (
     <div aria-hidden="true" className="pointer-events-none relative shrink-0 overflow-hidden" data-look-thumb={resolved.id} inert style={{ width, height, borderRadius: radius, background: appearanceTheme(resolved.id, resolved.accent).base, ...style }}>
-      <div className="mx-auto" style={{ width: 390, zoom, "--profile-vh": "844px" } as CSSProperties}>
-        <ProfileRenderer memberTier={api.memberTier} mode={api.mode} plan="pro" previewLook={resolved} profile={api.profile} selectedRewards={api.selectedRewards} sound="off" viewerState="visitor_unconnected" />
+      <div className="mx-auto" style={{ width: canvas.width, zoom, "--profile-vh": `${canvas.height}px` } as CSSProperties}>
+        <ProfileRenderer memberTier={api.memberTier} mode={mode ?? api.mode} plan="pro" previewLook={resolved} profile={api.profile} selectedRewards={api.selectedRewards} sound="off" viewerState="visitor_unconnected" />
       </div>
     </div>
+  );
+}
+
+const PHONE_CANVAS = { width: 390, height: 844 };
+const WIDE_CANVAS = { width: 1280, height: 800 };
+
+/**
+ * The crop dialog's previews: the Mode's real profile, phone and wide, drawn by the same renderer
+ * as the public page from the pending crop, face point and the Appearance's zoom.
+ */
+export function PhotoPreviews({ api, pending }: { api: EditorApi; pending: PhotoSource }) {
+  const look = resolveAppearance(api.mode, api.plan);
+  const mode: ProfileMode = {
+    ...api.mode,
+    image_url: pending.url,
+    image_original_url: pending.url,
+    image_crop: { ...pending.crop, width: Math.round(pending.aspect * 1000), height: 1000 },
+    image_focus_x: pending.focus.x,
+    image_focus_y: pending.focus.y,
+    // The slideshow would rotate other photos through the preview.
+    slide_urls: [],
+  };
+  const phone = 0.17;
+  const wide = 0.105;
+  return (
+    <>
+      <figure className="text-center" data-crop-preview="profile">
+        <LookThumb api={api} canvas={PHONE_CANVAS} height={Math.round(PHONE_CANVAS.height * phone)} look={look} mode={mode} radius={10} width={Math.round(PHONE_CANVAS.width * phone)} zoom={phone} />
+        <figcaption className="mt-1.5 text-[11px] opacity-70">Profile</figcaption>
+      </figure>
+      <figure className="text-center" data-crop-preview="wide">
+        <LookThumb api={api} canvas={WIDE_CANVAS} height={Math.round(WIDE_CANVAS.height * wide)} look={look} mode={mode} radius={8} width={Math.round(WIDE_CANVAS.width * wide)} zoom={wide} />
+        <figcaption className="mt-1.5 text-[11px] opacity-70">Wide</figcaption>
+      </figure>
+    </>
   );
 }
 

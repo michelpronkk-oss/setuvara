@@ -143,11 +143,13 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     .eq("is_visible", true)
     .order("sort_order"));
 
-  let imageUrl: string | null = null;
-  if (rawMode.image_path) {
-    const { data: image } = await supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, 3600);
-    imageUrl = image?.signedUrl ?? null;
-  }
+  // The saved 4:5 photo (share cards, the sound gate) and the kept original every hero frames from.
+  const [savedImage, originalImage] = await Promise.all([
+    rawMode.image_path ? supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, 3600) : Promise.resolve({ data: null }),
+    rawMode.image_path && rawMode.image_original_path ? supabase.storage.from("profile-media").createSignedUrl(rawMode.image_original_path, 3600) : Promise.resolve({ data: null }),
+  ]);
+  const imageUrl: string | null = savedImage.data?.signedUrl ?? null;
+  const imageOriginalUrl: string | null = imageUrl ? originalImage.data?.signedUrl ?? null : null;
 
   // Only the slides the owner's plan shows are signed (Plus 1, Pro 3 after the main photo).
   const slideUrls = imageUrl ? await signSlidePhotos(supabase, parseSlidePhotos(rawMode.slide_photos), extraSlideLimit(plan)) : [];
@@ -239,6 +241,8 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     settings: rawMode.settings as Record<string, string | boolean>,
     appearance: rawMode.appearance as ProfileMode["appearance"],
     image_url: imageUrl,
+    image_original_url: imageOriginalUrl,
+    image_crop: rawMode.image_crop as ProfileMode["image_crop"],
     slide_photos: undefined,
     slide_urls: slideUrls,
     links: (links ?? []) as ProfileLink[],

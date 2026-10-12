@@ -68,8 +68,11 @@ export type QrStyle = (typeof QR_STYLES)[number];
 export const PORTRAIT_ZOOMS = [70, 85, 100, 110, 115, 120, 130, 140] as const;
 /** What the editor offers; 110 and 120 stay valid for rows saved earlier. */
 export const EDITOR_ZOOMS = [100, 115, 130, 140] as const;
-/** Zoom out (the full photo fits) exists where the photo is the whole hero: Immersive. */
-export const ZOOM_OUT_APPEARANCES = new Set<AppearanceId>(["immersive"]);
+/**
+ * Zoom out reveals more of the kept original, and the Appearance's atmosphere where even that runs
+ * out, so it is offered wherever the photo has a zoom control.
+ */
+export const ZOOM_OUT_APPEARANCES = new Set<AppearanceId>(["immersive", "aura", "clean"]);
 export const EDITOR_ZOOMS_WITH_OUT = [70, 85, 100, 115, 130, 140] as const;
 export type PortraitZoom = (typeof PORTRAIT_ZOOMS)[number];
 export const NAME_SIZES = ["compact", "standard", "large", "statement"] as const;
