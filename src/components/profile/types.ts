@@ -74,6 +74,8 @@ export type ModeAppearance = {
   mediaLayout?: "featured" | "stack" | "grid" | "carousel";
   /** Display style of the name (name-type.ts). Absent: Setuvara, the Appearance's own. */
   nameFont?: "setuvara" | "modern" | "editorial" | "condensed" | "impact" | "soft";
+  /** The cue at the hero's foot (appearance.ts SCROLL_CUE_CHOICES). Absent: Auto, the Appearance's own. */
+  scrollCue?: "auto" | "off" | "glide" | "rail" | "orb" | "mouse" | "beam" | "cascade" | "caption" | "cards" | "swipe" | "credits";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };

@@ -20,6 +20,7 @@ import { extraSlideLimit, resolveAppearance, SLIDE_SECONDS, type ResolvedAppeara
 import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
 import { nameType, nameTypeStyle, type NameType } from "./name-type";
 import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./face-safe";
+import { ScrollCue } from "./scroll-cue";
 import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
 
@@ -134,6 +135,8 @@ type Scene = {
   secondary: boolean;
   actions: ReactNode;
   soundTitle: string;
+  /** The hero's scroll cue (phone or wide), or nothing when it is off. */
+  cue: (wide: boolean) => ReactNode;
 };
 
 function Profile(props: ProfileProps) {
@@ -168,6 +171,14 @@ function Profile(props: ProfileProps) {
     actions: <Actions {...props} booking={booking} connected={connected} copy={copy} owner={owner} theme={theme} />,
     // Mode stays internal: the public page never names it.
     soundTitle: copy.soundtrack,
+    cue: (wide) => {
+      if (!look.scrollCue) return null;
+      // Social's cue sits inside its story card; the rest sit in the strip under Connect.
+      const inCard = look.id === "social" && !wide;
+      const word = look.scrollCue === "swipe" ? (wide ? copy.cueScroll : copy.cueSwipe) : look.scrollCue === "credits" ? copy.cueMore : copy.cueScroll;
+      // Thumbnails (no sound) show the cue still, so ten pickers do not all move at once.
+      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={inCard ? 26 : wide ? 22 : 6} color={inCard ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
+    },
   };
   const connect = theme.connect;
   const connectVars = {
@@ -323,6 +334,7 @@ function AppearanceHero({ scene }: { scene: Scene }) {
       {look.id === "social" && <SocialHero scene={scene} />}
       {look.id === "film" && <FilmHero scene={scene} />}
       <HeroFoot scene={scene} />
+      {scene.cue(false)}
     </div>
   );
 }
@@ -606,26 +618,17 @@ function StackHero({ scene, frame }: { scene: Scene; frame: { width: number; hei
 }
 
 function SocialHero({ scene }: { scene: Scene }) {
-  const tiles = scene.images.slice(0, 2);
-  // Tiles come only from the Mode's real images; without them the card fills the hero instead
-  // of leaving an empty band, and the identity sits inside it like a story card.
-  const full = tiles.length === 0;
+  // One story card fills the hero; the identity sits inside its lower edge. The Mode's pictures
+  // show once, below, and the scroll cue (Swipe) says there is more instead of a duplicate peek.
   return (
     <>
-      <div className="absolute inset-x-3.5 top-3.5 overflow-hidden rounded-[30px]" style={{ height: full ? "calc(var(--sv-h) - 28px)" : y(476), background: scene.photo ? "#2A2622" : scene.look.accent }}>
+      <div className="absolute inset-x-3.5 top-3.5 overflow-hidden rounded-[30px]" style={{ height: "calc(var(--sv-h) - 28px)", background: scene.photo ? "#2A2622" : scene.look.accent }}>
         <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
         <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={130} className="-translate-y-[18%]" />
         <div aria-hidden="true" className={`absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_38%,#0D0D0DD9_100%)]`} />
         <Treatment scene={scene} />
       </div>
-      {/* With tiles, the identity sits inside the card's lower edge so Connect never straddles it. */}
-      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 36), style: full ? { left: 30, right: 30, bottom: 44 } : { left: 30, right: 30, bottom: `calc(var(--sv-h) - ${y(490)} + 22px)` } }} scene={scene} />
-      {!full && (
-        <div aria-hidden="true" className="absolute inset-x-3.5 z-[2] grid gap-2" data-social-tiles style={{ top: y(612), gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))`, maskImage: "linear-gradient(180deg,#000 40%,#0000 92%)", WebkitMaskImage: "linear-gradient(180deg,#000 40%,#0000 92%)" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
-          {tiles.map((url) => <img alt="" className="w-full rounded-[22px] bg-[#333] object-cover" decoding="async" key={url} src={url} style={{ height: y(250) }} />)}
-        </div>
-      )}
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 36), style: { left: 30, right: 30, bottom: scene.look.scrollCue ? 74 : 44 } }} scene={scene} />
     </>
   );
 }
@@ -682,6 +685,8 @@ function WideHero({ scene }: { scene: Scene }) {
         <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
         <div className="flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect>{scene.actions}</div>
         <WideBio scene={scene} />
+        {/* Under the identity column, never across the photo. */}
+        {scene.cue(true)}
       </div>
     </div>
   );

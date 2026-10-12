@@ -221,7 +221,69 @@ html:has(head > meta[name="theme-color"][content="#F1ECEA"]) body {
   50% { transform: translateY(-8px); }
 }
 
+/* Scroll cues (scroll-cue.tsx): one per Appearance. Each loop is a few pixels and a fade, nothing more. */
+@keyframes sv-cue-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sv-cue-glide {
+  0% { transform: translateY(-3px); opacity: 0; }
+  35% { opacity: 1; }
+  100% { transform: translateY(6px); opacity: 0; }
+}
+
+@keyframes sv-cue-rail {
+  from { transform: translateY(-14px); }
+  to { transform: translateY(30px); }
+}
+
+@keyframes sv-cue-orb {
+  0%, 100% { transform: translateY(-2px) scale(0.85); opacity: 0.7; }
+  50% { transform: translateY(5px) scale(1.1); opacity: 1; }
+}
+
+@keyframes sv-cue-wheel {
+  0% { transform: translate(-50%, 0); opacity: 1; }
+  70% { transform: translate(-50%, 8px); opacity: 0; }
+  100% { transform: translate(-50%, 0); opacity: 0; }
+}
+
+@keyframes sv-cue-beam {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(4px); opacity: 1; }
+}
+
+@keyframes sv-cue-cascade {
+  0%, 100% { opacity: 0.15; }
+  40% { opacity: 1; }
+}
+
+@keyframes sv-cue-caption {
+  0%, 100% { transform: scaleX(0.3); opacity: 0.5; }
+  50% { transform: scaleX(1.4); opacity: 1; }
+}
+
+@keyframes sv-cue-card {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(3px); }
+}
+
+@keyframes sv-cue-swipe {
+  0%, 100% { transform: translateY(1px); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes sv-cue-flicker {
+  0%, 100% { opacity: 0.9; }
+  12% { opacity: 0.55; }
+  16% { opacity: 0.95; }
+  64% { opacity: 0.7; }
+  68% { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  [data-sv-cue], [data-sv-cue] * { animation: none !important; }
   [data-sv-motion] { animation: none !important; }
   [data-sv-marquee] { transform: translateX(-4%) !important; }
 }
