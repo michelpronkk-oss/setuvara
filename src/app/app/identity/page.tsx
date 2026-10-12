@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
 
@@ -32,7 +33,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
 
   const [profileResult, modesResult, linksResult, blocksResult, passportResult, viewer] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
+    supabase.from("profile_modes").select("id, slug, label, sort_order, is_enabled, settings, appearance, image_path, slide_photos, image_focus_x, image_focus_y, connect_policy").eq("profile_id", userId).order("sort_order"),
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).order("sort_order"),
     selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).order("sort_order")),
     supabase.rpc("get_passport_overview"),
@@ -64,6 +65,8 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       appearance: mode.appearance as ProfileMode["appearance"],
       connect_policy: parseConnectPolicy(mode.connect_policy),
       image_url: signed?.signedUrl ?? null,
+      slide_photos: parseSlidePhotos(mode.slide_photos),
+      slide_urls: await signSlidePhotos(supabase, parseSlidePhotos(mode.slide_photos)),
       links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
       // Blocks are optional: an older database without them still opens the editor.
       blocks: await Promise.all(readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)).map(async (block) => {

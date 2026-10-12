@@ -409,6 +409,45 @@ describe("ProfileRenderer", () => {
     assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", identityAlign: "right" }));
   });
 
+  test("zoom out: 70 and 85 apply to Immersive only; others stay at 100 or more", () => {
+    assert.equal(resolveFor({ theme: "immersive", portraitZoom: 70 }).zoom, 70);
+    assert.equal(resolveFor({ theme: "immersive", portraitZoom: 85 }).zoom, 85);
+    assert.equal(resolveFor({ theme: "clean", portraitZoom: 70 }).zoom, 100);
+    assert.ok(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", portraitZoom: 70 }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", portraitZoom: 60 }));
+    const frame = { width: 390, height: 640 };
+    const base = { frame, focus: { x: 50, y: 30 }, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: false, featuredSound: false, socialStyle: "rail", secondary: false };
+    // 70%: the whole 4:5 photo at full width; 85%: halfway; 100%: covers the frame.
+    assert.deepEqual(lib.zoomOutFrame(frame, 0.7), { width: 390, height: 487.5 });
+    const half = lib.zoomOutFrame(frame, 0.85);
+    assert.ok(half.height > 487.5 && half.height < 640, `85% sits between (${half.height})`);
+    assert.deepEqual(lib.zoomOutFrame(frame, 1), frame);
+    const out = lib.solveFaceSafe({ ...base, zoom: 0.7 });
+    assert.equal(out.imageTop, 0, "the whole photo starts at the top");
+    assert.equal(out.imageBottom, 487.5, "and dissolves where it ends");
+    const html = render(mode("personal", { theme: "immersive", portraitZoom: 70 }));
+    assert.match(html, /data-zoom-out="70"/);
+    assert.doesNotMatch(html, /scale\(0\.7\)/, "never a shrunken copy");
+  });
+
+  test("slideshow: Free shows one photo, Plus two, Pro four; speed is saved", () => {
+    const slide_urls = [1, 2, 3, 4].map((index) => ({ url: `https://media.example.test/slide${index}.png`, x: 50, y: 40 }));
+    const count = (html) => Number(attr(html, "data-slide-count"));
+    const withSlides = mode("personal", { theme: "immersive", slideSpeed: "fast" }, { slide_urls });
+    const free = render(withSlides, "free");
+    assert.doesNotMatch(free, /data-slides/, "Free: no slideshow");
+    assert.equal(count(render(withSlides, "plus")), 2);
+    assert.equal(count(render(withSlides, "pro")), 4);
+    assert.equal(attr(render(withSlides, "pro"), "data-slides"), "fast");
+    assert.equal(lib.extraSlideLimit("free"), 0);
+    assert.equal(lib.extraSlideLimit("plus"), 1);
+    assert.equal(lib.extraSlideLimit("pro"), 3);
+    assert.equal(resolveFor({ theme: "clean" }).slideSpeed, "medium");
+    assert.ok(lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", slideSpeed: "slow" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", slideSpeed: "warp" }));
+    for (const id of TEN) assert.match(render(mode("personal", { theme: id }, { slide_urls }), "pro"), /data-slides/, `${id} slides`);
+  });
+
   test("links collapse after eight", () => {
     const many = Array.from({ length: 9 }, (_, index) => ({ id: `l${index}`, title: `Link ${index}`, url: `https://example.com/${index}`, link_type: "website", is_visible: true, sort_order: index }));
     const html = render(mode("personal", { theme: "clean" }, { links: many }));

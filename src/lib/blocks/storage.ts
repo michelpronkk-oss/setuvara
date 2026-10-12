@@ -165,13 +165,14 @@ export async function uploadContentVideo(
 export async function removeContentMediaIfUnused(supabase: SupabaseClient, profileId: string, path: string | null | undefined): Promise<void> {
   if (!path || (!isOwnedContentImagePath(profileId, path) && !isOwnedContentVideoPath(profileId, path))) return;
 
-  const [modeRefs, imageBlockRefs, videoBlockRefs] = await Promise.all([
+  const [modeRefs, slideRefs, imageBlockRefs, videoBlockRefs] = await Promise.all([
     supabase.from("profile_modes").select("id").eq("profile_id", profileId).eq("image_path", path).limit(1),
+    supabase.from("profile_modes").select("id").eq("profile_id", profileId).contains("slide_photos", [{ path }]).limit(1),
     supabase.from("profile_blocks").select("id").eq("profile_id", profileId).contains("data", { image_path: path }).limit(1),
     supabase.from("profile_blocks").select("id").eq("profile_id", profileId).contains("data", { video_path: path }).limit(1),
   ]);
   // A failed reference check must never turn into an asset deletion.
-  if (modeRefs.error || imageBlockRefs.error || videoBlockRefs.error || modeRefs.data?.length || imageBlockRefs.data?.length || videoBlockRefs.data?.length) return;
+  if (modeRefs.error || slideRefs.error || imageBlockRefs.error || videoBlockRefs.error || modeRefs.data?.length || slideRefs.data?.length || imageBlockRefs.data?.length || videoBlockRefs.data?.length) return;
   await supabase.storage.from(CONTENT_IMAGE_BUCKET).remove([path]);
 }
 

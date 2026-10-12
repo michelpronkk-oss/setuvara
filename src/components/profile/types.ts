@@ -56,7 +56,7 @@ export type ModeAppearance = {
   /** Legacy soundtrack presentation; soundtrackPresentation wins when both exist. */
   soundStyle?: "core" | "strip" | "disc" | "poster";
   /** Photo zoom in percent. 110 and 120 are kept as legacy values. Photo focus stays in image_focus_x/y. */
-  portraitZoom?: 100 | 110 | 115 | 120 | 130 | 140;
+  portraitZoom?: 70 | 85 | 100 | 110 | 115 | 120 | 130 | 140;
   portraitNameSize?: "compact" | "standard" | "large" | "statement";
   portraitShowUsername?: boolean;
   /** Where the name sits on photo-led Appearances. Auto is face-safe; "center" is never stored. */
@@ -68,6 +68,8 @@ export type ModeAppearance = {
   socialPlacement?: "name" | "links" | "both";
   /** Name, details, icons and buttons: the look's own alignment (absent/auto), left or centered. */
   identityAlign?: "auto" | "left" | "center";
+  /** Photo slideshow pace (Plus and Pro). */
+  slideSpeed?: "slow" | "medium" | "fast";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };
@@ -84,6 +86,9 @@ export type ProfileMode = {
   /** Focus point inside the saved photo, 0–100. Null means the default (see photo-focus). */
   image_focus_x?: number | null;
   image_focus_y?: number | null;
+  /** Extra slideshow photos after the main photo (stored), and their signed URLs (loaded). */
+  slide_photos?: SlidePhoto[];
+  slide_urls?: SlideImage[];
   /** Who can start a new inbound Connection from this Mode. Absent means anyone. */
   connect_policy?: "anyone" | "direct_only" | "nobody";
   links: ProfileLink[];
@@ -105,3 +110,8 @@ export type PublicLiveContext = {
   type: "event" | "meeting" | "place" | "custom";
   expiresAt: string;
 };
+
+/** One stored slideshow photo: owner-scoped object path and its face point (0–100). */
+export type SlidePhoto = { path: string; x: number; y: number };
+/** A slideshow photo ready to render. */
+export type SlideImage = { url: string; x: number; y: number };

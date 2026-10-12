@@ -64,9 +64,12 @@ const SOUND_STYLES = ["core", "strip", "disc", "poster"] as const;
 export const QR_STYLES = ["standard", "accent-frame", "label", "inverse", "rounded"] as const;
 export type QrStyle = (typeof QR_STYLES)[number];
 
-export const PORTRAIT_ZOOMS = [100, 110, 115, 120, 130, 140] as const;
+export const PORTRAIT_ZOOMS = [70, 85, 100, 110, 115, 120, 130, 140] as const;
 /** What the editor offers; 110 and 120 stay valid for rows saved earlier. */
 export const EDITOR_ZOOMS = [100, 115, 130, 140] as const;
+/** Zoom out (the full photo fits) exists where the photo is the whole hero: Immersive. */
+export const ZOOM_OUT_APPEARANCES = new Set<AppearanceId>(["immersive"]);
+export const EDITOR_ZOOMS_WITH_OUT = [70, 85, 100, 115, 130, 140] as const;
 export type PortraitZoom = (typeof PORTRAIT_ZOOMS)[number];
 export const NAME_SIZES = ["compact", "standard", "large", "statement"] as const;
 export type NameSize = (typeof NAME_SIZES)[number];
@@ -85,6 +88,14 @@ export type IdentityAlign = (typeof IDENTITY_ALIGNS)[number];
 export const MOTION_LEVELS = ["off", "subtle", "full"] as const;
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 export const SOUND_PRESENTATIONS = ["ambient", "minimal", "featured"] as const;
+export const SLIDE_SPEEDS = ["slow", "medium", "fast"] as const;
+export type SlideSpeed = (typeof SLIDE_SPEEDS)[number];
+/** Seconds each slide holds. */
+export const SLIDE_SECONDS: Record<SlideSpeed, number> = { slow: 7, medium: 4.5, fast: 2.8 };
+/** Slideshow photos after the main one: Plus has 2 slides, Pro 4, Free none. Mirrors the database trigger. */
+export function extraSlideLimit(plan: PlanCode) {
+  return plan === "pro" ? 3 : plan === "plus" ? 1 : 0;
+}
 export type SoundPresentation = (typeof SOUND_PRESENTATIONS)[number];
 
 /** Five presets. Custom hex is also Free (appearance.core); contrast is handled, never refused. */
@@ -128,6 +139,7 @@ export type ResolvedAppearance = {
   socialStyle: SocialStyle;
   socialPlacement: SocialPlacement;
   align: IdentityAlign;
+  slideSpeed: SlideSpeed;
   motion: MotionLevel;
   soundPresentation: SoundPresentation;
   zoom: PortraitZoom;
@@ -268,7 +280,8 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     // An Appearance whose character is motion keeps its own motion; Full needs Plus elsewhere.
     motion: savedMotion === "full" && !advanced ? "subtle" : savedMotion,
     soundPresentation: sound === "featured" && !can("soundtrack.premium_treatment") ? "minimal" : sound,
-    zoom: includes(PORTRAIT_ZOOMS, saved.portraitZoom) ? saved.portraitZoom : 100,
+    zoom: includes(PORTRAIT_ZOOMS, saved.portraitZoom) && (saved.portraitZoom >= 100 || ZOOM_OUT_APPEARANCES.has(id)) ? saved.portraitZoom : 100,
+    slideSpeed: includes(SLIDE_SPEEDS, saved.slideSpeed) ? saved.slideSpeed : "medium",
     showUsername: typeof saved.portraitShowUsername === "boolean" ? saved.portraitShowUsername : defaults.showUsername,
     qrStyle: resolveQrStyle(mode, plan),
     locked: lockedFields(saved, plan),
@@ -287,7 +300,7 @@ export function previewAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
 export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
-  "socialStyle", "socialPlacement", "identityAlign", "motion", "soundtrackPresentation",
+  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "motion", "soundtrackPresentation",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -316,7 +329,7 @@ export function equipAppearance(saved: Partial<ModeAppearance> | null | undefine
 
 /** Whether a saved appearance is valid as-is for its Mode (what the database accepts). */
 export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
-  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", "identityAlign", ...PREMIUM_FIELDS]);
+  const known = new Set<string>(["theme", "accent", "qrStyle", "socialPlacement", "identityAlign", "slideSpeed", ...PREMIUM_FIELDS]);
   const optional = (value: unknown, list: readonly string[]) => value === undefined || includes(list, value);
   return Boolean(appearance) && typeof appearance === "object"
     && Object.keys(appearance).every((key) => known.has(key))
@@ -339,6 +352,7 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.socialStyle, SOCIAL_STYLES)
     && optional(appearance.socialPlacement, SOCIAL_PLACEMENTS)
     && optional(appearance.identityAlign, IDENTITY_ALIGNS)
+    && optional(appearance.slideSpeed, SLIDE_SPEEDS)
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
 }

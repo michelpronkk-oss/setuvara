@@ -83,6 +83,9 @@ export type EditorApi = {
   recropPhoto: () => void;
   removePhoto: () => void;
   usePhotoFrom: (slug: ModeSlug) => void;
+  /** Add a slideshow photo (opens the Plus sheet on Free), or remove one by index. */
+  pickSlide: () => void;
+  removeSlide: (index: number) => void;
   equipReward: (category: RewardCategory, rewardId: string) => Promise<void>;
   go: (section: Section, slug?: ModeSlug) => void;
   toast: (text: string, action?: { label: string; run: () => void }) => void;
