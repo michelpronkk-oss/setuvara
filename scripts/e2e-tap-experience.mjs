@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
+import { landedMode, publicModePath, publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const root = resolve(process.cwd());
 const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
@@ -149,8 +150,9 @@ async function expectRedirect(context, url, expectedPath, expectedMode) {
   assert.equal(await response.body().then((body) => body.length), 0, "Share redirect must have no token-bearing body");
   const target = new URL(response.headers().location, appUrl);
   assert.equal(target.origin, appUrl);
-  assert.equal(target.pathname, expectedPath);
-  if (expectedMode) assert.equal(target.searchParams.get("mode"), expectedMode);
+  if (expectedMode && expectedMode !== "personal") assert.equal(target.pathname, await publicModePath(expectedPath.slice(1), expectedMode), "Non-default Modes land on their opaque share link");
+  else assert.equal(target.pathname, expectedPath);
+  if (expectedMode) assert.equal(await landedMode(target.href), expectedMode);
   assert(!target.href.includes(new URL(url).pathname.split("/").at(-1)), "Redirect must not repeat the share token");
   return target;
 }
@@ -285,8 +287,8 @@ try {
   await modeQr.waitFor();
   const modeUrl = new URL(await modeQr.getAttribute("data-qr-value"));
   assert.equal(modeUrl.origin, appUrl);
-  assert.equal(modeUrl.pathname, `/${account.username}`);
-  assert.equal(modeUrl.searchParams.get("mode"), "business");
+  assert.match(modeUrl.pathname, /^\/s\/[A-Za-z0-9_-]{43}$/, "Business Share uses its opaque locator");
+  assert.equal(await landedMode(modeUrl.href), "business");
   assert(!modeUrl.pathname.startsWith("/q/"), "Mode-specific Share retains its own canonical QR URL");
   console.log("PASS existing Mode-specific Share QR remains separate from Quick QR");
 
@@ -317,7 +319,7 @@ try {
     assert.equal(await page.getByLabel("Name your Tap").isVisible(), true);
     const publicPage = await visitor.newPage();
     await publicPage.setViewportSize(viewport);
-    const response = await publicPage.goto(`${appUrl}/${account.username}?mode=business`);
+    const response = await publicPage.goto(await publicModeUrl(account.username, "business"));
     assert.equal(response?.status(), 200);
     await publicPage.locator('article[data-profile-mode="business"]').waitFor();
     await noOverflow(publicPage, `public Business profile ${viewport.width}x${viewport.height}`);

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { landedMode, publicModePath, publicModeUrl } from "./lib/mode-share-url.mjs";
 
 const names = { personal: "Personal", event: "Event", business: "Business" };
 const screenshots = ".next/home-qa";
@@ -113,8 +114,8 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
       assert.equal(await picker(page).getByRole("radio", { checked: true }).getAttribute("data-mode"), slug);
       const href = await page.getByRole("region", { name: `${names[slug]} Mode`, exact: true }).getByRole("link", { name: "View profile" }).getAttribute("href");
       const url = new URL(href);
-      assert.equal(url.pathname, `/${profile.username}`);
-      assert.equal(url.searchParams.get("mode"), slug === "personal" ? null : slug);
+      assert.equal(url.pathname, await publicModePath(profile.username, slug), "View profile uses the username for Personal and the opaque link otherwise");
+      assert.equal(await landedMode(href), slug);
       assert.equal((await anon.request.get(href)).status(), 200);
       await shareButton(page).click();
       const dialog = page.getByRole("dialog");
@@ -125,8 +126,8 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
       await dialog.getByRole("button", { name: "Copied", exact: true }).waitFor();
       const copied = await page.evaluate(() => navigator.clipboard.readText());
       const copiedUrl = new URL(copied);
-      assert.equal(copiedUrl.pathname, `/${profile.username}`);
-      assert.equal(copiedUrl.searchParams.get("mode"), slug === "personal" ? null : slug);
+      assert.equal(copiedUrl.pathname, await publicModePath(profile.username, slug));
+      assert.equal(await landedMode(copiedUrl.href), slug);
       assert.equal(copiedUrl.searchParams.get("source"), "link");
       copiedUrl.searchParams.set("source", "qr");
       assert.equal((await anon.request.get(copiedUrl.toString())).status(), 200, "QR target must resolve publicly");
@@ -161,7 +162,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     await dialog.getByRole("button", { name: "Share link" }).click();
     const shared = await page.evaluate(() => window.__homeShared);
     assert.equal(new URL(shared.url).searchParams.get("source"), "native_share");
-    assert.equal(new URL(shared.url).searchParams.get("mode"), "event");
+    assert.equal(await landedMode(shared.url), "event");
     await dialog.getByRole("button", { name: "Close", exact: true }).focus();
     await page.keyboard.press("Shift+Tab");
     assert(await dialog.getByRole("link", { name: "Open Quick QR & Tap settings" }).evaluate((node) => node === document.activeElement), "Share focus must wrap backwards");
@@ -177,7 +178,7 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     await shareButton(page).click();
     await page.getByRole("dialog").getByText(/Event Mode is off/).waitFor();
     await page.keyboard.press("Escape");
-    assert.equal((await anon.request.get(`${appUrl}/${profile.username}?mode=event`)).status(), 404);
+    assert.equal((await anon.request.get(await publicModeUrl(profile.username, "event"))).status(), 404);
     assert.ifError((await client.from("profile_modes").update({ is_enabled: event.is_enabled }).eq("id", event.id)).error);
 
     // Database-backed paid states. Fixture IDs never leave the local test database.

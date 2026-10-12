@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       }
     }
     return resolved
-      ? resolvedShareRedirect(resolved, "quick_qr")
+      ? await resolvedShareRedirect(resolved, "quick_qr")
       : internalShareRedirect("/q/unavailable");
   } catch {
     return internalShareRedirect("/q/unavailable");

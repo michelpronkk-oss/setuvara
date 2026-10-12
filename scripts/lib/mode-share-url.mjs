@@ -1,0 +1,97 @@
+/**
+ * E2E helper: public URLs for a profile's Modes under the opaque share contract.
+ *
+ * Personal is the canonical `/<username>`. Event and Business open only at
+ * `/s/<token>`. The helper mints (or re-derives) the same locator the app does,
+ * using the runner's local server key, so a mismatch with the app shows up as
+ * a 404 in the calling test. Local Supabase only.
+ */
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import { resolve } from "node:path";
+import { createClient } from "@supabase/supabase-js";
+
+const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
+
+function admin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.E2E_LOCAL_SERVICE_KEY;
+  assert(url && new URL(url).hostname === "127.0.0.1", "Mode share helper is local-only");
+  assert(key, "Local service key is required to mint Mode share locators");
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+function derive(profileId, modeId, nonceHex) {
+  const encoded = process.env.QUICK_SHARE_TOKEN_KEY;
+  assert(encoded, "QUICK_SHARE_TOKEN_KEY is required (set by the local E2E runner)");
+  return createHmac("sha256", Buffer.from(encoded, "base64url"))
+    .update("setuvara-mode-share-v1\0", "utf8")
+    .update(profileId.toLowerCase(), "utf8")
+    .update("\0", "utf8")
+    .update(modeId.toLowerCase(), "utf8")
+    .update(Buffer.from(nonceHex, "hex"))
+    .digest("base64url");
+}
+
+const hex = (value) => String(value).replace(/^\\x/, "");
+
+// The service role may only read profiles.id, so usernames resolve through the
+// public client (published identities) or, for drafts, the local database.
+async function profileId(username) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (key) {
+    const { data } = await createClient(url, key, { auth: { persistSession: false } }).from("profiles").select("id").eq("username", username).maybeSingle();
+    if (data?.id) return data.id;
+  }
+  assert.match(username, /^[a-z0-9_]{3,24}$/);
+  const output = execFileSync(process.execPath, [resolve(process.cwd(), "node_modules/supabase/dist/supabase.js"), "db", "query", "--local", "--output-format", "json", `select id from public.profiles where username = '${username}'`], { encoding: "utf8" });
+  const id = JSON.parse(output.slice(output.indexOf("{"))).rows?.[0]?.id;
+  assert(id, `No local profile for ${username}`);
+  return id;
+}
+
+/** Absolute public URL for one Mode, with an optional `source`. */
+export async function publicModeUrl(username, mode, { source } = {}) {
+  let path = `/${username}`;
+  if (mode !== "personal") {
+    const db = admin();
+    const profile = { id: await profileId(username) };
+    const { data: modeRow } = await db.from("profile_modes").select("id").eq("profile_id", profile.id).eq("slug", mode).single();
+    const read = () => db.from("mode_share_locators").select("nonce").eq("mode_id", modeRow.id).maybeSingle();
+    let { data: locator } = await read();
+    if (!locator) {
+      const nonce = randomBytes(32).toString("hex");
+      const token = derive(profile.id, modeRow.id, nonce);
+      await db.from("mode_share_locators").insert({
+        profile_id: profile.id,
+        mode_id: modeRow.id,
+        nonce: `\\x${nonce}`,
+        token_hash: `\\x${createHash("sha256").update(token, "utf8").digest("hex")}`,
+      });
+      ({ data: locator } = await read());
+    }
+    path = `/s/${derive(profile.id, modeRow.id, hex(locator.nonce))}`;
+  }
+  const url = new URL(path, appUrl);
+  if (source) url.searchParams.set("source", source);
+  return url.toString();
+}
+
+/** Path form of publicModeUrl, for helpers that prefix the app origin themselves. */
+export async function publicModePath(username, mode, options) {
+  const url = new URL(await publicModeUrl(username, mode, options));
+  return `${url.pathname}${url.search}`;
+}
+
+/** Which Mode a public URL or redirect location lands on, resolved like the app does. */
+export async function landedMode(location) {
+  const url = new URL(location, appUrl);
+  assert.equal(url.searchParams.get("mode"), null, "Public URLs never carry ?mode=");
+  const token = url.pathname.match(/^\/s\/([A-Za-z0-9_-]{43})$/)?.[1];
+  if (!token) return "personal";
+  const { data, error } = await admin().rpc("resolve_mode_share", { p_token: token });
+  assert.ifError(error);
+  return data?.mode ?? null;
+}

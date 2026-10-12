@@ -16,6 +16,8 @@
     "e2e:appearance": "node scripts/e2e-appearance.mjs",
     "test:analytics": "deno test --unstable-sloppy-imports tests/analytics/analytics.test.mjs tests/analytics/view.test.mjs",
     "test:connections": "node --test tests/connections/relationship.test.mjs",
+    "test:mode-share": "node --test tests/share/mode-share.test.mjs",
+    "e2e:mode-share": "node scripts/e2e-mode-share.mjs",
     "test:passport": "node --test tests/passport/view.test.mjs",
     "test:live-context-i18n": "node --test tests/live-context-i18n.test.mjs",
     "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs tests/billing/member-badge.test.mjs",
