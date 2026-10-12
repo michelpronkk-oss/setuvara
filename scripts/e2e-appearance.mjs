@@ -212,9 +212,24 @@ try {
         assert.equal(await page.locator(`[data-profile-links] a[href$="${url.replace(/^https:\/\/(www\.)?/, "")}"]`).count(), 1, `in links: ${url} is a row`);
       }
       assert.equal(await page.locator("[data-social-style]").count(), 0, "in links: nothing under the name");
+      await shot(page, "socials-in-links-hero");
       await page.evaluate(() => window.scrollTo(0, document.querySelector("[data-profile-links]")?.getBoundingClientRect().top + window.scrollY - 360));
       await page.waitForTimeout(250);
       await shot(page, "socials-in-links");
+      await context.close();
+    }
+    // "Both": icons under the name and the rows too, each platform twice on purpose.
+    await setAppearance(mla, "personal", { theme: "immersive", socialStyle: "rail", socialPlacement: "both" });
+    {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`${appUrl}/${mla.username}`);
+      await page.locator('article[data-appearance="immersive"]').waitFor();
+      for (const url of ["instagram.com/mla", "tiktok.com/@milentonio"]) {
+        assert.equal(await page.locator(`a[href$="${url}"]:visible`).count(), 2, `both: ${url} under the name and in the rows`);
+        assert.equal(await page.locator(`[data-profile-links] a[href$="${url}"]`).count(), 1);
+      }
+      await shot(page, "socials-both", true);
       await context.close();
     }
     // Free carries the refined setuvara mark at the end of the profile; it links to Make yours.
@@ -369,9 +384,16 @@ try {
       assert.equal(await saved(), "hidden", "In links is saved");
       await control.scrollIntoViewIfNeeded();
       await shot(page, `editor-plus-${width}-socials-in-links`);
+      await control.getByRole("radio", { name: "Both" }).click();
+      const placement = async () => (await admin(`/rest/v1/profile_modes?profile_id=eq.${user.id}&slug=eq.personal&select=appearance`))[0].appearance.socialPlacement;
+      for (let i = 0; i < 40 && (await placement()) !== "both"; i++) await page.waitForTimeout(250);
+      assert.equal(await placement(), "both", "Both is saved");
+      assert.equal(await saved(), "rail", "Both brings the icons back in the look's own style");
+      await shot(page, `editor-plus-${width}-socials-both`);
       await control.getByRole("radio", { name: "Under name" }).click();
-      for (let i = 0; i < 40 && (await saved()) === "hidden"; i++) await page.waitForTimeout(250);
-      assert.equal(await saved(), "rail", "Under name restores the look's own style");
+      for (let i = 0; i < 40 && (await placement()) === "both"; i++) await page.waitForTimeout(250);
+      assert.equal(await placement(), undefined, "Under name clears Both");
+      assert.equal(await saved(), "rail");
     }
     await context.close();
   }

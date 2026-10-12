@@ -384,8 +384,15 @@ describe("ProfileRenderer", () => {
     const inLinks = render(mode("personal", { theme: "immersive", socialStyle: "hidden" }));
     assert.doesNotMatch(hero(inLinks), /instagram\.com\/aanya/);
     assert.match(rows(inLinks), /instagram\.com\/aanya/);
-    assert.equal(lib.socialPlacement("hidden"), "links");
-    assert.equal(lib.socialPlacement("compact"), "name");
+    const both = render(mode("personal", { theme: "immersive", socialStyle: "rail", socialPlacement: "both" }));
+    assert.match(hero(both), /instagram\.com\/aanya/, "Both: under the name");
+    assert.match(rows(both), /instagram\.com\/aanya/, "Both: and in the rows, on purpose");
+    assert.equal(resolveFor({ theme: "immersive" }).socialPlacement, "name");
+    assert.equal(resolveFor({ theme: "immersive", socialStyle: "hidden" }).socialPlacement, "links");
+    const resolvedBoth = resolveFor({ theme: "film", socialPlacement: "both" }, "plus");
+    assert.deepEqual([resolvedBoth.socialPlacement, resolvedBoth.socialStyle], ["both", "compact"]);
+    assert.ok(lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", socialStyle: "row", socialPlacement: "both" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", socialPlacement: "everywhere" }));
   });
 
   test("links collapse after eight", () => {

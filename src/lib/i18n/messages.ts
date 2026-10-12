@@ -54,7 +54,7 @@ const messages = {
       nameSize: "Name size", sizes: { compact: "Compact", standard: "Standard", large: "Large", statement: "Statement" },
       namePosition: "Name position", positions: { auto: "Auto · face-safe", top: "Top", bottom: "Bottom" },
       readability: "Readability", readabilities: { auto: "Auto", soft: "Soft", deep: "Deep" },
-      socials: "Social icons", socialPlacements: { name: "Under name", links: "In links" }, socialStyle: "Icon style", socialStyles: { rail: "Rail", row: "Row", compact: "Compact", hidden: "Hidden" },
+      socials: "Social icons", socialPlacements: { name: "Under name", links: "In links", both: "Both" }, socialStyle: "Icon style", socialStyles: { rail: "Rail", row: "Row", compact: "Compact", hidden: "Hidden" },
       motion: "Motion", motions: { off: "Off", subtle: "Subtle", full: "Full" },
       soundtrack: "Soundtrack", soundPresentations: { ambient: "Ambient", minimal: "Minimal", featured: "Featured" },
       noSoundtrack: "Add a soundtrack in Content to choose how it appears.",

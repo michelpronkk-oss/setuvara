@@ -64,6 +64,8 @@ export type ModeAppearance = {
   /** Scrim strength over the photo. Auto is face- and contrast-aware. */
   readability?: "auto" | "soft" | "deep";
   socialStyle?: "rail" | "row" | "compact" | "hidden";
+  /** Where platforms show. Absent: In links when socialStyle is hidden, else Under name. "both" repeats them on purpose. */
+  socialPlacement?: "name" | "links" | "both";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
 };

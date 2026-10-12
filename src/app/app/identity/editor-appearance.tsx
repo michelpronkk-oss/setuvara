@@ -10,7 +10,7 @@ import { QrFrame } from "@/components/profile/qr-frame";
 import {
   ACCENT_PRESETS, APPEARANCE_LINES, APPEARANCE_NAMES, APPEARANCES, EDITOR_ZOOMS, MOTION_LEVELS, NAME_POSITIONS, NAME_SIZES, QR_STYLES, READABILITY, SOCIAL_STYLES, SOUND_PRESENTATIONS,
   capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
-  type AppearanceId, type ResolvedAppearance, defaultSocialStyle, socialPlacement } from "@/components/profile/appearance";
+  type AppearanceId, type ResolvedAppearance, defaultSocialStyle, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import type { ModeAppearance } from "@/components/profile/types";
 import { soundtrackBlock } from "@/lib/blocks/registry";
@@ -254,8 +254,8 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
     case "socials":
       return (
         <div className="flex flex-col gap-3" data-social-control>
-          <Segment copy={copy} label={copy.socials} locked={false} onPick={(value) => choose({ socialStyle: value === "links" ? "hidden" : defaultSocialStyle(look.id) })} options={(["name", "links"] as const).map((value) => ({ value, label: copy.socialPlacements[value], plus: false }))} value={socialPlacement(look.socialStyle)} />
-          {look.socialStyle !== "hidden" && <Segment copy={copy} label={copy.socialStyle} locked={false} onPick={(value) => choose({ socialStyle: value })} options={SOCIAL_STYLES.filter((value) => value !== "hidden").map((value) => ({ value, label: copy.socialStyles[value], plus: false }))} value={look.socialStyle} />}
+          <Segment copy={copy} label={copy.socials} locked={false} onPick={(value) => choose(value === "links" ? { socialStyle: "hidden", socialPlacement: undefined } : { socialStyle: look.socialStyle === "hidden" ? defaultSocialStyle(look.id) : look.socialStyle, socialPlacement: value === "both" ? "both" : undefined })} options={SOCIAL_PLACEMENTS.map((value) => ({ value, label: copy.socialPlacements[value], plus: false }))} value={look.socialPlacement} />
+          {look.socialPlacement !== "links" && <Segment copy={copy} label={copy.socialStyle} locked={false} onPick={(value) => choose({ socialStyle: value })} options={SOCIAL_STYLES.filter((value) => value !== "hidden").map((value) => ({ value, label: copy.socialStyles[value], plus: false }))} value={look.socialStyle} />}
         </div>
       );
     case "motion":
