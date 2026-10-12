@@ -134,7 +134,9 @@ function Profile(props: ProfileProps) {
   const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
   const copy = getMessages("en").profile;
   const photo = mode.image_url ?? null;
-  const theme = appearanceTheme(look.id, look.accent, Boolean(photo));
+  const lookTheme = appearanceTheme(look.id, look.accent, Boolean(photo));
+  // A chosen alignment moves the identity and the About text together; Auto keeps the look's own.
+  const theme = look.align === "auto" ? lookTheme : { ...lookTheme, bioAlign: look.align, identity: { ...lookTheme.identity, align: look.align } };
   const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
   const connected = viewerState === "visitor_connected" && !previewAsVisitor;
@@ -408,7 +410,7 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
       {scene.photo && <div aria-hidden="true" className="absolute inset-0" style={{ background: immersiveScrim(layout.strategy, look.readability), opacity: scrimOpacity }} />}
       {scene.photo && look.readability === "deep" && layout.strategy !== "bottom" && <div aria-hidden="true" className="absolute inset-0 bg-[#0D0D0D33]" />}
       <Treatment scene={scene} />
-      <IdentityLayer options={{ align: layout.align, nameSize: `${layout.nameSize}px`, split: layout.strategy === "split", style: { left: 20, right: 20, ...position } }} scene={scene} />
+      <IdentityLayer options={{ align: look.align === "auto" ? layout.align : look.align, nameSize: `${layout.nameSize}px`, split: layout.strategy === "split", style: { left: 20, right: 20, ...position } }} scene={scene} />
     </>
   );
 }
@@ -506,7 +508,7 @@ function SceneHero({ scene }: { scene: Scene }) {
         <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={56} />
         <Treatment scene={scene} />
       </div>
-      <IdentityLayer options={{ align: "left", nameSize: nameSizeCss(scene, 34, "196px"), style: { left: 20, right: 20, bottom: 34 } }} scene={scene} />
+      <IdentityLayer options={{ align: scene.look.align === "auto" ? "left" : scene.look.align, nameSize: nameSizeCss(scene, 34, "196px"), style: { left: 20, right: 20, bottom: 34 } }} scene={scene} />
     </>
   );
 }
@@ -610,7 +612,8 @@ function WideHero({ scene }: { scene: Scene }) {
   const scale = NAME_SCALE[look.nameSize];
   const nameSize = `min(max(${Math.round((look.id === "film" ? 66 : 57) * scale)}px, ${+((look.id === "film" ? 8.333 : 7.222) * scale).toFixed(3)}cqw), ${+(42 / (charWidth * longest)).toFixed(3)}cqw)`;
   const inset = theme.wide.inset;
-  const align = "flex-start";
+  const centered = look.align === "center";
+  const align = centered ? "center" : "flex-start";
   return (
     <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
       <HeroFoot className="!h-[22%]" scene={scene} />
@@ -624,8 +627,8 @@ function WideHero({ scene }: { scene: Scene }) {
           {look.id === "motion" && <WideMarquee scene={scene} />}
         </div>
       )}
-      <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align }}>
-        <ModeIndicator accent={look.accent} label={MODE_NAMES[look.slug]} theme={theme} />
+      <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
+        <ModeIndicator accent={look.accent} label={MODE_NAMES[look.slug]} style={centered ? { alignSelf: "center" } : undefined} theme={theme} />
         <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
         <h1 className={`max-w-full break-words leading-[0.92] [overflow-wrap:anywhere] [text-wrap:balance] ${theme.identity.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`} data-name style={{ fontSize: nameSize, fontWeight: theme.identity.weight, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
         {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}

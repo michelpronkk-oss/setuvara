@@ -55,12 +55,7 @@ function ImageRun({ blocks, tone }: { blocks: ProfileBlock[]; tone: BlockTone })
   return (
     <>
       <figure className="flex flex-col gap-2.5">
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[22px] @min-[700px]/profile:aspect-[16/10]" data-featured-media style={mediaFrame(tone)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- the same picture, blurred, fills the frame */}
-          <img alt="" aria-hidden="true" className="absolute -inset-8 size-[calc(100%+64px)] max-w-none scale-110 object-cover blur-3xl brightness-[.72] saturate-150" decoding="async" loading="lazy" src={first.url} />
-          {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-          <img alt={first.alt} className="absolute inset-0 size-full object-contain drop-shadow-[0_18px_32px_#0D0D0D66]" decoding="async" loading="lazy" onError={() => fail(first.url)} src={first.url} />
-        </div>
+        <FeaturedImage alt={first.alt} onError={() => fail(first.url)} tone={tone} url={first.url} />
         {first.caption && <figcaption className="px-1 text-[13px] leading-5" style={{ color: tone.sub }}>{first.caption}</figcaption>}
       </figure>
       {rest.length > 0 && (
@@ -80,6 +75,27 @@ function ImageRun({ blocks, tone }: { blocks: ProfileBlock[]; tone: BlockTone })
         </ul>
       )}
     </>
+  );
+}
+
+/**
+ * The picture as it is: its own aspect ratio, edge to edge, never letterboxed. Only a very tall
+ * picture (beyond 4:5) is trimmed top and bottom, from the centre, so one photo never fills a phone.
+ */
+function FeaturedImage({ url, alt, tone, onError }: { url: string; alt: string; tone: BlockTone; onError: () => void }) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [tall, setTall] = useState(false);
+  const measure = (image: HTMLImageElement | null) => {
+    if (image?.complete && image.naturalWidth) setTall(image.naturalHeight / image.naturalWidth > 1.25);
+  };
+  // A cached picture can finish loading before hydration, so measure on mount too.
+  useEffect(() => measure(ref.current), [url]);
+  return (
+    <div className="relative w-full overflow-hidden rounded-[22px]" data-featured-media style={{ aspectRatio: tall ? "4 / 5" : undefined, background: mediaFrame(tone).background }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
+      <img alt={alt} className={`block w-full ${tall ? "h-full object-cover" : "h-auto"}`} decoding="async" loading="lazy" onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} src={url} />
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }} />
+    </div>
   );
 }
 

@@ -188,9 +188,11 @@ try {
         await page.evaluate(() => window.scrollTo(0, document.querySelector("[data-appearance-content]")?.getBoundingClientRect().top + window.scrollY - 40));
         await page.waitForTimeout(250);
         await shot(page, `content-${id}-${width}-content`);
-        // A picture is framed, never taller than the column is wide.
-        const media = await page.locator("[data-featured-media]").boundingBox();
-        assert(media && media.height <= Math.min(media.width, 420) + 1, `${id} @${width}: picture stays in proportion (${JSON.stringify(media)})`);
+        // The picture as it is: its own ratio, one image, no blurred bars (very tall trims to 4:5).
+        const featured = page.locator("[data-featured-media]");
+        assert.equal(await featured.locator("img").count(), 1, `${id} @${width}: no blurred backdrop`);
+        const { box, natural } = await featured.evaluate((node) => { const img = node.querySelector("img"); const rect = node.getBoundingClientRect(); return { box: rect.height / rect.width, natural: img.naturalHeight / img.naturalWidth }; });
+        assert(Math.abs(box - Math.min(natural, 1.25)) < 0.01, `${id} @${width}: picture keeps its ratio (${box.toFixed(3)} vs ${natural.toFixed(3)})`);
         assert.equal(await page.locator("[data-attribution]").count(), 0, `${id}: Plus profiles carry no setuvara branding`);
         // Each platform shows once: under the name by default, never again in the link rows.
         for (const url of ["https://instagram.com/mla", "https://www.tiktok.com/@milentonio"]) {
@@ -232,6 +234,24 @@ try {
       await shot(page, "socials-both", true);
       await context.close();
     }
+    // Alignment: Center moves the name, details, icons and Connect to the middle on any look.
+    for (const id of ["immersive", "clean", "scene"]) {
+      await setAppearance(mla, "personal", { theme: id, identityAlign: "center" });
+      for (const [width, height] of [[390, 844], [1440, 900]]) {
+        const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+        const page = await context.newPage();
+        await page.goto(`${appUrl}/${mla.username}`);
+        await page.locator(`article[data-appearance="${id}"]`).waitFor();
+        await page.waitForLoadState("networkidle");
+        await inspect(page, `centered ${id} @${width}`);
+        const name = await page.locator("[data-name]:visible, h1:visible").first().boundingBox();
+        const middle = width < 900 ? width / 2 : null;
+        if (middle) assert(Math.abs(name.x + name.width / 2 - middle) < 6, `${id} @${width}: name is centered (${name.x}, ${name.width})`);
+        else assert.equal(await page.locator("[data-wide-hero] h1").evaluate((node) => getComputedStyle(node.parentElement).textAlign), "center", `${id} @${width}: wide identity centered`);
+        await shot(page, `align-center-${id}-${width}`);
+        await context.close();
+      }
+    }
     // Free carries the refined setuvara mark at the end of the profile; it links to Make yours.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
     const page = await context.newPage();
@@ -243,7 +263,7 @@ try {
     await page.waitForTimeout(250);
     await shot(page, "content-free-branding");
     await context.close();
-    console.log("PASS content is refined, the hero dissolves, branding is Free only, socials show once");
+    console.log("PASS content is refined, the hero dissolves, branding is Free only, socials show once, Center aligns");
   }
 
   if (!only) {

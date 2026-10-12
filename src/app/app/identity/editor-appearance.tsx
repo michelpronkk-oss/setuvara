@@ -30,23 +30,23 @@ import { Pill, Sheet, modeMeta } from "./editor-ui";
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "namePosition" | "nameSize" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus";
+type ControlKey = "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus";
 type MoreKey = "qr" | "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
 
 /** Each Appearance's own controls, in the design's order. Username and photo focus apply to every one. */
 const CONTROLS: Record<AppearanceId, ControlKey[]> = {
-  immersive: ["namePosition", "nameSize", "readability", "socials", "accent", "sound", "zoom"],
-  motion: ["nameSize", "motion", "socials", "accent", "sound"],
-  aura: ["nameSize", "socials", "accent", "sound", "zoom"],
-  clean: ["nameSize", "socials", "accent", "sound", "zoom"],
-  glow: ["nameSize", "socials", "accent", "sound", "motion"],
-  scene: ["nameSize", "socials", "accent", "sound", "motion"],
-  frame: ["nameSize", "socials", "accent", "sound"],
-  stack: ["nameSize", "socials", "accent", "sound"],
-  social: ["nameSize", "accent", "sound"],
-  film: ["nameSize", "socials", "accent", "sound", "motion"],
+  immersive: ["namePosition", "nameSize", "align", "readability", "socials", "accent", "sound", "zoom"],
+  motion: ["nameSize", "align", "motion", "socials", "accent", "sound"],
+  aura: ["nameSize", "align", "socials", "accent", "sound", "zoom"],
+  clean: ["nameSize", "align", "socials", "accent", "sound", "zoom"],
+  glow: ["nameSize", "align", "socials", "accent", "sound", "motion"],
+  scene: ["nameSize", "align", "socials", "accent", "sound", "motion"],
+  frame: ["nameSize", "align", "socials", "accent", "sound"],
+  stack: ["nameSize", "align", "socials", "accent", "sound"],
+  social: ["nameSize", "align", "accent", "sound"],
+  film: ["nameSize", "align", "socials", "accent", "sound", "motion"],
 };
 const ALWAYS: ControlKey[] = ["username", "focus"];
 
@@ -251,6 +251,11 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
       return <Segment copy={copy} label={copy.namePosition} locked={previewLocked("namePosition")} onPick={(value) => choose({ namePosition: value === "auto" ? undefined : value })} options={NAME_POSITIONS.map((value) => ({ value, label: copy.positions[value], plus: premium("namePosition", value) }))} value={look.namePosition} />;
     case "readability":
       return <Segment copy={copy} label={copy.readability} locked={previewLocked("readability")} onPick={(value) => choose({ readability: value === "auto" ? undefined : value })} options={READABILITY.map((value) => ({ value, label: copy.readabilities[value], plus: premium("readability", value) }))} value={look.readability} />;
+    case "align": {
+      // Shows what renders: the look's own side until Left or Center is picked.
+      const effective = look.align === "auto" ? (appearanceTheme(look.id, look.accent, true).identity.align === "center" ? "center" : "left") : look.align;
+      return <Segment copy={copy} label={copy.alignment} locked={false} onPick={(value) => choose({ identityAlign: value })} options={(["left", "center"] as const).map((value) => ({ value, label: copy.alignments[value], plus: false }))} value={effective} />;
+    }
     case "socials":
       return (
         <div className="flex flex-col gap-3" data-social-control>

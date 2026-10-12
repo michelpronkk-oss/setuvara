@@ -395,6 +395,20 @@ describe("ProfileRenderer", () => {
     assert.ok(!lib.isValidAppearance("personal", { theme: "clean", accent: "#FF5A4F", socialPlacement: "everywhere" }));
   });
 
+  test("alignment: Center and Left override the look; Auto keeps its own side", () => {
+    for (const id of ["immersive", "clean", "scene", "glow"]) {
+      const centered = render(mode("personal", { theme: id, identityAlign: "center" }), "plus");
+      assert.equal(attr(centered.slice(centered.indexOf("data-profile-hero-mobile")), "data-identity-align"), "center", `${id} centers`);
+    }
+    const left = render(mode("personal", { theme: "glow", identityAlign: "left" }), "plus");
+    assert.equal(attr(left.slice(left.indexOf("data-profile-hero-mobile")), "data-identity-align"), "left");
+    const auto = render(mode("personal", { theme: "glow" }), "plus");
+    assert.equal(attr(auto.slice(auto.indexOf("data-profile-hero-mobile")), "data-identity-align"), "center", "Glow is centered by its own design");
+    assert.equal(resolveFor({ theme: "immersive" }).align, "auto");
+    assert.ok(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", identityAlign: "center" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", identityAlign: "right" }));
+  });
+
   test("links collapse after eight", () => {
     const many = Array.from({ length: 9 }, (_, index) => ({ id: `l${index}`, title: `Link ${index}`, url: `https://example.com/${index}`, link_type: "website", is_visible: true, sort_order: index }));
     const html = render(mode("personal", { theme: "clean" }, { links: many }));

@@ -81,6 +81,11 @@ describe("profile_modes appearance", () => {
     assert(await save(free, { theme: "immersive", accent: "#FF5A4F", socialPlacement: "everywhere" }).then((result) => result.error), "unknown placement rejected");
   });
 
+  test("Alignment is Free: auto, left and center save; nothing else", async () => {
+    for (const identityAlign of ["auto", "left", "center"]) assert.ifError((await save(free, { theme: "immersive", accent: "#FF5A4F", identityAlign })).error);
+    assert(await save(free, { theme: "immersive", accent: "#FF5A4F", identityAlign: "right" }).then((result) => result.error), "unknown alignment rejected");
+  });
+
   test("Free cannot introduce a Plus Appearance or Plus control", async () => {
     for (const appearance of [{ theme: "glow" }, { theme: "immersive", namePosition: "top" }, { theme: "immersive", readability: "deep" }, { theme: "immersive", motion: "full" }, { theme: "immersive", soundtrackPresentation: "featured" }, { theme: "immersive", portraitNameSize: "statement" }]) {
       const { error } = await save(free, { accent: "#FF5A4F", ...appearance });
