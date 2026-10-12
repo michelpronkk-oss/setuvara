@@ -27,6 +27,7 @@ before(async () => {
         export * from "@/components/profile/appearance";
         export * from "@/components/profile/appearance-theme";
         export * from "@/components/profile/face-safe";
+        export * from "@/components/profile/name-type";
         export * from "@/components/profile/photo-focus";
         export { ProfileRenderer } from "@/components/profile/profile-renderer";
         export { QrFrame } from "@/components/profile/qr-frame";
@@ -521,6 +522,93 @@ describe("ProfileRenderer", () => {
       const html = render(mode("personal", { theme: id }, { image_focus_x: 50, image_focus_y: 15 }), "plus");
       assert.match(html, /data-photo-focus="50 15"/, id);
     }
+  });
+});
+
+describe("Name type", () => {
+  const STYLES = ["setuvara", "modern", "editorial", "condensed", "impact", "soft"];
+  const nameHtml = (html) => html.match(/<h1[^>]*data-name[^>]*>/)?.[0] ?? "";
+
+  test("six curated styles; Setuvara and Modern are Free, the rest Plus", () => {
+    assert.deepEqual([...lib.NAME_FONTS], STYLES);
+    assert.deepEqual([...lib.FREE_NAME_FONTS], ["setuvara", "modern"]);
+    for (const font of STYLES) {
+      assert.equal(lib.capabilityForField("nameFont", font), lib.isFreeNameFont(font) ? null : "appearance.premium", font);
+      assert.equal(resolveFor({ nameFont: font }, "free").nameFont, lib.isFreeNameFont(font) ? font : "setuvara", `${font} on Free`);
+      assert.equal(resolveFor({ nameFont: font }, "plus").nameFont, font);
+    }
+    assert.equal(resolveFor({}).nameFont, "setuvara", "absent is Setuvara");
+    assert.equal(resolveFor({ nameFont: "Comic Sans" }, "pro").nameFont, "setuvara", "unknown ids never render");
+  });
+
+  test("stored as an id only, validated, kept on downgrade and cleared by reset", () => {
+    assert.equal(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", nameFont: "impact" }), true);
+    assert.equal(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", nameFont: "https://fonts.example/x.woff2" }), false);
+    assert.equal(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", nameFont: "Comic Sans" }), false);
+    assert.deepEqual(lib.lockedFields({ theme: "immersive", accent: "#FF5A4F", nameFont: "soft" }, "free"), ["nameFont"]);
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive", accent: "#FF5A4F", nameFont: "soft" }, { theme: "immersive", accent: "#C7FF4A", nameFont: "soft" }, "free"), [], "a saved Plus style survives a downgrade");
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive", accent: "#FF5A4F" }, { theme: "immersive", accent: "#FF5A4F", nameFont: "editorial" }, "free"), ["nameFont"]);
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive", accent: "#FF5A4F" }, { theme: "immersive", accent: "#FF5A4F", nameFont: "modern" }, "free"), []);
+    assert.ok(lib.VISUAL_KEYS.includes("nameFont"));
+    assert.equal(lib.resetAppearance("personal", { theme: "glow", accent: "#FF5A4F", nameFont: "impact" }).nameFont, undefined);
+  });
+
+  test("the plan trigger mirrors the field list", () => {
+    const sql = readFileSync(join(root, "supabase/migrations/20261013010000_name_typography.sql"), "utf8");
+    assert.match(sql, /'qrStyle', 'nameFont'\n  \] loop/, "same order as PREMIUM_FIELDS");
+    assert.equal(lib.PREMIUM_FIELDS.at(-1), "nameFont");
+    assert.match(sql, /p_field = 'nameFont' then p_value #>> '\{\}' not in \('setuvara', 'modern'\)/);
+  });
+
+  test("every Appearance draws its name in the chosen face; Setuvara keeps each look's own", () => {
+    for (const id of TEN) {
+      const signature = nameHtml(render(mode("personal", { theme: id }), "pro"));
+      assert.match(signature, id === "film" ? /--font-instrument-serif/ : /--font-bricolage/, `${id} signature`);
+      for (const font of STYLES.slice(1)) {
+        const html = render(mode("personal", { theme: id, nameFont: font }), "pro");
+        const heading = nameHtml(html);
+        assert.match(heading, new RegExp(`data-name-font="${font}"`), `${id} ${font}`);
+        assert.match(heading, new RegExp(`--font-name-${font}`), `${id} ${font} family`);
+        assert.match(heading, /system-ui|serif/, "every stack ends in system families");
+        const free = nameHtml(render(mode("personal", { theme: id, nameFont: font }), "free"));
+        if (!lib.isFreeNameFont(font)) assert.match(free, /data-name-font="setuvara"/, `${id} ${font} falls back on Free`);
+      }
+    }
+  });
+
+  test("Motion's marquee wears the style too", () => {
+    const html = render(mode("personal", { theme: "motion", nameFont: "condensed" }), "pro");
+    assert.match(html, /--font-name-condensed[^"]*;text-transform:uppercase/);
+  });
+
+  test("long names fit narrower for wide faces and wider for condensed ones", () => {
+    for (const font of STYLES) {
+      const type = lib.nameType(font, { serif: false, weight: 700 });
+      const size = lib.fittedNameSize("Maximiliana-Alexandrovna", 50, type.scale, 390, 346, type.charWidth);
+      assert.ok(size * type.charWidth * 24 <= 346 + 1, `${font} fits the width`);
+    }
+    const layout = (font) => lib.solveFaceSafe({ frame: { width: 390, height: 844 }, focus: { x: 50, y: 30 }, name: "Maximiliana Alexandrovna Ríos-Đặng", nameBase: 50, nameScale: 1, nameCharWidth: lib.nameType(font, { serif: false, weight: 700 }).charWidth, nameLeading: lib.nameType(font, { serif: false, weight: 700 }).leading, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "rail", secondary: false });
+    for (const font of STYLES) {
+      const result = layout(font);
+      assert.ok(result.nameSize >= 20 && result.nameSize <= 60, `${font}: ${result.nameSize}`);
+      if (result.face) assert.ok(["bottom", "top", "split"].includes(result.strategy));
+    }
+    assert.deepEqual(layout("setuvara"), lib.solveFaceSafe({ frame: { width: 390, height: 844 }, focus: { x: 50, y: 30 }, name: "Maximiliana Alexandrovna Ríos-Đặng", nameBase: 50, nameScale: 1, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "rail", secondary: false }), "Setuvara solves exactly as before");
+  });
+
+  test("diacritic and non-Latin names render as text, untouched", () => {
+    for (const name of ["Zoë Ðorđević-Łukasiewicz", "Nguyễn Thị Ánh", "Αλέξανδρος", "Дмитрий", "สมชาย", "佐藤 花子", "محمد"]) {
+      const html = renderWith(mode("personal", { theme: "immersive", nameFont: "impact" }), { plan: "pro", profile: { ...profile, display_name: name } });
+      assert.ok(html.includes(name), name);
+    }
+  });
+
+  test("fonts are self-hosted with next/font: one weight each, swap, never preloaded", () => {
+    const source = readFileSync(join(root, "src/components/profile/name-fonts.ts"), "utf8");
+    assert.match(source, /from "next\/font\/google"/);
+    assert.equal((source.match(/display: "swap"/g) ?? []).length, 5);
+    assert.equal((source.match(/preload: false/g) ?? []).length, 5);
+    assert.doesNotMatch(source, /https?:\/\//, "no external font URLs");
   });
 });
 

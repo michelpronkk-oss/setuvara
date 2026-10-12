@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { cache } from "react";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
+import { nameFontClasses } from "@/components/profile/name-fonts";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
@@ -280,7 +281,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     : null;
 
   return (
-    <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
+    <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       {!shareToken && <JsonLd data={personStructuredData} />}
       <ProfileRenderer
         attribution

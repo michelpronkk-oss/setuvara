@@ -7,6 +7,7 @@ import { z } from "zod";
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, PhotoCropValue, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import { NAME_FONT_NAMES } from "@/components/profile/name-type";
 import { APPEARANCE_NAMES, extraSlideLimit, introducedLockedFields, isModeLayout, isValidAppearance, lockedFields, resetAppearance as resetVisualAppearance, resolveAppearance, storedAppearance } from "@/components/profile/appearance";
 import { focusPosition, modeFocus, readCrop, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
@@ -325,7 +326,8 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const appearance = storedAppearance(preview, current.slug);
     setPlusSheet(field === "theme" || field === "layout" || field === "imageTreatment" ? { kind: "appearance", appearance }
       : field === "soundStyle" || field === "soundtrackPresentation" ? { kind: "soundtrack", appearance }
-        : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle, appearance } : { kind: "advanced", appearance });
+        : field === "qrStyle" ? { kind: "qr", name: preview.qrStyle, appearance }
+          : field === "nameFont" && preview.nameFont ? { kind: "type", name: NAME_FONT_NAMES[preview.nameFont], appearance } : { kind: "advanced", appearance });
   }, [appearancePreviews, chooseAppearance, plan, slug]);
 
   // Reset Appearance: only this Mode's visual config returns to its Free default (accent and QR
