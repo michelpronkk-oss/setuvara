@@ -98,6 +98,19 @@ export const SLIDE_SPEEDS = ["slow", "medium", "fast"] as const;
 export const MEDIA_LAYOUTS = ["featured", "stack", "grid", "carousel"] as const;
 export type MediaLayout = (typeof MEDIA_LAYOUTS)[number];
 export type SlideSpeed = (typeof SLIDE_SPEEDS)[number];
+/**
+ * Scroll cues: the small sign at the foot of the hero that there is more below. Each Appearance
+ * has its own; Plus can wear any of the ten. Free keeps its look's own, still (no loop).
+ */
+export const SCROLL_CUES = ["glide", "rail", "orb", "mouse", "beam", "cascade", "caption", "cards", "swipe", "credits"] as const;
+export type ScrollCue = (typeof SCROLL_CUES)[number];
+/** What is stored: Auto (the look's own, the default when absent), Off, or one of the ten. */
+export const SCROLL_CUE_CHOICES = ["auto", "off", ...SCROLL_CUES] as const;
+export type ScrollCueChoice = (typeof SCROLL_CUE_CHOICES)[number];
+export const APPEARANCE_CUES: Record<AppearanceId, ScrollCue> = {
+  immersive: "glide", motion: "rail", aura: "orb", clean: "mouse", glow: "beam",
+  scene: "cascade", frame: "caption", stack: "cards", social: "swipe", film: "credits",
+};
 /** Seconds each slide holds. */
 export const SLIDE_SECONDS: Record<SlideSpeed, number> = { slow: 7, medium: 4.5, fast: 2.8 };
 /** Slideshow photos after the main one: Plus has 2 slides, Pro 4, Free none. Mirrors the database trigger. */
@@ -151,6 +164,10 @@ export type ResolvedAppearance = {
   mediaLayout: MediaLayout;
   /** Display style of the name; a Plus style renders Setuvara without Plus. */
   nameFont: NameFont;
+  /** The cue at the hero's foot; null when the member turned it off. */
+  scrollCue: ScrollCue | null;
+  /** Whether the cue loops its animation (Plus, with motion on). Free shows it still. */
+  scrollCueMotion: boolean;
   motion: MotionLevel;
   soundPresentation: SoundPresentation;
   zoom: PortraitZoom;
@@ -216,6 +233,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
     case "soundStyle": return value === "core" ? null : "soundtrack.premium_treatment";
     case "qrStyle": return value === "standard" ? null : "share.qr_premium";
     case "nameFont": return isNameFont(value) && isFreeNameFont(value) ? null : "appearance.premium";
+    case "scrollCue": return value === "auto" || value === "off" ? null : "appearance.premium";
     default: return null;
   }
 }
@@ -224,7 +242,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
 export const PREMIUM_FIELDS = [
   "theme", "layout", "portraitZoom", "portraitNameSize", "portraitShowUsername",
   "namePosition", "readability", "socialStyle", "motion", "soundtrackPresentation",
-  "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle", "nameFont",
+  "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle", "nameFont", "scrollCue",
 ] as const;
 export type PremiumField = (typeof PREMIUM_FIELDS)[number];
 
@@ -276,6 +294,9 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
   const savedMotion: MotionLevel = includes(MOTION_LEVELS, saved.motion) ? saved.motion : defaults.motion;
   const sound = storedSoundPresentation(saved);
   const savedStyle: SocialStyle = includes(SOCIAL_STYLES, saved.socialStyle) ? saved.socialStyle : defaults.socialStyle;
+  const cueChoice: ScrollCueChoice = includes(SCROLL_CUE_CHOICES, saved.scrollCue) ? saved.scrollCue : "auto";
+  const premium = can("appearance.premium");
+  const motion: MotionLevel = savedMotion === "full" && !advanced ? "subtle" : savedMotion;
   const placement: SocialPlacement = includes(SOCIAL_PLACEMENTS, saved.socialPlacement) ? saved.socialPlacement : savedStyle === "hidden" ? "links" : "name";
 
   return {
@@ -290,12 +311,15 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     socialPlacement: placement,
     align: includes(IDENTITY_ALIGNS, saved.identityAlign) ? saved.identityAlign : "auto",
     // An Appearance whose character is motion keeps its own motion; Full needs Plus elsewhere.
-    motion: savedMotion === "full" && !advanced ? "subtle" : savedMotion,
+    motion,
     soundPresentation: sound === "featured" && !can("soundtrack.premium_treatment") ? "minimal" : sound,
     zoom: includes(PORTRAIT_ZOOMS, saved.portraitZoom) && (saved.portraitZoom >= 100 || ZOOM_OUT_APPEARANCES.has(id)) ? saved.portraitZoom : 100,
     slideSpeed: includes(SLIDE_SPEEDS, saved.slideSpeed) ? saved.slideSpeed : "medium",
     mediaLayout: includes(MEDIA_LAYOUTS, saved.mediaLayout) ? saved.mediaLayout : "featured",
     nameFont: isNameFont(saved.nameFont) && (isFreeNameFont(saved.nameFont) || can("appearance.premium")) ? saved.nameFont : "setuvara",
+    // A chosen cue needs Plus; without it the look's own shows. Off is always honoured.
+    scrollCue: cueChoice === "off" ? null : cueChoice === "auto" || !premium ? APPEARANCE_CUES[id] : cueChoice,
+    scrollCueMotion: premium && motion !== "off",
     showUsername: typeof saved.portraitShowUsername === "boolean" ? saved.portraitShowUsername : defaults.showUsername,
     qrStyle: resolveQrStyle(mode, plan),
     locked: lockedFields(saved, plan),
@@ -314,7 +338,7 @@ export function previewAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
 export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
-  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "nameFont", "motion", "soundtrackPresentation",
+  "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "nameFont", "scrollCue", "motion", "soundtrackPresentation",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -369,6 +393,7 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.slideSpeed, SLIDE_SPEEDS)
     && optional(appearance.mediaLayout, MEDIA_LAYOUTS)
     && optional(appearance.nameFont, NAME_FONTS)
+    && optional(appearance.scrollCue, SCROLL_CUE_CHOICES)
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
 }

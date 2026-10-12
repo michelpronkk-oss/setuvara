@@ -557,9 +557,10 @@ describe("Name type", () => {
   });
 
   test("the plan trigger mirrors the field list", () => {
-    const sql = readFileSync(join(root, "supabase/migrations/20261013010000_name_typography.sql"), "utf8");
-    assert.match(sql, /'qrStyle', 'nameFont'\n  \] loop/, "same order as PREMIUM_FIELDS");
-    assert.equal(lib.PREMIUM_FIELDS.at(-1), "nameFont");
+    // The latest migration that recreates the trigger carries the whole list.
+    const sql = readFileSync(join(root, "supabase/migrations/20261013020000_scroll_cue.sql"), "utf8");
+    assert.match(sql, /'qrStyle', 'nameFont', 'scrollCue'\n  \] loop/, "same order as PREMIUM_FIELDS");
+    assert.equal(lib.PREMIUM_FIELDS.at(-2), "nameFont");
     assert.match(sql, /p_field = 'nameFont' then p_value #>> '\{\}' not in \('setuvara', 'modern'\)/);
   });
 
@@ -720,5 +721,64 @@ describe("Photo originals", () => {
     assert.match(sql, /\(image_original_path is null\) = \(image_crop is null\)/);
     assert.match(sql, /split_part\(image_original_path, '\/', 1\) = profile_id::text/);
     assert.match(sql, /modes\.image_original_path = storage\.objects\.name\s+and modes\.is_enabled\s+and profiles\.is_published/);
+  });
+});
+
+describe("Scroll cue", () => {
+  const CUES = ["glide", "rail", "orb", "mouse", "beam", "cascade", "caption", "cards", "swipe", "credits"];
+  const withBlocks = (appearance) => mode("personal", appearance, { blocks: [{ id: "b", kind: "image", is_visible: true, sort_order: 0, data: { image_url: "https://media.example.test/one.png" } }] });
+  const cueOf = (html) => attr(html, "data-scroll-cue");
+
+  test("ten cues, one per Appearance, each different", () => {
+    assert.deepEqual([...lib.SCROLL_CUES], CUES);
+    assert.deepEqual([...lib.SCROLL_CUE_CHOICES], ["auto", "off", ...CUES]);
+    assert.equal(new Set(Object.values(lib.APPEARANCE_CUES)).size, 10);
+    for (const id of TEN) assert.equal(resolveFor({ theme: id }, "plus").scrollCue, lib.APPEARANCE_CUES[id], id);
+  });
+
+  test("Auto and Off are Free; choosing one of the ten is Plus, kept on downgrade", () => {
+    for (const value of ["auto", "off"]) assert.equal(lib.capabilityForField("scrollCue", value), null);
+    for (const cue of CUES) {
+      assert.equal(lib.capabilityForField("scrollCue", cue), "appearance.premium", cue);
+      assert.equal(resolveFor({ theme: "immersive", scrollCue: cue }, "plus").scrollCue, cue);
+      assert.equal(resolveFor({ theme: "immersive", scrollCue: cue }, "free").scrollCue, "glide", `${cue} on Free wears Immersive's own`);
+    }
+    assert.equal(resolveFor({ theme: "clean", scrollCue: "off" }, "free").scrollCue, null);
+    assert.equal(resolveFor({ theme: "clean" }, "free").scrollCue, "mouse");
+    assert.equal(resolveFor({ theme: "clean" }, "free").scrollCueMotion, false, "Free is still");
+    assert.equal(resolveFor({ theme: "clean" }, "plus").scrollCueMotion, false, "Clean's motion is off");
+    assert.equal(resolveFor({ theme: "immersive" }, "plus").scrollCueMotion, true);
+    assert.equal(resolveFor({ theme: "immersive", motion: "off" }, "plus").scrollCueMotion, false);
+    assert.ok(lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", scrollCue: "orb" }));
+    assert.ok(!lib.isValidAppearance("personal", { theme: "immersive", accent: "#FF5A4F", scrollCue: "spin" }));
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive", accent: "#FF5A4F" }, { theme: "immersive", accent: "#FF5A4F", scrollCue: "beam" }, "free"), ["scrollCue"]);
+    assert.deepEqual(lib.introducedLockedFields({ theme: "immersive", accent: "#FF5A4F" }, { theme: "immersive", accent: "#FF5A4F", scrollCue: "off" }, "free"), []);
+    assert.ok(lib.VISUAL_KEYS.includes("scrollCue"));
+    const sql = readFileSync(join(root, "supabase/migrations/20261013020000_scroll_cue.sql"), "utf8");
+    assert.match(sql, /p_field = 'scrollCue' then p_value #>> '\{\}' not in \('auto', 'off'\)/);
+    assert.match(sql, /'scrollCue', 'motion'/);
+  });
+
+  test("every Appearance renders its cue on phone and wide, and Off renders none", () => {
+    for (const id of TEN) {
+      const html = render(withBlocks({ theme: id }), "plus");
+      const cues = html.match(/data-scroll-cue="([a-z]+)"/g) ?? [];
+      assert.equal(cues.length, 2, `${id}: phone and wide`);
+      assert.equal(cueOf(html), lib.APPEARANCE_CUES[id], id);
+      assert.doesNotMatch(render(withBlocks({ theme: id, scrollCue: "off" }), "plus"), /data-scroll-cue=/, `${id} off`);
+    }
+    assert.match(render(withBlocks({ theme: "immersive" }), "plus", "live"), /data-scroll-cue-motion="loop"/);
+    assert.match(render(withBlocks({ theme: "immersive" }), "free", "live"), /data-scroll-cue-motion="still"/);
+    assert.match(render(withBlocks({ theme: "immersive" }), "plus", "off"), /data-scroll-cue-motion="still"/, "thumbnails stay still");
+  });
+
+  test("Social no longer repeats the Mode's pictures in the hero", () => {
+    const images = [{ id: "i1", kind: "image", is_visible: true, sort_order: 0, data: { image_url: "https://media.example.test/one.png" } }, { id: "i2", kind: "image", is_visible: true, sort_order: 1, data: { image_url: "https://media.example.test/two.png" } }];
+    const html = render(mode("personal", { theme: "social" }, { blocks: images }), "plus");
+    assert.doesNotMatch(html, /data-social-tiles/);
+    const hero = html.slice(html.indexOf("data-profile-hero-mobile"), html.indexOf("data-profile-hero-wide"));
+    assert.doesNotMatch(hero, /one\.png/);
+    assert.match(html, /one\.png/, "the pictures still show once, below");
+    assert.equal(cueOf(html), "swipe");
   });
 });

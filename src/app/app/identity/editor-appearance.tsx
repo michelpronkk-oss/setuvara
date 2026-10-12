@@ -9,11 +9,12 @@ import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { QrFrame } from "@/components/profile/qr-frame";
 import {
   ACCENT_PRESETS, APPEARANCE_LINES, APPEARANCE_NAMES, APPEARANCES, EDITOR_ZOOMS, EDITOR_ZOOMS_WITH_OUT, ZOOM_OUT_APPEARANCES, MOTION_LEVELS, NAME_POSITIONS, NAME_SIZES, QR_STYLES, READABILITY, SOCIAL_STYLES, SOUND_PRESENTATIONS,
-  capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
+  APPEARANCE_CUES, SCROLL_CUE_CHOICES, capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
   type AppearanceId, type ResolvedAppearance, defaultSocialStyle, extraSlideLimit, SLIDE_SPEEDS, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { NAME_FONT_NAMES, NAME_FONTS, isFreeNameFont, nameType, nameTypeStyle } from "@/components/profile/name-type";
 import type { PhotoSource } from "@/components/profile/photo-focus";
+import { CueGlyph } from "@/components/profile/scroll-cue";
 import type { ModeAppearance, ProfileMode } from "@/components/profile/types";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import { getPublicPlan, type BillingInterval, type PlanCode } from "@/lib/billing/catalog";
@@ -32,7 +33,7 @@ import { Pill, Sheet, modeMeta } from "./editor-ui";
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed";
+type ControlKey = "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed";
 type MoreKey = "qr" | "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
@@ -50,7 +51,7 @@ const CONTROLS: Record<AppearanceId, ControlKey[]> = {
   social: ["nameSize", "align", "accent", "sound"],
   film: ["nameSize", "align", "socials", "accent", "sound", "motion"],
 };
-const ALWAYS: ControlKey[] = ["username", "focus", "slideSpeed"];
+const ALWAYS: ControlKey[] = ["scrollCue", "username", "focus", "slideSpeed"];
 /** Name type leads every look's controls: it is the most visible personal choice after the look itself. */
 const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], ...ALWAYS];
 
@@ -296,6 +297,8 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
   switch (control) {
     case "nameFont":
       return <NameFontControl api={api} state={state} />;
+    case "scrollCue":
+      return <ScrollCueControl api={api} state={state} />;
     case "nameSize":
       return <Segment copy={copy} label={copy.nameSize} locked={previewLocked("portraitNameSize")} onPick={(value) => choose({ portraitNameSize: value === "standard" ? undefined : value })} options={NAME_SIZES.map((value) => ({ value, label: copy.sizes[value], plus: premium("portraitNameSize", value) }))} value={look.nameSize} />;
     case "namePosition":
@@ -366,6 +369,38 @@ function NameFontControl({ api, state }: { api: EditorApi; state: State }) {
               <span aria-hidden="true" className="block truncate text-[19px]" style={{ ...nameTypeStyle(type), lineHeight: 1.1 }}>{sample}</span>
               <span className="flex items-center justify-between gap-1 text-[11px] font-semibold opacity-80">
                 {NAME_FONT_NAMES[font]}
+                {plus && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[#FF5A4F]" />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </ControlRow>
+  );
+}
+
+/**
+ * Scroll cue: Auto wears the look's own, Off removes it, and Plus can pick any of the ten. Each
+ * tile draws the cue itself; the chosen one moves.
+ */
+function ScrollCueControl({ api, state }: { api: EditorApi; state: State }) {
+  const { copy, look, working } = state;
+  const choice = working.scrollCue ?? "auto";
+  const locked = state.previewing && !allowed(api.plan, "scrollCue", working.scrollCue);
+  return (
+    <ControlRow label={copy.scrollCue} note={locked && <span className="font-label text-[9px] uppercase tracking-[0.1em]" style={{ color: PLUS_TAG }}>{copy.plusPreviewing}</span>}>
+      <div aria-label={copy.scrollCue} className="grid grid-cols-4 gap-1.5" data-scroll-cue-picker role="radiogroup">
+        {SCROLL_CUE_CHOICES.map((value) => {
+          const on = choice === value;
+          const plus = !allowed(api.plan, "scrollCue", value);
+          const cue = value === "auto" ? APPEARANCE_CUES[look.id] : value === "off" ? null : value;
+          return (
+            <button aria-checked={on} aria-label={`${copy.scrollCues[value]}${plus ? ` · ${copy.plus}` : ""}`} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-between gap-1 rounded-[12px] px-1.5 pb-1.5 pt-2.5 transition-colors ${focusRing}`} data-scroll-cue-choice={value} key={value} onClick={() => api.chooseAppearance({ scrollCue: value === "auto" ? undefined : value })} role="radio" style={{ background: on ? "#0D0D0D" : "#0D0D0D0A", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
+              <span aria-hidden="true" className={`flex h-7 items-center justify-center ${cue === "swipe" || cue === "caption" || cue === "credits" ? "scale-[.8]" : ""}`}>
+                {cue ? <CueGlyph accent={look.accent} animated={on} cue={cue} text={copy.scrollCues[cue]} /> : <span className="block h-px w-4 bg-current opacity-50" />}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-semibold opacity-80">
+                {copy.scrollCues[value]}
                 {plus && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[#FF5A4F]" />}
               </span>
             </button>

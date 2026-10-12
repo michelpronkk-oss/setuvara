@@ -40,6 +40,7 @@ const messages = {
       hasSoundtrack: "This identity has a soundtrack", enterWithSound: "Enter with sound", continueMuted: "Continue muted",
       platforms: "{count} platforms", muteSoundtrack: "Sound on. Mute.", playSoundtrack: "Muted. Turn sound on.", tapToPlay: "Tap to play sound",
       photoOf: "Photo of {name}", moreImages: "More images",
+      scrollMore: "Scroll to see more", cueScroll: "Scroll", cueSwipe: "Swipe up", cueMore: "More below",
     },
     appearance: {
       title: "Appearance", pickYourLook: "Pick your look, {name}.", pickIntro: "One identity, ten ways to wear it. Equip a look per Mode; previews use your own photo.",
@@ -51,6 +52,8 @@ const messages = {
       previewOnlyYou: "Only you can see this preview. Your public profile still shows {current}.",
       backToCurrent: "Back to current", apply: "Apply", applyWithPlus: "Apply with Plus", done: "Done",
       viewers: { owner: "Owner", visitor: "Visitor", connected: "Connected" }, previewAs: "Preview as", livePreview: "Live preview",
+      scrollCue: "Scroll cue", scrollCueNote: "The sign at the bottom of your photo that there is more below.",
+      scrollCues: { auto: "Auto", off: "Off", glide: "Glide", rail: "Rail", orb: "Orb", mouse: "Mouse", beam: "Beam", cascade: "Cascade", caption: "Caption", cards: "Cards", swipe: "Swipe", credits: "Credits" },
       nameFont: "Name type", nameSize: "Name size", sizes: { compact: "Compact", standard: "Standard", large: "Large", statement: "Statement" },
       namePosition: "Name position", positions: { auto: "Auto · face-safe", top: "Top", bottom: "Bottom" },
       readability: "Readability", readabilities: { auto: "Auto", soft: "Soft", deep: "Deep" },
