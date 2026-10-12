@@ -36,20 +36,16 @@ function derive(profileId, modeId, nonceHex) {
 
 const hex = (value) => String(value).replace(/^\\x/, "");
 
-// The service role may only read profiles.id, so usernames resolve through the
-// public client (published identities) or, for drafts, the local database.
-async function profileId(username) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (key) {
-    const { data } = await createClient(url, key, { auth: { persistSession: false } }).from("profiles").select("id").eq("username", username).maybeSingle();
-    if (data?.id) return data.id;
-  }
+// Production's service role cannot read profiles or profile_modes, so the
+// helper looks the ids up straight in the local database, like the fixtures do.
+function modeIds(username, mode) {
   assert.match(username, /^[a-z0-9_]{3,24}$/);
-  const output = execFileSync(process.execPath, [resolve(process.cwd(), "node_modules/supabase/dist/supabase.js"), "db", "query", "--local", "--output-format", "json", `select id from public.profiles where username = '${username}'`], { encoding: "utf8" });
-  const id = JSON.parse(output.slice(output.indexOf("{"))).rows?.[0]?.id;
-  assert(id, `No local profile for ${username}`);
-  return id;
+  assert.match(mode, /^(event|business)$/);
+  const sql = `select profiles.id as profile_id, profile_modes.id as mode_id from public.profiles join public.profile_modes on profile_modes.profile_id = profiles.id where profiles.username = '${username}' and profile_modes.slug = '${mode}'`;
+  const output = execFileSync(process.execPath, [resolve(process.cwd(), "node_modules/supabase/dist/supabase.js"), "db", "query", "--local", "--output-format", "json", sql], { encoding: "utf8" });
+  const row = JSON.parse(output.slice(output.indexOf("{"))).rows?.[0];
+  assert(row?.profile_id && row?.mode_id, `No local ${mode} Mode for ${username}`);
+  return row;
 }
 
 /** Absolute public URL for one Mode, with an optional `source`. */
@@ -57,8 +53,9 @@ export async function publicModeUrl(username, mode, { source } = {}) {
   let path = `/${username}`;
   if (mode !== "personal") {
     const db = admin();
-    const profile = { id: await profileId(username) };
-    const { data: modeRow } = await db.from("profile_modes").select("id").eq("profile_id", profile.id).eq("slug", mode).single();
+    const ids = modeIds(username, mode);
+    const profile = { id: ids.profile_id };
+    const modeRow = { id: ids.mode_id };
     const read = () => db.from("mode_share_locators").select("nonce").eq("mode_id", modeRow.id).maybeSingle();
     let { data: locator } = await read();
     if (!locator) {

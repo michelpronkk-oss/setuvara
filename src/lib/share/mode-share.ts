@@ -77,14 +77,17 @@ function tokenFromRow(row: LocatorRow) {
 export async function getModeShareToken(profileId: string, mode: ModeSlug): Promise<string | null> {
   if (!uuid.safeParse(profileId).success) return null;
   try {
-    const admin = createBillingAdminClient();
-    const { data: modeRow, error: modeError } = await admin
+    // The Mode is read as the caller (owner, or a visitor of a published
+    // identity); the service role only touches the locator table.
+    const supabase = await createClient();
+    const { data: modeRow, error: modeError } = await supabase
       .from("profile_modes")
       .select("id")
       .eq("profile_id", profileId)
       .eq("slug", mode)
       .maybeSingle();
     if (modeError || !modeRow?.id) return null;
+    const admin = createBillingAdminClient();
 
     const select = () => admin
       .from("mode_share_locators")
