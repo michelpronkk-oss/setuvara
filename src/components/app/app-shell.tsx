@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { MeetMark } from "@/components/marketing/brand";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { DEFAULT_FOCUS, focusPosition, type PhotoFocus } from "@/components/profile/photo-focus";
 import { useI18n } from "@/lib/i18n/provider";
+import { FeedbackSheet } from "./feedback-sheet";
 import { StatusBadge } from "./status-badge";
 
 const navigation = [
@@ -88,6 +89,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
   const [open, setOpen] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menuId = useId();
@@ -114,6 +116,8 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
     document.addEventListener("focusin", onFocus);
     return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); document.removeEventListener("focusin", onFocus); };
   }, [open]);
+
+  const closeFeedback = useCallback(() => { setFeedbackOpen(false); trigger.current?.focus(); }, []);
 
   async function manageBilling() {
     setBillingBusy(true); setBillingError(false);
@@ -152,10 +156,12 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
           {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">{messages.common.viewProfile}<span aria-hidden="true" className="text-black/50">↗</span></a>}
           <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">{messages.common.modeSettings}</Link>
           <Link className={item} href="/app/settings/notifications" role="menuitem">{messages.common.emailPreferences}</Link>
+          <button className={item} onClick={() => { setOpen(false); setFeedbackOpen(true); }} role="menuitem" type="button">Send feedback</button>
           <div className="mx-2.5 my-1.5 h-px bg-black/[0.08]" />
           <form action={signOut}><button className={`${item} text-black/70`} role="menuitem" type="submit">{messages.common.signOut}</button></form>
         </div>
       )}
+      {feedbackOpen && <FeedbackSheet onClose={closeFeedback} />}
     </div>
   );
 }

@@ -14,6 +14,7 @@
     "test:appearance": "node --test tests/appearance/appearance.test.mjs",
     "test:appearance:db": "node --test tests/appearance/database.integration.mjs",
     "e2e:appearance": "node scripts/e2e-appearance.mjs",
+    "e2e:feedback": "node scripts/e2e-feedback.mjs",
     "test:analytics": "deno test --unstable-sloppy-imports tests/analytics/analytics.test.mjs tests/analytics/view.test.mjs",
     "test:connections": "node --test tests/connections/relationship.test.mjs",
     "test:mode-share": "node --test tests/share/mode-share.test.mjs",
