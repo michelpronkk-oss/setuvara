@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
+import type { MediaLayout } from "@/components/profile/appearance";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type MusicMedia, type VideoMedia } from "@/lib/blocks/media";
 import { mediaFocus } from "@/lib/soundtrack/focus";
 import { createSoundCloudPlayer, createSpotifyPlayer, spotifyUri, watchYouTubeIframe, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
@@ -13,7 +14,7 @@ export type BlockTone = { bg: string; ink: string; sub: string; chip: string; li
 const str = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /** Renders a Mode's content blocks inside any profile layout. */
-export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7", gallery = false }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string; /** Appearance continuation: a run of images becomes one featured image plus a carousel. Order is kept. */ gallery?: boolean }) {
+export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7", gallery = false, mediaLayout = "featured" }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string; /** Appearance continuation: a run of images shows in the chosen picture layout. Order is kept. */ gallery?: boolean; mediaLayout?: MediaLayout }) {
   const visible = (blocks ?? []).filter((block) => block.is_visible && !block.is_soundtrack);
   if (!visible.length) return null;
   if (gallery) {
@@ -26,7 +27,7 @@ export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt
     return (
       <div className={`grid gap-3.5 text-left ${className}`}>
         {runs.map((run) => run[0].kind === "image"
-          ? <ImageRun blocks={run} key={run[0].id} tone={tone} />
+          ? <ImageRun blocks={run} key={run[0].id} layout={mediaLayout} tone={tone} />
           : <Block accent={accent} accentInk={accentInk} block={run[0]} compact key={run[0].id} tone={tone} />)}
       </div>
     );
@@ -41,40 +42,68 @@ export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt
 /** The frame every Appearance picture sits in: soft edge, a hairline and a long, quiet shadow. */
 const mediaFrame = (tone: BlockTone) => ({ background: tone.dark ? "#0D0D0D" : "#E9E6E0", boxShadow: `inset 0 0 0 1px ${tone.line}, 0 28px 56px -36px ${tone.dark ? "#000000CC" : "#0D0D0D59"}` });
 
+type RunImage = { id: string; url: string; alt: string; caption: string };
+
 /**
- * Consecutive images: the first is featured, the rest scroll as a carousel, in their saved order.
- * The featured picture keeps a calm 4:3 (16:10 wide) frame and is shown whole: whatever the frame
- * does not cover is filled by a soft blur of the same picture, so nothing is cropped or oversized.
+ * Consecutive images in the owner's picture layout, in their saved order:
+ * featured (the first large, the rest in a swipe row), stack (each full width), grid (two
+ * columns; an odd first picture leads full width) or carousel (all in one swipe row).
+ * A single picture always shows as it is.
  */
-function ImageRun({ blocks, tone }: { blocks: ProfileBlock[]; tone: BlockTone }) {
+function ImageRun({ blocks, tone, layout }: { blocks: ProfileBlock[]; tone: BlockTone; layout: MediaLayout }) {
   const [failed, setFailed] = useState<string[]>([]);
-  const images = blocks.map((block) => ({ id: block.id, url: str(block.data.image_url), alt: str(block.data.alt), caption: str(block.data.caption) })).filter((image) => image.url && !failed.includes(image.url));
+  const images: RunImage[] = blocks.map((block) => ({ id: block.id, url: str(block.data.image_url), alt: str(block.data.alt), caption: str(block.data.caption) })).filter((image) => image.url && !failed.includes(image.url));
   if (!images.length) return null;
-  const [first, ...rest] = images;
   const fail = (url: string) => setFailed((current) => [...current, url]);
-  return (
-    <>
-      <figure className="flex flex-col gap-2.5">
-        <FeaturedImage alt={first.alt} onError={() => fail(first.url)} tone={tone} url={first.url} />
-        {first.caption && <figcaption className="px-1 text-[13px] leading-5" style={{ color: tone.sub }}>{first.caption}</figcaption>}
-      </figure>
-      {rest.length > 0 && (
-        <ul aria-label="More images" className="-mr-4 flex snap-x gap-2.5 overflow-x-auto pb-1 pr-4 [scrollbar-width:none]" data-media-carousel>
-          {rest.map((image) => (
-            <li className="relative h-[156px] w-[124px] shrink-0 snap-start overflow-hidden rounded-[16px]" key={image.id} style={mediaFrame(tone)}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-              <img alt={image.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={() => fail(image.url)} src={image.url} />
-              {image.caption && (
-                <>
-                  <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_55%,#0D0D0DB3_100%)]" />
-                  <span className="absolute inset-x-2.5 bottom-2.5 line-clamp-2 text-[12px] font-semibold text-[#F5F4EF]">{image.caption}</span>
-                </>
-              )}
-            </li>
-          ))}
+  const whole = (image: RunImage) => (
+    <figure className="flex flex-col gap-2.5" key={image.id}>
+      <FeaturedImage alt={image.alt} onError={() => fail(image.url)} tone={tone} url={image.url} />
+      {image.caption && <figcaption className="px-1 text-[13px] leading-5" style={{ color: tone.sub }}>{image.caption}</figcaption>}
+    </figure>
+  );
+  if (images.length === 1 || layout === "stack") return <div className="flex min-w-0 flex-col gap-3.5" data-media-layout={images.length === 1 ? "single" : "stack"}>{images.map(whole)}</div>;
+  if (layout === "grid") {
+    const lead = images.length % 2 ? images[0] : null;
+    return (
+      <div className="flex min-w-0 flex-col gap-2.5" data-media-layout="grid">
+        {lead && whole(lead)}
+        <ul className="grid grid-cols-2 gap-2.5">
+          {images.slice(lead ? 1 : 0).map((image) => <Tile className="aspect-[4/5] rounded-[18px]" image={image} key={image.id} onError={() => fail(image.url)} tone={tone} />)}
         </ul>
+      </div>
+    );
+  }
+  if (layout === "carousel") {
+    return (
+      <ul aria-label="Pictures" className="-mx-4 flex min-w-0 snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] @min-[700px]/profile:-mx-8 @min-[700px]/profile:px-8" data-media-carousel data-media-layout="carousel">
+        {images.map((image) => <Tile className="aspect-[4/5] w-[min(78%,340px)] snap-center rounded-[20px]" image={image} key={image.id} onError={() => fail(image.url)} tone={tone} />)}
+      </ul>
+    );
+  }
+  const [first, ...rest] = images;
+  return (
+    <div className="flex min-w-0 flex-col gap-3.5" data-media-layout="featured">
+      {whole(first)}
+      <ul aria-label="More images" className="-mr-4 flex snap-x gap-2.5 overflow-x-auto pb-1 pr-4 [scrollbar-width:none]" data-media-carousel>
+        {rest.map((image) => <Tile className="h-[156px] w-[124px] snap-start rounded-[16px]" image={image} key={image.id} onError={() => fail(image.url)} tone={tone} />)}
+      </ul>
+    </div>
+  );
+}
+
+/** A cropped picture tile for rows and grids; a caption sits on a soft shade at its foot. */
+function Tile({ image, tone, className, onError }: { image: RunImage; tone: BlockTone; className: string; onError: () => void }) {
+  return (
+    <li className={`relative shrink-0 overflow-hidden ${className}`} data-media-tile style={mediaFrame(tone)}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
+      <img alt={image.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={onError} src={image.url} />
+      {image.caption && (
+        <>
+          <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_55%,#0D0D0DB3_100%)]" />
+          <span className="absolute inset-x-2.5 bottom-2.5 line-clamp-2 text-[12px] font-semibold text-[#F5F4EF]">{image.caption}</span>
+        </>
       )}
-    </>
+    </li>
   );
 }
 

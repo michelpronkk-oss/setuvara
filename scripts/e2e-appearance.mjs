@@ -19,6 +19,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321";
@@ -159,12 +160,15 @@ try {
     const [row] = await admin(`/rest/v1/profile_modes?profile_id=eq.${mla.id}&slug=eq.personal&select=id`);
     const photo = await upload(mla.id, await portrait(browser, 50, 34, ["#3a2a20", "#b97a5a", "#120d0b"]));
     const poster = await upload(mla.id, await scene(browser, ["#0b1a3a", "#1e90ff"], "Production"));
+    const gallery = [];
+    for (const [colours, label] of [[["#3d1f8c", "#ff5a4f"], "Sunset"], [["#14213d", "#fca311"], "Studio"], [["#1d3557", "#a8dadc"], "Harbour"]]) gallery.push(await upload(mla.id, await scene(browser, colours, label)));
     await admin(`/rest/v1/profile_modes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ is_enabled: true, image_path: photo, image_focus_x: 50, image_focus_y: 34, appearance: { theme: "immersive", accent: "#FF5A4F" }, settings: { location: "Amsterdam" } }) });
     for (const [index, [type, title, url]] of [["instagram", "Instagram", "https://instagram.com/mla"], ["tiktok", "TikTok", "https://www.tiktok.com/@milentonio"]].entries()) {
       await admin("/rest/v1/profile_links", { method: "POST", body: JSON.stringify({ profile_id: mla.id, mode_id: row.id, link_type: type, title, url, is_visible: true, sort_order: index }) });
     }
     const blocks = [
       { kind: "image", data: { image_path: poster, alt: "Verify what's live in production", caption: "" } },
+      ...gallery.map((path, index) => ({ kind: "image", data: { image_path: path, alt: `Gallery ${index + 1}`, caption: index === 1 ? "Studio day" : "" } })),
       { kind: "feature", data: { url: "https://auterim.com", title: "Auterim", description: "Verify what's live in production.", image: null, image_path: poster, siteName: "auterim.com", cta: "Visit" } },
       { kind: "video", data: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Launch film", caption: "" } },
     ];
@@ -252,6 +256,61 @@ try {
         await context.close();
       }
     }
+    // Picture layout: the owner's choice decides how the run of four pictures sits.
+    for (const [layout, check] of [["featured", "[data-featured-media]"], ["stack", "[data-featured-media]"], ["grid", "[data-media-tile]"], ["carousel", "[data-media-tile]"]]) {
+      await setAppearance(mla, "personal", { theme: "immersive", ...(layout === "featured" ? {} : { mediaLayout: layout }) });
+      for (const [width, height] of [[390, 844], [1440, 900]]) {
+        const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+        const page = await context.newPage();
+        await page.goto(`${appUrl}/${mla.username}`);
+        const run = page.locator(`[data-media-layout="${layout}"]`);
+        await run.waitFor();
+        await page.waitForLoadState("networkidle");
+        const expected = { featured: 1, stack: 4, grid: 4, carousel: 4 }[layout];
+        assert.equal(await run.locator(check).count(), expected, `${layout} @${width}: ${expected} × ${check}`);
+        const box = await run.boundingBox();
+        assert(box.x + box.width <= Math.min(width, 1440) - (layout === "carousel" || width >= 900 ? 0 : 15), `${layout} @${width}: stays inside the page (${box.x}+${box.width})`);
+        // Lazy pictures still off to the side of a swipe row load once they come into view.
+        const loaded = await run.locator("img").evaluateAll((images) => images.filter((image) => image.complete && image.naturalWidth > 0).length);
+        assert(layout === "carousel" ? loaded >= 2 : loaded === 4, `${layout} @${width}: pictures load (${loaded})`);
+        await run.evaluate((node) => window.scrollTo(0, node.getBoundingClientRect().top + window.scrollY - 24));
+        await page.waitForTimeout(250);
+        await shot(page, `layout-${layout}-${width}`);
+        await context.close();
+      }
+    }
+    await setAppearance(mla, "personal", { theme: "immersive" });
+
+    // The hero's fade meets the page without a hairline, on a 3x phone screen too.
+    await setAppearance(mla, "personal", { theme: "immersive", identityAlign: "center" });
+    // Phones report fractional viewport heights (Safari's svh), so the hero ends mid-pixel.
+    for (const [width, height, scale, hero] of [[393, 852, 3, "739.67px"], [390, 844, 2, "663.5px"], [412, 915, 2.625, "801.33px"]]) {
+      const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      await page.goto(`${appUrl}/${mla.username}`);
+      await page.locator('article[data-appearance="immersive"]').waitFor();
+      await page.addStyleTag({ content: `article[data-appearance]{--sv-h:${hero} !important}` });
+      await page.waitForLoadState("networkidle");
+      const bottom = await page.evaluate(() => {
+        const hero = document.querySelector("[data-profile-hero-mobile]").getBoundingClientRect();
+        window.scrollTo(0, window.scrollY + hero.bottom - 400);
+        return document.querySelector("[data-profile-hero-mobile]").getBoundingClientRect().bottom;
+      });
+      await page.waitForTimeout(250);
+      const png = await page.screenshot({ clip: { x: 0, y: bottom - 16, width, height: 20 } });
+      const { data, info } = await sharp(png).greyscale().raw().toBuffer({ resolveWithObject: true });
+      const rows = Array.from({ length: info.height }, (_, row) => {
+        let sum = 0;
+        for (let x = Math.round(info.width * 0.05); x < Math.round(info.width * 0.95); x += 1) sum += data[row * info.width + x];
+        return sum / Math.round(info.width * 0.9);
+      });
+      const spikes = rows.map((value, row) => row > 0 && row < rows.length - 1 ? Math.min(Math.abs(value - rows[row - 1]), Math.abs(value - rows[row + 1])) : 0);
+      const worst = Math.max(...spikes);
+      if (shots) await page.screenshot({ path: `${shots}/seam-${width}@${scale}.png`, clip: { x: 0, y: bottom - 60, width, height: 120 } });
+      assert(worst < 3, `seam @${width}x${scale}: no hairline where the hero meets the page (spike ${worst.toFixed(2)} at row ${spikes.indexOf(worst)})`);
+      await context.close();
+    }
+
     // Zoom out: on Immersive the whole photo shows from the top and dissolves into the page.
     for (const portraitZoom of [100, 85, 70]) {
       await setAppearance(mla, "personal", { theme: "immersive", portraitZoom });
@@ -338,6 +397,29 @@ try {
       assert.equal(after.slide_photos.length, 1, "added back");
       assert.match(after.slide_photos[0].path, new RegExp(`^${mla.id}/[0-9a-f-]{36}\\.webp$`));
       await shot(page, "slides-editor-added");
+      // Content: Picture layout saves on the Mode.
+      await page.goto(`${appUrl}/app/identity?mode=personal&section=links`);
+      const picker = page.locator("[data-picture-layout]:visible").first();
+      await picker.waitFor();
+      await picker.locator('[data-layout="grid"]').click();
+      for (let tries = 0; tries < 40; tries += 1) {
+        const [saved] = await admin(`/rest/v1/profile_modes?id=eq.${row.id}&select=appearance`);
+        if (saved.appearance.mediaLayout === "grid") break;
+        await new Promise((done) => setTimeout(done, 250));
+      }
+      const [withLayout] = await admin(`/rest/v1/profile_modes?id=eq.${row.id}&select=appearance`);
+      assert.equal(withLayout.appearance.mediaLayout, "grid", "picture layout saved");
+      await picker.scrollIntoViewIfNeeded();
+      await shot(page, "editor-picture-layout");
+      await page.goto(`${appUrl}/app/identity?mode=personal&section=appearance`);
+      const panel = page.locator("[data-personalize-panel]:visible").first();
+      await panel.waitFor();
+      await page.waitForLoadState("networkidle");
+      await panel.evaluate((node) => node.scrollIntoView({ block: "start" }));
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(300);
+      await shot(page, "editor-appearance-compact");
+      if (shots) await panel.screenshot({ path: `${shots}/editor-personalize-panel.png` });
       await context.close();
     }
 

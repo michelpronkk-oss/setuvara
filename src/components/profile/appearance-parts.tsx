@@ -40,15 +40,6 @@ export function useFrame(ref: RefObject<HTMLElement | null>) {
 
 const blur = { backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } as const;
 
-/** "Personal" with the accent dot: who you are here. */
-export function ModeIndicator({ label, theme, accent, className = "", style }: { label: string; theme: AppearanceTheme; accent: string; className?: string; style?: CSSProperties }) {
-  return (
-    <p className={`flex h-8 items-center gap-[7px] self-start rounded-full px-3 text-[12.5px] font-semibold ${className}`} data-mode-indicator style={{ background: theme.pill.bg, color: theme.pill.fg, ...blur, ...style }}>
-      <span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: accent }} />{label}
-    </p>
-  );
-}
-
 /**
  * Temporary Live Context ("Live · Founders Night · until 23:00"). Times are the visitor's own
  * clock, shown after hydration; the pill disappears the moment the context expires.

@@ -19,7 +19,7 @@ import { modeFocus, type PhotoFocus } from "./photo-focus";
 import { extraSlideLimit, resolveAppearance, SLIDE_SECONDS, type ResolvedAppearance } from "./appearance";
 import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
 import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe, zoomOutFrame } from "./face-safe";
-import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, ModeIndicator, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
+import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
 
 export { BOOKING_PROVIDERS } from "./appearance-theme";
@@ -161,7 +161,8 @@ function Profile(props: ProfileProps) {
     socials: heroSocials(mode.slug, links),
     secondary: owner || Boolean(booking),
     actions: <Actions {...props} booking={booking} connected={connected} copy={copy} owner={owner} theme={theme} />,
-    soundTitle: copy.soundtrackOf.replace("{mode}", MODE_NAMES[mode.slug]),
+    // Mode stays internal: the public page never names it.
+    soundTitle: copy.soundtrack,
   };
   const connect = theme.connect;
   const connectVars = {
@@ -307,7 +308,6 @@ function AppearanceHero({ scene }: { scene: Scene }) {
       {look.id === "social" && <SocialHero scene={scene} />}
       {look.id === "film" && <FilmHero scene={scene} />}
       <HeroFoot scene={scene} />
-      <ModeIndicator accent={look.accent} className="absolute left-4 top-[18px] z-[4]" label={MODE_NAMES[look.slug]} theme={scene.theme} />
     </div>
   );
 }
@@ -657,7 +657,6 @@ function WideHero({ scene }: { scene: Scene }) {
         </div>
       )}
       <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
-        <ModeIndicator accent={look.accent} label={MODE_NAMES[look.slug]} style={centered ? { alignSelf: "center" } : undefined} theme={theme} />
         <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
         <h1 className={`max-w-full break-words leading-[0.92] [overflow-wrap:anywhere] [text-wrap:balance] ${theme.identity.serif ? "font-serif-display italic tracking-[-0.01em]" : "font-display tracking-[-0.045em]"}`} data-name style={{ fontSize: nameSize, fontWeight: theme.identity.weight, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
         {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
@@ -853,6 +852,8 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
   const hasBlocks = Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
   return (
     <div className="relative z-[3]" data-appearance-page style={{ background: theme.base }}>
+    {/* Phones end the hero mid-pixel; the page reaches up under the fade so no hairline of the photo shows. */}
+    {theme.atmosphere.on && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[3px] h-[3px]" data-hero-seam style={{ background: theme.base }} />}
     <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10" data-appearance-content>
       {paragraphs.length > 0 && (
         <section aria-label={copy.about} className="mb-2 flex flex-col gap-3" data-profile-about>
@@ -863,7 +864,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
       )}
       <EarnedMark copy={copy} rewards={rewards} theme={theme} />
       {mode.slug === "event" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} theme={theme} />}
-      <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="" gallery tone={blockTone} />
+      <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="" gallery mediaLayout={look.mediaLayout} tone={blockTone} />
       {/* Under name: the rows skip what the name shows. In links and Both: every row stays. */}
       <Links copy={copy} links={look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links} scene={scene} />
       {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
