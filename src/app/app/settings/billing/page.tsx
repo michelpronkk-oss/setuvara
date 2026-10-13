@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { readDodoConfiguration } from "@/lib/billing/config";
 import { readPlanIntent } from "@/lib/billing/intent";
-import { getScheduledPlanChange, getUserBillingState } from "@/lib/billing/service";
+import { getProviderPlanState, getUserBillingState } from "@/lib/billing/service";
 import type { BillingSnapshot } from "@/lib/billing/state";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,7 +27,7 @@ export default async function BillingSettingsPage({ searchParams }: BillingPageP
   } catch {
     billing = null;
   }
-  const scheduled = billing && billing.plan !== "free" ? await getScheduledPlanChange(userId) : null;
+  const provider = billing && billing.plan !== "free" ? await getProviderPlanState(userId) : null;
 
   return (
     <BillingPanel
@@ -35,7 +35,8 @@ export default async function BillingSettingsPage({ searchParams }: BillingPageP
       checkoutConfigured={readDodoConfiguration() !== null}
       intent={readPlanIntent(query.start, query.interval, billing?.interval ?? "yearly")}
       notice={query.billing === "return" ? "return" : query.billing === "cancelled" ? "cancelled" : null}
-      scheduled={scheduled}
+      granted={provider?.linked === false}
+      scheduled={provider?.linked ? provider.scheduled : null}
     />
   );
 }

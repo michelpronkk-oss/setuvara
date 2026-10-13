@@ -1,3 +1,5 @@
+import { APIError } from "dodopayments";
+
 import { getConfirmedBillingUser } from "@/lib/billing/auth";
 import { createBillingAdminClient } from "@/lib/billing/admin";
 import { getDodoApiClient } from "@/lib/billing/provider";
@@ -20,7 +22,9 @@ export async function POST(request: Request) {
     });
     const portalUrl = safeProviderUrl(portal.link, "portal");
     return portalUrl ? json({ portalUrl }) : json({ error: "billing_unavailable" }, 503);
-  } catch {
+  } catch (error) {
+    // A customer id that Dodo doesn't know (a plan granted by hand) has no portal to open.
+    if (error instanceof APIError && error.status === 404) return json({ error: "billing_customer_unavailable" }, 404);
     return json({ error: "billing_unavailable" }, 503);
   }
 }

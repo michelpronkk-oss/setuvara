@@ -25,8 +25,9 @@ function longDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-function planLine(billing: BillingSnapshot) {
+function planLine(billing: BillingSnapshot, granted: boolean) {
   if (billing.plan === "free") return "Every Mode, sharing, Connections and Passport. Free for good.";
+  if (granted) return "Granted to you, with no payment attached. Nothing renews or bills.";
   const end = longDate(billing.currentPeriodEnd);
   const cadence = billing.interval ? `${INTERVAL[billing.interval]} · ` : "";
   if (billing.status === "past_due") return `${cadence}Your last payment didn’t go through. Update your payment method to keep ${SHORT[billing.plan]}.`;
@@ -36,8 +37,10 @@ function planLine(billing: BillingSnapshot) {
 
 type Pending = { plan: Paid; interval: BillingInterval; preview: PlanChangePreview } | null;
 
-export function BillingPanel({ billing, scheduled, intent, notice, checkoutConfigured }: {
+export function BillingPanel({ billing, granted, scheduled, intent, notice, checkoutConfigured }: {
   billing: BillingSnapshot | null;
+  /** The plan comes from a row with no subscription at Dodo (granted by hand). */
+  granted: boolean;
   scheduled: ScheduledPlanChange | null;
   intent: PlanIntent | null;
   notice: "return" | "cancelled" | null;
@@ -76,6 +79,7 @@ export function BillingPanel({ billing, scheduled, intent, notice, checkoutConfi
   const paid = current.plan !== "free";
   const ending = paid && current.cancelAtPeriodEnd;
   const pastDue = current.status === "past_due";
+  const canManage = current.canManageBilling && !granted;
 
   async function run<T>(key: string, action: () => Promise<{ ok: true; value: T } | { ok: false; message: string }>, onValue: (value: T) => void) {
     if (busy) return;
@@ -131,21 +135,21 @@ export function BillingPanel({ billing, scheduled, intent, notice, checkoutConfi
           {PLAN_NAME[current.plan]}
           {paid && <MemberBadge decorative size={24} tier={current.plan as Paid} />}
         </h2>
-        <p className={`mt-3 max-w-xl text-[15px] leading-6 ${current.plan === "pro" ? "text-[#f5f4ef]/75" : "text-black/65"} ${pastDue ? "font-semibold text-[#a43d36]" : ""}`}>{planLine(current)}</p>
+        <p className={`mt-3 max-w-xl text-[15px] leading-6 ${current.plan === "pro" ? "text-[#f5f4ef]/75" : "text-black/65"} ${pastDue ? "font-semibold text-[#a43d36]" : ""}`}>{planLine(current, granted)}</p>
         {scheduled && !done && (
           <p className={`mt-2 text-sm ${current.plan === "pro" ? "text-[#f5f4ef]/70" : "text-black/60"}`}>
             Switching to {SHORT[scheduled.plan]}, {INTERVAL[scheduled.interval].toLowerCase()}, on {longDate(scheduled.effectiveAt) ?? "your next renewal"}.
           </p>
         )}
         <div className="mt-6 flex flex-wrap items-center gap-2.5">
-          {current.canManageBilling && (
+          {canManage && (
             <button className={`inline-flex min-h-11 items-center rounded-full px-5 text-sm font-semibold transition-colors disabled:opacity-60 ${current.plan === "pro" ? "bg-[#d6b25e] text-[#0d0d0d] hover:bg-[#e8d28a]" : "bg-[#0d0d0d] text-[#f5f4ef] hover:bg-[#262626]"}`} disabled={busy !== null} onClick={manage} type="button">
               {busy === "portal" || busy === "redirect" ? "Opening…" : pastDue ? "Update payment method" : ending ? "Resume or manage" : "Manage billing"}
             </button>
           )}
           <Link className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold underline-offset-4 hover:underline ${current.plan === "pro" ? "text-[#f5f4ef]/80" : "text-black/70"}`} href="/pricing">Compare plans</Link>
         </div>
-        {current.canManageBilling && <p className={`mt-3 text-xs ${current.plan === "pro" ? "text-[#f5f4ef]/55" : "text-black/50"}`}>Manage billing opens our payment provider for your card, invoices and cancellation.</p>}
+        {canManage && <p className={`mt-3 text-xs ${current.plan === "pro" ? "text-[#f5f4ef]/55" : "text-black/50"}`}>Manage billing opens our payment provider for your card, invoices and cancellation.</p>}
       </section>
 
       {done && <p className="mt-5 rounded-2xl bg-[#C7FF4A] px-4 py-3 text-sm font-medium text-[#0d0d0d]" role="status">{done}</p>}
@@ -195,7 +199,7 @@ export function BillingPanel({ billing, scheduled, intent, notice, checkoutConfi
                 {plan === "pro" && <p className="mt-3 text-xs leading-5 text-[#f5f4ef]/55">Coming to Pro: {COMING_TO_PRO.join(", ").toLowerCase()}.</p>}
                 <button
                   className={`mt-5 inline-flex min-h-12 items-center justify-center rounded-full px-5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${dark ? "bg-[#d6b25e] text-[#0d0d0d] hover:bg-[#e8d28a]" : "bg-[#ff5a4f] text-[#0d0d0d] hover:bg-[#ff7168]"}`}
-                  disabled={isCurrent || busy !== null || !checkoutConfigured || (paid && (ending || pastDue))}
+                  disabled={isCurrent || busy !== null || !checkoutConfigured || (paid && (ending || pastDue || granted))}
                   onClick={() => choose(plan)}
                   type="button"
                 >
@@ -205,7 +209,7 @@ export function BillingPanel({ billing, scheduled, intent, notice, checkoutConfi
             );
           })}
         </div>
-        {paid && (ending || pastDue) && <p className="mt-3 text-sm text-black/60">{ending ? "Resume your plan in Manage billing to change it." : "Fix the payment in Manage billing to change plans."}</p>}
+        {paid && (granted || ending || pastDue) && <p className="mt-3 text-sm text-black/60">{granted ? "Your plan was granted without a payment, so it can’t be changed here. Plan changes work on plans bought through checkout." : ending ? "Resume your plan in Manage billing to change it." : "Fix the payment in Manage billing to change plans."}</p>}
 
         {pending && (
           <div aria-labelledby="confirm-change" className="mt-5 rounded-[22px] bg-[#0d0d0d] p-5 text-[#f5f4ef] outline-none sm:p-6" ref={confirmRef} role="region" tabIndex={-1}>
