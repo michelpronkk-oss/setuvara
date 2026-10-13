@@ -1,11 +1,11 @@
-import { Faq, FinalCta, Levels } from "@/components/marketing/pricing/closing";
+import { Faq, FinalCta } from "@/components/marketing/pricing/closing";
 import { Compare } from "@/components/marketing/pricing/compare";
 import { HeroPlans } from "@/components/marketing/pricing/hero-plans";
 import { Insights } from "@/components/marketing/pricing/insights";
+import { ConnectChoice, Looks } from "@/components/marketing/pricing/looks";
 import { PlusShowcase } from "@/components/marketing/pricing/plus-showcase";
 import { PricingProvider, type PricingViewer } from "@/components/marketing/pricing/pricing-context";
 import { ProShowcase } from "@/components/marketing/pricing/pro-showcase";
-import { SameYou } from "@/components/marketing/pricing/same-you";
 import { Tap } from "@/components/marketing/pricing/tap";
 import { getUserBillingState } from "@/lib/billing/service";
 import { marketingMetadata } from "@/lib/marketing/metadata";
@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata = marketingMetadata({
   title: "Pricing | Setuvara",
-  description: "Free to start, for good: every Mode, sharing, Connections and Passport. Plus adds premium status, looks and insights. Pro adds deeper analytics.",
+  description: "Free is complete, for good. Plus adds the badge, all ten Appearances and insights. Pro adds the full picture.",
   path: "/pricing",
 });
 
@@ -34,13 +34,13 @@ export default async function PricingPage() {
   return (
     <PricingProvider viewer={await readViewer()}>
       <HeroPlans />
-      <SameYou />
+      <Looks />
+      <ConnectChoice />
       <PlusShowcase />
       <Insights />
       <ProShowcase />
       <Tap />
       <Compare />
-      <Levels />
       <Faq />
       <FinalCta />
     </PricingProvider>

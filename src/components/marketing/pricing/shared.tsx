@@ -6,7 +6,7 @@ import { CharacterAvatar, type CharacterTraits } from "@/components/avatar/chara
 /** Pricing page building blocks. Colours follow the Signal Coral / champagne system. */
 
 export const SECTION = "mx-auto flex w-full max-w-[1440px] flex-col px-5 sm:px-8 lg:px-14";
-export const SECTION_PAD = "py-[clamp(72px,9vw,140px)]";
+export const SECTION_PAD = "py-[clamp(64px,8vw,120px)]";
 
 export function Mono({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <span className={`font-label text-[11px] uppercase tracking-[0.14em] ${className}`}>{children}</span>;
@@ -21,11 +21,12 @@ export function SoonPill({ dark = false, children = "Coming soon" }: { dark?: bo
 }
 
 export function H2({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
-  return <h2 className={`m-0 font-display text-[clamp(44px,5.6vw,88px)] font-extrabold leading-[0.92] tracking-[-0.05em] ${className}`} id={id}>{children}</h2>;
+  return <h2 className={`m-0 font-display text-[clamp(36px,4.4vw,68px)] font-extrabold leading-[0.94] tracking-[-0.05em] ${className}`} id={id}>{children}</h2>;
 }
 
 export function Lede({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`m-0 max-w-[520px] text-[clamp(17px,1.4vw,20px)] leading-[1.5] [text-wrap:pretty] ${className}`}>{children}</p>;
+  const tone = /\btext-(paper|ink)\//.test(className) ? "" : "text-ink/70 ";
+  return <p className={`m-0 max-w-[440px] text-[clamp(15px,1.15vw,17px)] leading-[1.5] ${tone}[text-wrap:pretty] ${className}`}>{children}</p>;
 }
 
 /** Two-column section head: heading left, lede right, bottom aligned. */
