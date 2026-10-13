@@ -1,5 +1,7 @@
 import "server-only";
 
+import { APIError } from "dodopayments";
+
 import type { CapabilityKey } from "./capabilities";
 import { createBillingAdminClient } from "./admin";
 import { createBillingPublicClient } from "./public-client";
@@ -26,10 +28,14 @@ export async function getUserBillingState(userId: string): Promise<BillingSnapsh
 export type ScheduledPlanChange = { plan: "plus" | "pro"; interval: BillingInterval; effectiveAt: string };
 
 /**
- * A downgrade waiting for the next renewal lives only at Dodo until it applies, so Billing
- * asks for it directly. Best effort: any failure just hides the line.
+ * What the payment provider knows about the plan that grants access. `linked: false` means the
+ * row has no subscription at Dodo (a plan granted by hand in the database), so there is nothing
+ * to change, renew or cancel there. A downgrade waiting for the next renewal lives only at Dodo
+ * until it applies, so it is read here too. Best effort: any other failure returns null.
  */
-export async function getScheduledPlanChange(userId: string): Promise<ScheduledPlanChange | null> {
+export type ProviderPlanState = { linked: true; scheduled: ScheduledPlanChange | null } | { linked: false };
+
+export async function getProviderPlanState(userId: string): Promise<ProviderPlanState | null> {
   const config = readDodoConfiguration();
   if (!config) return null;
   try {
@@ -40,13 +46,29 @@ export async function getScheduledPlanChange(userId: string): Promise<ScheduledP
     if (error) return null;
     const current = selectEffectiveSubscription((data ?? []) as (ProviderSubscriptionRecord & { dodo_subscription_id: string })[]);
     if (!current) return null;
-    const live = await getDodoApiClient().subscriptions.retrieve(current.dodo_subscription_id);
+    const live = await retrieveProviderSubscription(current.dodo_subscription_id);
+    if (!live) return { linked: false };
     const scheduled = live.scheduled_change;
     const target = scheduled ? mapConfiguredProduct(scheduled.product_id, config.products) : null;
-    return scheduled && target ? { ...target, effectiveAt: scheduled.effective_at } : null;
+    return { linked: true, scheduled: scheduled && target ? { ...target, effectiveAt: scheduled.effective_at } : null };
   } catch {
     return null;
   }
+}
+
+/** The subscription at Dodo, or null when Dodo has no such subscription. Other errors throw. */
+export async function retrieveProviderSubscription(subscriptionId: string) {
+  try {
+    return await getDodoApiClient().subscriptions.retrieve(subscriptionId);
+  } catch (error) {
+    if (isUnknownSubscriptionError(error)) return null;
+    throw error;
+  }
+}
+
+/** A retrieve by id fails with 404 (or a 400/422 validation error) only when the id is unknown. */
+export function isUnknownSubscriptionError(error: unknown) {
+  return error instanceof APIError && (error.status === 404 || error.status === 400 || error.status === 422);
 }
 
 export async function getUserEntitlements(userId: string, knownState?: BillingSnapshot) {

@@ -8,6 +8,7 @@ import { json, readJson } from "@/lib/billing/http";
 import { classifyPlanChange } from "@/lib/billing/plan-change";
 import { getDodoApiClient } from "@/lib/billing/provider";
 import { productMatchesSetuvaraPrice } from "@/lib/billing/products";
+import { retrieveProviderSubscription } from "@/lib/billing/service";
 import { selectEffectiveSubscription, type ProviderSubscriptionRecord } from "@/lib/billing/state";
 
 const requestSchema = z.object({
@@ -61,16 +62,17 @@ export async function POST(request: Request) {
     const kind = classifyPlanChange({ plan: current.plan_code, interval: current.billing_interval }, { plan, interval });
     if (kind === "same") return json({ error: "already_on_plan" }, 409);
 
+    // A plan granted by hand in the database has no subscription at Dodo to change.
+    const live = await retrieveProviderSubscription(current.dodo_subscription_id);
+    if (!live) return json({ error: "subscription_not_linked" }, 409);
+
     const { data: customer, error: customerError } = await admin.from("billing_customers")
       .select("dodo_customer_id").eq("user_id", user.id).maybeSingle();
     if (customerError) throw customerError;
     if (!customer || customer.dodo_customer_id !== current.dodo_customer_id) return json({ error: "billing_unavailable" }, 503);
 
     const client = getDodoApiClient();
-    const [product, live] = await Promise.all([
-      client.products.retrieve(productId),
-      client.subscriptions.retrieve(current.dodo_subscription_id),
-    ]);
+    const product = await client.products.retrieve(productId);
     if (product.product_id !== productId || !productMatchesSetuvaraPrice(product, plan, interval)) {
       return json({ error: "billing_product_misconfigured" }, 503);
     }

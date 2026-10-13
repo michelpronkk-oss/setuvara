@@ -24,6 +24,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
   subscription_not_active: "Your subscription needs attention first. Open Manage billing to fix the payment.",
   already_on_plan: "That is already your plan.",
   no_active_subscription: "There is no paid plan to change. Choose a plan to start one.",
+  subscription_not_linked: "This plan was granted without a payment, so there is nothing to change. Plan changes work on plans bought through checkout.",
   billing_customer_unavailable: "There is no billing account yet. Choose a plan to start one.",
 };
 
