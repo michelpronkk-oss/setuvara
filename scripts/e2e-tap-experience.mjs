@@ -65,6 +65,8 @@ async function signUp(context, page) {
   let confirmSeen = false;
   page.on("request", (request) => { if (new URL(request.url()).pathname === "/auth/confirm") confirmSeen = true; });
   await page.goto(`${appUrl}/signup`);
+  const essentialsChoice = page.getByRole("button", { name: "Essentials only" });
+  if (await essentialsChoice.isVisible().catch(() => false)) await essentialsChoice.click();
   await page.getByLabel("Username").fill(account.username);
   await page.getByText("Available. It’s yours if you want it.").waitFor();
   await page.getByRole("button", { name: `Claim @${account.username}` }).click();
@@ -168,8 +170,36 @@ const page = await ownerContext.newPage();
 try {
   await signUp(ownerContext, page);
   await setupPublishedIdentity();
+  let delayingFirstDeviceRead = true;
+  let devicesRequestFinishedAt = null;
+  let markDevicesRequestFinished;
+  const devicesRequestFinished = new Promise((resolve) => { markDevicesRequestFinished = resolve; });
+  await page.route("**/api/tap/devices", async (route) => {
+    if (delayingFirstDeviceRead && route.request().method() === "GET") {
+      delayingFirstDeviceRead = false;
+      await new Promise((done) => setTimeout(done, 1200));
+    }
+    await route.continue();
+  });
+  page.on("requestfinished", (request) => {
+    if (new URL(request.url()).pathname === "/api/tap/devices" && request.method() === "GET" && devicesRequestFinishedAt === null) {
+      devicesRequestFinishedAt = Date.now();
+      markDevicesRequestFinished();
+    }
+  });
+  const tapNavigationStartedAt = Date.now();
   await page.goto(`${appUrl}/app/tap`);
   await page.getByRole("heading", { name: "Your Tap." }).waitFor();
+  const tapShellReadyAt = Date.now();
+  await page.locator('svg[aria-label="Setuvara Quick QR"]').waitFor();
+  const quickQrReadyAt = Date.now();
+  await page.getByText(/Now equipped:/).waitFor();
+  const equippedModeReadyAt = Date.now();
+  await devicesRequestFinished;
+  assert(devicesRequestFinishedAt !== null, "The controlled devices request must finish");
+  assert(quickQrReadyAt < devicesRequestFinishedAt, "Quick QR should become visible without waiting for the devices request");
+  assert(equippedModeReadyAt < devicesRequestFinishedAt, "The server-confirmed selected Mode should become visible without waiting for devices");
+  console.log(`TAP_STARTUP shell=${tapShellReadyAt - tapNavigationStartedAt}ms selected_mode=${equippedModeReadyAt - tapNavigationStartedAt}ms qr_usable=${quickQrReadyAt - tapNavigationStartedAt}ms devices=${devicesRequestFinishedAt - tapNavigationStartedAt}ms`);
   let firstUrl = await quickLink(page);
   let firstQr = await page.locator('svg[aria-label="Setuvara Quick QR"]').evaluate((svg) => svg.outerHTML);
   const visitor = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -192,8 +222,10 @@ try {
   await expectRedirect(visitor, firstUrl, `/${account.username}`, "personal");
   console.log("PASS explicit owner-confirmed recovery after Quick QR signing-key mismatch");
 
+  const modeSwitchStartedAt = Date.now();
   await modeButton(page, "Event").click();
   await page.getByText("Event is now equipped for viewing.").waitFor();
+  console.log(`TAP_MODE_SWITCH ${Date.now() - modeSwitchStartedAt}ms`);
   assert.equal(await quickLink(page), firstUrl, "Changing Equipped Mode must keep the Quick QR URL stable");
   assert.equal(await page.locator('svg[aria-label="Setuvara Quick QR"]').evaluate((svg) => svg.outerHTML), firstQr, "Changing Equipped Mode must keep QR modules stable");
   const eventTarget = await expectRedirect(visitor, firstUrl, `/${account.username}`, "event");
