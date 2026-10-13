@@ -302,14 +302,15 @@ function atmosphereFilter(theme: AppearanceTheme) {
  * The Mode photo in its frame, framed from the kept original at the Appearance's zoom. `fill`
  * "page" leaves uncovered space to the page atmosphere already behind the frame (Immersive).
  */
-function Photo({ scene, alt = "", sizes = "100vw", priority = false, fill = "frame", frameAspect, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; fill?: "frame" | "page"; frameAspect?: number; style?: CSSProperties; className?: string }) {
+function Photo({ scene, alt = "", sizes = "100vw", priority = false, priorityMedia, fill = "frame", frameAspect, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; priorityMedia?: string; fill?: "frame" | "page"; frameAspect?: number; style?: CSSProperties; className?: string }) {
   const marketingMediaPriority = useContext(MarketingMediaPriorityContext);
   if (!scene.source) return null;
   const { look, theme } = scene;
   const atmosphere = fill === "page" && theme.atmosphere.on ? "none" : atmosphereFilter(theme);
   const frame = (source: PhotoSource, index = 0, extra?: CSSProperties) => {
     const activeHero = priority && index === 0 && marketingMediaPriority !== "normal";
-    return <FramedPhoto alt={alt} className={className} fill={atmosphere} fetchPriority={activeHero ? "high" : "low"} frameAspect={frameAspect} priority={activeHero} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
+    const mediaPrioritizedHero = activeHero && Boolean(priorityMedia);
+    return <FramedPhoto alt={alt} className={className} fill={atmosphere} fetchPriority={mediaPrioritizedHero ? "auto" : activeHero ? "high" : "low"} frameAspect={frameAspect} preloadMedia={mediaPrioritizedHero ? priorityMedia : undefined} priority={activeHero && !mediaPrioritizedHero} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
   };
   // The slideshow belongs to the main photo only, never to decorative copies of it.
   return !priority || scene.slides.length < 2 ? frame(scene.source) : <Slides render={(source, index) => frame(source, index)} scene={scene} />;
@@ -758,7 +759,7 @@ function WideHero({ scene }: { scene: Scene }) {
         {STAGED.has(look.id) ? <WideStage scene={scene} /> : (
           <div className="relative overflow-hidden" style={{ margin: inset, borderRadius: theme.wide.radius, maskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, WebkitMaskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, background: scene.photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18" }}>
             <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
-              <Photo alt={copy.photoOf.replace("{name}", who.name)} priority scene={scene} sizes="56vw" />
+              <Photo alt={copy.photoOf.replace("{name}", who.name)} priority priorityMedia="(min-width: 900px)" scene={scene} sizes="56vw" />
             </div>
             <Initials scene={scene} size="clamp(120px,14cqw,200px)" />
             <Treatment scene={scene} />

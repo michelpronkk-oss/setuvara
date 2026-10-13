@@ -11,6 +11,7 @@ type ProfileImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcS
   src: string;
   sizes?: string;
   priority?: boolean;
+  preloadMedia?: string;
   deferUntilLcp?: boolean;
   fill?: boolean;
 };
@@ -21,6 +22,7 @@ export const ProfileImage = forwardRef<HTMLImageElement, ProfileImageProps>(func
   className = "",
   sizes = "100vw",
   priority = false,
+  preloadMedia,
   deferUntilLcp = false,
   fill = false,
   fetchPriority,
@@ -59,8 +61,8 @@ export const ProfileImage = forwardRef<HTMLImageElement, ProfileImageProps>(func
 
   const activeSrc = shouldDefer && !lcpObserved ? null : src;
   const optimized = activeSrc !== null && isSignedProfileMediaUrl(activeSrc) && fallbackSource !== activeSrc;
-  const resolvedFetchPriority = fetchPriority ?? (priority ? "high" : "low");
-  const resolvedLoading = loading ?? (priority ? "eager" : "lazy");
+  const resolvedFetchPriority = preloadMedia ? "auto" : fetchPriority ?? (priority ? "high" : "low");
+  const resolvedLoading = preloadMedia ? "lazy" : loading ?? (priority ? "eager" : "lazy");
   const responsive = optimized ? getImageProps({
     alt,
     fill: true,
@@ -81,6 +83,7 @@ export const ProfileImage = forwardRef<HTMLImageElement, ProfileImageProps>(func
 
   return (
     <>
+      {preloadMedia && activeSrc && <link as="image" fetchPriority="high" href={responsive?.src ?? activeSrc} imageSizes={responsive?.sizes ?? (responsive ? sizes : undefined)} imageSrcSet={responsive?.srcSet} media={preloadMedia} rel="preload" />}
       <img
         {...imageProps}
         alt={alt}

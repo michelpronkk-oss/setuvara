@@ -10,7 +10,7 @@ import { focusPosition, placePhoto, PHOTO_ASPECT, type PhotoFocus, type PhotoPla
  * view. It measures its own frame, so the face stays centred whatever the canvas size; before
  * that (server render) it uses `frameAspect` when the frame is fixed, or the focus itself.
  */
-export function FocusedPhoto({ src, alt, focus, frameAspect, className = "", sizes, priority, fetchPriority, onError, style }: {
+export function FocusedPhoto({ src, alt, focus, frameAspect, className = "", sizes, priority, preloadMedia, fetchPriority, onError, style }: {
   src: string;
   alt: string;
   focus: PhotoFocus;
@@ -19,6 +19,7 @@ export function FocusedPhoto({ src, alt, focus, frameAspect, className = "", siz
   className?: string;
   sizes?: string;
   priority?: boolean;
+  preloadMedia?: string;
   fetchPriority?: "high" | "low" | "auto";
   onError?: ReactEventHandler<HTMLImageElement>;
   style?: CSSProperties;
@@ -49,7 +50,9 @@ export function FocusedPhoto({ src, alt, focus, frameAspect, className = "", siz
       data-photo-focus={`${focus.x} ${focus.y}`}
       fill
       onError={onError}
+      fetchPriority={fetchPriority}
       priority={priority || fetchPriority === "high"}
+      preloadMedia={preloadMedia}
       ref={ref}
       sizes={sizes ?? "100vw"}
       src={src}
@@ -69,7 +72,7 @@ const pct = (value: number) => `${+(value * 100).toFixed(3)}%`;
  *
  * The frame is measured on the client; before that (server render) `frameAspect` is used.
  */
-export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none", className = "", sizes, priority, fetchPriority, onError, style }: {
+export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none", className = "", sizes, priority, preloadMedia, fetchPriority, onError, style }: {
   source: PhotoSource;
   alt: string;
   zoom?: number;
@@ -79,6 +82,7 @@ export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none",
   className?: string;
   sizes?: string;
   priority?: boolean;
+  preloadMedia?: string;
   fetchPriority?: "high" | "low" | "auto";
   onError?: ReactEventHandler<HTMLImageElement>;
   style?: CSSProperties;
@@ -120,7 +124,9 @@ export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none",
             const image = event.currentTarget;
             if (!source.original && image.naturalWidth && image.naturalHeight) setNatural({ url: source.url, aspect: image.naturalWidth / image.naturalHeight });
           }}
+          fetchPriority={fetchPriority}
           priority={priority || fetchPriority === "high"}
+          preloadMedia={preloadMedia}
           sizes={sizes ?? "100vw"}
           src={source.url}
           style={style}
