@@ -288,13 +288,15 @@ describe("Theme helpers", () => {
 
 describe("ProfileRenderer", () => {
   test("marketing media priority is opt-in and keeps public hero defaults", () => {
-    const m = mode("personal", { theme: "immersive" });
+    const m = mode("personal", { theme: "immersive" }, { image_url: "https://setuvara.supabase.co/storage/v1/object/sign/profile-media/aanya/hero.webp?token=fixture" });
     const highCount = (html) => (html.match(/<img\b[^>]*fetchPriority="high"/g) ?? []).length;
     const publicProfile = render(m);
     const marketingNormal = renderWith(m, { marketingMediaPriority: "normal" });
     const marketingHigh = renderWith(m, { marketingMediaPriority: "high" });
 
-    assert.equal(highCount(publicProfile), 2, "public mobile and wide heroes retain existing high priority");
+    assert.equal(highCount(publicProfile), 1, "only the mobile hero image carries intrinsic high priority");
+    assert.match(publicProfile, /<link\b(?=[^>]*media="\(min-width: 900px\)")(?=[^>]*fetchPriority="high")(?=[^>]*imageSrcSet=)(?=[^>]*imageSizes="56vw")[^>]*>/, "the wide hero uses a responsive high-priority preload only at desktop widths");
+    assert.match(publicProfile, /fetchPriority="auto" loading="lazy" sizes="56vw"/, "the CSS-hidden wide image does not trigger its own eager request");
     assert.equal(highCount(marketingNormal), 0, "normal marketing previews do not eagerly request hero media");
     assert.equal(highCount(marketingHigh), 1, "only the visible mobile marketing hero is high priority");
     assert.match(marketingNormal, /loading="lazy"/);
