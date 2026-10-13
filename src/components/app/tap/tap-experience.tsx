@@ -76,7 +76,9 @@ export function TapExperience({ profile }: { profile: TapProfile }) {
   const [equipped, setEquipped] = useState<Equipped | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [quickUrl, setQuickUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingEquipped, setLoadingEquipped] = useState(true);
+  const [loadingDevices, setLoadingDevices] = useState(true);
+  const [loadingQuick, setLoadingQuick] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -89,21 +91,37 @@ export function TapExperience({ profile }: { profile: TapProfile }) {
   const { copied, copyError, copy } = useCopy();
 
   const load = useCallback(async () => {
-    const [stateResult, devicesResult, quickResult] = await Promise.allSettled([
-      tapRequest("/api/tap/equipped", "GET"),
-      tapRequest("/api/tap/devices", "GET"),
-      tapRequest("/api/tap/quick-share", "POST"),
-    ]);
-    const state = stateResult.status === "fulfilled" ? stateResult.value.state : null;
-    const deviceRows = devicesResult.status === "fulfilled" ? devicesResult.value.devices : null;
-    const quick = quickResult.status === "fulfilled" ? safeTapUrl(quickResult.value.url, /^\/q\/[A-Za-z0-9_-]{43}$/) : null;
-    setEquipped(isEquipped(state) ? state : null);
-    setDevices(Array.isArray(deviceRows) && deviceRows.every(isDevice) ? deviceRows : []);
-    setQuickUrl(quick);
-    setError(!isEquipped(state) || !Array.isArray(deviceRows) || !deviceRows.every(isDevice)
-      ? "Tap settings could not load. Try again."
-      : !quick ? "Quick QR is unavailable. Your Equipped settings and devices can still be managed." : null);
-    setLoading(false);
+    setLoadingEquipped(true);
+    setLoadingDevices(true);
+    setLoadingQuick(true);
+    setError(null);
+
+    const equippedRequest = tapRequest("/api/tap/equipped", "GET").then((result) => {
+      if (!isEquipped(result.state)) throw new Error("Tap settings could not load. Try again.");
+      setEquipped(result.state);
+    }).catch(() => {
+      setEquipped(null);
+      setError("Tap settings could not load. Try again.");
+    }).finally(() => setLoadingEquipped(false));
+
+    const devicesRequest = tapRequest("/api/tap/devices", "GET").then((result) => {
+      if (!Array.isArray(result.devices) || !result.devices.every(isDevice)) throw new Error("Tap devices could not load. Try again.");
+      setDevices(result.devices);
+    }).catch(() => {
+      setDevices([]);
+      setError("Tap devices could not load. Try again.");
+    }).finally(() => setLoadingDevices(false));
+
+    const quickRequest = tapRequest("/api/tap/quick-share", "POST").then((result) => {
+      const url = safeTapUrl(result.url, /^\/q\/[A-Za-z0-9_-]{43}$/);
+      if (!url) throw new Error("Quick QR is unavailable. Your Equipped settings and devices can still be managed.");
+      setQuickUrl(url);
+    }).catch(() => {
+      setQuickUrl(null);
+      setError("Quick QR is unavailable. Your Equipped settings and devices can still be managed.");
+    }).finally(() => setLoadingQuick(false));
+
+    await Promise.all([equippedRequest, devicesRequest, quickRequest]);
   }, []);
 
   useEffect(() => {
@@ -195,7 +213,7 @@ export function TapExperience({ profile }: { profile: TapProfile }) {
         <Link className="inline-flex min-h-11 items-center rounded-full border border-black/20 px-5 text-sm font-semibold hover:bg-white focus-visible:outline-2" href="/app/identity?section=share">Share a Mode →</Link>
       </div>
 
-      {error && <div aria-live="assertive" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ff5a4f]/40 bg-[#ff5a4f]/10 p-4 text-sm font-semibold"><span>{error}</span><button className="min-h-11 underline underline-offset-4" onClick={() => { setLoading(true); setError(null); void load(); }} type="button">Retry</button></div>}
+      {error && <div aria-live="assertive" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#ff5a4f]/40 bg-[#ff5a4f]/10 p-4 text-sm font-semibold"><span>{error}</span><button className="min-h-11 underline underline-offset-4" onClick={() => void load()} type="button">Retry</button></div>}
       {notice && <p aria-live="polite" className="mb-5 rounded-2xl bg-[#c7ff4a]/35 px-4 py-3 text-sm font-semibold">{notice}</p>}
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(380px,.92fr)] lg:gap-7">
@@ -207,14 +225,14 @@ export function TapExperience({ profile }: { profile: TapProfile }) {
           <p className="mt-4 max-w-lg text-sm leading-6 text-white/70 sm:text-base">The QR stays the same when you switch Modes. Your next scan opens whichever Mode and intent are equipped now.</p>
           <div className="my-7 flex justify-center lg:my-9">
             <div className="grid aspect-square w-[min(100%,288px)] place-items-center rounded-[25px] bg-white p-5 text-[#0d0d0d] sm:w-[310px]">
-              {quickUrl && !loading ? <QRCodeSVG aria-label="Setuvara Quick QR" bgColor="#FFFFFF" className="h-auto w-full" fgColor="#0D0D0D" level="H" marginSize={3} role="img" size={280} title="Setuvara Quick QR" value={quickUrl} /> : <p className="px-4 text-center text-sm text-black/60">{loading ? "Preparing your QR…" : "Your Quick QR is unavailable right now."}</p>}
+              {quickUrl ? <QRCodeSVG aria-label="Setuvara Quick QR" bgColor="#FFFFFF" className="h-auto w-full" fgColor="#0D0D0D" level="H" marginSize={3} role="img" size={280} title="Setuvara Quick QR" value={quickUrl} /> : <p className="px-4 text-center text-sm text-black/60">{loadingQuick ? "Preparing your QR…" : "Your Quick QR is unavailable right now."}</p>}
             </div>
           </div>
           <p className="text-center text-[13px] text-white/60">{canOpen ? `${modeNames[equipped!.mode]} · ${directPass ? "Connect in person" : "Profile"}` : "Publish and enable the equipped Mode before sharing."}</p>
           <div className="mt-6 grid gap-2.5 sm:grid-cols-3">
             <button className="min-h-[52px] rounded-full bg-[#ff5a4f] px-5 text-sm font-bold text-[#0d0d0d] disabled:opacity-45" disabled={!quickUrl || !canOpen} onClick={() => quickUrl && void copy(quickUrl)} type="button">{copied === quickUrl ? "Copied" : "Copy Quick link"}</button>
             <button className="min-h-[52px] rounded-full border border-white/35 px-5 text-sm font-bold disabled:opacity-45" disabled={!quickUrl || !canOpen} onClick={() => void shareQuick()} type="button">Share link</button>
-            <button className="min-h-[52px] rounded-full border border-white/35 px-5 text-sm font-bold disabled:opacity-45" disabled={!canOpen || loading || busy === "quick"} onClick={() => setConfirmQuick(true)} type="button">{busy === "quick" ? (quickUrl ? "Replacing…" : "Creating…") : quickUrl ? "Replace QR" : "Create new QR"}</button>
+            <button className="min-h-[52px] rounded-full border border-white/35 px-5 text-sm font-bold disabled:opacity-45" disabled={!canOpen || loadingQuick || busy === "quick"} onClick={() => setConfirmQuick(true)} type="button">{busy === "quick" ? (quickUrl ? "Replacing…" : "Creating…") : quickUrl ? "Replace QR" : "Create new QR"}</button>
           </div>
           {confirmQuick && <div className="mt-4 rounded-2xl border border-white/25 p-4 text-sm leading-6"><p>{quickUrl ? "Replacing this QR stops any saved or printed copies from opening. You will need to share the new one." : "Create a new Quick QR for this identity. Any older saved or printed QR will stop working."}</p><div className="mt-3 flex flex-wrap gap-2"><button className="min-h-11 rounded-full bg-[#ff5a4f] px-5 font-semibold text-[#0d0d0d] disabled:opacity-45" disabled={Boolean(busy)} onClick={() => void rotateQuick()} type="button">{quickUrl ? "Replace it" : "Create new QR"}</button><button className="min-h-11 px-4 font-semibold" onClick={() => setConfirmQuick(false)} type="button">Cancel</button></div></div>}
           {copyError && <p className="mt-3 text-center text-sm text-white/75" role="status">Copy is unavailable in this browser. Open the link and copy it from the address bar.</p>}
@@ -226,21 +244,21 @@ export function TapExperience({ profile }: { profile: TapProfile }) {
           <h2 className="mt-3 font-display text-4xl font-bold tracking-[-0.05em]" id="equipped-title">Equipped.</h2>
           <p className="mt-3 max-w-lg text-sm leading-6 text-black/65">This choice belongs to your identity. Every active Tap and your Quick QR follow it immediately.</p>
 
-          <fieldset className="mt-8" disabled={Boolean(busy) || loading || !equipped}>
+          <fieldset className="mt-8" disabled={Boolean(busy) || loadingEquipped || !equipped}>
             <legend className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-black/55">CHOOSE A MODE</legend>
             <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               {profile.modes.map((mode) => <button aria-pressed={equipped?.mode === mode.slug} className={`min-h-[74px] rounded-[18px] border px-4 py-3 text-left transition-colors focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-45 ${equipped?.mode === mode.slug ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/15 hover:border-black/50"}`} disabled={!mode.enabled} key={mode.slug} onClick={() => equipped && void changeEquipped({ mode: mode.slug, intent: mode.connectPolicy === "nobody" ? "view_profile" : equipped.intent })} type="button"><span aria-hidden="true" className="mr-2 inline-block size-2 rounded-full" style={{ backgroundColor: modeColors[mode.slug] }} /><span className="font-semibold">{modeNames[mode.slug]}</span><span className="mt-1 block text-xs opacity-65">{mode.enabled ? "Ready to share" : "Mode is off"}</span></button>)}
             </div>
           </fieldset>
 
-          <fieldset className="mt-8" disabled={Boolean(busy) || loading || !equipped}>
+          <fieldset className="mt-8" disabled={Boolean(busy) || loadingEquipped || !equipped}>
             <legend className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-black/55">CHOOSE THE INTENT</legend>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button aria-pressed={equipped?.intent === "view_profile"} className={`min-h-[88px] rounded-[18px] border p-4 text-left focus-visible:outline-2 ${equipped?.intent === "view_profile" ? "border-[#0d0d0d] bg-[#f5f4ef]" : "border-black/15"}`} onClick={() => equipped && void changeEquipped({ ...equipped, intent: "view_profile" })} type="button"><span className="block font-semibold">View profile</span><span className="mt-1 block text-xs leading-5 text-black/60">Open the equipped Mode. No special invitation to connect.</span></button>
               <button aria-pressed={equipped?.intent === "connect_in_person"} className={`min-h-[88px] rounded-[18px] border p-4 text-left focus-visible:outline-2 disabled:opacity-45 ${equipped?.intent === "connect_in_person" ? "border-[#0d0d0d] bg-[#f5f4ef]" : "border-black/15"}`} disabled={selected?.connectPolicy === "nobody"} onClick={() => equipped && void changeEquipped({ ...equipped, intent: "connect_in_person" })} type="button"><span className="block font-semibold">Connect in person</span><span className="mt-1 block text-xs leading-5 text-black/60">{selected?.connectPolicy === "direct_only" ? "Give a nearby visitor a short connection window." : selected?.connectPolicy === "nobody" ? "Turn on Connect in Mode settings first." : "Visitors can already connect on this Mode."}</span></button>
             </div>
           </fieldset>
-          <div aria-live="polite" className="mt-7 border-t border-black/10 pt-5 text-sm leading-6 text-black/65">{loading ? "Loading your Equipped choice…" : equipped ? <>Now equipped: <strong className="text-black">{modeNames[equipped.mode]} · {equipped.intent === "view_profile" ? "View profile" : "Connect in person"}</strong>{busy === "equipped" ? " · Saving…" : " · Saved"}</> : "Your Equipped choice is unavailable right now."}</div>
+          <div aria-live="polite" className="mt-7 border-t border-black/10 pt-5 text-sm leading-6 text-black/65">{loadingEquipped ? "Loading your Equipped choice…" : equipped ? <>Now equipped: <strong className="text-black">{modeNames[equipped.mode]} · {equipped.intent === "view_profile" ? "View profile" : "Connect in person"}</strong>{busy === "equipped" ? " · Saving…" : " · Saved"}</> : "Your Equipped choice is unavailable right now."}</div>
           {connectBlocked && <p className="mt-4 rounded-2xl bg-[#ff5a4f]/10 p-4 text-sm leading-6">Connect is off for this Mode, so taps currently open the profile only. Choose View profile above or change this Mode’s Connect setting in Identity.</p>}
           {!profile.published && <p className="mt-5 rounded-2xl bg-[#ff5a4f]/10 p-4 text-sm leading-6">Your identity is still private. <Link className="font-semibold underline underline-offset-4" href="/app/identity?section=settings">Publish it in Identity</Link> when you are ready for taps to open it.</p>}
           {selected && !selected.enabled && <p className="mt-5 rounded-2xl bg-[#ff5a4f]/10 p-4 text-sm leading-6">This Mode is off. <Link className="font-semibold underline underline-offset-4" href={`/app/identity?mode=${selected.slug}&section=settings`}>Turn it on in Identity</Link> before sharing.</p>}
@@ -252,7 +270,7 @@ export function TapExperience({ profile }: { profile: TapProfile }) {
         <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="font-label text-[11px] uppercase tracking-[0.18em] text-black/50">PHYSICAL SETUVARA</p><h2 className="mt-2 font-display text-4xl font-bold tracking-[-0.05em]" id="devices-title">Your Taps.</h2></div><p className="max-w-md text-sm leading-6 text-black/60">A card, ring or sticker can open the same Equipped version of you.</p></div>
         <div className="mt-6 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.45fr)]">
           <div className="min-w-0 space-y-3">
-            {loading ? <p className="rounded-[24px] bg-white p-6 text-sm text-black/60">Loading your Taps…</p> : devices.length === 0 ? <div className="rounded-[24px] bg-white p-6 sm:p-8"><p className="font-display text-2xl font-bold tracking-[-0.04em]">No physical Taps yet.</p><p className="mt-2 text-sm leading-6 text-black/65">Your Quick QR is ready. Add a Tap when you want a card, ring or sticker to open it too.</p></div> : devices.map((device) => <DeviceCard busy={busy} device={device} key={device.id} onError={setError} onNotice={setNotice} onRefresh={refreshDevices} onSecret={(url) => setOneTime({ url, label: device.label })} setBusy={setBusy} />)}
+            {loadingDevices ? <p className="rounded-[24px] bg-white p-6 text-sm text-black/60">Loading your Taps…</p> : devices.length === 0 ? <div className="rounded-[24px] bg-white p-6 sm:p-8"><p className="font-display text-2xl font-bold tracking-[-0.04em]">No physical Taps yet.</p><p className="mt-2 text-sm leading-6 text-black/65">Your Quick QR is ready. Add a Tap when you want a card, ring or sticker to open it too.</p></div> : devices.map((device) => <DeviceCard busy={busy} device={device} key={device.id} onError={setError} onNotice={setNotice} onRefresh={refreshDevices} onSecret={(url) => setOneTime({ url, label: device.label })} setBusy={setBusy} />)}
           </div>
           <div className="min-w-0 self-start rounded-[24px] bg-[#eae7dd] p-5 sm:p-7">
             <h3 className="font-display text-2xl font-bold tracking-[-0.04em]">Add a Tap</h3>
