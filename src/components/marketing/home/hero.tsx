@@ -1,8 +1,9 @@
 import Link from "next/link";
 
+import { nameFontClasses } from "@/components/profile/name-fonts";
+
 import { HeroModes } from "./hero-modes";
-import { ModePhone } from "./mode-phone";
-import { person } from "./demo";
+import { CastPhone } from "./mode-phone";
 import { ClaimForm, Display, Label, Shell } from "./primitives";
 
 export function Hero() {
@@ -22,14 +23,14 @@ export function Hero() {
           <Link className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-semibold text-ink/70 hover:text-coral" href="#how">See how it works <span aria-hidden="true">↓</span></Link>
         </div>
 
-        <div className="mt-8 w-full max-w-[880px] sm:mt-12">
+        <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
             cards={[
-              <ModePhone key="personal" slug="personal" />,
-              <ModePhone key="event" slug="event" />,
-              <ModePhone key="business" slug="business" />,
+              <CastPhone key="personal" slug="personal" />,
+              <CastPhone key="event" slug="event" />,
+              <CastPhone key="business" slug="business" />,
             ]}
-            name={person.firstName}
+            caption="Three people · Three Modes"
           />
         </div>
       </Shell>
