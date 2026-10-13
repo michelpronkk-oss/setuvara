@@ -465,8 +465,7 @@ function ImageBlock({ data, tone }: { data: Record<string, unknown>; tone: Block
 
   return (
     <figure className="overflow-hidden rounded-[var(--sv-card-r,16px)]" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-      <img alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" decoding="async" loading="lazy" onError={() => setFailedImage(image)} src={image} />
+      <ProfileImage alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" onError={() => setFailedImage(image)} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={image} />
       {str(data.caption) && <figcaption className="px-4 py-3 text-[13px] leading-5" style={{ color: tone.sub }}>{str(data.caption)}</figcaption>}
     </figure>
   );
