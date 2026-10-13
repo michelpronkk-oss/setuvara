@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { MeetMark } from "@/components/marketing/brand";
@@ -83,7 +83,11 @@ type ProfileRendererProps = {
    */
   previewLook?: ResolvedAppearance;
   className?: string;
+  /** Marketing previews can opt into first-screen priority without changing public profile defaults. */
+  marketingMediaPriority?: "high" | "normal";
 };
+
+const MarketingMediaPriorityContext = createContext<"high" | "normal" | undefined>(undefined);
 
 type Copy = ReturnType<typeof getMessages>["profile"];
 const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
@@ -151,6 +155,7 @@ type Scene = {
   cue: (wide: boolean) => ReactNode;
   /** Pixels the hero's foot rises above the home indicator (0 off the public page). */
   foot: number;
+  marketingMediaPriority?: "high" | "normal";
 };
 
 function Profile(props: ProfileProps) {
@@ -172,6 +177,7 @@ function Profile(props: ProfileProps) {
   const cover = useBottomCover(Boolean(props.edgeToEdge));
   const scene: Scene = {
     look, theme, who, mode, photo, source, copy, memberTier,
+    marketingMediaPriority: props.marketingMediaPriority,
     type: nameType(look.nameFont, theme.identity, theme.name.charWidth),
     slides: source ? [source, ...(mode.slide_urls ?? []).slice(0, extraSlideLimit(props.plan ?? "free")).map((slide: SlideImage) => legacySource(slide.url, { x: slide.x, y: slide.y }))] : [],
     images: contentImages(mode.blocks).map((image) => image.url),
@@ -297,11 +303,12 @@ function atmosphereFilter(theme: AppearanceTheme) {
  * "page" leaves uncovered space to the page atmosphere already behind the frame (Immersive).
  */
 function Photo({ scene, alt = "", sizes = "100vw", priority = false, fill = "frame", frameAspect, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; fill?: "frame" | "page"; frameAspect?: number; style?: CSSProperties; className?: string }) {
+  const marketingMediaPriority = useContext(MarketingMediaPriorityContext);
   if (!scene.source) return null;
   const { look, theme } = scene;
   const atmosphere = fill === "page" && theme.atmosphere.on ? "none" : atmosphereFilter(theme);
   const frame = (source: PhotoSource, index = 0, extra?: CSSProperties) => {
-    const activeHero = priority && index === 0;
+    const activeHero = priority && index === 0 && marketingMediaPriority !== "normal";
     return <FramedPhoto alt={alt} className={className} fill={atmosphere} fetchPriority={activeHero ? "high" : "low"} frameAspect={frameAspect} priority={activeHero} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
   };
   // The slideshow belongs to the main photo only, never to decorative copies of it.
@@ -395,20 +402,22 @@ function AppearanceHero({ scene }: { scene: Scene }) {
   const frame = useFrame(ref);
   const { look } = scene;
   return (
-    <div className="relative h-[var(--sv-h)] overflow-hidden" data-hero={look.id} ref={ref}>
-      {look.id === "immersive" && <ImmersiveHero frame={frame} scene={scene} />}
-      {look.id === "motion" && <MotionHero scene={scene} />}
-      {look.id === "aura" && <AuraHero scene={scene} />}
-      {look.id === "clean" && <CleanHero scene={scene} />}
-      {look.id === "glow" && <GlowHero scene={scene} />}
-      {look.id === "scene" && <SceneHero scene={scene} />}
-      {look.id === "frame" && <FrameHero scene={scene} />}
-      {look.id === "stack" && <StackHero frame={frame} scene={scene} />}
-      {look.id === "social" && <SocialHero scene={scene} />}
-      {look.id === "film" && <FilmHero scene={scene} />}
-      <HeroFoot scene={scene} />
-      {scene.cue(false)}
-    </div>
+    <MarketingMediaPriorityContext.Provider value={scene.marketingMediaPriority}>
+      <div className="relative h-[var(--sv-h)] overflow-hidden" data-hero={look.id} ref={ref}>
+        {look.id === "immersive" && <ImmersiveHero frame={frame} scene={scene} />}
+        {look.id === "motion" && <MotionHero scene={scene} />}
+        {look.id === "aura" && <AuraHero scene={scene} />}
+        {look.id === "clean" && <CleanHero scene={scene} />}
+        {look.id === "glow" && <GlowHero scene={scene} />}
+        {look.id === "scene" && <SceneHero scene={scene} />}
+        {look.id === "frame" && <FrameHero scene={scene} />}
+        {look.id === "stack" && <StackHero frame={frame} scene={scene} />}
+        {look.id === "social" && <SocialHero scene={scene} />}
+        {look.id === "film" && <FilmHero scene={scene} />}
+        <HeroFoot scene={scene} />
+        {scene.cue(false)}
+      </div>
+    </MarketingMediaPriorityContext.Provider>
   );
 }
 
@@ -743,30 +752,32 @@ function WideHero({ scene }: { scene: Scene }) {
   const centered = look.align === "center";
   const align = centered ? "center" : "flex-start";
   return (
-    <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
-      <HeroFoot className="!h-[22%]" scene={scene} />
-      {STAGED.has(look.id) ? <WideStage scene={scene} /> : (
-        <div className="relative overflow-hidden" style={{ margin: inset, borderRadius: theme.wide.radius, maskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, WebkitMaskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, background: scene.photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18" }}>
-          <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
-            <Photo alt={copy.photoOf.replace("{name}", who.name)} priority scene={scene} sizes="56vw" />
+    <MarketingMediaPriorityContext.Provider value={scene.marketingMediaPriority === undefined ? undefined : "normal"}>
+      <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
+        <HeroFoot className="!h-[22%]" scene={scene} />
+        {STAGED.has(look.id) ? <WideStage scene={scene} /> : (
+          <div className="relative overflow-hidden" style={{ margin: inset, borderRadius: theme.wide.radius, maskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, WebkitMaskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, background: scene.photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18" }}>
+            <div className="absolute inset-0" data-sv-motion style={{ animation: scene.drift }}>
+              <Photo alt={copy.photoOf.replace("{name}", who.name)} priority scene={scene} sizes="56vw" />
+            </div>
+            <Initials scene={scene} size="clamp(120px,14cqw,200px)" />
+            <Treatment scene={scene} />
+            {look.id === "motion" && <WideMarquee scene={scene} />}
           </div>
-          <Initials scene={scene} size="clamp(120px,14cqw,200px)" />
-          <Treatment scene={scene} />
-          {look.id === "motion" && <WideMarquee scene={scene} />}
+        )}
+        <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
+          <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
+          <h1 className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
+          {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
+          {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
+          <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
+          <div className="flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect>{scene.actions}</div>
+          <WideBio scene={scene} />
+          {/* Under the identity column, never across the photo. */}
+          {scene.cue(true)}
         </div>
-      )}
-      <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
-        <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
-        <h1 className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
-        {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
-        {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
-        <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
-        <div className="flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect>{scene.actions}</div>
-        <WideBio scene={scene} />
-        {/* Under the identity column, never across the photo. */}
-        {scene.cue(true)}
       </div>
-    </div>
+    </MarketingMediaPriorityContext.Provider>
   );
 }
 

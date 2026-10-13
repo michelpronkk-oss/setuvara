@@ -287,6 +287,19 @@ describe("Theme helpers", () => {
 });
 
 describe("ProfileRenderer", () => {
+  test("marketing media priority is opt-in and keeps public hero defaults", () => {
+    const m = mode("personal", { theme: "immersive" });
+    const highCount = (html) => (html.match(/<img\b[^>]*fetchPriority="high"/g) ?? []).length;
+    const publicProfile = render(m);
+    const marketingNormal = renderWith(m, { marketingMediaPriority: "normal" });
+    const marketingHigh = renderWith(m, { marketingMediaPriority: "high" });
+
+    assert.equal(highCount(publicProfile), 2, "public mobile and wide heroes retain existing high priority");
+    assert.equal(highCount(marketingNormal), 0, "normal marketing previews do not eagerly request hero media");
+    assert.equal(highCount(marketingHigh), 1, "only the visible mobile marketing hero is high priority");
+    assert.match(marketingNormal, /loading="lazy"/);
+  });
+
   test("every Appearance renders its own hero in every Mode with the same content order", () => {
     const order = (html) => ["data-profile-hero-mobile", "data-appearance-content", "data-profile-links"].map((marker) => html.indexOf(marker));
     for (const slug of ["personal", "event", "business"]) for (const id of TEN) {

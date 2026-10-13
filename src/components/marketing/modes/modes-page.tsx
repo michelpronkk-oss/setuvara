@@ -86,7 +86,7 @@ function Hero() {
         <div className="mt-8 flex w-full flex-col items-center gap-3 sm:mt-10"><ClaimForm id="modes-claim" /></div>
         <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
-            cards={[<CastPhone key="personal" slug="personal" />, <CastPhone key="event" slug="event" />, <CastPhone key="business" slug="business" />]}
+            cards={[<CastPhone key="personal" mediaPriority="high" slug="personal" />, <CastPhone key="event" mediaPriority="high" slug="event" />, <CastPhone key="business" mediaPriority="high" slug="business" />]}
             caption="Three people · Three Modes"
           />
         </div>
