@@ -772,16 +772,18 @@ describe("Scroll cue", () => {
     assert.match(render(withBlocks({ theme: "immersive" }), "plus", "off"), /data-scroll-cue-motion="still"/, "thumbnails stay still");
   });
 
-  test("the cue and the identity rise above a phone's bottom safe area", () => {
+  test("the phone cue sits under Connect, and the public page lifts the hero's foot", () => {
     const html = render(withBlocks({ theme: "immersive" }), "plus");
-    assert.match(html, /--sv-cue-lift:env\(safe-area-inset-bottom, 0px\)/);
-    assert.match(html, /data-scroll-cue="glide"[^>]*bottom:calc\(6px \+ var\(--sv-cue-lift, 0px\)\)/);
-    assert.match(html, /bottom:calc\(34px \+ var\(--sv-cue-lift, 0px\)\)/, "identity lifted with it");
-    assert.match(render(withBlocks({ theme: "immersive", scrollCue: "off" }), "plus"), /--sv-cue-lift:0px/, "no cue, no lift");
+    const hero = html.slice(html.indexOf("data-profile-hero-mobile"), html.indexOf("data-profile-hero-wide"));
+    assert.match(hero, /data-hero-connect[\s\S]*data-scroll-cue="glide"/, "cue follows Connect in the identity");
+    assert.doesNotMatch(hero.match(/<button[^>]*data-scroll-cue[^>]*>/)[0], /bottom:/, "in flow, not pinned to the hero's foot");
+    assert.match(html, /--sv-foot:0px/, "editor previews and thumbnails never lift");
+    const pub = renderWith(withBlocks({ theme: "immersive" }), { plan: "plus", edgeToEdge: true });
+    assert.match(pub, /--sv-foot:env\(safe-area-inset-bottom, 0px\)/);
+    assert.match(pub, /--sv-h:clamp\(560px, calc\(var\(--profile-vh, 100svh\) - 0px\), 1000px\)/, "hero ends above an overlaid toolbar once measured");
+    assert.match(pub, /bottom:calc\(34px \+ var\(--sv-foot, 0px\)\)/, "identity rises with the foot");
     const base = { frame: { width: 390, height: 844 }, focus: { x: 50, y: 30 }, zoom: 1, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "compact", secondary: false };
-    const plain = lib.solveFaceSafe(base);
-    const inset = lib.solveFaceSafe({ ...base, bottomInset: 34 });
-    assert.ok(inset.nameSize <= plain.nameSize, "less room never grows the name");
+    assert.ok(lib.solveFaceSafe({ ...base, bottomInset: 134 }).nameSize <= lib.solveFaceSafe(base).nameSize, "less room never grows the name");
   });
 
   test("Social no longer repeats the Mode's pictures in the hero", () => {
