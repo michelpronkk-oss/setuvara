@@ -15,14 +15,17 @@ export const STAGE_PALETTES: Record<DemoMode["slug"], { base: string; a: string;
 
 const NOISE = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
 
+const DEFERRED_DRIFT_STYLE = { animationDelay: "1500ms", animationFillMode: "backwards" as const };
+
 /** The drifting colour fields alone, for a caller that supplies its own frame (e.g. the hero aura). */
-export function StageField({ slug, className = "" }: { slug: DemoMode["slug"]; className?: string }) {
+export function StageField({ slug, className = "", deferDrift = false }: { slug: DemoMode["slug"]; className?: string; deferDrift?: boolean }) {
   const palette = STAGE_PALETTES[slug];
+  const driftStyle = deferDrift ? DEFERRED_DRIFT_STYLE : {};
   return (
     <span aria-hidden="true" className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} style={{ background: palette.base }}>
-      <span className="absolute -left-[20%] -top-[15%] size-[85%] rounded-full opacity-90 blur-[60px] [animation:sv-drift-a_19s_ease-in-out_infinite_alternate]" style={{ background: palette.a }} />
-      <span className="absolute -bottom-[20%] -right-[25%] size-[90%] rounded-full opacity-80 blur-[70px] [animation:sv-drift-b_23s_ease-in-out_infinite_alternate]" style={{ background: palette.b }} />
-      <span className="absolute left-[30%] top-[38%] size-[45%] rounded-full opacity-60 blur-[50px] [animation:sv-drift-c_17s_ease-in-out_infinite_alternate]" style={{ background: palette.c }} />
+      <span className="absolute -left-[20%] -top-[15%] size-[85%] rounded-full opacity-90 blur-[60px] [animation:sv-drift-a_19s_ease-in-out_infinite_alternate]" style={{ background: palette.a, ...driftStyle }} />
+      <span className="absolute -bottom-[20%] -right-[25%] size-[90%] rounded-full opacity-80 blur-[70px] [animation:sv-drift-b_23s_ease-in-out_infinite_alternate]" style={{ background: palette.b, ...driftStyle }} />
+      <span className="absolute left-[30%] top-[38%] size-[45%] rounded-full opacity-60 blur-[50px] [animation:sv-drift-c_17s_ease-in-out_infinite_alternate]" style={{ background: palette.c, ...driftStyle }} />
       {/* A fine grain keeps the gradients from banding and gives the stage a printed feel. */}
       <span className="absolute inset-0 opacity-[.22] mix-blend-soft-light" style={{ backgroundImage: NOISE }} />
     </span>
