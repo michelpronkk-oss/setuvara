@@ -1,7 +1,7 @@
-import { CharacterAvatar } from "@/components/avatar/character-avatar";
+import { nameFontClasses } from "@/components/profile/name-fonts";
 
-import { demoModes, person, personAvatar } from "./demo";
-import { ModePhone } from "./mode-phone";
+import { demoModes } from "./demo";
+import { CAST, CastPhone } from "./mode-phone";
 import { Display, Label, Shell } from "./primitives";
 
 const stages = { personal: "bg-[#ece9e1]", event: "bg-[#ffe1dc]", business: "bg-[#e3ebfb]" } as const;
@@ -22,21 +22,26 @@ export function Modes() {
         </div>
 
         <div aria-hidden="true" className="flex items-center gap-3 sm:gap-4">
-          <CharacterAvatar className="size-11 shrink-0 rounded-full" seed={person.name} traits={personAvatar} />
-          <span className="shrink-0 text-[15px] font-semibold">One identity · @{person.username}</span>
+          <span className="flex shrink-0">
+            {demoModes.map(({ slug }) => {
+              const { who } = CAST[slug];
+              return <span className="-ml-2.5 size-11 overflow-hidden rounded-full bg-cover shadow-[0_0_0_2.5px_#fff] first:ml-0" key={slug} style={{ backgroundImage: `url(${who.photo})`, backgroundPosition: `${who.face.x}% ${who.face.y}%` }} />;
+            })}
+          </span>
+          <span className="shrink-0 text-[15px] font-semibold">Three people · Three Modes</span>
           <span className="h-[1.5px] min-w-6 flex-1 bg-ink" />
           <span className="shrink-0 font-label text-[11px] uppercase tracking-[0.16em]">3 Modes</span>
         </div>
 
         {/* Phones and tablets get a swipeable rail of Modes; wider screens see all three side by side. */}
-        <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-5 px-5 pb-2 [scrollbar-width:none] sm:-mx-8 sm:scroll-px-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0 lg:gap-6" aria-label="Aanya’s three Modes" role="region" tabIndex={0}>
+        <div className={`${nameFontClasses} -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-5 px-5 pb-2 [scrollbar-width:none] sm:-mx-8 sm:scroll-px-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0 lg:gap-6`} aria-label="Three Modes" role="region" tabIndex={0}>
           {demoModes.map((mode, index) => (
             <div className="reveal flex w-[84%] max-w-[360px] shrink-0 snap-start flex-col gap-4 lg:w-auto lg:max-w-none" key={mode.slug}>
               <div className="flex flex-col gap-1 border-b border-ink/15 pb-3 sm:min-h-12 lg:flex-row lg:items-baseline lg:justify-between lg:gap-3">
                 <Label className="shrink-0">{String(index + 1).padStart(2, "0")} · {mode.label}</Label>
                 <p className="hidden text-[13px] text-ink/60 sm:block lg:text-right">{mode.audience}</p>
               </div>
-              <div className={`flex justify-center rounded-[2rem] px-4 py-7 sm:py-9 ${stages[mode.slug]}`}><div className="relative h-[476px] w-[230px] sm:h-[580px] sm:w-[280px]"><div className="absolute left-0 top-0 origin-top-left scale-[.82] sm:scale-100"><ModePhone slug={mode.slug} /></div></div></div>
+              <div className={`flex justify-center rounded-[2rem] px-4 py-7 sm:py-9 ${stages[mode.slug]}`}><div className="relative h-[476px] w-[230px] sm:h-[580px] sm:w-[280px]"><div className="absolute left-0 top-0 origin-top-left scale-[.82] sm:scale-100"><CastPhone slug={mode.slug} /></div></div></div>
             </div>
           ))}
         </div>

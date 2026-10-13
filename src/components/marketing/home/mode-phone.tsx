@@ -46,14 +46,20 @@ const DEMOS: Record<DemoMode["slug"], Demo> = {
 const AANYA_CLOSE: Person = { name: person.name, username: person.username, photo: "/pricing/aanya-close.webp", face: { x: 45, y: 50 } };
 export const DEMO_PEOPLE = {
   aanya: AANYA_CLOSE,
-  aanyaWide: { ...AANYA_CLOSE, photo: "/pricing/aanya-wide.webp", face: { x: 49, y: 24 } },
   theo: { name: "Theo Laurent", username: "theo", photo: "/pricing/theo-close.webp", face: { x: 47, y: 46 } },
   lucas: { name: "Lucas Meyer", username: "lucas", photo: "/pricing/lucas-wide.webp", face: { x: 52, y: 24 } },
   lucasClose: { name: "Lucas Meyer", username: "lucas", photo: "/pricing/lucas-close.webp", face: { x: 50, y: 38 } },
 } satisfies Record<string, Person>;
 
-/** One person across all three Modes (the Modes section): close crops for Personal and Event, wide for Business. */
-const SAME_PERSON: Record<DemoMode["slug"], Person> = { personal: DEMO_PEOPLE.aanya, event: DEMO_PEOPLE.aanya, business: DEMO_PEOPLE.aanyaWide };
+/** Slush's own week, far enough ahead that the static page never shows it expired. */
+const SLUSH: PublicLiveContext = { label: "Slush 2026", type: "event", expiresAt: "2099-11-20T17:00:00Z" };
+
+/** The homepage cast, one person per Mode: the hero and the Modes section show the same three phones. */
+export const CAST: Record<DemoMode["slug"], { who: Person; look: Look; live?: PublicLiveContext }> = {
+  personal: { who: DEMO_PEOPLE.aanya, look: { theme: "stack", pictures: ["/pricing/aanya-wide.webp"] } },
+  event: { who: DEMO_PEOPLE.theo, look: { theme: "immersive", nameFont: "impact", scrollCue: "swipe", namePosition: "bottom" }, live: SLUSH },
+  business: { who: DEMO_PEOPLE.lucasClose, look: { theme: "glow" } },
+};
 
 /** Real provider hosts, so the hero shows each Mode's social icons the way a member's page does. */
 const LINK_URLS: Record<string, string> = {
@@ -95,14 +101,19 @@ function DemoConnect() {
   );
 }
 
-export function ModePhone({ slug, label, who, look: override, live }: { slug: DemoMode["slug"]; label?: string; who?: Person; look?: Look; /** A Live Context, the pill an Event page shows while you are there. */ live?: PublicLiveContext }) {
-  const owner = who ?? SAME_PERSON[slug];
-  const { profile, mode } = demo(slug, owner, override);
+/** A cast member's phone for a Mode, exactly as the hero shows it. */
+export function CastPhone({ slug }: { slug: DemoMode["slug"] }) {
+  const { who, look, live } = CAST[slug];
+  return <ModePhone live={live} look={look} slug={slug} who={who} />;
+}
+
+export function ModePhone({ slug, label, who, look: override, live }: { slug: DemoMode["slug"]; label?: string; who: Person; look?: Look; /** A Live Context, the pill an Event page shows while you are there. */ live?: PublicLiveContext }) {
+  const { profile, mode } = demo(slug, who, override);
   const look = previewAppearance(mode);
   const zoom = SCREEN / CANVAS.width;
   // A real 390×844 phone viewport, scaled into the frame: exactly what a visitor sees first.
   return (
-    <div aria-label={label ?? `${owner.name}, ${slug} Mode`} className="relative h-[580px] w-[280px] rounded-[46px] bg-[#1b1b1b] p-[9px] text-left shadow-[0_40px_70px_-30px_rgba(13,13,13,.55),inset_0_0_0_1.5px_rgba(255,255,255,.08)]" role="img">
+    <div aria-label={label ?? `${who.name}, ${slug} Mode`} className="relative h-[580px] w-[280px] rounded-[46px] bg-[#1b1b1b] p-[9px] text-left shadow-[0_40px_70px_-30px_rgba(13,13,13,.55),inset_0_0_0_1.5px_rgba(255,255,255,.08)]" role="img">
       <span aria-hidden="true" className="absolute -left-[3px] top-[118px] h-12 w-[3px] rounded-l bg-[#1b1b1b]" />
       <span aria-hidden="true" className="absolute -right-[3px] top-[150px] h-16 w-[3px] rounded-r bg-[#1b1b1b]" />
       <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px]" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>

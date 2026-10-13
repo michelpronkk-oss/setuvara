@@ -3,11 +3,8 @@ import Link from "next/link";
 import { nameFontClasses } from "@/components/profile/name-fonts";
 
 import { HeroModes } from "./hero-modes";
-import { DEMO_PEOPLE, ModePhone } from "./mode-phone";
+import { CastPhone } from "./mode-phone";
 import { ClaimForm, Display, Label, Shell } from "./primitives";
-
-/** Slush's own week, far enough ahead that the static page never shows it expired. */
-const SLUSH = { label: "Slush 2026", type: "event", expiresAt: "2099-11-20T17:00:00Z" } as const;
 
 export function Hero() {
   return (
@@ -29,9 +26,9 @@ export function Hero() {
         <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
             cards={[
-              <ModePhone key="personal" look={{ theme: "stack", pictures: ["/pricing/aanya-wide.webp"] }} slug="personal" who={DEMO_PEOPLE.aanya} />,
-              <ModePhone key="event" live={SLUSH} look={{ theme: "immersive", nameFont: "impact", scrollCue: "swipe", namePosition: "bottom" }} slug="event" who={DEMO_PEOPLE.theo} />,
-              <ModePhone key="business" look={{ theme: "glow" }} slug="business" who={DEMO_PEOPLE.lucasClose} />,
+              <CastPhone key="personal" slug="personal" />,
+              <CastPhone key="event" slug="event" />,
+              <CastPhone key="business" slug="business" />,
             ]}
             caption="Three people · Three Modes"
           />
