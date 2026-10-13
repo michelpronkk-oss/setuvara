@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { MeetMark } from "@/components/marketing/brand";
 import { FramedPhoto } from "@/components/profile/focused-photo";
+import { ProfileImage } from "@/components/profile/profile-image";
 import { ProfileBlocks, type BlockTone } from "@/components/profile/profile-blocks";
 import { SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MemberBadge } from "@/components/app/status-badge";
@@ -278,8 +279,7 @@ function AppearanceEnvironment({ scene }: { scene: Scene }) {
     <div aria-hidden="true" className="pointer-events-none sticky top-0 -z-10 h-0" data-appearance-environment>
       {/* Beside a wide hero the atmosphere must read as colour, never as a second face. */}
       <div className="absolute inset-x-0 top-0 h-[100lvh] [--sv-env-blur:18px] @min-[900px]/profile:[--sv-env-blur:72px] min-h-[var(--sv-h)] overflow-hidden" style={{ background: field }}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- the hero's own image, reused from cache */}
-        {source && <img alt="" className="absolute -inset-10 size-[calc(100%+80px)] max-w-none object-cover" decoding="async" src={source} style={{ filter: `blur(var(--sv-env-blur)) saturate(${atmosphere.saturate}) brightness(${atmosphere.brightness})` }} />}
+        {source && <ProfileImage alt="" className="absolute -inset-10 size-[calc(100%+80px)] max-w-none object-cover" sizes="320px" src={source} style={{ filter: `blur(var(--sv-env-blur)) saturate(${atmosphere.saturate}) brightness(${atmosphere.brightness})` }} />}
         <div className="absolute inset-0" style={{ background: atmosphere.veil }} />
       </div>
     </div>
@@ -300,13 +300,16 @@ function Photo({ scene, alt = "", sizes = "100vw", priority = false, fill = "fra
   if (!scene.source) return null;
   const { look, theme } = scene;
   const atmosphere = fill === "page" && theme.atmosphere.on ? "none" : atmosphereFilter(theme);
-  const frame = (source: PhotoSource, extra?: CSSProperties) => <FramedPhoto alt={alt} className={className} fill={atmosphere} frameAspect={frameAspect} priority={priority} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
+  const frame = (source: PhotoSource, index = 0, extra?: CSSProperties) => {
+    const activeHero = priority && index === 0;
+    return <FramedPhoto alt={alt} className={className} fill={atmosphere} fetchPriority={activeHero ? "high" : "low"} frameAspect={frameAspect} priority={activeHero} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
+  };
   // The slideshow belongs to the main photo only, never to decorative copies of it.
-  return !priority || scene.slides.length < 2 ? frame(scene.source) : <Slides render={frame} scene={scene} />;
+  return !priority || scene.slides.length < 2 ? frame(scene.source) : <Slides render={(source, index) => frame(source, index)} scene={scene} />;
 }
 
 /** Plus/Pro slideshow: the Mode's photos cross-fade at the chosen pace. Motion off or reduced motion holds the first. */
-function Slides({ scene, render }: { scene: Scene; render: (source: PhotoSource, extra?: CSSProperties) => ReactNode }) {
+function Slides({ scene, render }: { scene: Scene; render: (source: PhotoSource, index: number) => ReactNode }) {
   const [index, setIndex] = useState(0);
   const count = scene.slides.length;
   const seconds = SLIDE_SECONDS[scene.look.slideSpeed];
@@ -319,7 +322,7 @@ function Slides({ scene, render }: { scene: Scene; render: (source: PhotoSource,
     <span className="absolute inset-0 block" data-slide-active={index} data-slide-count={count} data-slides={scene.look.slideSpeed}>
       {scene.slides.map((slide, at) => (
         <span className="absolute inset-0 block transition-opacity duration-[1400ms] ease-in-out" data-slide={at} key={at} style={{ opacity: at === index ? 1 : 0 }}>
-          {render(slide)}
+          {render(slide, at)}
         </span>
       ))}
     </span>
@@ -674,12 +677,10 @@ function StackHero({ scene, frame }: { scene: Scene; frame: { width: number; hei
     <>
       <div aria-hidden="true" className="absolute inset-x-0 top-0 origin-top" style={{ height: 844, transform: `scale(${k})` }}>
         <div className="absolute left-3 top-[126px] h-[262px] w-[196px] rotate-[-9deg] overflow-hidden rounded-[20px] bg-[#333] shadow-[0_30px_50px_-24px_#000000]" data-stack-layer={first ? "content" : "accent"} style={card(first, `linear-gradient(150deg, ${scene.look.accent}, ${scene.look.accent}55)`)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
-          {first ? <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={first} /> : scene.photo && <Photo scene={scene} sizes="200px" style={{ filter: "grayscale(1) contrast(1.1)", mixBlendMode: "multiply", opacity: 0.55 }} />}
+          {first ? <ProfileImage alt="" className="absolute inset-0 size-full object-cover" sizes="196px" src={first} /> : scene.photo && <Photo scene={scene} sizes="200px" style={{ filter: "grayscale(1) contrast(1.1)", mixBlendMode: "multiply", opacity: 0.55 }} />}
         </div>
         <div className="absolute right-3 top-[108px] h-[262px] w-[196px] rotate-[8deg] overflow-hidden rounded-[20px] bg-[#333] shadow-[0_30px_50px_-24px_#000000]" data-stack-layer={second ? "content" : "accent"} style={card(second, `linear-gradient(200deg, #F5F4EF22, ${scene.look.accent}99)`)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- the Mode's own content image */}
-          {second && <img alt="" className="absolute inset-0 size-full object-cover" decoding="async" src={second} />}
+          {second && <ProfileImage alt="" className="absolute inset-0 size-full object-cover" sizes="196px" src={second} />}
         </div>
       </div>
       <div className="absolute left-1/2 top-0 h-[844px] w-[246px] origin-top" style={{ transform: `translateX(-50%) scale(${k})` }}>

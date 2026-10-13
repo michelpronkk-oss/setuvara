@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactEventHandler } from "react";
 
+import { ProfileImage } from "./profile-image";
 import { focusPosition, placePhoto, PHOTO_ASPECT, type PhotoFocus, type PhotoPlacement, type PhotoSource } from "./photo-focus";
 
 /**
@@ -43,19 +43,17 @@ export function FocusedPhoto({ src, alt, focus, frameAspect, className = "", siz
 
   const objectPosition = measured ? focusPosition(focus, measured.frame, measured.photo) : focusPosition(focus, frameAspect);
   return (
-    <Image
+    <ProfileImage
       alt={alt}
       className={`object-cover ${className}`}
       data-photo-focus={`${focus.x} ${focus.y}`}
-      fetchPriority={fetchPriority}
       fill
       onError={onError}
-      priority={priority}
+      priority={priority || fetchPriority === "high"}
       ref={ref}
       sizes={sizes ?? "100vw"}
       src={src}
       style={{ ...style, objectPosition }}
-      unoptimized
     />
   );
 }
@@ -109,26 +107,23 @@ export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none",
   return (
     <span className="absolute inset-0 block overflow-hidden" data-photo-covers={placement.covers ? "true" : "false"} data-photo-source={source.original ? "original" : "saved"} data-photo-zoom={Math.round(zoom * 100)} ref={ref}>
       {!placement.covers && fill !== "none" && (
-        // eslint-disable-next-line @next/next/no-img-element -- the same image, blurred: the atmosphere where the original runs out
-        <img alt="" aria-hidden="true" className="absolute -inset-8 size-[calc(100%+64px)] max-w-none object-cover" data-photo-atmosphere decoding="async" src={source.url} style={{ filter: fill }} />
+        <ProfileImage alt="" aria-hidden="true" className="absolute -inset-8 size-[calc(100%+64px)] max-w-none object-cover" data-photo-atmosphere sizes="320px" src={source.url} style={{ filter: fill }} />
       )}
       <span className="absolute block" data-photo-placement={`${pct(placement.left)} ${pct(placement.top)} ${pct(placement.width)} ${pct(placement.height)}`} style={{ left: pct(placement.left), top: pct(placement.top), width: pct(placement.width), height: pct(placement.height), maskImage: feather, WebkitMaskImage: feather, maskComposite: feather ? "intersect" : undefined, WebkitMaskComposite: feather ? "source-in" : undefined }}>
-        <Image
+        <ProfileImage
           alt={alt}
           className={`object-cover ${className}`}
           data-photo-focus={`${source.focus.x} ${source.focus.y}`}
-          fetchPriority={fetchPriority}
           fill
           onError={onError}
           onLoad={(event) => {
             const image = event.currentTarget;
             if (!source.original && image.naturalWidth && image.naturalHeight) setNatural({ url: source.url, aspect: image.naturalWidth / image.naturalHeight });
           }}
-          priority={priority}
+          priority={priority || fetchPriority === "high"}
           sizes={sizes ?? "100vw"}
           src={source.url}
           style={style}
-          unoptimized
         />
       </span>
     </span>

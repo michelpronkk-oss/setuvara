@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { ProfileImage } from "@/components/profile/profile-image";
 import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
 import type { MediaLayout } from "@/components/profile/appearance";
@@ -68,7 +69,7 @@ function ImageRun({ blocks, tone, layout }: { blocks: ProfileBlock[]; tone: Bloc
       <div className="flex min-w-0 flex-col gap-2.5" data-media-layout="grid">
         {lead && whole(lead)}
         <ul className="grid grid-cols-2 gap-2.5">
-          {images.slice(lead ? 1 : 0).map((image) => <Tile className="aspect-[4/5] rounded-[18px]" image={image} key={image.id} onError={() => fail(image.url)} tone={tone} />)}
+          {images.slice(lead ? 1 : 0).map((image) => <Tile className="aspect-[4/5] rounded-[18px]" image={image} key={image.id} onError={() => fail(image.url)} sizes="(max-width: 700px) calc(50vw - 25px), 328px" tone={tone} />)}
         </ul>
       </div>
     );
@@ -76,7 +77,7 @@ function ImageRun({ blocks, tone, layout }: { blocks: ProfileBlock[]; tone: Bloc
   if (layout === "carousel") {
     return (
       <ul aria-label="Pictures" className="-mx-4 flex min-w-0 snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] @min-[700px]/profile:-mx-8 @min-[700px]/profile:px-8" data-media-carousel data-media-layout="carousel">
-        {images.map((image) => <Tile className="aspect-[4/5] w-[min(78%,340px)] snap-center rounded-[20px]" image={image} key={image.id} onError={() => fail(image.url)} tone={tone} />)}
+        {images.map((image) => <Tile className="aspect-[4/5] w-[min(78%,340px)] snap-center rounded-[20px]" image={image} key={image.id} onError={() => fail(image.url)} sizes="(max-width: 436px) 78vw, 340px" tone={tone} />)}
       </ul>
     );
   }
@@ -85,18 +86,17 @@ function ImageRun({ blocks, tone, layout }: { blocks: ProfileBlock[]; tone: Bloc
     <div className="flex min-w-0 flex-col gap-3.5" data-media-layout="featured">
       {whole(first)}
       <ul aria-label="More images" className="-mr-4 flex snap-x gap-2.5 overflow-x-auto pb-1 pr-4 [scrollbar-width:none]" data-media-carousel>
-        {rest.map((image) => <Tile className="h-[156px] w-[124px] snap-start rounded-[16px]" image={image} key={image.id} onError={() => fail(image.url)} tone={tone} />)}
+        {rest.map((image) => <Tile className="h-[156px] w-[124px] snap-start rounded-[16px]" image={image} key={image.id} onError={() => fail(image.url)} sizes="124px" tone={tone} />)}
       </ul>
     </div>
   );
 }
 
 /** A cropped picture tile for rows and grids; a caption sits on a soft shade at its foot. */
-function Tile({ image, tone, className, onError }: { image: RunImage; tone: BlockTone; className: string; onError: () => void }) {
+function Tile({ image, tone, className, onError, sizes }: { image: RunImage; tone: BlockTone; className: string; onError: () => void; sizes: string }) {
   return (
     <li className={`relative shrink-0 overflow-hidden ${className}`} data-media-tile style={mediaFrame(tone)}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-      <img alt={image.alt} className="absolute inset-0 size-full object-cover" decoding="async" loading="lazy" onError={onError} src={image.url} />
+      <ProfileImage alt={image.alt} className="absolute inset-0 size-full object-cover" deferUntilLcp onError={onError} sizes={sizes} src={image.url} />
       {image.caption && (
         <>
           <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_55%,#0D0D0DB3_100%)]" />
@@ -121,8 +121,7 @@ function FeaturedImage({ url, alt, tone, onError }: { url: string; alt: string; 
   useEffect(() => measure(ref.current), [url]);
   return (
     <div className="relative w-full overflow-hidden rounded-[22px]" data-featured-media style={{ aspectRatio: tall ? "4 / 5" : undefined, background: mediaFrame(tone).background }}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-      <img alt={alt} className={`block w-full ${tall ? "h-full object-cover" : "h-auto"}`} decoding="async" loading="lazy" onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} src={url} />
+      <ProfileImage alt={alt} className={`block w-full ${tall ? "h-full object-cover" : "h-auto"}`} onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={url} />
       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }} />
     </div>
   );
@@ -466,8 +465,7 @@ function ImageBlock({ data, tone }: { data: Record<string, unknown>; tone: Block
 
   return (
     <figure className="overflow-hidden rounded-[var(--sv-card-r,16px)]" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- private Supabase signed content image */}
-      <img alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" decoding="async" loading="lazy" onError={() => setFailedImage(image)} src={image} />
+      <ProfileImage alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" onError={() => setFailedImage(image)} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={image} />
       {str(data.caption) && <figcaption className="px-4 py-3 text-[13px] leading-5" style={{ color: tone.sub }}>{str(data.caption)}</figcaption>}
     </figure>
   );
