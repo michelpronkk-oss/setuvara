@@ -87,7 +87,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>To show previews and icons for links, our servers fetch the linked page and its icon, so visitors’ browsers don’t contact those sites just to draw your page. Soundtrack previews are looked up on Apple iTunes and Deezer.</p>
-        <p>Video blocks (YouTube, Vimeo, Loom, TikTok, Instagram) load only after a visitor presses play; YouTube uses its privacy-enhanced domain. Music players from Spotify, SoundCloud, Apple Music and Deezer load with the page. Once loaded, those providers may set their own cookies under their own policies.</p>
+        <p>Video blocks (YouTube, Vimeo, Loom, TikTok, Instagram) load only after a visitor presses play; YouTube uses its privacy-enhanced domain. Music players from Spotify, SoundCloud, Apple Music and Deezer load only once you allow media players or press Load player. Once loaded, those providers may set their own cookies under their own policies.</p>
       </>
     ),
   },
@@ -101,8 +101,10 @@ const sections: LegalSection[] = [
           <li><b>Sign-in (sb-…)</b>: keeps you signed in.</li>
           <li><b>sv-guest-session</b>: lets a guest keep a connection they made, for up to 30 days.</li>
           <li><b>sv-pass-… and sv-own-pass-…</b>: short-lived Connection Passes (up to 24 hours) that prove you met in person.</li>
+          <li><b>sv-consent</b>: remembers your cookie choice for 12 months.</li>
         </ul>
         <p>Your browser’s local storage also remembers small choices on your device, like whether sound is on or which Mode you last viewed. It never leaves your device.</p>
+        <p>Media players from Spotify, SoundCloud, Apple Music, Deezer and YouTube only load when you allow them. Details and your settings are on the <Link href="/cookies">Cookie policy</Link>.</p>
       </>
     ),
   },

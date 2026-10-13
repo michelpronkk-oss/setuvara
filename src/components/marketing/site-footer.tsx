@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { CookieSettingsButton } from "@/components/consent/cookie-consent";
+
 import { MeetMark } from "./brand";
 import { getMessages } from "@/lib/i18n/messages";
 
@@ -51,6 +53,8 @@ export function SiteFooter() {
             <p>© {new Date().getFullYear()} Setuvara</p>
             <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/privacy">Privacy</Link>
             <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/terms">Terms</Link>
+            <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/cookies">Cookies</Link>
+            <CookieSettingsButton className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" />
           </div>
           <p className="font-label text-[11px] uppercase tracking-[0.16em]">{copy.meetOnce}</p>
         </div>

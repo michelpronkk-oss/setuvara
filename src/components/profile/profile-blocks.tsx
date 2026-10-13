@@ -7,6 +7,7 @@ import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
 import type { MediaLayout } from "@/components/profile/appearance";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type MusicMedia, type VideoMedia } from "@/lib/blocks/media";
+import { allowMediaForSession, setConsent, useConsent } from "@/lib/consent";
 import { mediaFocus } from "@/lib/soundtrack/focus";
 import { createSoundCloudPlayer, createSpotifyPlayer, spotifyUri, watchYouTubeIframe, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
 
@@ -299,16 +300,36 @@ function TrackedVideo({ media, title, onClose, focus }: { media: VideoMedia; tit
 
 function MusicBlock({ block, tone, accent, accentInk }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string }) {
   const soundtrack = useSoundtrack();
+  const { mediaAllowed } = useConsent();
   const url = str(block.data.url);
   // Stable across renders: tracked players are created once per link.
   const media = useMemo(() => parseMusic(url), [url]);
   if (!media) return null;
   const title = str(block.data.title) || `${MUSIC_PROVIDER_NAMES[media.provider]} player`;
   let player: ReactNode;
-  if (media.provider === "youtube_music") player = <YouTubeMusicCard accent={accent} accentInk={accentInk} block={block} media={media} tone={tone} />;
+  // Provider players set their own cookies, so they wait for the visitor's consent; YouTube Music already loads on tap.
+  if (!mediaAllowed && media.provider !== "youtube_music") player = <MusicConsentCard accent={accent} accentInk={accentInk} media={media} title={title} tone={tone} />;
+  else if (media.provider === "youtube_music") player = <YouTubeMusicCard accent={accent} accentInk={accentInk} block={block} media={media} tone={tone} />;
   else if (soundtrack && (media.provider === "spotify" || media.provider === "soundcloud")) player = <TrackedMusic media={media} title={title} tone={tone} trackId={block.id} />;
   else player = <MusicFrame media={media} title={title} tone={tone} untracked={soundtrack ? block.id : undefined} />;
   return player;
+}
+
+/** Stands in for a provider player until the visitor allows media players, once or always. */
+function MusicConsentCard({ media, title, tone, accent, accentInk }: { media: MusicMedia; title: string; tone: BlockTone; accent: string; accentInk: string }) {
+  const provider = MUSIC_PROVIDER_NAMES[media.provider];
+  return (
+    <section className="flex items-center gap-3 rounded-[var(--sv-card-r,16px)] p-3" data-media style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}`, minHeight: Math.min(media.height, 96) }}>
+      <div className="min-w-0 flex-1">
+        <p className="font-label text-[10px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>{provider}</p>
+        <p className="mt-0.5 truncate text-[14px] font-semibold leading-snug">{title}</p>
+        <button className="mt-1 text-[12px] underline underline-offset-2" onClick={() => setConsent("media")} style={{ color: tone.sub }} type="button">Always allow players</button>
+      </div>
+      <button aria-label={`Load ${provider} player: ${title}`} className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition hover:scale-[1.03]" onClick={allowMediaForSession} style={{ background: accent, color: accentInk }} type="button">
+        <svg aria-hidden="true" className="ml-0.5 size-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5L7 4.5Z" /></svg>Load player
+      </button>
+    </section>
+  );
 }
 
 /** The provider's own embed, exactly as before. Marked when a soundtrack needs to notice it playing. */
