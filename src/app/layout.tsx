@@ -9,7 +9,7 @@ import "./globals.css";
 const siteUrl = "https://setuvara.com";
 const shareImageUrl = `${siteUrl}/share/setuvara-marketing.png`;
 const siteTitle = "Setuvara | Your identity for real life";
-const siteDescription = "One identity. Every version of you. Share the right context when you meet, and keep the connection after.";
+const siteDescription = "One identity. Every version of you. Share the right you by link, QR or Setuvara Tap, and remember everyone you meet.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

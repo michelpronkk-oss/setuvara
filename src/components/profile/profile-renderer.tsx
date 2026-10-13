@@ -85,6 +85,11 @@ type ProfileRendererProps = {
   className?: string;
   /** Marketing previews can opt into first-screen priority without changing public profile defaults. */
   marketingMediaPriority?: "high" | "normal";
+  /**
+   * The element that carries the name. The public profile's name is its page heading; marketing
+   * demos pass "p" so a page showing several phones keeps one h1 of its own. Looks identical.
+   */
+  nameAs?: "h1" | "p";
 };
 
 const MarketingMediaPriorityContext = createContext<"high" | "normal" | undefined>(undefined);
@@ -156,6 +161,7 @@ type Scene = {
   /** Pixels the hero's foot rises above the home indicator (0 off the public page). */
   foot: number;
   marketingMediaPriority?: "high" | "normal";
+  nameAs: "h1" | "p";
 };
 
 function Profile(props: ProfileProps) {
@@ -178,6 +184,7 @@ function Profile(props: ProfileProps) {
   const scene: Scene = {
     look, theme, who, mode, photo, source, copy, memberTier,
     marketingMediaPriority: props.marketingMediaPriority,
+    nameAs: props.nameAs ?? "h1",
     type: nameType(look.nameFont, theme.identity, theme.name.charWidth),
     slides: source ? [source, ...(mode.slide_urls ?? []).slice(0, extraSlideLimit(props.plan ?? "free")).map((slide: SlideImage) => legacySource(slide.url, { x: slide.x, y: slide.y }))] : [],
     images: contentImages(mode.blocks).map((image) => image.url),
@@ -479,20 +486,20 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
 }
 
 function Name({ scene, options }: { scene: Scene; options: IdentityOptions }) {
-  const { theme, who, memberTier } = scene;
+  const { theme, who, memberTier, nameAs: NameTag } = scene;
   if (options.smallName) {
-    return <h1 className="break-words text-[22px] font-semibold leading-tight tracking-[-0.02em]">{who.name}<NameBadge size={18} tier={memberTier} /></h1>;
+    return <NameTag className="break-words text-[22px] font-semibold leading-tight tracking-[-0.02em]">{who.name}<NameBadge size={18} tier={memberTier} /></NameTag>;
   }
   const id = theme.identity;
   return (
-    <h1
+    <NameTag
       className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]"
       data-name
       data-name-font={scene.look.nameFont}
       style={{ ...nameTypeStyle(scene.type), fontSize: options.nameSize, textShadow: id.shadow ?? undefined }}
     >
       {who.name}<NameBadge size={22} tier={memberTier} />
-    </h1>
+    </NameTag>
   );
 }
 
@@ -768,7 +775,7 @@ function WideHero({ scene }: { scene: Scene }) {
         )}
         <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
           <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
-          <h1 className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></h1>
+          <scene.nameAs className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></scene.nameAs>
           {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
           {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
           <SocialPresentation align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />

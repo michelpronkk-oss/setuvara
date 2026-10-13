@@ -3,7 +3,7 @@ import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
   title: "Setuvara for Teams",
-  description: "A people-first foundation for teams and the connections they make.",
+  description: "Your company’s Business Mode, worn by your people. Setuvara for Teams is in development: start with your own Setuvara today and tell us what your team needs.",
   path: "/teams",
 });
 

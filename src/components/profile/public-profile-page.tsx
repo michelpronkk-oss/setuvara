@@ -84,20 +84,24 @@ export async function publicProfileMetadata(target: PublicProfileTarget): Promis
   const title = publicProfileTitle(record.profile);
   const description = publicProfileDescription(record);
   const { pageUrl, image } = publicPageUrls(target);
-  const modeName = slug[0].toUpperCase() + slug.slice(1);
 
   return {
     title,
     description,
-    // Shared Event and Business pages stay out of search; the username URL is canonical.
-    ...(shareToken ? { robots: { index: false, follow: false } } : { alternates: { canonical: pageUrl }, robots: { index: true, follow: true } }),
+    // Only the Personal username URL can be indexed (publishing is the opt-in, as the Privacy policy
+    // says). Event and Business pages behind /s/<token> are private links: never indexed or followed.
+    ...(shareToken
+      ? { robots: { index: false, follow: false } }
+      : { alternates: { canonical: pageUrl }, robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } } }),
     openGraph: {
       type: "profile",
+      ...(shareToken ? {} : { username }),
       siteName: "Setuvara",
+      locale: "en_US",
       title: `${title} | Setuvara`,
       description,
       url: pageUrl,
-      images: [{ url: image, width: 1200, height: 630, alt: `${title} · ${modeName} Mode on Setuvara` }],
+      images: [{ url: image, width: 1200, height: 630, alt: `${title} on Setuvara` }],
     },
     twitter: { card: "summary_large_image", title: `${title} | Setuvara`, description, images: [image] },
   };
@@ -261,15 +265,26 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     const url = safePublicHttpUrl(link.url);
     return url ? [url] : [];
   }))).slice(0, 10);
+  const modified = [profile.updated_at, rawMode.updated_at]
+    .map((value) => (value ? new Date(value) : null))
+    .filter((value): value is Date => Boolean(value && Number.isFinite(value.getTime())))
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  // Google reads a member page as a ProfilePage about one Person.
   const personStructuredData: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "Person",
-    name: identity.display_name,
+    "@type": "ProfilePage",
     url: canonicalUrl,
-    ...(imageUrl ? { image: previewImageUrl } : {}),
-    ...(publicRole ? { jobTitle: publicRole } : {}),
-    ...(publicCompany ? { worksFor: { "@type": "Organization", name: publicCompany } } : {}),
-    ...(sameAs.length ? { sameAs } : {}),
+    ...(modified ? { dateModified: modified.toISOString() } : {}),
+    mainEntity: {
+      "@type": "Person",
+      name: publicProfileTitle(profile),
+      alternateName: `@${profile.username}`,
+      url: canonicalUrl,
+      ...(imageUrl ? { image: previewImageUrl } : {}),
+      ...(publicRole ? { jobTitle: publicRole } : {}),
+      ...(publicCompany ? { worksFor: { "@type": "Organization", name: publicCompany } } : {}),
+      ...(sameAs.length ? { sameAs } : {}),
+    },
   };
 
   // The profile is the page: it fills the window and the browser chrome takes on its background.

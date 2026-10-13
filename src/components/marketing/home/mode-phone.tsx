@@ -118,7 +118,7 @@ export function ModePhone({ slug, label, who, look: override, live, mediaPriorit
       <span aria-hidden="true" className="absolute -right-[3px] top-[150px] h-16 w-[3px] rounded-r bg-[#1b1b1b]" />
       <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px] [&_[data-floating-connect]]:hidden" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>
         <div style={{ width: CANVAS.width, zoom, "--profile-vh": `${CANVAS.height}px` } as CSSProperties}>
-          <ProfileRenderer liveContext={live} marketingMediaPriority={mediaPriority} memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
+          <ProfileRenderer liveContext={live} marketingMediaPriority={mediaPriority} nameAs="p" memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
         </div>
         <span className="absolute left-1/2 top-2.5 h-[26px] w-[84px] -translate-x-1/2 rounded-full bg-[#0a0a0a]" />
       </div>
