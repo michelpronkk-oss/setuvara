@@ -21,7 +21,7 @@ function Avatar({ name, className }: { name: string; className: string }) {
   return <CharacterAvatar className={className} seed={name} traits={name === "Aanya Rao" ? personAvatar : undefined} />;
 }
 
-function Lettermark({ className = "" }: { className?: string }) {
+export function Lettermark({ className = "" }: { className?: string }) {
   return (
     <span className={`relative grid place-items-center overflow-hidden rounded-[10px] bg-sky font-display font-extrabold tracking-[-0.06em] text-ink ${className}`}>
       L<span className="absolute right-1 top-1 size-1.5 rounded-full bg-coral" />

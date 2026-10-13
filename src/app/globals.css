@@ -354,3 +354,19 @@ html:has(head > meta[name="theme-color"][content="#F1ECEA"]) body {
   .sv-loader-halo { opacity: 0; }
   .sv-nav-progress { animation: none; transform: scaleX(.92); }
 }
+
+/* Marketing phone stages: slow colour fields behind the demo phones (phone-stage.tsx). */
+@keyframes sv-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(18%, 14%, 0) scale(1.15); }
+}
+
+@keyframes sv-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to { transform: translate3d(-16%, -18%, 0) scale(.95); }
+}
+
+@keyframes sv-drift-c {
+  from { transform: translate3d(0, 0, 0); opacity: .35; }
+  to { transform: translate3d(-30%, -20%, 0); opacity: .7; }
+}

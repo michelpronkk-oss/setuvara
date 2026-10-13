@@ -6,6 +6,7 @@ import { nameFontClasses } from "@/components/profile/name-fonts";
 
 import { FinalCta } from "../home/closing";
 import { CastPhone } from "../home/mode-phone";
+import { PhoneStage } from "../home/phone-stage";
 import { ClaimForm, Display, Label, Shell } from "../home/primitives";
 import { ConnectChoice } from "../pricing/looks";
 
@@ -47,9 +48,9 @@ function Hero() {
           <div className="mt-2 flex w-full flex-col gap-3"><ClaimForm id="events-claim" /></div>
         </div>
         <div className={`${nameFontClasses} flex justify-center`}>
-          <div className="grid w-full max-w-[460px] place-items-center rounded-[2.5rem] bg-coral px-6 py-10 sm:py-12">
+          <PhoneStage className="w-full max-w-[460px] rounded-[2.5rem] px-6 py-10 sm:py-12" slug="event">
             <div className="relative h-[476px] w-[230px] sm:h-[580px] sm:w-[280px]"><div className="absolute left-0 top-0 origin-top-left scale-[.82] sm:scale-100"><CastPhone slug="event" /></div></div>
-          </div>
+          </PhoneStage>
         </div>
       </Shell>
     </section>
