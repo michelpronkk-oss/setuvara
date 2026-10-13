@@ -47,7 +47,11 @@ export function SiteFooter() {
         </div>
         <p aria-hidden="true" className="-mb-2 select-none font-display text-[clamp(84px,21vw,312px)] font-extrabold leading-[0.78] tracking-[-0.065em]">setuvara</p>
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-paper/15 pt-6 text-[13px] text-paper/60">
-          <p>© {new Date().getFullYear()} Setuvara</p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <p>© {new Date().getFullYear()} Setuvara</p>
+            <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/privacy">Privacy</Link>
+            <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/terms">Terms</Link>
+          </div>
           <p className="font-label text-[11px] uppercase tracking-[0.16em]">{copy.meetOnce}</p>
         </div>
       </div>

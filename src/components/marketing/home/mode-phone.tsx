@@ -38,8 +38,8 @@ const DEMOS: Record<DemoMode["slug"], Demo> = {
   business: {
     appearance: "clean",
     accent: "#FF5A4F",
-    settings: { role: "Partnerships Lead", company: "Lumen Labs", city: "Lisbon", description: "Grid-storage pilots with utilities across Europe." },
-    links: [["linkedin", "LinkedIn"], ["calendly", "Book a 20-min intro"], ["url", "Lumen Labs"]],
+    settings: { role: "Partnerships Lead", company: "Setuvara", city: "Lisbon", description: "Helping teams meet better at every event." },
+    links: [["linkedin", "LinkedIn"], ["calendly", "Book a 20-min intro"], ["url", "Setuvara"]],
   },
 };
 
