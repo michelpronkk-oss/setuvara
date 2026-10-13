@@ -721,6 +721,18 @@ describe("Photo originals", () => {
     assert.match(framed, /data-photo-zoom="70"/);
   });
 
+  test("Aura's circle stays filled when the Mode is zoomed out", () => {
+    // A portrait photo in a square frame runs out at 70%; the circle keeps it covering instead.
+    const loose = lib.placePhoto(source(), 1, 0.7);
+    assert.equal(loose.covers, false);
+    assert.equal(lib.placePhoto(source(), 1, 0.7, { cover: true }).covers, true);
+    assert.equal(lib.placePhoto(lib.legacySource(PHOTO, { x: 50, y: 30 }), 1, 0.7, { cover: true }).covers, true);
+    const html = render(withOriginal({ theme: "aura", portraitZoom: 70 }, { image_crop: { x: 0, y: 0, w: 1, h: 1, width: 3000, height: 4000 } }), "plus");
+    assert.match(html, /data-hero="aura"/);
+    assert.match(html, /data-photo-covers="true"/);
+    assert.doesNotMatch(html, /data-photo-covers="false"/);
+  });
+
   test("the face model is measured against the crop, so it is the same face from the original or the crop", () => {
     const frame = { width: 390, height: 844 };
     const fromOriginal = lib.estimateFace(source(), frame);

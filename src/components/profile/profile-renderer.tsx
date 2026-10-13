@@ -309,7 +309,7 @@ function atmosphereFilter(theme: AppearanceTheme) {
  * The Mode photo in its frame, framed from the kept original at the Appearance's zoom. `fill`
  * "page" leaves uncovered space to the page atmosphere already behind the frame (Immersive).
  */
-function Photo({ scene, alt = "", sizes = "100vw", priority = false, priorityMedia, fill = "frame", frameAspect, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; priorityMedia?: string; fill?: "frame" | "page"; frameAspect?: number; style?: CSSProperties; className?: string }) {
+function Photo({ scene, alt = "", sizes = "100vw", priority = false, priorityMedia, fill = "frame", frameAspect, cover = false, style, className = "" }: { scene: Scene; alt?: string; sizes?: string; priority?: boolean; priorityMedia?: string; fill?: "frame" | "page"; frameAspect?: number; cover?: boolean; style?: CSSProperties; className?: string }) {
   const marketingMediaPriority = useContext(MarketingMediaPriorityContext);
   if (!scene.source) return null;
   const { look, theme } = scene;
@@ -317,7 +317,7 @@ function Photo({ scene, alt = "", sizes = "100vw", priority = false, priorityMed
   const frame = (source: PhotoSource, index = 0, extra?: CSSProperties) => {
     const activeHero = priority && index === 0 && marketingMediaPriority !== "normal";
     const mediaPrioritizedHero = activeHero && Boolean(priorityMedia);
-    return <FramedPhoto alt={alt} className={className} fill={atmosphere} fetchPriority={mediaPrioritizedHero ? "auto" : activeHero ? "high" : "low"} frameAspect={frameAspect} preloadMedia={mediaPrioritizedHero ? priorityMedia : undefined} priority={activeHero && !mediaPrioritizedHero} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
+    return <FramedPhoto alt={alt} className={className} cover={cover} fill={atmosphere} fetchPriority={mediaPrioritizedHero ? "auto" : activeHero ? "high" : "low"} frameAspect={frameAspect} preloadMedia={mediaPrioritizedHero ? priorityMedia : undefined} priority={activeHero && !mediaPrioritizedHero} sizes={sizes} source={source} style={{ ...style, ...extra }} zoom={look.zoom / 100} />;
   };
   // The slideshow belongs to the main photo only, never to decorative copies of it.
   return !priority || scene.slides.length < 2 ? frame(scene.source) : <Slides render={(source, index) => frame(source, index)} scene={scene} />;
@@ -602,10 +602,10 @@ function AuraHero({ scene }: { scene: Scene }) {
   return (
     <>
       <div aria-hidden="true" className="absolute left-1/2 overflow-hidden rounded-full opacity-85" data-sv-motion style={{ top: y(86), width: sized(390), height: sized(390), translate: "-50% 0", background: field, filter: "blur(22px) saturate(2.2)", animation: scene.still ? undefined : "sv-float 9s ease-in-out infinite" }}>
-        <Photo scene={scene} sizes="200px" />
+        <Photo cover frameAspect={1} scene={scene} sizes="200px" />
       </div>
       <div className="absolute left-1/2 overflow-hidden rounded-full" style={{ top: y(118), width: sized(300), height: sized(300), translate: "-50% 0", background: field, boxShadow: "0 0 0 6px #FFFFFF99, 0 40px 70px -30px #0D0D0D80" }}>
-        <Photo alt={scene.copy.photoOf.replace("{name}", who.name)} priority scene={scene} sizes="300px" />
+        <Photo alt={scene.copy.photoOf.replace("{name}", who.name)} cover frameAspect={1} priority scene={scene} sizes="300px" />
         <Initials color={scene.photo ? undefined : "#0D0D0D"} scene={scene} size={110} />
         <Treatment scene={scene} />
       </div>
@@ -797,9 +797,9 @@ function WideStage({ scene }: { scene: Scene }) {
   const { look, who, copy } = scene;
   const alt = copy.photoOf.replace("{name}", who.name);
   const field = scene.photo ? "#2A2622" : look.accent;
-  const portrait = (sizes: string, style?: CSSProperties) => (
+  const portrait = (sizes: string, style?: CSSProperties, cover = false) => (
     <>
-      <Photo alt={alt} priority scene={scene} sizes={sizes} style={style} />
+      <Photo alt={alt} cover={cover} priority scene={scene} sizes={sizes} style={style} />
       <Initials color={scene.photo ? undefined : inkOn(look.accent)} scene={scene} size="clamp(80px,10cqw,160px)" />
       <Treatment scene={scene} />
     </>
@@ -809,8 +809,8 @@ function WideStage({ scene }: { scene: Scene }) {
     case "aura":
       return (
         <div className="relative" data-wide-stage="aura">
-          <div aria-hidden="true" className={`${box} aspect-square w-[min(84%,calc(var(--sv-h)*.7))] overflow-hidden rounded-full opacity-85`} data-sv-motion style={{ background: field, filter: "blur(30px) saturate(2.2)" }}><Photo scene={scene} sizes="300px" /></div>
-          <div className={`${box} aspect-square w-[min(66%,calc(var(--sv-h)*.56))] overflow-hidden rounded-full`} style={{ background: field, boxShadow: "0 0 0 8px #FFFFFF99, 0 50px 90px -40px #0D0D0D80" }}>{portrait("40vw")}</div>
+          <div aria-hidden="true" className={`${box} aspect-square w-[min(84%,calc(var(--sv-h)*.7))] overflow-hidden rounded-full opacity-85`} data-sv-motion style={{ background: field, filter: "blur(30px) saturate(2.2)" }}><Photo cover frameAspect={1} scene={scene} sizes="300px" /></div>
+          <div className={`${box} aspect-square w-[min(66%,calc(var(--sv-h)*.56))] overflow-hidden rounded-full`} style={{ background: field, boxShadow: "0 0 0 8px #FFFFFF99, 0 50px 90px -40px #0D0D0D80" }}>{portrait("40vw", undefined, true)}</div>
         </div>
       );
     case "glow":

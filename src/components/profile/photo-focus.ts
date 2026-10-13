@@ -135,9 +135,9 @@ export type PhotoPlacement = { left: number; top: number; width: number; height:
  * original itself is the frame left to the Appearance's atmosphere (`covers` is false), and that
  * space is always below the image, never above it: the top edge stays sharp.
  */
-export function placePhoto(source: Pick<PhotoSource, "aspect" | "crop" | "focus">, frameAspect: number, zoom = 1): PhotoPlacement {
+export function placePhoto(source: Pick<PhotoSource, "aspect" | "crop" | "focus">, frameAspect: number, zoom = 1, { cover = false }: { cover?: boolean } = {}): PhotoPlacement {
   const A = Number.isFinite(frameAspect) && frameAspect > 0 ? frameAspect : PHOTO_ASPECT;
-  const z = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  let z = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   // Work in image heights: the image is `aspect` wide and 1 tall.
   const W = source.aspect;
   const face = sourceFocus(source);
@@ -156,6 +156,8 @@ export function placePhoto(source: Pick<PhotoSource, "aspect" | "crop" | "focus"
   const y1 = clampRange(clampRange(fy - h / 2, source.crop.y, source.crop.y + source.crop.h - h), 0, 1 - h);
   const u = (fx - x1) / w;
   const v = (fy - y1) / h;
+  // A frame that must stay filled (a circle) zooms out only as far as the image reaches.
+  if (cover) z = Math.max(z, w / W, h);
   const zw = w / z;
   const zh = h / z;
   const wx = clampRange(fx - u * zw, 0, W - zw);

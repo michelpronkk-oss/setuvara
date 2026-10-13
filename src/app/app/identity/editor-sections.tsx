@@ -160,23 +160,23 @@ function PhotoBlock({ api }: { api: EditorApi }) {
   const personal = modes.find((item) => item.slug === "personal");
   const canBorrow = slug !== "personal" && personal?.image_path && personal.image_path !== mode.image_path;
   return (
-    <div className="flex items-start gap-5">
-      <button aria-label={mode.image_url ? "Crop and position photo" : "Upload a photo"} className="relative h-[150px] w-[120px] shrink-0 overflow-hidden bg-[#E4E2DA] transition hover:brightness-95" onClick={mode.image_url ? api.recropPhoto : api.pickPhoto} style={{ clipPath: cutCorner(34), borderRadius: 18 }} type="button">
+    <div className="flex items-start gap-4 sm:gap-5">
+      <button aria-label={mode.image_url ? "Crop and position photo" : "Upload a photo"} className="relative h-[110px] w-[88px] shrink-0 sm:h-[150px] sm:w-[120px] overflow-hidden bg-[#E4E2DA] transition hover:brightness-95" onClick={mode.image_url ? api.recropPhoto : api.pickPhoto} style={{ clipPath: cutCorner(34), borderRadius: 18 }} type="button">
         {mode.image_url
           ? <FocusedPhoto alt={`${profile.display_name} in ${modeMeta[slug].name} Mode`} focus={modeFocus(mode)} frameAspect={4 / 5} sizes="120px" src={mode.image_url} />
           : <span className="absolute inset-0 grid place-items-center"><span className="text-center"><span className="block font-display text-4xl font-extrabold text-black/25">{(profile.display_name.trim()[0] ?? "S").toUpperCase()}</span><span className="mt-1 block text-xs font-semibold text-black/55">Add photo</span></span></span>}
         {api.busyPhoto && <span className="absolute inset-0 grid place-items-center bg-white/70"><span className="size-6 animate-spin rounded-full border-2 border-black/20 border-t-black" /></span>}
       </button>
-      <div className="min-w-0 pt-1">
-        <p className="text-sm font-semibold">Photo</p>
-        <div className="mt-2.5 flex flex-wrap gap-2">
+      <div className="min-w-0 pt-0.5 sm:pt-1">
+        {/* Compact on phones, so the lines under the name start above the fold. */}
+        <p className="text-sm font-semibold">Photo <span className="font-normal text-black/55">· {modeMeta[slug].name} Mode only</span></p>
+        <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-2.5 sm:gap-2">
           {mode.image_url ? <>
-            <Pill onClick={api.recropPhoto} variant="ink">Crop & position</Pill>
-            <Pill onClick={api.pickPhoto}>Replace</Pill>
-            <Pill className="text-black/60" onClick={api.removePhoto} variant="ghost">Remove</Pill>
+            <Pill className="max-sm:px-3" onClick={api.recropPhoto} variant="ink"><span className="sm:hidden">Crop</span><span className="max-sm:hidden">Crop & position</span></Pill>
+            <Pill className="max-sm:px-3" onClick={api.pickPhoto}>Replace</Pill>
+            <Pill className="text-black/60 max-sm:px-2" onClick={api.removePhoto} variant="ghost">Remove</Pill>
           </> : <Pill onClick={api.pickPhoto} variant="ink">Upload photo</Pill>}
         </div>
-        <p className="mt-2.5 text-[13px] leading-5 text-black/55">JPG, PNG or WebP. This photo belongs to {modeMeta[slug].name} Mode only.</p>
         {canBorrow && <button className="mt-1.5 min-h-9 text-[13px] font-semibold underline underline-offset-4" onClick={() => api.usePhotoFrom("personal")} type="button">Use my Personal photo</button>}
         {mode.image_url && <SlideshowRow api={api} />}
       </div>
@@ -197,18 +197,18 @@ function SlideshowRow({ api }: { api: EditorApi }) {
     );
   }
   return (
-    <div className="mt-3" data-slideshow-editor>
+    <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 sm:mt-3" data-slideshow-editor>
       <p className="text-[13px] font-semibold">Slideshow <span className="font-normal text-black/55">{slides.length + 1} of {limit + 1}</span></p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {slides.map((slide, index) => (
-          <div className="relative h-[60px] w-12 overflow-hidden rounded-[10px] bg-[#E4E2DA]" data-slide-thumb key={`${slide.url}-${index}`}>
-            <FocusedPhoto alt={`Slideshow photo ${index + 2}`} focus={{ x: slide.x, y: slide.y }} frameAspect={4 / 5} sizes="48px" src={slide.url} />
+          <div className="relative h-[50px] w-10 overflow-hidden rounded-[10px] bg-[#E4E2DA]" data-slide-thumb key={`${slide.url}-${index}`}>
+            <FocusedPhoto alt={`Slideshow photo ${index + 2}`} focus={{ x: slide.x, y: slide.y }} frameAspect={4 / 5} sizes="40px" src={slide.url} />
             <button aria-label={`Remove slideshow photo ${index + 2}`} className="absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-[#0D0D0D]/75 text-[11px] font-bold text-white" onClick={() => api.removeSlide(index)} type="button">×</button>
           </div>
         ))}
-        {slides.length < limit && <button aria-label="Add a slideshow photo" className="grid h-[60px] w-12 place-items-center rounded-[10px] border border-dashed border-black/25 text-lg font-semibold text-black/55 transition hover:bg-black/5" data-slide-add disabled={api.busyPhoto} onClick={api.pickSlide} type="button">+</button>}
+        {slides.length < limit && <button aria-label="Add a slideshow photo" className="grid h-[50px] w-10 place-items-center rounded-[10px] border border-dashed border-black/25 text-lg font-semibold text-black/55 transition hover:bg-black/5" data-slide-add disabled={api.busyPhoto} onClick={api.pickSlide} type="button">+</button>}
       </div>
-      {plan !== "pro" && slides.length >= limit && <p className="mt-1.5 text-[12.5px] text-black/55">Pro slideshows hold up to four photos.</p>}
+      {plan !== "pro" && slides.length >= limit && <p className="basis-full text-[12.5px] text-black/55">Pro slideshows hold up to four photos.</p>}
     </div>
   );
 }
@@ -256,14 +256,14 @@ export function ProfileSection({ api }: { api: EditorApi }) {
     <div>
       <SectionHeader description={profileIntro[slug]} slug={slug} title="Profile" />
       {slug === "personal" && (
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           <PhotoBlock api={api} />
           <NameField api={api} big hint="First name or what friends call you" />
-          <UsernameField api={api} />
           <Field error={api.fieldErrors.bio} hint={<Counter max={280} value={api.profile.bio} />} htmlFor={bioId} label="Personal line">
             <TextArea aria-invalid={Boolean(api.fieldErrors.bio)} id={bioId} maxLength={280} onChange={(event) => api.updateProfile({ bio: event.target.value })} placeholder="Film photography, late dinners, Sunday swims." value={api.profile.bio} />
           </Field>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <UsernameField api={api} />
+          <div className="grid grid-cols-2 gap-3 sm:gap-5">
             <SettingInput api={api} field="location" label="Location" max={80} placeholder="Lisbon" />
             <SettingInput api={api} field="pronouns" label="Pronouns" max={40} placeholder="she / her" />
           </div>
@@ -271,26 +271,26 @@ export function ProfileSection({ api }: { api: EditorApi }) {
         </div>
       )}
       {slug === "event" && (
-        <div className="space-y-6">
-          <Card className="p-5 sm:p-6" tone="coral">
+        <div className="space-y-5 sm:space-y-6">
+          <Card className="p-4 sm:p-6" tone="coral">
             <div className="flex items-baseline justify-between gap-3"><MonoLabel>The event</MonoLabel><span className="text-[13px] font-semibold">Saved on every connection</span></div>
             <label className="sr-only" htmlFor="event-name">Event name</label>
-            <TextInput big className="mt-3" id="event-name" maxLength={100} onChange={(event) => api.updateSetting("eventName", event.target.value)} placeholder="Slush" value={text(api.mode, "eventName")} />
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <TextInput big className="mt-2.5 sm:mt-3" id="event-name" maxLength={100} onChange={(event) => api.updateSetting("eventName", event.target.value)} placeholder="Slush" value={text(api.mode, "eventName")} />
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:mt-4">
               <div><label className="mb-2 block text-sm font-semibold" htmlFor="event-city">City</label><TextInput id="event-city" maxLength={80} onChange={(event) => api.updateSetting("city", event.target.value)} placeholder="Helsinki" value={text(api.mode, "city")} /></div>
               <div><label className="mb-2 block text-sm font-semibold" htmlFor="event-dates">Dates</label><TextInput id="event-dates" maxLength={80} onChange={(event) => api.updateSetting("dateLabel", event.target.value)} placeholder="20–21 Nov 2026" value={text(api.mode, "dateLabel")} /></div>
             </div>
           </Card>
           <PhotoBlock api={api} />
           <NameField api={api} label="Name" />
-          <SettingInput api={api} field="role" label="Role, project or company" max={80} placeholder="Founder · Northlight" />
           <SettingInput api={api} field="hereToMeet" hint="Shown under your name" label="Here to meet" max={280} multiline placeholder="Product designers and early-stage operators." />
+          <SettingInput api={api} field="role" label="Role, project or company" max={80} placeholder="Founder · Northlight" />
         </div>
       )}
       {slug === "business" && (
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           <PhotoBlock api={api} />
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-5">
             <NameField api={api} hint="Shared" label="Full name" />
             <SettingInput api={api} field="role" label="Role" max={80} placeholder="Partnerships Lead" />
             <SettingInput api={api} field="company" label="Company" max={100} placeholder="Lumen Labs" />
