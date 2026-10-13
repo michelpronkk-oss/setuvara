@@ -10,18 +10,20 @@ import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
 import { photoSource, readFocus } from "@/components/profile/photo-focus";
 import { parseConnectPolicy } from "@/lib/connections/access";
+import { LAUNCH_MODE_COOKIE, LAUNCH_VALUE, parseLaunchMode } from "@/lib/pwa/launch";
 import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { createClient } from "@/lib/supabase/server";
 
 const ORDER: ModeSlug[] = ["personal", "event", "business"];
 
-export default async function AppHomePage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+export default async function AppHomePage({ searchParams }: { searchParams: Promise<{ mode?: string; launch?: string }> }) {
   const query = await searchParams;
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (error || !userId) redirect("/login?next=/app");
-  const guestSessionToken = (await cookies()).get("sv-guest-session")?.value;
+  const cookieStore = await cookies();
+  const guestSessionToken = cookieStore.get("sv-guest-session")?.value;
   if (guestSessionToken) await supabase.rpc("claim_guest_connections", { p_session_token: guestSessionToken });
 
   // Identity is the only required source. People and Passport stream in behind their own boundaries.
@@ -44,7 +46,9 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
       return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageSource, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
     })),
   ]);
-  const initialMode = ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
+  // Opened from the Home Screen: Share opens at once, on the Mode chosen for this device.
+  const launch = query.launch === LAUNCH_VALUE;
+  const initialMode = launch ? parseLaunchMode(cookieStore.get(LAUNCH_MODE_COOKIE)?.value) : ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 
   return (
     <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-8 lg:grid lg:h-[calc(100dvh-76px)] lg:min-h-[680px] lg:grid-cols-[minmax(0,1.25fr)_minmax(400px,1fr)] lg:gap-6 lg:pt-1 min-[1800px]:gap-8">
@@ -52,7 +56,8 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
       <IdentityStage
         displayName={profile.display_name}
         initialMode={initialMode}
-        hasRequestedMode={ORDER.includes(query.mode as ModeSlug)}
+        hasRequestedMode={launch || ORDER.includes(query.mode as ModeSlug)}
+        launch={launch}
         isPublished={profile.is_published}
         modes={modes}
         plan={billing.plan}
