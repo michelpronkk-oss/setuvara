@@ -6,7 +6,7 @@ import { Modes } from "@/components/marketing/home/modes";
 import { Passport } from "@/components/marketing/home/passport";
 import { Principle } from "@/components/marketing/home/principle";
 import { MeetConnect, Share } from "@/components/marketing/home/share-connect";
-import { Looks } from "@/components/marketing/pricing/looks";
+import { Looks } from "@/components/marketing/pricing/looks-preview";
 import { JsonLd } from "@/components/seo/json-ld";
 import { marketingMetadata, SETUVARA_ORGANIZATION_ID, SETUVARA_ORIGIN, SETUVARA_WEBSITE_ID } from "@/lib/marketing/metadata";
 
