@@ -18,6 +18,8 @@ const SCREEN = 262;
 
 type Demo = { appearance: AppearanceId; accent: string; settings: Record<string, string>; links: [string, string][] };
 type Person = { name: string; username: string; photo: string; face: { x: number; y: number } };
+/** Overrides a Mode's design-file look, e.g. the hero's front phone in Immersive with Impact type. */
+type Look = { theme: AppearanceId; accent?: string } & Partial<Record<"nameFont" | "scrollCue", string>>;
 
 /** What each Mode carries, following the design file's pairing: Personal Immersive, Event Motion, Business Clean. */
 const DEMOS: Record<DemoMode["slug"], Demo> = {
@@ -47,12 +49,13 @@ export const DEMO_PEOPLE = {
   aanyaWide: { ...AANYA_CLOSE, photo: "/pricing/aanya-wide.webp", face: { x: 49, y: 24 } },
   theo: { name: "Theo Laurent", username: "theo", photo: "/pricing/theo-close.webp", face: { x: 47, y: 46 } },
   lucas: { name: "Lucas Meyer", username: "lucas", photo: "/pricing/lucas-wide.webp", face: { x: 52, y: 24 } },
+  lucasClose: { name: "Lucas Meyer", username: "lucas", photo: "/pricing/lucas-close.webp", face: { x: 50, y: 38 } },
 } satisfies Record<string, Person>;
 
 /** One person across all three Modes (the Modes section): close crops for Personal and Event, wide for Business. */
 const SAME_PERSON: Record<DemoMode["slug"], Person> = { personal: DEMO_PEOPLE.aanya, event: DEMO_PEOPLE.aanya, business: DEMO_PEOPLE.aanyaWide };
 
-function demo(slug: ModeSlug & DemoMode["slug"], who: Person): { profile: ProfileIdentity; mode: ProfileMode } {
+function demo(slug: ModeSlug & DemoMode["slug"], who: Person, override?: Look): { profile: ProfileIdentity; mode: ProfileMode } {
   const d = DEMOS[slug];
   const links: ProfileLink[] = d.links.map(([type, title], index) => ({ id: `${slug}-${index}`, title, url: "https://setuvara.com", link_type: type, is_visible: true, sort_order: index }));
   return {
@@ -63,7 +66,7 @@ function demo(slug: ModeSlug & DemoMode["slug"], who: Person): { profile: Profil
       label: slug[0].toUpperCase() + slug.slice(1),
       is_enabled: true,
       settings: d.settings,
-      appearance: { theme: d.appearance, accent: d.accent },
+      appearance: { theme: d.appearance, accent: d.accent, ...override } as ProfileMode["appearance"],
       image_path: who.photo,
       image_url: who.photo,
       image_focus_x: who.face.x,
@@ -84,9 +87,9 @@ function DemoConnect() {
   );
 }
 
-export function ModePhone({ slug, label, who }: { slug: DemoMode["slug"]; label?: string; who?: Person }) {
+export function ModePhone({ slug, label, who, look: override }: { slug: DemoMode["slug"]; label?: string; who?: Person; look?: Look }) {
   const owner = who ?? SAME_PERSON[slug];
-  const { profile, mode } = demo(slug, owner);
+  const { profile, mode } = demo(slug, owner, override);
   const look = previewAppearance(mode);
   const zoom = SCREEN / CANVAS.width;
   // A real 390×844 phone viewport, scaled into the frame: exactly what a visitor sees first.

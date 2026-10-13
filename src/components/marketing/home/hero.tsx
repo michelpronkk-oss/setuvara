@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { nameFontClasses } from "@/components/profile/name-fonts";
+
 import { HeroModes } from "./hero-modes";
 import { DEMO_PEOPLE, ModePhone } from "./mode-phone";
 import { ClaimForm, Display, Label, Shell } from "./primitives";
@@ -21,12 +23,12 @@ export function Hero() {
           <Link className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-semibold text-ink/70 hover:text-coral" href="#how">See how it works <span aria-hidden="true">↓</span></Link>
         </div>
 
-        <div className="mt-8 w-full max-w-[880px] sm:mt-12">
+        <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
             cards={[
               <ModePhone key="personal" slug="personal" who={DEMO_PEOPLE.aanya} />,
-              <ModePhone key="event" slug="event" who={DEMO_PEOPLE.theo} />,
-              <ModePhone key="business" slug="business" who={DEMO_PEOPLE.lucas} />,
+              <ModePhone key="event" look={{ theme: "immersive", nameFont: "impact", scrollCue: "swipe" }} slug="event" who={DEMO_PEOPLE.theo} />,
+              <ModePhone key="business" look={{ theme: "glow" }} slug="business" who={DEMO_PEOPLE.lucasClose} />,
             ]}
             caption="Three people · Three Modes"
           />
