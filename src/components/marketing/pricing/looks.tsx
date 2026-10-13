@@ -90,7 +90,7 @@ export function LookPhone({ appearance, width, connect = true, className = "" }:
   const zoom = width / CANVAS.width;
   const free = FREE_APPEARANCES.includes(appearance);
   return (
-    <div aria-hidden="true" className={`pointer-events-none relative shrink-0 overflow-hidden ${className}`} inert style={{ width, height: Math.round(CANVAS.height * zoom), background: appearanceTheme(look.id, look.accent).base }}>
+    <div aria-hidden="true" className={`pointer-events-none relative shrink-0 overflow-hidden [&_[data-floating-connect]]:hidden ${className}`} inert style={{ width, height: Math.round(CANVAS.height * zoom), background: appearanceTheme(look.id, look.accent).base }}>
       <div style={{ width: CANVAS.width, zoom, "--profile-vh": `${CANVAS.height}px` } as CSSProperties}>
         <ProfileRenderer attribution={free} memberTier={free ? null : "plus"} mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={connect ? <DemoConnect /> : undefined} />
       </div>

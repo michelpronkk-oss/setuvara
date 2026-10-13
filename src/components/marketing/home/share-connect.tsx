@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { MeetMark, MeetMarkJoin } from "../brand";
 import { person } from "./demo";
 import { Display, Label, LaterTag, Shell } from "./primitives";
+import { ShareDemo } from "./share-demo";
 
 // The QR codes on this page are real and scannable. They open setuvara.com.
 const qrValue = "https://setuvara.com/";
@@ -29,32 +30,14 @@ export function Share() {
     <section aria-labelledby="share-title" className="scroll-mt-16" id="share">
       <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-16 sm:gap-12 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-20 lg:py-36">
         <div className="order-2 flex justify-center lg:order-1">
-          <div className="reveal w-full max-w-[380px] rounded-[2rem] bg-ink p-5 text-paper sm:p-6">
-            <div className="flex items-center justify-between">
-              <Label className="text-paper/60">Share</Label>
-              <Label className="text-coral">Event · Slush</Label>
-            </div>
-            <div aria-hidden="true" className="mt-5 grid grid-cols-3 rounded-full bg-white/10 p-1 text-center text-[12px] font-semibold">
-              <span className="rounded-full py-2 text-paper/60">Personal</span>
-              <span className="rounded-full bg-paper py-2 text-ink">Event</span>
-              <span className="rounded-full py-2 text-paper/60">Business</span>
-            </div>
-            <div className="mt-5 rounded-[1.5rem] bg-paper p-6">
-              <span className="sm:hidden"><ShareQr label="QR code that opens setuvara.com" size={176} /></span><span className="hidden sm:block"><ShareQr label="QR code that opens setuvara.com" size={232} /></span>
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3">
-              <span className="truncate font-label text-[12px] text-paper/80">setuvara.com/s/k7Qx…</span>
-              <span className="shrink-0 text-[12px] font-semibold text-coral">Copy</span>
-            </div>
-            <div className="mt-3 flex h-12 items-center justify-center rounded-full bg-coral text-[14px] font-semibold text-ink">Share Event Mode</div>
-          </div>
+          <ShareDemo />
         </div>
 
         <div className="order-1 flex flex-col gap-8 lg:order-2">
           <div className="flex flex-col gap-5">
             <Label className="text-coral">Share</Label>
             <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="share-title">The right version, instantly.</span></Display>
-            <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Pick a Mode. Share it. They see only that version.</p>
+            <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Pick a Mode. Share it. They see only that version. Try your colour.</p>
           </div>
           <ul className="border-t border-ink/15">
             {channels.map((channel) => (

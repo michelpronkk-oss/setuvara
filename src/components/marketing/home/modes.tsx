@@ -2,9 +2,8 @@ import { nameFontClasses } from "@/components/profile/name-fonts";
 
 import { demoModes } from "./demo";
 import { CAST, CastPhone } from "./mode-phone";
+import { PhoneStage } from "./phone-stage";
 import { Display, Label, Shell } from "./primitives";
-
-const stages = { personal: "bg-[#ece9e1]", event: "bg-[#ffe1dc]", business: "bg-[#e3ebfb]" } as const;
 
 const facts = [
   { title: "Own links", detail: "60 providers, or your own." },
@@ -28,9 +27,9 @@ export function Modes() {
               return <span className="-ml-2.5 size-11 overflow-hidden rounded-full bg-cover shadow-[0_0_0_2.5px_#fff] first:ml-0" key={slug} style={{ backgroundImage: `url(${who.photo})`, backgroundPosition: `${who.face.x}% ${who.face.y}%` }} />;
             })}
           </span>
-          <span className="shrink-0 text-[15px] font-semibold">Three people · Three Modes</span>
-          <span className="h-[1.5px] min-w-6 flex-1 bg-ink" />
-          <span className="shrink-0 font-label text-[11px] uppercase tracking-[0.16em]">3 Modes</span>
+          <span className="min-w-0 truncate text-[15px] font-semibold">Three people · Three Modes</span>
+          <span className="hidden h-[1.5px] min-w-6 flex-1 bg-ink sm:block" />
+          <span className="hidden shrink-0 font-label text-[11px] uppercase tracking-[0.16em] sm:block">3 Modes</span>
         </div>
 
         {/* Phones and tablets get a swipeable rail of Modes; wider screens see all three side by side. */}
@@ -41,7 +40,7 @@ export function Modes() {
                 <Label className="shrink-0">{String(index + 1).padStart(2, "0")} · {mode.label}</Label>
                 <p className="hidden text-[13px] text-ink/60 sm:block lg:text-right">{mode.audience}</p>
               </div>
-              <div className={`flex justify-center rounded-[2rem] px-4 py-7 sm:py-9 ${stages[mode.slug]}`}><div className="relative h-[476px] w-[230px] sm:h-[580px] sm:w-[280px]"><div className="absolute left-0 top-0 origin-top-left scale-[.82] sm:scale-100"><CastPhone slug={mode.slug} /></div></div></div>
+              <PhoneStage className="rounded-[2rem] px-4 py-7 sm:py-9" slug={mode.slug}><div className="relative h-[476px] w-[230px] sm:h-[580px] sm:w-[280px]"><div className="absolute left-0 top-0 origin-top-left scale-[.82] sm:scale-100"><CastPhone slug={mode.slug} /></div></div></PhoneStage>
             </div>
           ))}
         </div>

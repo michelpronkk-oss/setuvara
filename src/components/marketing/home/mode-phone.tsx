@@ -116,7 +116,7 @@ export function ModePhone({ slug, label, who, look: override, live }: { slug: De
     <div aria-label={label ?? `${who.name}, ${slug} Mode`} className="relative h-[580px] w-[280px] rounded-[46px] bg-[#1b1b1b] p-[9px] text-left shadow-[0_40px_70px_-30px_rgba(13,13,13,.55),inset_0_0_0_1.5px_rgba(255,255,255,.08)]" role="img">
       <span aria-hidden="true" className="absolute -left-[3px] top-[118px] h-12 w-[3px] rounded-l bg-[#1b1b1b]" />
       <span aria-hidden="true" className="absolute -right-[3px] top-[150px] h-16 w-[3px] rounded-r bg-[#1b1b1b]" />
-      <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px]" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>
+      <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px] [&_[data-floating-connect]]:hidden" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>
         <div style={{ width: CANVAS.width, zoom, "--profile-vh": `${CANVAS.height}px` } as CSSProperties}>
           <ProfileRenderer liveContext={live} memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
         </div>

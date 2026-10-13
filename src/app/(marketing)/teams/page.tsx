@@ -1,4 +1,4 @@
-import { MarketingRoutePage } from "@/components/marketing/primitives";
+import { TeamsPage } from "@/components/marketing/teams/teams-page";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
@@ -7,6 +7,6 @@ export const metadata = marketingMetadata({
   path: "/teams",
 });
 
-export default function TeamsPage() {
-  return <MarketingRoutePage eyebrow="For teams" title="A better introduction starts with people." description="Setuvara begins with each person’s own identity. Team experiences are still taking shape, so there are no team plans to sign up for yet." />;
+export default function TeamsRoute() {
+  return <TeamsPage />;
 }

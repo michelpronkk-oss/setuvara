@@ -6,6 +6,7 @@ import { Modes } from "@/components/marketing/home/modes";
 import { Passport } from "@/components/marketing/home/passport";
 import { Principle } from "@/components/marketing/home/principle";
 import { MeetConnect, Share } from "@/components/marketing/home/share-connect";
+import { Looks } from "@/components/marketing/pricing/looks";
 import { JsonLd } from "@/components/seo/json-ld";
 import { marketingMetadata, SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 
@@ -39,6 +40,7 @@ export default function HomePage() {
       <Hero />
       <Principle />
       <Modes />
+      <Looks />
       <Share />
       <MeetConnect />
       <Memory />
