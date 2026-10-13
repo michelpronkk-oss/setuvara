@@ -312,3 +312,45 @@ html:has(head > meta[name="theme-color"][content="#F1ECEA"]) body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+
+/* /app route loader: the two halves of the Meet mark part and meet again while a page streams in.
+   The reveal waits a beat so fast navigations never flash it. */
+.sv-route-loader { animation: fade-in 220ms ease-out 160ms both; }
+.sv-loader-top,
+.sv-loader-bottom { animation: 1.25s cubic-bezier(.65,0,.35,1) infinite; }
+.sv-loader-top { animation-name: sv-loader-top; }
+.sv-loader-bottom { animation-name: sv-loader-bottom; }
+.sv-loader-halo { animation: sv-loader-halo 1.25s cubic-bezier(.65,0,.35,1) infinite; }
+
+@keyframes sv-loader-top {
+  0%, 100% { transform: translate(-8px, -5.5px); opacity: .55; }
+  42%, 62% { transform: none; opacity: 1; }
+}
+
+@keyframes sv-loader-bottom {
+  0%, 100% { transform: translate(8px, 5.5px); opacity: .55; }
+  42%, 62% { transform: none; opacity: 1; }
+}
+
+@keyframes sv-loader-halo {
+  0%, 30%, 100% { transform: scale(.6); opacity: 0; }
+  52% { transform: scale(1); opacity: .5; }
+  80% { transform: scale(1.25); opacity: 0; }
+}
+
+/* Thin line under the header from the moment a tab is tapped until the next page commits. */
+.sv-nav-progress { animation: sv-nav-progress 1.6s cubic-bezier(.2,.7,.2,1) both; transform-origin: left; }
+
+@keyframes sv-nav-progress {
+  0% { transform: scaleX(0); }
+  60% { transform: scaleX(.7); }
+  100% { transform: scaleX(.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-loader-top,
+  .sv-loader-bottom,
+  .sv-loader-halo { animation: none; }
+  .sv-loader-halo { opacity: 0; }
+  .sv-nav-progress { animation: none; transform: scaleX(.92); }
+}

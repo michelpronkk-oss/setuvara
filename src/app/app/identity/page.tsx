@@ -55,44 +55,50 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
   }
 
   const profile = profileResult.data as ProfileIdentity;
-  const modes: ProfileMode[] = await Promise.all(modesResult.data.map(async (mode) => {
-    const [{ data: signed }, { data: original }] = await Promise.all([
-      mode.image_path ? supabase.storage.from("profile-media").createSignedUrl(mode.image_path, 3600) : Promise.resolve({ data: null }),
-      mode.image_path && mode.image_original_path ? supabase.storage.from("profile-media").createSignedUrl(mode.image_original_path, 3600) : Promise.resolve({ data: null }),
-    ]);
-    return {
-      ...mode,
-      slug: mode.slug as ModeSlug,
-      settings: mode.settings as Record<string, string | boolean>,
-      appearance: mode.appearance as ProfileMode["appearance"],
-      connect_policy: parseConnectPolicy(mode.connect_policy),
-      image_url: signed?.signedUrl ?? null,
-      image_original_url: original?.signedUrl ?? null,
-      image_crop: mode.image_crop as ProfileMode["image_crop"],
-      slide_photos: parseSlidePhotos(mode.slide_photos),
-      slide_urls: await signSlidePhotos(supabase, parseSlidePhotos(mode.slide_photos)),
-      links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
-      // Blocks are optional: an older database without them still opens the editor.
-      blocks: await Promise.all(readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)).map(async (block) => {
-        const imagePath = typeof block.data.image_path === "string" ? block.data.image_path : null;
-        const videoPath = typeof block.data.video_path === "string" ? block.data.video_path : null;
-        const [image, video] = await Promise.all([
-          imagePath ? supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600) : Promise.resolve({ data: null }),
-          videoPath ? supabase.storage.from("profile-media").createSignedUrl(videoPath, 3600) : Promise.resolve({ data: null }),
-        ]);
-        return {
-          ...block,
-          data: {
-            ...block.data,
-            ...(imagePath ? { image_url: image.data?.signedUrl ?? null } : {}),
-            ...(videoPath ? { video_url: video.data?.signedUrl ?? null } : {}),
-          },
-        };
-      })),
-    };
-  }));
-  // Event and Business are shared through opaque locators, never `?mode=`.
-  const modeShareUrls = await ownerModeShareUrls(userId, profile.username, modes.map((mode) => mode.slug), publicOrigin);
+  // Every signing call and the share links run side by side: no per-Mode waterfall.
+  const [modes, modeShareUrls] = await Promise.all([
+    Promise.all(modesResult.data.map(async (mode): Promise<ProfileMode> => {
+      const slides = parseSlidePhotos(mode.slide_photos);
+      const [{ data: signed }, { data: original }, slideUrls, blocks] = await Promise.all([
+        mode.image_path ? supabase.storage.from("profile-media").createSignedUrl(mode.image_path, 3600) : Promise.resolve({ data: null }),
+        mode.image_path && mode.image_original_path ? supabase.storage.from("profile-media").createSignedUrl(mode.image_original_path, 3600) : Promise.resolve({ data: null }),
+        signSlidePhotos(supabase, slides),
+        // Blocks are optional: an older database without them still opens the editor.
+        Promise.all(readableBlocks(((blocksResult.data ?? []) as unknown as { mode_id: string }[]).filter((block) => block.mode_id === mode.id)).map(async (block) => {
+          const imagePath = typeof block.data.image_path === "string" ? block.data.image_path : null;
+          const videoPath = typeof block.data.video_path === "string" ? block.data.video_path : null;
+          const [image, video] = await Promise.all([
+            imagePath ? supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600) : Promise.resolve({ data: null }),
+            videoPath ? supabase.storage.from("profile-media").createSignedUrl(videoPath, 3600) : Promise.resolve({ data: null }),
+          ]);
+          return {
+            ...block,
+            data: {
+              ...block.data,
+              ...(imagePath ? { image_url: image.data?.signedUrl ?? null } : {}),
+              ...(videoPath ? { video_url: video.data?.signedUrl ?? null } : {}),
+            },
+          };
+        })),
+      ]);
+      return {
+        ...mode,
+        slug: mode.slug as ModeSlug,
+        settings: mode.settings as Record<string, string | boolean>,
+        appearance: mode.appearance as ProfileMode["appearance"],
+        connect_policy: parseConnectPolicy(mode.connect_policy),
+        image_url: signed?.signedUrl ?? null,
+        image_original_url: original?.signedUrl ?? null,
+        image_crop: mode.image_crop as ProfileMode["image_crop"],
+        slide_photos: slides,
+        slide_urls: slideUrls,
+        links: (linksResult.data ?? []).filter((link) => link.mode_id === mode.id) as ProfileLink[],
+        blocks,
+      };
+    })),
+    // Event and Business are shared through opaque locators, never `?mode=`.
+    ownerModeShareUrls(userId, profile.username, modesResult.data.map((mode) => mode.slug as ModeSlug), publicOrigin),
+  ]);
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";
   const passport = (passportResult.data ?? {}) as { rewards?: { id: string }[]; preferences?: Partial<Record<RewardCategory, string>>; milestones?: { threshold: number; seenAt: string | null }[] };
   const unseenMilestone = passport.milestones?.filter((milestone) => !milestone.seenAt).at(-1)?.threshold ?? null;
