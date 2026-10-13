@@ -772,16 +772,17 @@ describe("Scroll cue", () => {
     assert.match(render(withBlocks({ theme: "immersive" }), "plus", "off"), /data-scroll-cue-motion="still"/, "thumbnails stay still");
   });
 
-  test("the phone cue sits under Connect, and the public page lifts the hero's foot", () => {
+  test("the phone cue marks the fold, with room kept above it, and the public page lifts the hero's foot", () => {
     const html = render(withBlocks({ theme: "immersive" }), "plus");
     const hero = html.slice(html.indexOf("data-profile-hero-mobile"), html.indexOf("data-profile-hero-wide"));
-    assert.match(hero, /data-hero-connect[\s\S]*data-scroll-cue="glide"/, "cue follows Connect in the identity");
-    assert.doesNotMatch(hero.match(/<button[^>]*data-scroll-cue[^>]*>/)[0], /bottom:/, "in flow, not pinned to the hero's foot");
+    assert.match(hero.match(/<button[^>]*data-scroll-cue[^>]*>/)[0], /bottom:calc\(8px \+ var\(--sv-foot, 0px\)\)/, "pinned to the foot of the first screen");
+    assert.match(html, /--sv-cue-room:36px/, "the identity keeps the cue's room");
+    assert.match(render(withBlocks({ theme: "immersive", scrollCue: "off" }), "plus"), /--sv-cue-room:0px/, "no cue, no room");
     assert.match(html, /--sv-foot:0px/, "editor previews and thumbnails never lift");
     const pub = renderWith(withBlocks({ theme: "immersive" }), { plan: "plus", edgeToEdge: true });
     assert.match(pub, /--sv-foot:env\(safe-area-inset-bottom, 0px\)/);
     assert.match(pub, /--sv-h:clamp\(560px, calc\(var\(--profile-vh, 100svh\) - 0px\), 1000px\)/, "hero ends above an overlaid toolbar once measured");
-    assert.match(pub, /bottom:calc\(34px \+ var\(--sv-foot, 0px\)\)/, "identity rises with the foot");
+    assert.match(pub, /bottom:calc\(34px \+ var\(--sv-foot, 0px\) \+ var\(--sv-cue-room, 0px\)\)/, "identity rises with the foot and the cue's room");
     const base = { frame: { width: 390, height: 844 }, focus: { x: 50, y: 30 }, zoom: 1, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "compact", secondary: false };
     assert.ok(lib.solveFaceSafe({ ...base, bottomInset: 134 }).nameSize <= lib.solveFaceSafe(base).nameSize, "less room never grows the name");
   });

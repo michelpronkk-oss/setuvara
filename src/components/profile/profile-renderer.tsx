@@ -188,11 +188,11 @@ function Profile(props: ProfileProps) {
     foot: cover.foot,
     cue: (wide) => {
       if (!look.scrollCue) return null;
-      // On phones the cue sits in the identity, right under Connect; Social's is inside its card.
+      // The cue marks the fold: the foot of the first screen (inside Social's card on phones).
       const inCard = look.id === "social" && !wide;
       const word = look.scrollCue === "swipe" ? (wide ? copy.cueScroll : copy.cueSwipe) : look.scrollCue === "credits" ? copy.cueMore : copy.cueScroll;
       // Thumbnails (no sound) show the cue still, so ten pickers do not all move at once.
-      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={wide ? 22 : undefined} color={inCard ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
+      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={wide ? 22 : inCard ? 26 : 8} color={inCard ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
     },
   };
   const connect = theme.connect;
@@ -234,6 +234,7 @@ function Profile(props: ProfileProps) {
         // the page, the hero already ends above it; elsewhere its foot (identity, Connect, cue)
         // rises above the home indicator.
         "--sv-foot": props.edgeToEdge && !cover.bar ? "env(safe-area-inset-bottom, 0px)" : "0px",
+        "--sv-cue-room": look.scrollCue ? `${CUE_ROOM}px` : "0px",
         "--sv-card-r-small": `${theme.radiusSmall}px`,
         ...connectVars,
       } as CSSProperties}
@@ -336,7 +337,7 @@ function Treatment({ scene }: { scene: Scene }) {
   return <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />;
 }
 
-/** Height the in-flow cue adds under Connect (its 32px box and 4px gap). */
+/** Room the identity keeps free above the cue, which sits at the foot of the first screen. */
 const CUE_ROOM = 36;
 
 /**
@@ -403,6 +404,7 @@ function AppearanceHero({ scene }: { scene: Scene }) {
       {look.id === "social" && <SocialHero scene={scene} />}
       {look.id === "film" && <FilmHero scene={scene} />}
       <HeroFoot scene={scene} />
+      {scene.cue(false)}
     </div>
   );
 }
@@ -435,7 +437,8 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
   const align = options.align ?? theme.identity.align;
   const flex = align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
   const id = theme.identity;
-  const lifted = typeof options.style?.bottom === "number" ? { bottom: `calc(${options.style.bottom}px + var(--sv-foot, 0px))` } : {};
+  // A bottom-anchored identity rises above the covered foot and, with a cue, above the cue's room.
+  const lifted = typeof options.style?.bottom === "number" ? { bottom: `calc(${options.style.bottom}px + var(--sv-foot, 0px) + var(--sv-cue-room, 0px))` } : {};
   const top = (
     <div className="flex flex-col gap-3 self-stretch" style={{ alignItems: flex }}>
       <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
@@ -448,7 +451,6 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
       {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={id.muted} still={scene.still} title={scene.soundTitle} />}
       <SocialPresentation align={flex} copy={copy} links={scene.socials} size={options.socialSize} style={look.socialStyle} theme={theme} />
       <ConnectRow align={flex}>{scene.actions}</ConnectRow>
-      {scene.cue(false)}
     </div>
   );
   return (
@@ -503,7 +505,7 @@ function nameSizeCss(scene: Scene, base: number, fitWidth = "calc(100cqw - 44px)
 
 function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number; height: number } }) {
   const { look, theme } = scene;
-  // The identity rises by the covered foot and carries the cue under Connect: keep both free.
+  // The identity rises by the covered foot and the cue's room: keep both free of the face.
   const lift = scene.foot + (look.scrollCue ? CUE_ROOM : 0);
   const layout = solveFaceSafe({
     frame,
