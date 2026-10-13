@@ -21,13 +21,27 @@ const PEOPLE: Record<string, Person> = {
   aanya: { key: "aanya", name: "Aanya Rao", username: "aanya", line: "Lisbon", accent: "#FF5A4F" },
   theo: { key: "theo", name: "Theo Laurent", username: "theo", line: "Paris", accent: "#C7FF4A" },
   noor: { key: "noor", name: "Noor Haddad", username: "noor", line: "Amsterdam", accent: "#AFCBFF" },
-  michel: { key: "michel", name: "Michel Pronk", username: "michel", line: "Rotterdam", accent: "#FF5A4F" },
+  lucas: { key: "lucas", name: "Lucas Meyer", username: "lucas", line: "Rotterdam", accent: "#FF5A4F" },
   sena: { key: "sena", name: "Sena Okafor", username: "sena", line: "London", accent: "#FF5A4F" },
 };
 
-const CAST: Record<AppearanceId, keyof typeof PEOPLE> = {
-  immersive: "aanya", clean: "michel", motion: "theo", aura: "noor", glow: "sena",
-  scene: "aanya", frame: "noor", stack: "theo", social: "sena", film: "michel",
+/** Each person has a close and a wide portrait; the face point (0–100) keeps every crop on the face. */
+type Shot = "close" | "wide";
+const FACES: Record<string, Record<Shot, { x: number; y: number }>> = {
+  aanya: { close: { x: 45, y: 50 }, wide: { x: 49, y: 24 } },
+  theo: { close: { x: 47, y: 46 }, wide: { x: 45, y: 17 } },
+  noor: { close: { x: 47, y: 38 }, wide: { x: 50, y: 34 } },
+  lucas: { close: { x: 50, y: 38 }, wide: { x: 52, y: 24 } },
+  sena: { close: { x: 47, y: 30 }, wide: { x: 57, y: 34 } },
+};
+
+/** Close crops fill the tall, photo-led looks; wide crops sit inside the framed ones. */
+const CAST: Record<AppearanceId, { who: keyof typeof PEOPLE; shot: Shot }> = {
+  immersive: { who: "aanya", shot: "close" }, film: { who: "lucas", shot: "close" },
+  aura: { who: "noor", shot: "close" }, glow: { who: "sena", shot: "close" },
+  motion: { who: "theo", shot: "close" }, frame: { who: "noor", shot: "wide" },
+  clean: { who: "lucas", shot: "wide" }, scene: { who: "aanya", shot: "wide" },
+  stack: { who: "theo", shot: "wide" }, social: { who: "sena", shot: "wide" },
 };
 
 const LINKS = [
@@ -37,8 +51,9 @@ const LINKS = [
   { id: "l4", title: "Portfolio", url: "https://setuvara.com", link_type: "url", is_visible: true, sort_order: 3 },
 ];
 
-function demo(person: Person, appearance: AppearanceId): { profile: ProfileIdentity; mode: ProfileMode } {
-  const url = `/pricing/${person.key}.svg`;
+function demo(person: Person, shot: Shot, appearance: AppearanceId): { profile: ProfileIdentity; mode: ProfileMode } {
+  const url = `/pricing/${person.key}-${shot}.webp`;
+  const face = FACES[person.key][shot];
   return {
     profile: { id: `demo-${person.key}`, username: person.username, display_name: person.name, bio: "", is_published: true },
     mode: {
@@ -50,8 +65,8 @@ function demo(person: Person, appearance: AppearanceId): { profile: ProfileIdent
       appearance: { theme: appearance, accent: person.accent },
       image_path: url,
       image_url: url,
-      image_focus_x: 50,
-      image_focus_y: 52,
+      image_focus_x: face.x,
+      image_focus_y: face.y,
       links: LINKS,
       blocks: [],
     },
@@ -69,8 +84,8 @@ function DemoConnect() {
 }
 
 export function LookPhone({ appearance, width, connect = true, className = "" }: { appearance: AppearanceId; width: number; connect?: boolean; className?: string }) {
-  const person = PEOPLE[CAST[appearance]];
-  const { profile, mode } = demo(person, appearance);
+  const { who, shot } = CAST[appearance];
+  const { profile, mode } = demo(PEOPLE[who], shot, appearance);
   const look = previewAppearance(mode);
   const zoom = width / CANVAS.width;
   const free = FREE_APPEARANCES.includes(appearance);
