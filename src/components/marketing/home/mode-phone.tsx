@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { previewAppearance } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
-import type { AppearanceId, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { AppearanceId, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
 
 import { person, type DemoMode } from "./demo";
 
@@ -19,7 +19,7 @@ const SCREEN = 262;
 type Demo = { appearance: AppearanceId; accent: string; settings: Record<string, string>; links: [string, string][] };
 type Person = { name: string; username: string; photo: string; face: { x: number; y: number } };
 /** Overrides a Mode's design-file look, e.g. the hero's front phone in Immersive with Impact type. */
-type Look = { theme: AppearanceId; accent?: string; nameFont?: string; scrollCue?: string; /** Picture blocks, e.g. the photos Stack fans out behind the portrait. */ pictures?: string[] };
+type Look = { theme: AppearanceId; accent?: string; nameFont?: string; scrollCue?: string; namePosition?: string; /** Picture blocks, e.g. the photos Stack fans out behind the portrait. */ pictures?: string[] };
 
 /** What each Mode carries, following the design file's pairing: Personal Immersive, Event Motion, Business Clean. */
 const DEMOS: Record<DemoMode["slug"], Demo> = {
@@ -95,7 +95,7 @@ function DemoConnect() {
   );
 }
 
-export function ModePhone({ slug, label, who, look: override }: { slug: DemoMode["slug"]; label?: string; who?: Person; look?: Look }) {
+export function ModePhone({ slug, label, who, look: override, live }: { slug: DemoMode["slug"]; label?: string; who?: Person; look?: Look; /** A Live Context, the pill an Event page shows while you are there. */ live?: PublicLiveContext }) {
   const owner = who ?? SAME_PERSON[slug];
   const { profile, mode } = demo(slug, owner, override);
   const look = previewAppearance(mode);
@@ -107,7 +107,7 @@ export function ModePhone({ slug, label, who, look: override }: { slug: DemoMode
       <span aria-hidden="true" className="absolute -right-[3px] top-[150px] h-16 w-[3px] rounded-r bg-[#1b1b1b]" />
       <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px]" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>
         <div style={{ width: CANVAS.width, zoom, "--profile-vh": `${CANVAS.height}px` } as CSSProperties}>
-          <ProfileRenderer memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
+          <ProfileRenderer liveContext={live} memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
         </div>
         <span className="absolute left-1/2 top-2.5 h-[26px] w-[84px] -translate-x-1/2 rounded-full bg-[#0a0a0a]" />
       </div>

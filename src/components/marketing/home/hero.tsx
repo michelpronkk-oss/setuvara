@@ -6,6 +6,9 @@ import { HeroModes } from "./hero-modes";
 import { DEMO_PEOPLE, ModePhone } from "./mode-phone";
 import { ClaimForm, Display, Label, Shell } from "./primitives";
 
+/** Slush's own week, far enough ahead that the static page never shows it expired. */
+const SLUSH = { label: "Slush 2026", type: "event", expiresAt: "2099-11-20T17:00:00Z" } as const;
+
 export function Hero() {
   return (
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
@@ -27,7 +30,7 @@ export function Hero() {
           <HeroModes
             cards={[
               <ModePhone key="personal" look={{ theme: "stack", pictures: ["/pricing/aanya-wide.webp"] }} slug="personal" who={DEMO_PEOPLE.aanya} />,
-              <ModePhone key="event" look={{ theme: "immersive", nameFont: "impact", scrollCue: "swipe" }} slug="event" who={DEMO_PEOPLE.theo} />,
+              <ModePhone key="event" live={SLUSH} look={{ theme: "immersive", nameFont: "impact", scrollCue: "swipe", namePosition: "bottom" }} slug="event" who={DEMO_PEOPLE.theo} />,
               <ModePhone key="business" look={{ theme: "glow" }} slug="business" who={DEMO_PEOPLE.lucasClose} />,
             ]}
             caption="Three people · Three Modes"
