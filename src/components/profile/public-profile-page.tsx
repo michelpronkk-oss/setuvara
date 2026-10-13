@@ -23,6 +23,7 @@ import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
 import { getPublishedPublicMode, publicProfileDescription, publicProfileTitle, publicSetting, safePublicHttpUrl } from "@/lib/seo/public-profile";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
 import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
 import { isAllowedUsername } from "@/lib/usernames";
 
@@ -146,14 +147,14 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
 
   // The saved 4:5 photo (share cards, the sound gate) and the kept original every hero frames from.
   const [savedImage, originalImage] = await Promise.all([
-    rawMode.image_path ? supabase.storage.from("profile-media").createSignedUrl(rawMode.image_path, 3600) : Promise.resolve({ data: null }),
-    rawMode.image_path && rawMode.image_original_path ? supabase.storage.from("profile-media").createSignedUrl(rawMode.image_original_path, 3600) : Promise.resolve({ data: null }),
+    rawMode.image_path ? createPublicProfileImageUrl(supabase, rawMode.image_path) : Promise.resolve(null),
+    rawMode.image_path && rawMode.image_original_path ? createPublicProfileImageUrl(supabase, rawMode.image_original_path) : Promise.resolve(null),
   ]);
-  const imageUrl: string | null = savedImage.data?.signedUrl ?? null;
-  const imageOriginalUrl: string | null = imageUrl ? originalImage.data?.signedUrl ?? null : null;
+  const imageUrl = savedImage;
+  const imageOriginalUrl = imageUrl ? originalImage : null;
 
   // Only the slides the owner's plan shows are signed (Plus 1, Pro 3 after the main photo).
-  const slideUrls = imageUrl ? await signSlidePhotos(supabase, parseSlidePhotos(rawMode.slide_photos), extraSlideLimit(plan)) : [];
+  const slideUrls = imageUrl ? await signSlidePhotos(supabase, parseSlidePhotos(rawMode.slide_photos), extraSlideLimit(plan), (path) => createPublicProfileImageUrl(supabase, path)) : [];
 
   const { data: claims } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
@@ -224,14 +225,14 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     delete data.video_path;
     delete data.video_mime_type;
     const [image, video] = await Promise.all([
-      typeof imagePath === "string" ? supabase.storage.from("profile-media").createSignedUrl(imagePath, 3600) : Promise.resolve({ data: null }),
+      typeof imagePath === "string" ? createPublicProfileImageUrl(supabase, imagePath) : Promise.resolve(null),
       typeof videoPath === "string" ? supabase.storage.from("profile-media").createSignedUrl(videoPath, 3600) : Promise.resolve({ data: null }),
     ]);
     return {
       ...block,
       data: {
         ...data,
-        ...(typeof imagePath === "string" ? { image_url: image.data?.signedUrl ?? null } : {}),
+        ...(typeof imagePath === "string" ? { image_url: image } : {}),
         ...(typeof videoPath === "string" ? { video_url: video.data?.signedUrl ?? null } : {}),
       },
     };
