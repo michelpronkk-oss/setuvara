@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { MemberBadge } from "@/components/app/status-badge";
-import { CharacterAvatar, type CharacterTraits } from "@/components/avatar/character-avatar";
 
 /** Pricing page building blocks. Colours follow the Signal Coral / champagne system. */
 
@@ -62,18 +61,3 @@ export function BadgedName({ name, tier, size, className = "" }: { name: string;
   );
 }
 
-const PORTRAITS = {
-  michel: { hairStyle: "short", hair: "#3a271c", skin: "#e6b995", background: "#e8e2d4", shirt: "#0d0d0d", glasses: false },
-  aanya: { hairStyle: "bun", hair: "#3a271c", skin: "#c98e6a", background: "#afcbff", shirt: "#ff5a4f", glasses: false },
-  studio: { hairStyle: "long", hair: "#0d0d0d", skin: "#f3d5c0", background: "#ffd9d3", shirt: "#0d0d0d", glasses: true },
-} as const satisfies Record<string, Partial<CharacterTraits>>;
-
-/** Illustrated stand-in for a profile photo. Fills its box; the character sits on the bottom edge. */
-export function Portrait({ who = "michel", className = "" }: { who?: keyof typeof PORTRAITS; className?: string }) {
-  const traits = PORTRAITS[who];
-  return (
-    <div aria-hidden="true" className={`${/\b(absolute|fixed)\b/.test(className) ? "" : "relative "}overflow-hidden ${className}`} style={{ background: traits.background }}>
-      <CharacterAvatar className="absolute bottom-0 left-1/2 h-auto w-[min(100%,140%)] min-w-full -translate-x-1/2" seed={who} traits={traits} />
-    </div>
-  );
-}

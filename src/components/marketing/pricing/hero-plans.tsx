@@ -8,10 +8,12 @@ import { COMING_TO_PRO, formatPrice, monthlyNote, PLAN_HIGHLIGHTS, PLAN_TAGLINES
 import { IntervalToggle, PlanCta, PricingError, usePricing } from "./pricing-context";
 import { BadgedName, Check, Mono, SECTION } from "./shared";
 
+const PLAN_NAME = { free: "Free", plus: "Plus", pro: "Pro" } as const;
+
 const CTA = "flex h-12 w-full items-center justify-center rounded-full px-5 text-[15px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral disabled:cursor-wait disabled:opacity-70";
 
 export function HeroPlans() {
-  const { interval } = usePricing();
+  const { interval, viewer } = usePricing();
   const yearly = interval === "yearly";
   const per = yearly ? "/year" : "/month";
   const amount = (plan: "plus" | "pro") => formatPrice(yearly ? getPublicPlan(plan).yearlyPriceMinor : getPublicPlan(plan).monthlyPriceMinor);
@@ -31,6 +33,7 @@ export function HeroPlans() {
             <div className="flex flex-wrap items-center gap-3.5">
               <IntervalToggle />
               <span className="text-[13px] text-ink/60">USD · Cancel anytime</span>
+              {viewer.signedIn ? <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]"><span className="size-1.5 rounded-full bg-lime shadow-[0_0_0_2px_rgba(13,13,13,.15)]" />Signed in{viewer.available ? ` · ${PLAN_NAME[viewer.plan]}` : ""}</span> : null}
             </div>
           </div>
         </div>
@@ -43,8 +46,8 @@ export function HeroPlans() {
             <span className="-mt-3 min-h-5 text-[13px] text-ink/70">No card needed.</span>
             <div className="flex flex-col gap-1.5 rounded-[18px] bg-paper px-[18px] py-4">
               <Mono className="text-[10px] text-ink/65">Standard profile</Mono>
-              <span className="font-display text-2xl font-bold leading-none tracking-[-0.035em]">Michel Pronk</span>
-              <span className="font-label text-[12px] text-ink/60">setuvara.com/michel</span>
+              <span className="font-display text-2xl font-bold leading-none tracking-[-0.035em]">Aanya Rao</span>
+              <span className="font-label text-[12px] text-ink/60">setuvara.com/aanya</span>
             </div>
             <PlanCta className={`${CTA} text-ink shadow-[inset_0_0_0_1.5px_#0d0d0d] hover:bg-ink hover:text-paper`} plan="free" />
             <PlanList included="Included" items={PLAN_HIGHLIGHTS.free} tone="free" />
@@ -60,8 +63,8 @@ export function HeroPlans() {
             <span className="-mt-3 min-h-5 text-[13px] text-ink/70">{note("plus")}</span>
             <div className="flex flex-col gap-1.5 rounded-[18px] bg-[#fff1ef] px-[18px] py-4">
               <Mono className="text-[10px] text-[#a43d36]">Plus status · premium look</Mono>
-              <BadgedName className="font-display text-2xl font-bold leading-none tracking-[-0.035em]" name="Michel Pronk" size={18} tier="plus" />
-              <span className="font-label text-[12px] text-ink/60">setuvara.com/michel</span>
+              <BadgedName className="font-display text-2xl font-bold leading-none tracking-[-0.035em]" name="Aanya Rao" size={18} tier="plus" />
+              <span className="font-label text-[12px] text-ink/60">setuvara.com/aanya</span>
             </div>
             <PlanCta className={`${CTA} bg-coral text-ink hover:bg-[#ff7168]`} plan="plus" />
             <PlanList included="Everything in Free, plus" items={PLAN_HIGHLIGHTS.plus} tone="plus" />
@@ -75,8 +78,8 @@ export function HeroPlans() {
             <span className="relative -mt-3 min-h-5 text-[13px] text-paper/70">{note("pro")}</span>
             <div className="relative flex flex-col gap-1.5 rounded-[18px] bg-[#1a1a1a] px-[18px] py-4">
               <Mono className="text-[10px] text-[#e8d28a]">Pro status · Business Mode</Mono>
-              <BadgedName className="font-display text-2xl font-bold leading-none tracking-[-0.035em]" name="Michel Pronk" size={18} tier="pro" />
-              <span className="font-label text-[12px] text-paper/60">setuvara.com/michel</span>
+              <BadgedName className="font-display text-2xl font-bold leading-none tracking-[-0.035em]" name="Aanya Rao" size={18} tier="pro" />
+              <span className="font-label text-[12px] text-paper/60">setuvara.com/aanya</span>
             </div>
             <PlanCta className={`${CTA} relative bg-[#d6b25e] text-ink hover:bg-[#e8d28a]`} plan="pro" />
             <PlanList included="Everything in Plus, and" items={PLAN_HIGHLIGHTS.pro} tone="pro" />

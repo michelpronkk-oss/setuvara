@@ -5,11 +5,28 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { MeetMark, Wordmark } from "./brand";
 import { getMessages } from "@/lib/i18n/messages";
+import { createClient } from "@/lib/supabase/client";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral";
 
+/** Whether this browser holds a Setuvara session, read locally so marketing pages stay static. */
+function useSignedIn() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    let live = true;
+    try {
+      void createClient().auth.getSession().then(({ data }) => { if (live) setSignedIn(Boolean(data.session)); }, () => {});
+    } catch {
+      // Supabase is not configured (local preview): stay signed out.
+    }
+    return () => { live = false; };
+  }, []);
+  return signedIn;
+}
+
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const signedIn = useSignedIn();
   const menuButton = useRef<HTMLButtonElement>(null);
   const copy = getMessages("en").marketing;
   const home = "/";
@@ -70,9 +87,9 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <Link className={`min-h-11 content-center rounded-sm text-[15px] font-medium text-ink/70 transition-colors hover:text-ink ${focusRing}`} href="/login">{copy.login}</Link>
-          <Link className={`group inline-flex min-h-11 items-center gap-2 rounded-full bg-ink pl-5 pr-4 text-[14px] font-semibold text-paper transition-colors hover:bg-[#262626] lg:text-[15px] ${focusRing}`} href="/signup">
-            {copy.getSetuvara}
+          {signedIn ? null : <Link className={`min-h-11 content-center rounded-sm text-[15px] font-medium text-ink/70 transition-colors hover:text-ink ${focusRing}`} href="/login">{copy.login}</Link>}
+          <Link className={`group inline-flex min-h-11 items-center gap-2 rounded-full bg-ink pl-5 pr-4 text-[14px] font-semibold text-paper transition-colors hover:bg-[#262626] lg:text-[15px] ${focusRing}`} href={signedIn ? "/app" : "/signup"}>
+            {signedIn ? "Open Setuvara" : copy.getSetuvara}
             <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
           </Link>
         </div>
@@ -113,12 +130,12 @@ export function SiteHeader() {
         </ul>
 
         <div className="mobile-menu-item mt-auto flex flex-col gap-3" style={{ "--i": navigation.length } as CSSProperties}>
-          <Link className="flex h-14 items-center justify-center gap-2 rounded-full bg-coral text-[16px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper" href="/signup" onClick={closeMenu}>
-            {copy.createSetuvara} <span aria-hidden="true">→</span>
+          <Link className="flex h-14 items-center justify-center gap-2 rounded-full bg-coral text-[16px] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper" href={signedIn ? "/app" : "/signup"} onClick={closeMenu}>
+            {signedIn ? "Open Setuvara" : copy.createSetuvara} <span aria-hidden="true">→</span>
           </Link>
-          <Link className="flex h-14 items-center justify-center rounded-full text-[15px] font-semibold text-paper/80 shadow-[inset_0_0_0_1px_rgba(245,244,239,.18)] focus-visible:outline-2 focus-visible:outline-coral" href="/login" onClick={closeMenu}>
+          {signedIn ? null : <Link className="flex h-14 items-center justify-center rounded-full text-[15px] font-semibold text-paper/80 shadow-[inset_0_0_0_1px_rgba(245,244,239,.18)] focus-visible:outline-2 focus-visible:outline-coral" href="/login" onClick={closeMenu}>
             {copy.login}
-          </Link>
+          </Link>}
           <p className="mt-2 text-center font-label text-[10px] uppercase tracking-[0.18em] text-paper/35">{copy.oneIdentity}</p>
         </div>
       </nav>
