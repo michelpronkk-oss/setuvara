@@ -4,8 +4,26 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { SignupFlow } from "@/components/auth/signup-flow";
 import { appearanceHint } from "@/components/profile/appearance";
 import { upgradePath } from "@/lib/billing/intent";
+import { marketingShareImage, SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 
-export const metadata: Metadata = { title: "Claim your name · Setuvara", robots: { index: false, follow: false }, openGraph: null, twitter: null };
+const signupTitle = "Claim your name | Setuvara";
+const signupDescription = "Claim your name on Setuvara. One identity. Every version of you.";
+
+// Out of search (the homepage is the front door), but a shared signup link still gets a proper card.
+export const metadata: Metadata = {
+  title: { absolute: signupTitle },
+  description: signupDescription,
+  robots: { index: false, follow: true },
+  openGraph: {
+    type: "website",
+    siteName: "Setuvara",
+    title: signupTitle,
+    description: signupDescription,
+    url: `${SETUVARA_ORIGIN}/signup`,
+    images: [{ url: marketingShareImage, width: 1200, height: 630, alt: "Setuvara — One identity. Every version of you." }],
+  },
+  twitter: { card: "summary_large_image", title: signupTitle, description: signupDescription, images: [marketingShareImage] },
+};
 
 type SignupPageProps = {
   searchParams: Promise<{ claim?: string; username?: string | string[]; handle?: string | string[]; appearance?: string | string[]; plan?: string | string[]; interval?: string | string[] }>;

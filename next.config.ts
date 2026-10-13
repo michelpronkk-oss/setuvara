@@ -36,6 +36,9 @@ const nextConfig: NextConfig = {
       { source: "/q/:path*", headers: noIndex },
       { source: "/t/:path*", headers: noIndex },
       { source: "/internal/:path*", headers: noIndex },
+      // Event and Business share links are private pointers: keep the page and its card image out of search.
+      { source: "/s/:path*", headers: noIndex },
+      { source: "/og/s/:path*", headers: noIndex },
     ];
   },
   outputFileTracingIncludes: {

@@ -2,8 +2,8 @@ import { ModesPage } from "@/components/marketing/modes/modes-page";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
-  title: "Setuvara Modes",
-  description: "Personal, Event and Business: one identity, three ways to meet. Each Mode has its own links, look, link and QR.",
+  title: "Modes: Personal, Event and Business | Setuvara",
+  description: "One identity, three Modes. Personal, Event and Business each have their own links, look and QR, and people only see the one you share.",
   path: "/modes",
 });
 

@@ -452,7 +452,7 @@ export function SettingsSection({ api }: { api: EditorApi }) {
         <SettingRow description={slug === "personal" ? "Personal is always on. It’s where people land by default." : mode.is_enabled ? "Its link and QR code open for anyone you share them with." : "Its link and QR code don’t open. Nothing is deleted."} title={`${modeMeta[slug].name} Mode is ${mode.is_enabled ? "on" : "off"}`}>
           <Toggle disabled={slug === "personal"} label={`${modeMeta[slug].name} Mode on`} on={mode.is_enabled} onChange={(next) => void api.setModeEnabled(next)} />
         </SettingRow>
-        <SettingRow description={profile.is_published ? "Anyone with your link or QR can open your enabled Modes." : "Draft. Nobody can open your Setuvara until you publish."} title={profile.is_published ? "Your Setuvara is public" : "Your Setuvara is private"}>
+        <SettingRow description={profile.is_published ? "Anyone with your link or QR can open your enabled Modes. Search engines can list your Personal Mode." : "Draft. Nobody can open your Setuvara until you publish."} title={profile.is_published ? "Your Setuvara is public" : "Your Setuvara is private"}>
           <Toggle label="Setuvara public" on={profile.is_published} onChange={(next) => void api.setPublished(next)} />
         </SettingRow>
       </Card>

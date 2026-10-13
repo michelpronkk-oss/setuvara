@@ -27,6 +27,7 @@
     "smoke:billing:hosted": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-hosted-billing.ps1",
     "billing:validate-live": "node scripts/validate-live-dodo-products.mjs",
     "e2e:marketing": "node scripts/e2e-marketing.mjs",
+    "e2e:seo": "node scripts/e2e-seo.mjs",
     "email:build-assets": "node scripts/build-email-assets.mjs",
     "email:test": "deno test --allow-env=NODE_ENV --allow-read=src/lib/passport --config supabase/functions/send-email/deno.json supabase/functions/_shared/email.test.tsx",
     "email:preview": "deno run --allow-env=NODE_ENV --allow-write=.next/email-previews --config supabase/functions/send-email/deno.json supabase/functions/_shared/preview.tsx",
