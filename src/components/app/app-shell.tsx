@@ -12,13 +12,29 @@ import { FeedbackSheet } from "./feedback-sheet";
 import { StatusBadge } from "./status-badge";
 
 const navigation = [
-  { href: "/app", labelKey: "home", shortKey: "home" },
-  { href: "/app/identity", labelKey: "identity", shortKey: "identity" },
-  { href: "/app/wallet", labelKey: "wallet", shortKey: "wallet" },
-  { href: "/app/analytics", labelKey: "analytics", shortKey: "analytics" },
-  { href: "/app/connections", labelKey: "connections", shortKey: "people" },
-  { href: "/app/passport", labelKey: "passport", shortKey: "passport" },
+  { href: "/app", labelKey: "home", shortKey: "home", icon: "home" },
+  { href: "/app/identity", labelKey: "identity", shortKey: "identity", icon: "identity" },
+  { href: "/app/wallet", labelKey: "wallet", shortKey: "wallet", icon: "wallet" },
+  { href: "/app/analytics", labelKey: "analytics", shortKey: "analytics", icon: "analytics" },
+  { href: "/app/connections", labelKey: "connections", shortKey: "people", icon: "people" },
+  { href: "/app/passport", labelKey: "passport", shortKey: "passport", icon: "passport" },
 ] as const;
+
+type NavIconName = (typeof navigation)[number]["icon"];
+
+// 24px line icons, 1.8 stroke, round joins. The active tab sits in the same ink pill as the editor tab bar.
+const navIcons: Record<NavIconName, ReactNode> = {
+  home: <path d="M4 10.4 12 4l8 6.4V19a1 1 0 0 1-1 1h-4.25v-5.25h-5.5V20H5a1 1 0 0 1-1-1v-8.6Z" />,
+  identity: <><rect height="14" rx="2.75" width="18" x="3" y="5" /><circle cx="9" cy="10.6" r="2.2" /><path d="M5.9 16.2c.6-1.5 1.75-2.3 3.1-2.3s2.5.8 3.1 2.3M14.6 10h4M14.6 13.4h2.8" /></>,
+  wallet: <><path d="M4 7.6A2.6 2.6 0 0 1 6.6 5H17v3" /><path d="M4 7.6V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6.6A2.6 2.6 0 0 1 4 7.6Z" /><circle cx="16.3" cy="13.5" fill="currentColor" r="1.1" stroke="none" /></>,
+  analytics: <path d="M5 20v-5.5M10 20V9M15 20v-7.5M20 20V4.5" />,
+  people: <><circle cx="9" cy="8.4" r="3.2" /><path d="M3.4 19.4c.7-3.1 2.9-4.9 5.6-4.9s4.9 1.8 5.6 4.9" /><path d="M15.4 5.4a3 3 0 0 1 0 5.9M17.2 14.6c1.8.5 3 2 3.4 4.4" /></>,
+  passport: <><rect height="18" rx="2.5" width="14" x="5" y="3" /><circle cx="12" cy="10" r="3" /><path d="M9.5 16.6h5" /></>,
+};
+
+function NavIcon({ name }: { name: NavIconName }) {
+  return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">{navIcons[name]}</svg>;
+}
 
 // The 60° tick that marks the current destination. Same angle as the Meet mark cut.
 const tick = "polygon(2.3px 0,100% 0,calc(100% - 2.3px) 100%,0 100%)";
@@ -35,6 +51,28 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
   walletPubliclyLaunched: boolean;
 }) {
   const pathname = usePathname();
+  // Any in-app link: the destination tab lights up at once and a thin line runs under the header until
+  // the next page commits, so a slow server response never reads as a frozen app.
+  const [pending, setPending] = useState<{ path: string; from: string } | null>(null);
+  const pendingPath = pending && pending.from === pathname ? pending.path : null;
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement) || (anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download")) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin || !url.pathname.startsWith("/app") || url.pathname === window.location.pathname) return;
+      setPending({ path: url.pathname, from: window.location.pathname });
+    };
+    // Capture phase: next/link prevents the default, and a closing menu may unmount the link.
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+  useEffect(() => {
+    if (!pendingPath) return;
+    const timeout = window.setTimeout(() => setPending(null), 10000);
+    return () => window.clearTimeout(timeout);
+  }, [pendingPath]);
   const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
   // The identity editor is a full-screen workspace with its own navigation.
   if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <div lang="en">{children}</div>;
@@ -48,36 +86,38 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
           <span className="font-display text-[19px] font-bold tracking-[-0.03em] md:text-[21px]">setuvara</span>
         </Link>
         <nav aria-label="Main navigation" className="hidden gap-0 md:flex lg:gap-1.5">
-          {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
+          {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
           <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
         </div>
+        {pendingPath && <span aria-hidden="true" className="sv-nav-progress pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#ff5a4f]" key={pendingPath} />}
       </header>
 
       <div className="min-w-0 pb-[calc(78px+env(safe-area-inset-bottom))] md:pb-0" id="app-main" tabIndex={-1}>{children}</div>
 
       <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
-        {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="bottom" />)}
+        {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} variant="bottom" />)}
       </nav>
     </div>
   );
 }
 
-function NavLink({ item, pathname, variant }: { item: (typeof navigation)[number]; pathname: string; variant: "top" | "bottom" }) {
+function NavLink({ item, pathname, pendingPath, variant }: { item: (typeof navigation)[number]; pathname: string; pendingPath: string | null; variant: "top" | "bottom" }) {
   const { messages } = useI18n();
-  const active = isActive(pathname, item.href);
-  const indicator = <span aria-hidden="true" className={`h-1 w-5 bg-[#ff5a4f] transition-opacity ${active ? "opacity-100" : "opacity-0"}`} style={{ clipPath: tick }} />;
+  // While a tab is loading it already reads as the current one.
+  const active = isActive(pendingPath ?? pathname, item.href);
   if (variant === "bottom") {
     return (
-      <Link aria-current={active ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[11px] focus-visible:outline-2 sm:gap-1.5 sm:text-[13px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60"}`} href={item.href}>
-        {indicator}{messages.common[item.shortKey]}
+      <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[10.5px] leading-none tracking-[-0.005em] focus-visible:outline-2 sm:text-[12px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/50"}`} href={item.href}>
+        <span className={`grid h-8 w-12 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out active:scale-90 ${active ? "bg-[#0d0d0d] text-[#f5f4ef]" : "text-black/60"}`}><NavIcon name={item.icon} /></span>
+        <span className="max-w-full truncate">{messages.common[item.shortKey]}</span>
       </Link>
     );
   }
   return (
-    <Link aria-current={active ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-[5px] rounded-full px-2.5 text-[13px] transition-colors focus-visible:outline-2 lg:px-4 lg:text-[15px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60 hover:text-black"}`} href={item.href}>
-      <span>{messages.common[item.labelKey]}</span>{indicator}
+    <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-[5px] rounded-full px-2.5 text-[13px] transition-colors focus-visible:outline-2 lg:px-4 lg:text-[15px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60 hover:text-black"}`} href={item.href}>
+      <span>{messages.common[item.labelKey]}</span><span aria-hidden="true" className={`h-1 w-5 bg-[#ff5a4f] transition-opacity ${active ? "opacity-100" : "opacity-0"}`} style={{ clipPath: tick }} />
     </Link>
   );
 }
@@ -125,7 +165,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
         <svg aria-hidden="true" className="hidden md:block" height="12" viewBox="0 0 12 12" width="12"><path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
       </button>
       {open && (
-        <div aria-label="Account" className="absolute right-0 top-[calc(100%+8px)] z-50 flex max-h-[calc(100dvh-96px)] w-[min(316px,calc(100vw-32px))] flex-col overflow-y-auto rounded-[22px] bg-white p-2 shadow-[0_24px_60px_-20px_rgba(13,13,13,.35),0_0_0_1px_rgba(13,13,13,.08)] [animation:fade-in_120ms_ease-out]" id={menuId} role="menu">
+        <div aria-label="Account" className="absolute right-0 top-[calc(100%+8px)] z-50 flex max-h-[calc(100dvh-96px)] w-[min(316px,calc(100vw-32px))] flex-col overflow-y-auto rounded-[22px] bg-white p-2 shadow-[0_24px_60px_-20px_rgba(13,13,13,.35),0_0_0_1px_rgba(13,13,13,.08)] [animation:fade-in_120ms_ease-out]" id={menuId} onClick={(event) => { if ((event.target as Element).closest("a")) setOpen(false); }} role="menu">
           <div className="flex items-center gap-3 px-3 pb-4 pt-3.5">
             <Avatar focus={avatarFocus} name={displayName} size="size-12" url={avatarUrl} />
             <div className="min-w-0"><p className="truncate text-base font-semibold">{displayName}</p>{username && <p className="truncate font-label text-xs text-black/65">setuvara.com/{username}</p>}</div>

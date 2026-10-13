@@ -33,15 +33,17 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   ]);
   if (!profile) redirect("/login?next=/app");
   const publicOrigin = await getPublicOrigin(requestHeaders);
-  const modeShareUrls = await ownerModeShareUrls(userId, profile.username, ORDER.filter((slug) => modeRows?.some((row) => row.slug === slug)), publicOrigin);
-
-  const modes: StageMode[] = await Promise.all(ORDER.map(async (slug) => {
-    const row = modeRows?.find((item) => item.slug === slug);
-    const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
-    const [imageUrl, imageOriginalUrl] = await Promise.all([signHomeImage(supabase, row?.image_path), row?.image_path ? signHomeImage(supabase, row?.image_original_path) : null]);
-    const imageSource = photoSource({ image_url: imageUrl, image_original_url: imageOriginalUrl, image_crop: row?.image_crop, image_focus_x: row?.image_focus_x, image_focus_y: row?.image_focus_y });
-    return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageSource, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
-  }));
+  // Share links and photo signing are independent, so they run side by side.
+  const [modeShareUrls, modes] = await Promise.all([
+    ownerModeShareUrls(userId, profile.username, ORDER.filter((slug) => modeRows?.some((row) => row.slug === slug)), publicOrigin),
+    Promise.all(ORDER.map(async (slug): Promise<StageMode> => {
+      const row = modeRows?.find((item) => item.slug === slug);
+      const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
+      const [imageUrl, imageOriginalUrl] = await Promise.all([signHomeImage(supabase, row?.image_path), row?.image_path ? signHomeImage(supabase, row?.image_original_path) : null]);
+      const imageSource = photoSource({ image_url: imageUrl, image_original_url: imageOriginalUrl, image_crop: row?.image_crop, image_focus_x: row?.image_focus_x, image_focus_y: row?.image_focus_y });
+      return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageSource, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
+    })),
+  ]);
   const initialMode = ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 
   return (
