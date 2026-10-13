@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { recordProfileShare } from "@/lib/analytics/client";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { claimLaunch, HomeScreenSheet, launchModeOnDevice, useStandalone } from "@/components/app/home-screen";
 import { MeetActions } from "@/components/app/home/meet-sheet";
 import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
@@ -46,13 +47,16 @@ function rememberedMode(): ModeSlug | null {
 }
 const noSubscription = () => () => {};
 
-export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode }: {
+export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode, launch = false }: {
   displayName: string; username: string; plan: PlanCode; isPublished: boolean; publicOrigin: string; modeShareUrls: Partial<Record<ModeSlug, string | null>>; modes: StageMode[]; initialMode: ModeSlug; hasRequestedMode: boolean;
+  /** Opened from the Home Screen: the Share sheet is already open on the launch Mode. */
+  launch?: boolean;
 }) {
   const saved = useSyncExternalStore(subscribeMode, rememberedMode, () => null);
   const [selected, setSelected] = useState<ModeSlug | null>(null);
   const slug = selected ?? (hasRequestedMode ? initialMode : saved ?? initialMode);
-  const [sharing, setSharing] = useState(false);
+  const [sharing, setSharing] = useState(launch);
+  const [homeScreen, setHomeScreen] = useState(false);
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const shareButton = useRef<HTMLButtonElement>(null);
   const mode = modes.find((item) => item.slug === slug) ?? modes[0];
@@ -68,6 +72,20 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   }, []);
   const openShare = (event: MouseEvent<HTMLButtonElement>) => { shareButton.current = event.currentTarget; setSharing(true); };
   const closeShare = useCallback(() => { setSharing(false); shareButton.current?.focus(); }, []);
+  const openHomeScreen = useCallback(() => { setSharing(false); setHomeScreen(true); }, []);
+  const closeHomeScreen = useCallback(() => { setHomeScreen(false); shareButton.current?.focus(); }, []);
+
+  useEffect(() => {
+    if (launch) {
+      // The server already opened Share. Count this as the launch and drop the flag from the address.
+      claimLaunch();
+      window.history.replaceState(window.history.state, "", "/app");
+      return;
+    }
+    // A Home Screen launch that reached Home without the flag (after sign-in, or an older icon).
+    const timer = window.setTimeout(() => { if (claimLaunch()) { setSelected(launchModeOnDevice()); setSharing(true); } }, 0);
+    return () => window.clearTimeout(timer);
+  }, [launch]);
 
   return (
     <>
@@ -132,7 +150,8 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
         <Link className="inline-flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4" href="/app/tap">Quick QR &amp; Tap settings →</Link>
       </div>
 
-      {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onPick={pick} plan={plan} publicUrl={publicUrl} slug={slug} username={username} />}
+      {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onHomeScreen={openHomeScreen} onPick={pick} plan={plan} publicUrl={publicUrl} slug={slug} username={username} />}
+      {homeScreen && <HomeScreenSheet onClose={closeHomeScreen} />}
     </>
   );
 }
@@ -176,10 +195,11 @@ function ModePicker({ modes, slug, onPick, variant }: { modes: StageMode[]; slug
   );
 }
 
-function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, username, isPublished, plan }: {
-  modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; onClose: () => void; publicUrl: (slug: ModeSlug, source?: string) => string; displayName: string; username: string; isPublished: boolean; plan: PlanCode;
+function ShareSheet({ modes, slug, onPick, onClose, onHomeScreen, publicUrl, displayName, username, isPublished, plan }: {
+  modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; onClose: () => void; onHomeScreen: () => void; publicUrl: (slug: ModeSlug, source?: string) => string; displayName: string; username: string; isPublished: boolean; plan: PlanCode;
 }) {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const standalone = useStandalone();
   const [copyError, setCopyError] = useState(false);
   const [intent, setIntent] = useState<"profile" | "in_person">("profile");
   const canShare = useSyncExternalStore(noSubscription, () => typeof navigator.share === "function", () => false);
@@ -268,6 +288,7 @@ function ShareSheet({ modes, slug, onPick, onClose, publicUrl, displayName, user
             <Link aria-label="Open full-screen QR and downloads" className={`flex min-h-[52px] min-w-0 whitespace-nowrap items-center justify-center rounded-full px-3 py-3 text-center text-sm font-semibold leading-5 focus-visible:outline-2 ${canShare ? "shadow-[inset_0_0_0_1.5px_#0d0d0d]" : "col-span-full bg-[#ff5a4f] text-[#0d0d0d]"}`} href={`/app/identity?mode=${slug}&section=share${inPerson ? "&intent=in_person" : ""}`}>Open QR screen</Link>
           </div>
           <Link className="order-5 inline-flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4 md:order-none" href="/app/tap" onClick={onClose}>Open Quick QR &amp; Tap settings →</Link>
+          {!standalone && <button className="order-5 -mt-3 inline-flex min-h-11 items-center justify-center gap-2 text-sm font-semibold text-black/70 underline-offset-4 hover:underline focus-visible:outline-2 md:order-none" onClick={onHomeScreen} type="button"><PlusSquareIcon />Add Setuvara to Home Screen</button>}
           <p className="sr-only">setuvara.com/{username}</p>
         </div>
       </section>
@@ -289,4 +310,8 @@ function IntentPicker({ intent, onPick }: { intent: "profile" | "in_person"; onP
 
 function ArrowIcon() {
   return <svg aria-hidden="true" height="16" viewBox="0 0 16 16" width="16"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>;
+}
+
+function PlusSquareIcon() {
+  return <svg aria-hidden="true" fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" viewBox="0 0 20 20" width="16"><rect height="14" rx="3.5" width="14" x="3" y="3" /><path d="M10 7v6M7 10h6" /></svg>;
 }

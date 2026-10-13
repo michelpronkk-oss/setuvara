@@ -9,6 +9,7 @@ import type { PlanCode } from "@/lib/billing/catalog";
 import { DEFAULT_FOCUS, focusPosition, type PhotoFocus } from "@/components/profile/photo-focus";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeedbackSheet } from "./feedback-sheet";
+import { HomeScreenRuntime, HomeScreenSheet, useStandalone } from "./home-screen";
 import { StatusBadge } from "./status-badge";
 
 const navigation = [
@@ -75,10 +76,11 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
   }, [pendingPath]);
   const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
   // The identity editor is a full-screen workspace with its own navigation.
-  if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <div lang="en">{children}</div>;
+  if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <div lang="en"><HomeScreenRuntime />{children}</div>;
 
   return (
     <div className="min-h-dvh bg-[#f5f4ef] font-brand text-[#0d0d0d]" lang="en">
+      <HomeScreenRuntime />
       <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-[#0d0d0d] focus:px-4 focus:py-2 focus:text-white" href="#app-main">Skip to content</a>
       <header className="sticky top-0 z-40 grid h-[60px] grid-cols-[1fr_auto] items-center bg-[#f5f4ef]/95 px-4 backdrop-blur-sm md:h-[76px] md:grid-cols-[1fr_auto_1fr] md:px-8">
         <Link aria-label="Setuvara Home" className="flex min-h-11 items-center gap-2.5 justify-self-start rounded-full focus-visible:outline-2" href="/app">
@@ -127,6 +129,8 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
 }) {
   const [open, setOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [homeScreenOpen, setHomeScreenOpen] = useState(false);
+  const standalone = useStandalone();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menuId = useId();
@@ -155,6 +159,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
   }, [open]);
 
   const closeFeedback = useCallback(() => { setFeedbackOpen(false); trigger.current?.focus(); }, []);
+  const closeHomeScreen = useCallback(() => { setHomeScreenOpen(false); trigger.current?.focus(); }, []);
 
   const item = "flex min-h-[46px] w-full items-center justify-between rounded-xl px-3.5 text-left text-[15px] font-medium hover:bg-[#f5f4ef] focus-visible:bg-[#f5f4ef] focus-visible:outline-none";
   return (
@@ -183,12 +188,14 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
           {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">{messages.common.viewProfile}<span aria-hidden="true" className="text-black/50">↗</span></a>}
           <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">{messages.common.modeSettings}</Link>
           <Link className={item} href="/app/settings/notifications" role="menuitem">{messages.common.emailPreferences}</Link>
+          <button className={item} onClick={() => { setOpen(false); setHomeScreenOpen(true); }} role="menuitem" type="button">{standalone ? "Home Screen app" : "Add to Home Screen"}</button>
           <button className={item} onClick={() => { setOpen(false); setFeedbackOpen(true); }} role="menuitem" type="button">Send feedback</button>
           <div className="mx-2.5 my-1.5 h-px bg-black/[0.08]" />
           <form action={signOut}><button className={`${item} text-black/70`} role="menuitem" type="submit">{messages.common.signOut}</button></form>
         </div>
       )}
       {feedbackOpen && <FeedbackSheet onClose={closeFeedback} />}
+      {homeScreenOpen && <HomeScreenSheet onClose={closeHomeScreen} />}
     </div>
   );
 }
