@@ -21,6 +21,11 @@ const marketingUrls: MetadataRoute.Sitemap = [
   { url: `${SETUVARA_ORIGIN}/events`, changeFrequency: "monthly", priority: 0.7 },
   { url: `${SETUVARA_ORIGIN}/teams`, changeFrequency: "monthly", priority: 0.7 },
   { url: `${SETUVARA_ORIGIN}/roadmap`, changeFrequency: "monthly", priority: 0.7 },
+  { url: `${SETUVARA_ORIGIN}/privacy`, changeFrequency: "yearly", priority: 0.3 },
+  { url: `${SETUVARA_ORIGIN}/terms`, changeFrequency: "yearly", priority: 0.3 },
+  { url: `${SETUVARA_ORIGIN}/cookies`, changeFrequency: "yearly", priority: 0.3 },
+  { url: `${SETUVARA_ORIGIN}/refunds`, changeFrequency: "yearly", priority: 0.3 },
+  { url: `${SETUVARA_ORIGIN}/modes`, changeFrequency: "monthly", priority: 0.8 },
 ];
 
 const profileUrlLimit = sitemapUrlLimit - marketingUrls.length;

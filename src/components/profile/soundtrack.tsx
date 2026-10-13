@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import type { ProfileBlock } from "@/components/profile/types";
 import { parseMusic, type MusicMedia } from "@/lib/blocks/media";
 import { mediaFocus, readSoundPreference, soundPreferenceStore, soundtrackFocus, writeSoundPreference } from "@/lib/soundtrack/focus";
+import { allowMediaForSession, useConsent } from "@/lib/consent";
 import { createAudioPlayer, createSoundCloudPlayer, createSpotifyPlayer, createYouTubePlayer, spotifyUri, type Player, type PlayerEvent } from "@/lib/soundtrack/players";
 
 /**
@@ -340,8 +341,11 @@ export function SoundtrackProvider({ block, preview = false, gate = true, premiu
 
   // Create the player: audio previews need no host; embeds live in the soundtrack block.
   const audioPreview = AUDIO_PREVIEW.includes(media.provider);
+  // Provider players (Spotify, SoundCloud, YouTube) set their own cookies: they load once the visitor allows media or turns sound on.
+  const { mediaAllowed } = useConsent();
+  const embedsAllowed = preview || mediaAllowed;
   useEffect(() => {
-    if (!audioPreview && !host) return;
+    if (!audioPreview && (!host || !embedsAllowed)) return;
     let cancelled = false;
     let created: Player | null = null;
     let readyForEvents = false;
@@ -386,7 +390,7 @@ export function SoundtrackProvider({ block, preview = false, gate = true, premiu
         pending.current = null;
       }
     };
-  }, [audioPreview, clearGestureRetry, host, media, onEvent, sourceKey]);
+  }, [audioPreview, clearGestureRetry, embedsAllowed, host, media, onEvent, sourceKey]);
 
   // Every blocker change reconciles immediately; multiple active media IDs keep
   // the soundtrack paused until the final real pause/end/unmount release.
@@ -426,7 +430,7 @@ export function SoundtrackProvider({ block, preview = false, gate = true, premiu
   }, []);
 
   const soundOn = useCallback(() => {
-    if (!preview) writeSoundPreference("on");
+    if (!preview) { writeSoundPreference("on"); allowMediaForSession(); }
     setOn(true);
     setTapped(true);
     blockedAttempt.current = false;
