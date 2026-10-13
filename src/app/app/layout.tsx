@@ -43,7 +43,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <AppShell
           avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
           avatarUrl={avatarUrl}
-          canManageBilling={billing.canManageBilling}
           displayName={profile?.display_name ?? "Your identity"}
           plan={billing.plan}
           publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}

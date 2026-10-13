@@ -47,7 +47,7 @@ function suggestionsFor(handle: string) {
   return [`${handle}_`, `the${handle}`, `${handle}26`, `${handle}_hq`].map(cleanHandle).filter((value) => isAllowedUsername(value) && value !== handle).slice(0, 4);
 }
 
-export function SignupFlow({ initialHandle, claimGuest, appearance = null }: { initialHandle: string; claimGuest: boolean; appearance?: AppearanceId | null }) {
+export function SignupFlow({ initialHandle, claimGuest, appearance = null, next = "/app" }: { initialHandle: string; claimGuest: boolean; appearance?: AppearanceId | null; /** Same-site path to land on after confirmation, e.g. a plan picked on Pricing. */ next?: string }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [handle, setHandle] = useState(cleanHandle(initialHandle));
@@ -131,7 +131,7 @@ export function SignupFlow({ initialHandle, claimGuest, appearance = null }: { i
       }
 
       const confirmationUrl = new URL("/auth/confirm", window.location.origin);
-      confirmationUrl.searchParams.set("next", "/app");
+      confirmationUrl.searchParams.set("next", next);
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -140,7 +140,7 @@ export function SignupFlow({ initialHandle, claimGuest, appearance = null }: { i
       if (signUpError) return setError("We couldn’t create the account. Check your details and try again.");
 
       if (data.session) {
-        router.replace("/app");
+        router.replace(next);
         router.refresh();
         return;
       }
@@ -157,7 +157,7 @@ export function SignupFlow({ initialHandle, claimGuest, appearance = null }: { i
     if (cooldown > 0) return;
     setNotice("");
     const confirmationUrl = new URL("/auth/confirm", window.location.origin);
-    confirmationUrl.searchParams.set("next", "/app");
+    confirmationUrl.searchParams.set("next", next);
     let failed = true;
     try {
       const { error: resendError } = await createClient().auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: confirmationUrl.toString() } });
@@ -178,7 +178,7 @@ export function SignupFlow({ initialHandle, claimGuest, appearance = null }: { i
     <AuthLayout
       aside={<SignupPreview handle={preview} headline={headlines[step]} name={name.trim()} />}
       switchCta="Log in"
-      switchHref="/login"
+      switchHref={next === "/app" ? "/login" : `/login?next=${encodeURIComponent(next)}`}
       switchLead="Already have a Setuvara?"
     >
       <div className="flex items-center gap-1.5">

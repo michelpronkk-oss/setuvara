@@ -1,29 +1,48 @@
-import { PricingPlans } from "@/components/marketing/pricing-plans";
-import { PUBLIC_PLAN_CATALOG } from "@/lib/billing/catalog";
-import { getViewerPlan } from "@/lib/app/viewer";
-import { createClient } from "@/lib/supabase/server";
+import { Faq, FinalCta, Levels } from "@/components/marketing/pricing/closing";
+import { Compare } from "@/components/marketing/pricing/compare";
+import { HeroPlans } from "@/components/marketing/pricing/hero-plans";
+import { Insights } from "@/components/marketing/pricing/insights";
+import { PlusShowcase } from "@/components/marketing/pricing/plus-showcase";
+import { PricingProvider, type PricingViewer } from "@/components/marketing/pricing/pricing-context";
+import { ProShowcase } from "@/components/marketing/pricing/pro-showcase";
+import { SameYou } from "@/components/marketing/pricing/same-you";
+import { Tap } from "@/components/marketing/pricing/tap";
+import { getUserBillingState } from "@/lib/billing/service";
 import { marketingMetadata } from "@/lib/marketing/metadata";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = marketingMetadata({
   title: "Pricing | Setuvara",
-  description: "Keep the Setuvara network open on Free. Add member status and deeper product analytics with Plus or Pro.",
+  description: "Free to start, for good: every Mode, sharing, Connections and Passport. Plus adds premium status, looks and insights. Pro adds deeper analytics.",
   path: "/pricing",
 });
 
-export default async function PricingPage() {
+async function readViewer(): Promise<PricingViewer> {
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = !error && typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
-  const billing = userId
-    ? await getViewerPlan(userId)
-    : { plan: "free" as const, canManageBilling: false, available: true };
+  if (!userId) return { signedIn: false, plan: "free", interval: null, available: true };
+  try {
+    const billing = await getUserBillingState(userId);
+    return { signedIn: true, plan: billing.plan, interval: billing.interval, available: true };
+  } catch {
+    return { signedIn: true, plan: "free", interval: null, available: false };
+  }
+}
 
+export default async function PricingPage() {
   return (
-    <PricingPlans
-      billingAvailable={billing.available}
-      currentPlan={billing.plan}
-      plans={PUBLIC_PLAN_CATALOG.map(({ code, displayName, monthlyPriceMinor, yearlyPriceMinor, capabilities }) => ({ code, displayName, monthlyPriceMinor, yearlyPriceMinor, capabilities }))}
-      signedIn={Boolean(userId)}
-    />
+    <PricingProvider viewer={await readViewer()}>
+      <HeroPlans />
+      <SameYou />
+      <PlusShowcase />
+      <Insights />
+      <ProShowcase />
+      <Tap />
+      <Compare />
+      <Levels />
+      <Faq />
+      <FinalCta />
+    </PricingProvider>
   );
 }

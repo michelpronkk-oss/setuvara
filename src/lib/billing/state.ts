@@ -49,19 +49,26 @@ export function subscriptionHasAccess(
     hasFutureDate(subscription.past_due_ends_at);
 }
 
-export function resolveBillingSnapshot(
-  subscriptions: readonly ProviderSubscriptionRecord[],
+/** The subscription that grants the plan: highest plan first, then the latest period end. */
+export function selectEffectiveSubscription<T extends ProviderSubscriptionRecord>(
+  subscriptions: readonly T[],
   now = Date.now(),
-): BillingSnapshot {
+): (T & EffectiveSubscription) | null {
   const active = subscriptions
-    .filter((subscription) => subscriptionHasAccess(subscription, now))
+    .filter((subscription): subscription is T & EffectiveSubscription => subscriptionHasAccess(subscription, now))
     .sort((left, right) => {
       const rank = (right.plan_code === "pro" ? 2 : 1) - (left.plan_code === "pro" ? 2 : 1);
       if (rank !== 0) return rank;
       return Date.parse(right.current_period_end ?? "") - Date.parse(left.current_period_end ?? "");
     });
+  return active[0] ?? null;
+}
 
-  const selected = active[0];
+export function resolveBillingSnapshot(
+  subscriptions: readonly ProviderSubscriptionRecord[],
+  now = Date.now(),
+): BillingSnapshot {
+  const selected = selectEffectiveSubscription(subscriptions, now);
   if (!selected || !isPaidPlanCode(selected.plan_code)) {
     return {
       plan: "free",

@@ -23,14 +23,13 @@ const navigation = [
 // The 60° tick that marks the current destination. Same angle as the Meet mark cut.
 const tick = "polygon(2.3px 0,100% 0,calc(100% - 2.3px) 100%,0 100%)";
 
-export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut, walletPubliclyLaunched }: {
+export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut, walletPubliclyLaunched }: {
   children: ReactNode;
   displayName: string;
   username: string | null;
   avatarUrl: string | null;
   avatarFocus?: PhotoFocus;
   plan: PlanCode;
-  canManageBilling: boolean;
   publicProfileUrl: string | null;
   signOut: () => Promise<void>;
   walletPubliclyLaunched: boolean;
@@ -52,7 +51,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
           {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
-          <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} canManageBilling={canManageBilling} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
+          <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
         </div>
       </header>
 
@@ -83,12 +82,10 @@ function NavLink({ item, pathname, variant }: { item: (typeof navigation)[number
   );
 }
 
-function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canManageBilling, publicProfileUrl, signOut }: {
-  displayName: string; username: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; plan: PlanCode; canManageBilling: boolean; publicProfileUrl: string | null; signOut: () => Promise<void>;
+function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut }: {
+  displayName: string; username: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; plan: PlanCode; publicProfileUrl: string | null; signOut: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [billingBusy, setBillingBusy] = useState(false);
-  const [billingError, setBillingError] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -119,17 +116,6 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
 
   const closeFeedback = useCallback(() => { setFeedbackOpen(false); trigger.current?.focus(); }, []);
 
-  async function manageBilling() {
-    setBillingBusy(true); setBillingError(false);
-    try {
-      const response = await fetch("/api/billing/portal", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-      const body = (await response.json()) as { portalUrl?: string };
-      if (response.ok && body.portalUrl) { window.location.assign(body.portalUrl); return; }
-      setBillingError(true);
-    } catch { setBillingError(true); }
-    setBillingBusy(false);
-  }
-
   const item = "flex min-h-[46px] w-full items-center justify-between rounded-xl px-3.5 text-left text-[15px] font-medium hover:bg-[#f5f4ef] focus-visible:bg-[#f5f4ef] focus-visible:outline-none";
   return (
     <div className="relative" ref={root}>
@@ -144,13 +130,14 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, canM
             <Avatar focus={avatarFocus} name={displayName} size="size-12" url={avatarUrl} />
             <div className="min-w-0"><p className="truncate text-base font-semibold">{displayName}</p>{username && <p className="truncate font-label text-xs text-black/65">setuvara.com/{username}</p>}</div>
           </div>
-          <div className="mx-1 mb-1.5 flex items-center justify-between gap-3 rounded-[14px] bg-[#f5f4ef] px-3.5 py-3">
-            <span className="flex items-center gap-2 text-sm font-semibold"><StatusBadge plan={plan} size={16} />{planName}</span>
-            {canManageBilling
-              ? <button className="min-h-11 text-[13px] font-semibold text-black/70 underline-offset-4 hover:underline disabled:opacity-60" disabled={billingBusy} onClick={() => void manageBilling()} role="menuitem" type="button">{billingBusy ? "Opening…" : messages.common.manageBilling}</button>
-              : <Link className="flex min-h-11 items-center text-[13px] font-semibold text-black/70 underline-offset-4 hover:underline" href="/pricing" role="menuitem">{messages.common.seePlans}</Link>}
-          </div>
-          {billingError && <p aria-live="polite" className="px-3.5 pb-1 text-xs text-[#a43d36]">Billing could not open. Try again in a moment.</p>}
+          {/* Billing: current plan at a glance; the page holds upgrade, plan changes and the payment portal. */}
+          <Link className="mx-1 mb-1.5 flex min-h-[58px] items-center justify-between gap-3 rounded-[14px] bg-[#f5f4ef] px-3.5 py-2.5 hover:bg-[#ecebe4] focus-visible:bg-[#ecebe4] focus-visible:outline-none" href="/app/settings/billing" role="menuitem">
+            <span className="flex min-w-0 flex-col">
+              <span className="font-label text-[10px] uppercase tracking-[0.14em] text-black/55">{messages.common.billing}</span>
+              <span className="mt-0.5 flex items-center gap-2 text-sm font-semibold"><StatusBadge plan={plan} size={16} />{planName}</span>
+            </span>
+            <span className="shrink-0 text-[13px] font-semibold text-black/70">{plan === "free" ? messages.common.upgrade : messages.common.manageBilling}<span aria-hidden="true"> →</span></span>
+          </Link>
           <Link className={item} href="/app/context" role="menuitem">{messages.common.liveContext}</Link>
           <Link className={item} href="/app/settings/region" role="menuitem">{messages.common.region}</Link>
           {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">{messages.common.viewProfile}<span aria-hidden="true" className="text-black/50">↗</span></a>}
