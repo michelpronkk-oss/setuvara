@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { MeetMark, Wordmark } from "./brand";
 import { getMessages } from "@/lib/i18n/messages";
-import { createClient } from "@/lib/supabase/client";
 
 const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral";
 
@@ -14,12 +13,15 @@ function useSignedIn() {
   const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
     let live = true;
-    try {
-      void createClient().auth.getSession().then(({ data }) => { if (live) setSignedIn(Boolean(data.session)); }, () => {});
-    } catch {
-      // Supabase is not configured (local preview): stay signed out.
-    }
-    return () => { live = false; };
+    const timer = window.setTimeout(() => {
+      void import("@/lib/supabase/client")
+        .then(({ createClient }) => createClient().auth.getSession())
+        .then(({ data }) => { if (live) setSignedIn(Boolean(data.session)); })
+        .catch(() => {
+          // Supabase is not configured (local preview): stay signed out.
+        });
+    }, 50);
+    return () => { live = false; window.clearTimeout(timer); };
   }, []);
   return signedIn;
 }

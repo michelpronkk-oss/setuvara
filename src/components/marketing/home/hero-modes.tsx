@@ -2,10 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { StageField } from "./phone-stage";
-
 const labels = ["Personal", "Event", "Business"] as const;
-const slugs = ["personal", "event", "business"] as const;
 
 /**
  * The hero's only interactive piece: three server-rendered Mode profiles fanned
@@ -46,10 +43,6 @@ export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, Re
       </div>
 
       <div className="relative h-[452px] w-full [--fan-x:54px] [--s:.74] min-[420px]:[--fan-x:66px] sm:h-[530px] sm:[--fan-x:170px] sm:[--s:.86] lg:h-[610px] lg:[--fan-x:236px] lg:[--s:1]">
-        {/* A soft aura in the front phone's own colours, fading over as the Mode changes. */}
-        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[-6%] h-[112%] w-[min(150%,1100px)] -translate-x-1/2 [mask-image:radial-gradient(closest-side,#000_35%,transparent)]">
-          {slugs.map((slug, index) => <StageField className={`transition-opacity duration-1000 ${active === index ? "opacity-100" : "opacity-0"}`} key={slug} slug={slug} />)}
-        </div>
         {cards.map((card, index) => {
           const relative = ((index - active + 4) % 3) - 1;
           const front = relative === 0;
