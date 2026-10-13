@@ -5,19 +5,20 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ScrollCue as CueId } from "./appearance";
 
 /**
- * The scroll cue: a small sign at the foot of the hero that the profile continues below. Each
+ * The scroll cue: a small sign under the hero's Connect that the profile continues below. It
+ * travels with the identity, so wherever Connect is visible, the cue is too. Each
  * Appearance wears its own (appearance.ts APPEARANCE_CUES); Plus can pick any of the ten.
  *
  * It is a real button (it scrolls to the content), it fades away once the visitor has scrolled,
  * and it never shows when nothing follows the hero. `animated` loops the cue's motion (Plus with
  * motion on); otherwise it only fades in once. Reduced motion stops every loop (globals.css).
  */
-export function ScrollCue({ cue, animated, color, accent, label, text, up = true, bottom = 8 }: { cue: CueId; animated: boolean; color: string; accent: string; label: string; /** Touch screens swipe up; wide screens scroll down. */ up?: boolean; /** Visible word for cues that carry one (Swipe, Caption, Credits). */ text: string; bottom?: number }) {
+export function ScrollCue({ cue, animated, color, accent, label, text, up = true, bottom }: { cue: CueId; animated: boolean; color: string; accent: string; label: string; /** Touch screens swipe up; wide screens scroll down. */ up?: boolean; /** Visible word for cues that carry one (Swipe, Caption, Credits). */ text: string; /** Pinned this far above the hero's foot (wide screens). Without it the cue sits in flow, under Connect. */ bottom?: number }) {
   const host = useRef<HTMLButtonElement>(null);
   const [visible, setVisible] = useState(true);
   useEffect(() => {
     const button = host.current;
-    const hero = button?.parentElement;
+    const hero = button?.closest<HTMLElement>("[data-hero], [data-wide-hero]") ?? button?.parentElement;
     const article = button?.closest("article");
     const content = article?.querySelector("[data-appearance-content]");
     // Nothing below the hero: no promise of more.
@@ -40,12 +41,12 @@ export function ScrollCue({ cue, animated, color, accent, label, text, up = true
     <button
       aria-hidden={!visible}
       aria-label={label}
-      className={`absolute left-1/2 z-[4] flex min-h-8 min-w-16 -translate-x-1/2 items-end justify-center px-3 transition-opacity duration-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+      className={`${bottom === undefined ? "relative mx-auto mt-1 items-start" : "absolute left-1/2 -translate-x-1/2 items-end"} z-[4] flex min-h-8 min-w-16 justify-center px-3 transition-opacity duration-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
       data-scroll-cue={cue}
       data-scroll-cue-motion={animated ? "loop" : "still"}
       onClick={go}
       ref={host}
-      style={{ bottom: `calc(${bottom}px + var(--sv-cue-lift, 0px))`, color, outlineColor: color }}
+      style={{ bottom: bottom === undefined ? undefined : `calc(${bottom}px + var(--sv-foot, 0px))`, color, outlineColor: color }}
       tabIndex={visible ? 0 : -1}
       type="button"
     >

@@ -286,6 +286,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
       <ProfileRenderer
         attribution
         className="min-h-dvh"
+        edgeToEdge
         chrome={owner ? (
           <Link className="inline-flex h-8 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-3.5 text-[12.5px] font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>
         ) : undefined}

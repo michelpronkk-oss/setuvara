@@ -58,6 +58,12 @@ type ProfileRendererProps = {
    * owner sees their profile, not the gate; the editor offers it as a toggle.
    */
   soundGate?: boolean;
+  /**
+   * The page fills the phone screen edge to edge (the public profile). The hero then stays clear
+   * of what covers the screen's bottom: it ends above iOS 26 Safari's floating toolbar, and its
+   * foot rises above the home indicator.
+   */
+  edgeToEdge?: boolean;
   /** Paid member status resolved server-side from billing. One badge beside the name; null for Free. */
   memberTier?: MemberTier | null;
   /** Server-resolved plan controls paid visual treatments while preserving saved choices. */
@@ -142,6 +148,8 @@ type Scene = {
   soundTitle: string;
   /** The hero's scroll cue (phone or wide), or nothing when it is off. */
   cue: (wide: boolean) => ReactNode;
+  /** Pixels the hero's foot rises above the home indicator (0 off the public page). */
+  foot: number;
 };
 
 function Profile(props: ProfileProps) {
@@ -160,6 +168,7 @@ function Profile(props: ProfileProps) {
   const links = all.filter((item) => item !== booking);
   const still = look.motion === "off";
   const full = look.motion === "full" || look.id === "motion";
+  const cover = useBottomCover(Boolean(props.edgeToEdge));
   const scene: Scene = {
     look, theme, who, mode, photo, source, copy, memberTier,
     type: nameType(look.nameFont, theme.identity, theme.name.charWidth),
@@ -176,13 +185,14 @@ function Profile(props: ProfileProps) {
     actions: <Actions {...props} booking={booking} connected={connected} copy={copy} owner={owner} theme={theme} />,
     // Mode stays internal: the public page never names it.
     soundTitle: copy.soundtrack,
+    foot: cover.foot,
     cue: (wide) => {
       if (!look.scrollCue) return null;
-      // Social's cue sits inside its story card; the rest sit in the strip under Connect.
+      // On phones the cue sits in the identity, right under Connect; Social's is inside its card.
       const inCard = look.id === "social" && !wide;
       const word = look.scrollCue === "swipe" ? (wide ? copy.cueScroll : copy.cueSwipe) : look.scrollCue === "credits" ? copy.cueMore : copy.cueScroll;
       // Thumbnails (no sound) show the cue still, so ten pickers do not all move at once.
-      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={inCard ? 26 : wide ? 22 : 6} color={inCard ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
+      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={wide ? 22 : undefined} color={inCard ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
     },
   };
   const connect = theme.connect;
@@ -212,16 +222,18 @@ function Profile(props: ProfileProps) {
       data-appearance={look.id}
       data-motion={look.motion}
       data-profile-mode={look.slug}
+      data-foot={props.edgeToEdge ? `${cover.foot}` : undefined}
       data-sound-presentation={scene.sound ?? "none"}
       style={{
         background: theme.base,
         color: theme.fg,
-        "--sv-h": "clamp(560px, var(--profile-vh, 100svh), 1000px)",
+        // The hero is one screen: the small viewport, less what Safari's overlaid toolbar covers.
+        "--sv-h": `clamp(560px, calc(var(--profile-vh, 100svh) - ${cover.bar}px), 1000px)`,
         "--sv-card-r": `${theme.radius}px`,
-        // Phones drawn edge to edge (viewport-fit=cover) keep the home indicator and Safari's
-        // bottom bar over the last stretch of the hero. With a cue, everything at the hero's foot
-        // rises by that inset so the cue sits in view instead of underneath them.
-        "--sv-cue-lift": look.scrollCue ? "env(safe-area-inset-bottom, 0px)" : "0px",
+        // The public page runs edge to edge (viewport-fit=cover). Where Safari's toolbar overlays
+        // the page, the hero already ends above it; elsewhere its foot (identity, Connect, cue)
+        // rises above the home indicator.
+        "--sv-foot": props.edgeToEdge && !cover.bar ? "env(safe-area-inset-bottom, 0px)" : "0px",
         "--sv-card-r-small": `${theme.radiusSmall}px`,
         ...connectVars,
       } as CSSProperties}
@@ -324,20 +336,55 @@ function Treatment({ scene }: { scene: Scene }) {
   return <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />;
 }
 
-/** The device's bottom safe-area inset in px while a cue shows (0 elsewhere and on the server). */
-function useCueLift(on: boolean) {
-  const [lift, setLift] = useState(0);
+/** Height the in-flow cue adds under Connect (its 32px box and 4px gap). */
+const CUE_ROOM = 36;
+/** iOS 26 Safari's floating toolbar with the home indicator under it, when the browser does not report it. */
+const IOS_TOOLBAR = 100;
+
+/**
+ * What covers the bottom of an edge-to-edge page, measured once per width (not while Safari's
+ * toolbar collapses on scroll, so nothing jumps). `bar`: how far the small viewport (100svh, the
+ * hero's height) reaches past what is actually visible, which iOS 26 Safari's floating toolbar
+ * overlays; the hero ends above it. `foot`: the safe-area inset the hero's foot rises by when
+ * nothing overlays (0 when the hero already ends above a toolbar). Both 0 on the server.
+ */
+function useBottomCover(on: boolean) {
+  const [cover, setCover] = useState({ bar: 0, foot: 0 });
   useEffect(() => {
     if (!on) return;
-    const probe = document.createElement("div");
-    probe.style.cssText = "position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none";
-    document.body.appendChild(probe);
-    const measure = () => setLift(Math.round(probe.getBoundingClientRect().height));
+    const probe = (css: string) => {
+      const node = document.createElement("div");
+      node.style.cssText = `position:fixed;left:0;width:0;visibility:hidden;pointer-events:none;${css}`;
+      document.body.appendChild(node);
+      return node;
+    };
+    const inset = probe("bottom:0;height:env(safe-area-inset-bottom,0px)");
+    const small = probe("top:0;height:100svh");
+    const fixed = probe("top:0;bottom:0");
+    let width = 0;
+    const measure = () => {
+      if (window.innerWidth === width) return;
+      width = window.innerWidth;
+      const visible = Math.min(fixed.getBoundingClientRect().height, window.innerHeight, window.visualViewport?.height ?? Infinity);
+      const measured = Math.max(0, Math.round(small.getBoundingClientRect().height - visible));
+      // When iOS 26+ Safari reports its overlaid toolbar to none of the above, keep its usual
+      // height (above the home indicator) clear. Older iOS stops the page above the toolbar.
+      const safari = /iP(hone|od)/.test(navigator.userAgent) && Number(/Version\/(\d+)/.exec(navigator.userAgent)?.[1] ?? 0) >= 26;
+      const bar = measured || (safari && !window.matchMedia("(display-mode: standalone)").matches ? IOS_TOOLBAR : 0);
+      const next = { bar, foot: bar ? 0 : Math.round(inset.getBoundingClientRect().height) };
+      setCover(next);
+      if (new URLSearchParams(window.location.search).has("svdebug")) {
+        console.info("setuvara foot", { ...next, measured, small: small.getBoundingClientRect().height, fixed: fixed.getBoundingClientRect().height, innerHeight: window.innerHeight, visual: window.visualViewport?.height, inset: inset.getBoundingClientRect().height, ua: navigator.userAgent });
+        const note = document.getElementById("sv-foot-debug") ?? document.body.appendChild(Object.assign(document.createElement("pre"), { id: "sv-foot-debug" }));
+        note.style.cssText = "position:fixed;top:60px;left:8px;z-index:999;margin:0;padding:6px 8px;border-radius:8px;background:#000c;color:#fff;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;max-width:90vw";
+        note.textContent = `bar ${bar} m ${measured} svh ${Math.round(small.getBoundingClientRect().height)} fix ${Math.round(fixed.getBoundingClientRect().height)} ih ${window.innerHeight} vv ${Math.round(window.visualViewport?.height ?? 0)} in ${Math.round(inset.getBoundingClientRect().height)}\n${navigator.userAgent}`;
+      }
+    };
     const frame = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", measure); probe.remove(); };
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", measure); [inset, small, fixed].forEach((node) => node.remove()); };
   }, [on]);
-  return on ? lift : 0;
+  return on ? cover : { bar: 0, foot: 0 };
 }
 
 // ---------------------------------------------------------------- Hero (phones)
@@ -359,7 +406,6 @@ function AppearanceHero({ scene }: { scene: Scene }) {
       {look.id === "social" && <SocialHero scene={scene} />}
       {look.id === "film" && <FilmHero scene={scene} />}
       <HeroFoot scene={scene} />
-      {scene.cue(false)}
     </div>
   );
 }
@@ -392,7 +438,7 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
   const align = options.align ?? theme.identity.align;
   const flex = align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
   const id = theme.identity;
-  const lifted = typeof options.style?.bottom === "number" ? { bottom: `calc(${options.style.bottom}px + var(--sv-cue-lift, 0px))` } : {};
+  const lifted = typeof options.style?.bottom === "number" ? { bottom: `calc(${options.style.bottom}px + var(--sv-foot, 0px))` } : {};
   const top = (
     <div className="flex flex-col gap-3 self-stretch" style={{ alignItems: flex }}>
       <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
@@ -405,6 +451,7 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
       {scene.sound === "featured" && <FeaturedSoundLine accent={look.accent} color={id.muted} still={scene.still} title={scene.soundTitle} />}
       <SocialPresentation align={flex} copy={copy} links={scene.socials} size={options.socialSize} style={look.socialStyle} theme={theme} />
       <ConnectRow align={flex}>{scene.actions}</ConnectRow>
+      {scene.cue(false)}
     </div>
   );
   return (
@@ -459,8 +506,8 @@ function nameSizeCss(scene: Scene, base: number, fitWidth = "calc(100cqw - 44px)
 
 function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number; height: number } }) {
   const { look, theme } = scene;
-  // The identity rises by the cue lift, so the face-safe solve keeps that room free too.
-  const lift = useCueLift(Boolean(look.scrollCue));
+  // The identity rises by the covered foot and carries the cue under Connect: keep both free.
+  const lift = scene.foot + (look.scrollCue ? CUE_ROOM : 0);
   const layout = solveFaceSafe({
     frame,
     focus: scene.source ? scene.source.focus : null,
@@ -549,15 +596,17 @@ function AuraHero({ scene }: { scene: Scene }) {
 }
 
 function CleanHero({ scene }: { scene: Scene }) {
+  // The identity hangs under the photo, so the photo gives up the cue's room to keep it on screen.
+  const photo = scene.look.scrollCue ? `calc(${y(548)} - ${CUE_ROOM}px)` : y(548);
   return (
     <>
-      <div className="absolute inset-x-2.5 top-2.5 overflow-hidden rounded-[30px]" style={{ height: y(548), background: scene.photo ? "#2A2622" : scene.look.accent }}>
+      <div className="absolute inset-x-2.5 top-2.5 overflow-hidden rounded-[30px]" style={{ height: photo, background: scene.photo ? "#2A2622" : scene.look.accent }}>
         <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
         <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={150} />
         {scene.photo && <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D40_0%,#0D0D0D00_22%,#0D0D0D00_75%,#0D0D0D59_100%)]" />}
         <Treatment scene={scene} />
       </div>
-      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44), style: { left: 20, right: 20, top: `calc(${y(548)} + 30px)` } }} scene={scene} />
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 44), style: { left: 20, right: 20, top: `calc(${photo} + 30px)` } }} scene={scene} />
     </>
   );
 }
@@ -567,7 +616,7 @@ function GlowHero({ scene }: { scene: Scene }) {
   return (
     <>
       <div aria-hidden="true" className="absolute inset-x-10 rounded-full opacity-[.42] blur-[50px]" style={{ top: y(150), height: y(460), background: scene.look.accent }} />
-      <div className="absolute inset-x-[30px] overflow-hidden rounded-[200px_200px_30px_30px]" style={{ top: y(70), height: y(tall ? 500 : 470), background: scene.photo ? "#2A2622" : "#1E1B18", boxShadow: `0 0 0 1px ${scene.look.accent}80, 0 30px 80px -30px ${scene.look.accent}` }}>
+      <div className="absolute inset-x-[30px] overflow-hidden rounded-[200px_200px_30px_30px]" style={{ top: y(70), height: `calc(${y(tall ? 500 : 470)} - ${scene.look.scrollCue ? CUE_ROOM : 0}px)`, background: scene.photo ? "#2A2622" : "#1E1B18", boxShadow: `0 0 0 1px ${scene.look.accent}80, 0 30px 80px -30px ${scene.look.accent}` }}>
         <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} style={{ filter: "contrast(1.08) brightness(.9)" }} />
         <Initials scene={scene} size={130} />
         <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,#07070A00_55%,#07070AB3_100%)]" />
@@ -605,7 +654,7 @@ function FrameHero({ scene }: { scene: Scene }) {
   const short = scene.live || scene.secondary;
   return (
     <>
-      <div className="absolute left-1/2 w-[min(calc(100%-80px),400px)] -translate-x-1/2 bg-[#F5F4EF] p-3 shadow-[0_50px_80px_-30px_#000000D9,inset_0_2px_0_#FFFFFF]" data-frame-print style={{ top: y(84), height: y(short ? 410 : 440) }}>
+      <div className="absolute left-1/2 w-[min(calc(100%-80px),400px)] -translate-x-1/2 bg-[#F5F4EF] p-3 shadow-[0_50px_80px_-30px_#000000D9,inset_0_2px_0_#FFFFFF]" data-frame-print style={{ top: y(84), height: `calc(${y(short ? 410 : 440)} - ${scene.look.scrollCue ? CUE_ROOM : 0}px)` }}>
         <div className="relative size-full overflow-hidden" style={{ background: scene.photo ? "#2A2622" : scene.look.accent }}>
           <Photo alt={scene.copy.photoOf.replace("{name}", scene.who.name)} priority scene={scene} />
           <Initials color={scene.photo ? undefined : inkOn(scene.look.accent)} scene={scene} size={120} />
@@ -657,7 +706,7 @@ function SocialHero({ scene }: { scene: Scene }) {
         <div aria-hidden="true" className={`absolute inset-0 bg-[linear-gradient(180deg,#0D0D0D00_38%,#0D0D0DD9_100%)]`} />
         <Treatment scene={scene} />
       </div>
-      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 36), style: { left: 30, right: 30, bottom: scene.look.scrollCue ? 74 : 44 } }} scene={scene} />
+      <IdentityLayer options={{ nameSize: nameSizeCss(scene, 36), style: { left: 30, right: 30, bottom: 44 } }} scene={scene} />
     </>
   );
 }
