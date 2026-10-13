@@ -36,6 +36,7 @@ export function SiteHeader() {
     { href: "/events", label: copy.events },
     { href: "/teams", label: copy.teams },
     { href: "/pricing", label: copy.pricing },
+    { href: "/contact", label: copy.contact },
   ];
 
   useEffect(() => {

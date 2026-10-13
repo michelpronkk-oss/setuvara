@@ -25,6 +25,7 @@ export function SiteFooter() {
     { title: copy.account, links: [
       { href: "/signup", label: copy.getSetuvara },
       { href: "/login", label: copy.login },
+      { href: "/contact", label: copy.contact },
     ] },
   ];
   return (
