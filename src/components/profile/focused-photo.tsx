@@ -72,10 +72,12 @@ const pct = (value: number) => `${+(value * 100).toFixed(3)}%`;
  *
  * The frame is measured on the client; before that (server render) `frameAspect` is used.
  */
-export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none", className = "", sizes, priority, preloadMedia, fetchPriority, onError, style }: {
+export function FramedPhoto({ source, alt, zoom = 1, cover = false, frameAspect, fill = "none", className = "", sizes, priority, preloadMedia, fetchPriority, onError, style }: {
   source: PhotoSource;
   alt: string;
   zoom?: number;
+  /** Never zoom out past the image's edges: for shaped frames (circles) the photo must fill. */
+  cover?: boolean;
   frameAspect?: number;
   /** A CSS filter for the atmosphere layer (blur, saturate, brightness), or "none". */
   fill?: string;
@@ -106,7 +108,7 @@ export function FramedPhoto({ source, alt, zoom = 1, frameAspect, fill = "none",
 
   // The stored size is exact for originals; a legacy photo reports its own on load.
   const aspect = natural?.url === source.url ? natural.aspect : source.aspect;
-  const placement = placePhoto({ ...source, aspect }, measured ?? frameAspect ?? PHOTO_ASPECT, zoom);
+  const placement = placePhoto({ ...source, aspect }, measured ?? frameAspect ?? PHOTO_ASPECT, zoom, { cover });
   const feather = placement.covers ? undefined : featherMask(placement);
   return (
     <span className="absolute inset-0 block overflow-hidden" data-photo-covers={placement.covers ? "true" : "false"} data-photo-source={source.original ? "original" : "saved"} data-photo-zoom={Math.round(zoom * 100)} ref={ref}>

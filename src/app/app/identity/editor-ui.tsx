@@ -22,7 +22,7 @@ export function ModeTag({ slug, size = "md" }: { slug: ModeSlug; size?: "sm" | "
 
 export function SectionHeader({ title, slug, description, action }: { title: string; slug: ModeSlug; description: string; action?: ReactNode }) {
   return (
-    <header className="mb-7">
+    <header className="mb-5 sm:mb-7">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="font-display text-[2.4rem] font-extrabold leading-[0.95] tracking-[-0.055em] sm:text-[3.1rem]">{title}</h1>
         <ModeTag slug={slug} />
