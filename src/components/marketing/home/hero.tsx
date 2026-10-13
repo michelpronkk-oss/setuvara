@@ -26,9 +26,9 @@ export function Hero() {
         <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
             cards={[
-              <CastPhone key="personal" slug="personal" />,
-              <CastPhone key="event" slug="event" />,
-              <CastPhone key="business" slug="business" />,
+              <CastPhone key="personal" mediaPriority="high" slug="personal" />,
+              <CastPhone key="event" mediaPriority="high" slug="event" />,
+              <CastPhone key="business" mediaPriority="high" slug="business" />,
             ]}
             caption="Three people · Three Modes"
           />
