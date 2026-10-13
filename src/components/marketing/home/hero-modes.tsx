@@ -9,7 +9,7 @@ const labels = ["Personal", "Event", "Business"] as const;
  * around one identity. It cycles on its own until the visitor picks a Mode, and
  * never auto-advances for visitors who prefer reduced motion.
  */
-export function HeroModes({ cards, name }: { cards: [ReactNode, ReactNode, ReactNode]; name: string }) {
+export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, ReactNode]; caption: string }) {
   const [active, setActive] = useState(1);
   const [held, setHeld] = useState(false);
 
@@ -28,7 +28,7 @@ export function HeroModes({ cards, name }: { cards: [ReactNode, ReactNode, React
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <div aria-label={`${name}’s Modes`} className="flex rounded-full bg-ink p-1 text-paper" role="group">
+      <div aria-label="Modes" className="flex rounded-full bg-ink p-1 text-paper" role="group">
         {labels.map((label, index) => (
           <button
             aria-pressed={active === index}
@@ -65,7 +65,7 @@ export function HeroModes({ cards, name }: { cards: [ReactNode, ReactNode, React
         })}
       </div>
 
-      <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/55">Same {name} · Different context</p>
+      <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/55">{caption}</p>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import Link from "next/link";
 
 import { HeroModes } from "./hero-modes";
-import { ModePhone } from "./mode-phone";
-import { person } from "./demo";
+import { DEMO_PEOPLE, ModePhone } from "./mode-phone";
 import { ClaimForm, Display, Label, Shell } from "./primitives";
 
 export function Hero() {
@@ -25,11 +24,11 @@ export function Hero() {
         <div className="mt-8 w-full max-w-[880px] sm:mt-12">
           <HeroModes
             cards={[
-              <ModePhone key="personal" slug="personal" />,
-              <ModePhone key="event" slug="event" />,
-              <ModePhone key="business" slug="business" />,
+              <ModePhone key="personal" slug="personal" who={DEMO_PEOPLE.aanya} />,
+              <ModePhone key="event" slug="event" who={DEMO_PEOPLE.theo} />,
+              <ModePhone key="business" slug="business" who={DEMO_PEOPLE.lucas} />,
             ]}
-            name={person.firstName}
+            caption="Three people · Three Modes"
           />
         </div>
       </Shell>
