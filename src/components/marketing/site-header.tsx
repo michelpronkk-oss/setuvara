@@ -15,7 +15,7 @@ export function SiteHeader() {
   const home = "/";
   const navigation = [
     { href: `${home}#product`, label: copy.product },
-    { href: `${home}#modes`, label: copy.modes },
+    { href: "/modes", label: copy.modes },
     { href: "/events", label: copy.events },
     { href: "/teams", label: copy.teams },
     { href: "/pricing", label: copy.pricing },

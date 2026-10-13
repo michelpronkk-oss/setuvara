@@ -15,6 +15,8 @@ export const reservedUsernames = [
   "privacy",
   "terms",
   "cookies",
+  "refunds",
+  "modes",
   "settings",
   "account",
   "share",

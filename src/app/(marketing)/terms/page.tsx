@@ -69,7 +69,7 @@ const sections: LegalSection[] = [
           <li><b>Cancelling</b>: cancel anytime in Settings → Billing. You keep paid features until the end of the period you paid for.</li>
           <li><b>Downgrading never deletes anything</b>: paid looks fall back to a Free look and come back if you upgrade again.</li>
         </ul>
-        <p>If we change prices, we’ll tell you in advance, and the change applies from your next renewal. Nothing here limits rights you have under consumer law.</p>
+        <p>Refunds, including the 14-day right to withdraw for EU and UK consumers, are explained on the <Link href="/refunds">Refunds page</Link>. If we change prices, we’ll tell you in advance, and the change applies from your next renewal. Nothing here limits rights you have under consumer law.</p>
       </>
     ),
   },

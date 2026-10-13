@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
@@ -247,7 +248,7 @@ export function SignupFlow({ initialHandle, claimGuest, appearance = null, next 
           <button className="flex h-[60px] items-center justify-center gap-2.5 rounded-full bg-ink text-[17px] font-semibold text-paper transition-colors hover:bg-[#262626] disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" disabled={busy} type="submit">
             {busy ? <Spinner /> : null}{busy ? "Creating…" : "Create my Setuvara"}
           </button>
-          <p className="text-[13px] leading-[1.5] text-ink/60">Your private notes and Passport are only ever visible to you.</p>
+          <p className="text-[13px] leading-[1.5] text-ink/60">By creating an account you agree to the <Link className="font-semibold text-ink underline underline-offset-4" href="/terms" target="_blank">Terms</Link> and <Link className="font-semibold text-ink underline underline-offset-4" href="/privacy" target="_blank">Privacy policy</Link>, and confirm you’re 16 or older. Your private notes and Passport are only ever visible to you.</p>
         </form>
       ) : null}
 
