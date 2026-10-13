@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { MeetMark, Wordmark } from "../brand";
 import { Display, Label, Shell } from "../home/primitives";
+import { StageField } from "../home/phone-stage";
+import { PersonPhoto } from "../home/team-people";
 
 export type LegalSection = { id: string; title: string; body: ReactNode };
 
@@ -9,12 +12,12 @@ export type LegalSection = { id: string; title: string; body: ReactNode };
  * Shared layout for /privacy and /terms: a short "in plain words" summary up top, then numbered
  * sections with a sticky contents list on wide screens.
  */
-export function LegalPage({ kicker, title, updated, summary, sections, other }: { kicker: string; title: string; updated: string; summary: string[]; sections: LegalSection[]; other: { href: string; label: string } }) {
+export function LegalPage({ kicker, title, updated, sections, other }: { kicker: string; title: string; updated: string; sections: LegalSection[]; other: { href: string; label: string } }) {
   return (
     <>
       <section aria-labelledby="legal-title" className="relative isolate overflow-hidden">
         <span aria-hidden="true" className="absolute -right-32 -top-40 -z-10 size-[520px] rounded-full bg-coral/15 blur-[120px]" />
-        <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 pb-14 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end lg:gap-16 lg:pb-20 lg:pt-24">
+        <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 pb-14 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:pb-0 lg:pt-16">
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-3">
               <Label className="text-coral">{kicker}</Label>
@@ -23,31 +26,14 @@ export function LegalPage({ kicker, title, updated, summary, sections, other }: 
             <Display as="h1" className="text-[clamp(46px,7vw,104px)] leading-[0.9]"><span id="legal-title">{title}</span></Display>
             <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/55">Last updated {updated}</p>
           </div>
-          <div className="rounded-[2rem] bg-ink p-6 text-paper shadow-[0_40px_80px_-50px_rgba(13,13,13,.6)] sm:p-8">
-            <Label className="text-paper/55">In plain words</Label>
-            <ul className="mt-4 flex flex-col gap-3">
-              {summary.map((line) => (
-                <li className="flex gap-3 text-[15px] leading-[1.45] text-paper/85" key={line}><span aria-hidden="true" className="mt-[9px] size-1.5 shrink-0 rounded-full bg-coral" />{line}</li>
-              ))}
-            </ul>
-          </div>
+          <HandPhone />
         </Shell>
       </section>
 
       <section className="border-t border-ink/10 bg-white">
-        <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-14 sm:py-20 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-20 lg:py-24">
-          <nav aria-label="On this page" className="hidden lg:block">
-            <div className="sticky top-24 flex flex-col">
-              <Label className="mb-3 text-ink/50">On this page</Label>
-              {sections.map((section, index) => (
-                <a className="flex min-h-9 items-baseline gap-3 text-[14px] text-ink/65 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-coral" href={`#${section.id}`} key={section.id}>
-                  <span className="w-5 font-label text-[10px] text-ink/40">{String(index + 1).padStart(2, "0")}</span>{section.title}
-                </a>
-              ))}
-            </div>
-          </nav>
+        <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 py-14 sm:py-20 lg:grid-cols-[minmax(0,1fr)] lg:justify-items-center lg:py-24">
 
-          <div className="flex max-w-[46rem] flex-col">
+          <div className="flex w-full max-w-[48rem] flex-col">
             {sections.map((section, index) => (
               <article aria-labelledby={`${section.id}-title`} className="scroll-mt-24 border-b border-ink/10 py-8 first:pt-0 last:border-0" id={section.id} key={section.id}>
                 <div className="flex items-baseline gap-4">
@@ -72,5 +58,62 @@ export function LegalPage({ kicker, title, updated, summary, sections, other }: 
         </Shell>
       </section>
     </>
+  );
+}
+
+/**
+ * The hero object: setuvara.com on a phone, held in a hand, over a soft coral field. Drawn, not
+ * photographed: the phone's screen is a small live-styled copy of the homepage hero.
+ */
+function HandPhone() {
+  return (
+    <div aria-hidden="true" className="relative mx-auto h-[440px] w-full max-w-[420px] sm:h-[540px] lg:h-[600px]">
+      <div className="absolute -inset-x-16 -bottom-10 -top-6 [mask-image:radial-gradient(closest-side,#000_45%,transparent)]">
+        <StageField slug="business" />
+      </div>
+      <div className="absolute bottom-0 left-1/2 w-[300px] -translate-x-1/2 origin-bottom scale-[.78] sm:scale-95 lg:scale-100">
+        <svg className="relative block h-[600px] w-[300px] overflow-visible" viewBox="0 0 300 600">
+          <defs>
+            <linearGradient id="legal-skin" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#e7b391" /><stop offset=".55" stopColor="#d49a76" /><stop offset="1" stopColor="#b97b5a" /></linearGradient>
+            <linearGradient id="legal-skin-dark" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#c88a67" /><stop offset="1" stopColor="#e2ad8b" /></linearGradient>
+            <filter id="legal-soft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#0d0d0d" floodOpacity=".28" /></filter>
+          </defs>
+          {/* Palm and wrist, behind the phone. */}
+          <path d="M48 640 C 40 560, 26 486, 40 440 C 56 392, 140 372, 214 376 C 262 384, 282 430, 280 486 C 278 540, 262 600, 262 640 Z" fill="url(#legal-skin)" filter="url(#legal-soft)" />
+          {/* Fingers curl round the left edge: only their sides show past the phone. */}
+          {[296, 340, 384, 428].map((y, index) => (
+            <rect fill="url(#legal-skin-dark)" height="40" key={y} rx="20" transform={`rotate(${-10 + index * 5} 120 ${y + 20})`} width="120" x={14 + index * 2} y={y} />
+          ))}
+        </svg>
+        {/* The phone itself, in front of the palm. */}
+        <div className="absolute left-[38px] top-[20px] h-[470px] w-[228px] rounded-[40px] bg-[#1b1b1b] p-[8px] shadow-[0_40px_70px_-30px_rgba(13,13,13,.6),inset_0_0_0_1.5px_rgba(255,255,255,.08)]">
+          <div className="relative h-full w-full overflow-hidden rounded-[32px] bg-paper">
+            <span className="absolute left-1/2 top-2 z-10 h-[20px] w-[68px] -translate-x-1/2 rounded-full bg-[#0a0a0a]" />
+            <div className="flex items-center justify-between px-4 pt-10">
+              <span className="flex items-center gap-1"><MeetMark className="size-3.5" /><Wordmark className="text-[11px]" /></span>
+              <span className="rounded-full bg-ink px-2 py-1 text-[7px] font-semibold text-paper">Get Setuvara</span>
+            </div>
+            <div className="flex flex-col items-center px-4 pt-7 text-center">
+              <span className="font-label text-[6.5px] uppercase tracking-[0.16em] text-coral">Personal · Event · Business</span>
+              <p className="mt-2 font-display text-[25px] font-extrabold leading-[0.95] tracking-[-0.055em]">One identity. Every version of&nbsp;you.</p>
+              <p className="mt-2 text-[8.5px] leading-[1.35] text-ink/65">Share the right you.<br />Remember everyone you meet.</p>
+              <div className="mt-3 flex h-7 w-full items-center justify-between rounded-full bg-white pl-3 pr-0.5 shadow-[inset_0_0_0_1px_#0d0d0d]"><span className="font-label text-[7px] text-ink/60">setuvara.com/<span className="text-ink/35">you</span></span><span className="rounded-full bg-ink px-2.5 py-1.5 text-[7px] font-semibold text-paper">Claim</span></div>
+            </div>
+            <div className="relative mt-5 h-[170px]">
+              {(["aanya", "theo", "lucas"] as const).map((id, index) => (
+                <div className="absolute left-1/2 top-0 h-[150px] w-[76px] overflow-hidden rounded-[12px] border-[3px] border-[#1b1b1b] shadow-[0_12px_20px_-10px_rgba(13,13,13,.6)]" key={id} style={{ transform: `translateX(calc(-50% + ${(index - 1) * 52}px)) translateY(${index === 1 ? 0 : 8}px) rotate(${(index - 1) * 6}deg) scale(${index === 1 ? 1 : 0.9})`, zIndex: index === 1 ? 2 : 1 }}>
+                  <PersonPhoto className="h-full w-full" id={id} zoom="cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Fingers wrap the left edge; the thumb rests on the right. Both sit in front of the phone. */}
+        <svg className="pointer-events-none absolute inset-0 h-[600px] w-[300px] overflow-visible" viewBox="0 0 300 600">
+          <path d="M282 520 C 296 470, 292 400, 272 352 C 266 338, 250 338, 248 354 C 246 378, 254 420, 252 458 C 250 492, 246 520, 250 548 Z" fill="url(#legal-skin)" />
+          <ellipse cx="259" cy="362" fill="#f0c6aa" opacity=".55" rx="7" ry="10" />
+        </svg>
+      </div>
+    </div>
   );
 }

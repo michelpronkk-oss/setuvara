@@ -101,12 +101,6 @@ export default function TermsRoute() {
       kicker="Terms"
       other={{ href: "/privacy", label: "Read the Privacy policy" }}
       sections={sections}
-      summary={[
-        "You own what you put on Setuvara. We only use it to run the service.",
-        "Free stays free. Paid plans renew until you cancel, and you keep access to the end of the period.",
-        "Be real and respectful: no impersonation, spam or scraping.",
-        "A connection is shared, so the other person keeps what you showed them.",
-      ]}
       title="Terms, without the fog."
       updated="13 October 2026"
     />

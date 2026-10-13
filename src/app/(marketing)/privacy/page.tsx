@@ -144,12 +144,6 @@ export default function PrivacyRoute() {
       kicker="Privacy"
       other={{ href: "/terms", label: "Read the Terms" }}
       sections={sections}
-      summary={[
-        "We collect what you put on your identity, your connections, and what we need to run your account.",
-        "Your Analytics never store who viewed you, their IP or their email.",
-        "No ads, no tracking cookies, and we don’t sell your data.",
-        "Notes and connection context are private to you.",
-      ]}
       title="Privacy, in plain words."
       updated="13 October 2026"
     />
