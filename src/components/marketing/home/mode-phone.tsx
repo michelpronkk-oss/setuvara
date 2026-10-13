@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { previewAppearance } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
-import type { AppearanceId, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
+import type { AppearanceId, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 
 import { person, type DemoMode } from "./demo";
 
@@ -19,7 +19,7 @@ const SCREEN = 262;
 type Demo = { appearance: AppearanceId; accent: string; settings: Record<string, string>; links: [string, string][] };
 type Person = { name: string; username: string; photo: string; face: { x: number; y: number } };
 /** Overrides a Mode's design-file look, e.g. the hero's front phone in Immersive with Impact type. */
-type Look = { theme: AppearanceId; accent?: string } & Partial<Record<"nameFont" | "scrollCue", string>>;
+type Look = { theme: AppearanceId; accent?: string; nameFont?: string; scrollCue?: string; /** Picture blocks, e.g. the photos Stack fans out behind the portrait. */ pictures?: string[] };
 
 /** What each Mode carries, following the design file's pairing: Personal Immersive, Event Motion, Business Clean. */
 const DEMOS: Record<DemoMode["slug"], Demo> = {
@@ -55,9 +55,17 @@ export const DEMO_PEOPLE = {
 /** One person across all three Modes (the Modes section): close crops for Personal and Event, wide for Business. */
 const SAME_PERSON: Record<DemoMode["slug"], Person> = { personal: DEMO_PEOPLE.aanya, event: DEMO_PEOPLE.aanya, business: DEMO_PEOPLE.aanyaWide };
 
+/** Real provider hosts, so the hero shows each Mode's social icons the way a member's page does. */
+const LINK_URLS: Record<string, string> = {
+  instagram: "https://instagram.com/setuvara", spotify: "https://open.spotify.com/playlist/setuvara", whatsapp: "https://wa.me/351900000000",
+  tiktok: "https://tiktok.com/@setuvara", linkedin: "https://linkedin.com/in/setuvara", calendly: "https://calendly.com/setuvara",
+};
+
 function demo(slug: ModeSlug & DemoMode["slug"], who: Person, override?: Look): { profile: ProfileIdentity; mode: ProfileMode } {
   const d = DEMOS[slug];
-  const links: ProfileLink[] = d.links.map(([type, title], index) => ({ id: `${slug}-${index}`, title, url: "https://setuvara.com", link_type: type, is_visible: true, sort_order: index }));
+  const { pictures = [], ...look } = override ?? {};
+  const blocks: ProfileBlock[] = pictures.map((url, index) => ({ id: `${slug}-picture-${index}`, kind: "image", data: { image_url: url }, is_visible: true, sort_order: index }));
+  const links: ProfileLink[] = d.links.map(([type, title], index) => ({ id: `${slug}-${index}`, title, url: LINK_URLS[type] ?? "https://setuvara.com", link_type: type, is_visible: true, sort_order: index }));
   return {
     profile: { id: `demo-${who.username}`, username: who.username, display_name: who.name, bio: "", is_published: true },
     mode: {
@@ -66,13 +74,13 @@ function demo(slug: ModeSlug & DemoMode["slug"], who: Person, override?: Look): 
       label: slug[0].toUpperCase() + slug.slice(1),
       is_enabled: true,
       settings: d.settings,
-      appearance: { theme: d.appearance, accent: d.accent, ...override } as ProfileMode["appearance"],
+      appearance: { theme: d.appearance, accent: d.accent, ...look } as ProfileMode["appearance"],
       image_path: who.photo,
       image_url: who.photo,
       image_focus_x: who.face.x,
       image_focus_y: who.face.y,
       links,
-      blocks: [],
+      blocks,
     },
   };
 }

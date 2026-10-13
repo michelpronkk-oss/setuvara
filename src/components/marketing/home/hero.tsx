@@ -26,7 +26,7 @@ export function Hero() {
         <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
             cards={[
-              <ModePhone key="personal" slug="personal" who={DEMO_PEOPLE.aanya} />,
+              <ModePhone key="personal" look={{ theme: "stack", pictures: ["/pricing/aanya-wide.webp"] }} slug="personal" who={DEMO_PEOPLE.aanya} />,
               <ModePhone key="event" look={{ theme: "immersive", nameFont: "impact", scrollCue: "swipe" }} slug="event" who={DEMO_PEOPLE.theo} />,
               <ModePhone key="business" look={{ theme: "glow" }} slug="business" who={DEMO_PEOPLE.lucasClose} />,
             ]}
