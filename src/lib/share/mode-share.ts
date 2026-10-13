@@ -6,6 +6,7 @@ import type { ModeSlug } from "@/components/profile/types";
 import { createBillingAdminClient } from "@/lib/billing/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getTapOrigin } from "@/lib/tap/server";
+import { modeShareTokenPattern, modeShortIdPattern } from "@/lib/share/mode-share-pattern";
 
 /**
  * Mode share locators.
@@ -19,9 +20,7 @@ import { getTapOrigin } from "@/lib/tap/server";
  */
 
 export const DEFAULT_PUBLIC_MODE: ModeSlug = "personal";
-export const modeShortIdPattern = /^[0-9A-Za-z]{8}$/;
-/** Short ids, plus the legacy 43-character tokens that must keep working. */
-export const modeShareTokenPattern = /^(?:[0-9A-Za-z]{8}|[A-Za-z0-9_-]{43})$/;
+export { modeShareTokenPattern, modeShortIdPattern };
 
 const uuid = z.string().uuid();
 

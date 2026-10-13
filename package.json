@@ -32,7 +32,8 @@
     "email:preview": "deno run --allow-env=NODE_ENV --allow-write=.next/email-previews --config supabase/functions/send-email/deno.json supabase/functions/_shared/preview.tsx",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:scan": "node --test tests/share/scan-target.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -42,6 +43,7 @@
     "@supabase/supabase-js": "2.117.3",
     "dodopayments": "2.54.2",
     "fflate": "0.8.3",
+    "jsqr": "1.4.0",
     "next": "16.4.0",
     "pkijs": "3.4.1",
     "qrcode.react": "^4.2.0",

@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { recordProfileShare } from "@/lib/analytics/client";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { MeetActions } from "@/components/app/home/meet-sheet";
 import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
@@ -108,6 +109,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
           <div className="hidden flex-wrap items-end justify-between gap-5 pr-7 lg:flex">
             <ModePicker modes={modes} onPick={pick} slug={slug} variant="stage" />
             <div className="flex gap-2.5">
+              <MeetActions variant="stage" />
               <Link className="inline-flex min-h-[54px] items-center rounded-full px-4 text-[15px] font-semibold text-[#f5f4ef]/85 underline-offset-4 hover:underline focus-visible:outline-2" href="/app/tap">Tap ↗</Link>
               <Link className="inline-flex min-h-[54px] items-center rounded-full px-[22px] text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.45)] hover:bg-white/10 focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>Edit</Link>
               <button className="inline-flex min-h-[54px] items-center gap-2.5 rounded-full bg-[#ff5a4f] px-[26px] text-base font-semibold text-[#0d0d0d] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5f4ef]" onClick={openShare} type="button">
@@ -126,6 +128,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <svg aria-hidden="true" height="18" viewBox="0 0 20 20" width="18"><path d="M4 16l1-4 8-8 3 3-8 8z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.6" /></svg>
           </Link>
         </div>
+        <MeetActions variant="bar" />
         <Link className="inline-flex min-h-11 items-center justify-center text-sm font-semibold underline underline-offset-4" href="/app/tap">Quick QR &amp; Tap settings →</Link>
       </div>
 
