@@ -21,7 +21,7 @@
     "e2e:mode-share": "node scripts/e2e-mode-share.mjs",
     "test:passport": "node --test tests/passport/view.test.mjs",
     "test:live-context-i18n": "node --test tests/live-context-i18n.test.mjs",
-    "test:billing": "deno test --unstable-sloppy-imports tests/billing/billing.test.mjs tests/billing/member-badge.test.mjs",
+    "test:billing": "deno test --unstable-sloppy-imports --import-map=tests/billing/import_map.json tests/billing/billing.test.mjs tests/billing/member-badge.test.mjs tests/billing/pricing.test.mjs",
     "test:wallet": "node --test tests/wallet/wallet.test.mjs",
     "test:billing:integration": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-billing-database.ps1",
     "smoke:billing:hosted": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-hosted-billing.ps1",

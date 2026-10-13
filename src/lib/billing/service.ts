@@ -5,7 +5,11 @@ import { createBillingAdminClient } from "./admin";
 import { createBillingPublicClient } from "./public-client";
 import { publicProfileEntitlements } from "./entitlements";
 import { hasCapability, resolveClientCapabilities } from "./capabilities";
-import { resolveBillingSnapshot, type BillingSnapshot, type ProviderSubscriptionRecord } from "./state";
+import { readDodoConfiguration } from "./config";
+import { mapConfiguredProduct } from "./products";
+import { getDodoApiClient } from "./provider";
+import { resolveBillingSnapshot, selectEffectiveSubscription, type BillingSnapshot, type ProviderSubscriptionRecord } from "./state";
+import type { BillingInterval } from "./catalog";
 
 export async function getUserBillingState(userId: string): Promise<BillingSnapshot> {
   const admin = createBillingAdminClient();
@@ -17,6 +21,32 @@ export async function getUserBillingState(userId: string): Promise<BillingSnapsh
   if (error) throw new Error("billing_state_unavailable");
   const records = (data ?? []) as ProviderSubscriptionRecord[];
   return resolveBillingSnapshot(records);
+}
+
+export type ScheduledPlanChange = { plan: "plus" | "pro"; interval: BillingInterval; effectiveAt: string };
+
+/**
+ * A downgrade waiting for the next renewal lives only at Dodo until it applies, so Billing
+ * asks for it directly. Best effort: any failure just hides the line.
+ */
+export async function getScheduledPlanChange(userId: string): Promise<ScheduledPlanChange | null> {
+  const config = readDodoConfiguration();
+  if (!config) return null;
+  try {
+    const { data, error } = await createBillingAdminClient()
+      .from("billing_subscriptions")
+      .select("dodo_subscription_id,plan_code,billing_interval,provider_status,current_period_end,cancel_at_next_billing_date,past_due_ends_at")
+      .eq("user_id", userId);
+    if (error) return null;
+    const current = selectEffectiveSubscription((data ?? []) as (ProviderSubscriptionRecord & { dodo_subscription_id: string })[]);
+    if (!current) return null;
+    const live = await getDodoApiClient().subscriptions.retrieve(current.dodo_subscription_id);
+    const scheduled = live.scheduled_change;
+    const target = scheduled ? mapConfiguredProduct(scheduled.product_id, config.products) : null;
+    return scheduled && target ? { ...target, effectiveAt: scheduled.effective_at } : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getUserEntitlements(userId: string, knownState?: BillingSnapshot) {
@@ -46,9 +76,10 @@ export async function getPublicProfileEntitlements(username: string) {
   if (!row) return null;
   return {
     memberBadge: row.verified_badge === true,
-    // Attribution removal is not shipped yet. Do not expose the legacy DB
-    // boolean as an entitlement until the feature is implemented.
-    removeSetuvaraBranding: false,
+    // verified_badge is true for any active paid plan, and every paid plan drops the
+    // "Made with Setuvara" footer (identity.remove_attribution). The legacy DB branding
+    // boolean is still ignored.
+    removeSetuvaraBranding: row.verified_badge === true,
   } as const;
 }
 

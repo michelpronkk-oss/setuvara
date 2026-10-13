@@ -6,6 +6,7 @@ const messages = {
       signOut: "Sign out",
       save: "Save", saving: "Saving…", cancel: "Cancel", close: "Close", settings: "Settings",
       viewProfile: "View public profile", manageBilling: "Manage", seePlans: "See plans",
+      billing: "Billing", upgrade: "Upgrade",
       modeSettings: "Mode settings", emailPreferences: "Email preferences", region: "Region",
     },
     liveContext: {

@@ -211,7 +211,7 @@ function Profile(props: ProfileProps) {
     "--sv-focus": theme.identity.fg,
   };
   const blockTone: BlockTone = { bg: theme.base, ink: theme.fg, sub: theme.muted, chip: theme.card.bg, line: theme.card.edge, dark: !theme.light };
-  const branded = !hasCapability(props.plan ?? "free", "appearance.premium");
+  const branded = !hasCapability(props.plan ?? "free", "identity.remove_attribution");
   const soundTop = look.id === "clean" || look.id === "social" ? 28 : 18;
   const soundRight = look.id === "clean" || look.id === "social" ? 28 : 16;
   const floating = !owner && !connected && Boolean(props.visitorAction);

@@ -39,7 +39,7 @@ export const PLAN_MATRIX = {
   "identity.edit": { label: "Edit your identity", requiredPlan: "free", availability: "live", enforcement: "auth-and-rls", surface: "Identity editor", pricing: { id: "profile", label: "Public profile, links, content, and core appearance" }, downgrade: "unaffected" },
   "identity.plus_badge": { label: "Setuvara Plus member badge", requiredPlan: "plus", maximumPlan: "plus", availability: "live", enforcement: "server-derived-presentation", surface: "Home and public profile", pricing: { id: "plus-badge", label: "Setuvara Plus member badge" }, downgrade: "badge-follows-plan" },
   "identity.pro_badge": { label: "Setuvara Pro member badge", requiredPlan: "pro", availability: "live", enforcement: "server-derived-presentation", surface: "Home and public profile", pricing: { id: "pro-badge", label: "Setuvara Pro member badge" }, downgrade: "badge-follows-plan" },
-  "identity.remove_attribution": { label: "Remove Setuvara attribution", requiredPlan: "plus", availability: "future", enforcement: "not-shipped", surface: "Public profile", pricing: null, downgrade: "future-unavailable" },
+  "identity.remove_attribution": { label: "Remove Setuvara attribution", requiredPlan: "plus", availability: "live", enforcement: "server-derived-presentation", surface: "Public profile footer (ProfileRenderer)", pricing: { id: "no-attribution", label: "No \u201cMade with Setuvara\u201d on your profile" }, downgrade: "plan-derived-reverts" },
   "mode.personal": { label: "Personal Mode", requiredPlan: "free", availability: "live", enforcement: "auth-and-rls", surface: "Identity editor and public profile", pricing: { id: "modes", label: "Personal, Event, and Business Modes" }, downgrade: "unaffected" },
   "mode.event": { label: "Event Mode", requiredPlan: "free", availability: "live", enforcement: "auth-and-rls", surface: "Identity editor and public profile", pricing: { id: "modes", label: "Personal, Event, and Business Modes" }, downgrade: "unaffected" },
   "mode.business": { label: "Business Mode", requiredPlan: "free", availability: "live", enforcement: "auth-and-rls", surface: "Identity editor and public profile", pricing: { id: "modes", label: "Personal, Event, and Business Modes" }, downgrade: "unaffected" },
@@ -159,7 +159,7 @@ export function listAvailableCapabilities(plan: PlanCode): CapabilityKey[] {
 export function getPricingFeatureGroups(plan: PlanCode): PricingFeature[] {
   const order = [
     "profile", "modes", "share", "network", "soundtrack", "analytics-basic", "plus-badge",
-    "premium-presentation", "analytics-history", "analytics-breakdowns", "analytics-conversion",
+    "no-attribution", "premium-presentation", "analytics-history", "analytics-breakdowns", "analytics-conversion",
     "pro-badge", "analytics-custom-range", "analytics-funnel", "analytics-devices", "analytics-export",
   ];
   const groups = new Map<string, { feature: PricingFeature; keys: CapabilityKey[] }>();

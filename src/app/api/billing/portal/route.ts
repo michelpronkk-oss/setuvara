@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (error) throw error;
     if (!data) return json({ error: "billing_customer_unavailable" }, 404);
     const portal = await getDodoApiClient().customers.customerPortal.create(data.dodo_customer_id, {
-      return_url: `${getSetuvaraOrigin()}/app`,
+      return_url: `${getSetuvaraOrigin()}/app/settings/billing`,
       send_email: false,
     });
     const portalUrl = safeProviderUrl(portal.link, "portal");

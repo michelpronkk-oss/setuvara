@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { MemberBadge } from "@/components/app/status-badge";
@@ -45,13 +46,14 @@ function price(minor: number) {
 
 /**
  * Contextual upgrade sheet. It never unlocks anything itself: Free starts the canonical
- * checkout for the target plan; a paid member changes plan in the canonical billing portal.
+ * checkout for the target plan; a paid member changes plan on Billing (/app/settings/billing).
  * The page re-reads the resolved plan from the server after billing returns.
  */
 export function AnalyticsPaywall({ target, plan, onClose }: { target: PaywallTarget; plan: PlanCode; onClose: () => void }) {
   const sheet = SHEETS[target];
   const offer = getPublicPlan(target);
   const usesCheckout = plan === "free";
+  const router = useRouter();
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -98,9 +100,9 @@ export function AnalyticsPaywall({ target, plan, onClose }: { target: PaywallTar
         const url = response.ok ? safeProviderUrl(((await response.json()) as { checkoutUrl?: unknown }).checkoutUrl, "checkout") : null;
         if (url) { window.location.assign(url); return; }
       } else {
-        const response = await fetch("/api/billing/portal", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-        const url = response.ok ? safeProviderUrl(((await response.json()) as { portalUrl?: unknown }).portalUrl, "portal") : null;
-        if (url) { window.location.assign(url); return; }
+        // Paid members change plan on Billing, which previews the prorated charge first.
+        router.push(`/app/settings/billing?start=${target}`);
+        return;
       }
       setFailed(true);
     } catch {

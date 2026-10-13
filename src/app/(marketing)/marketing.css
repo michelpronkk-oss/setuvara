@@ -122,3 +122,15 @@ html:has(.marketing-root) {
   .mobile-menu, .mobile-menu.is-open { clip-path: none; transition: visibility 0s; }
   .mobile-menu-item, .mobile-menu.is-open .mobile-menu-item { transform: none; transition: opacity 150ms ease; transition-delay: 0s; }
 }
+
+/* Pricing: soundtrack equalizer bars. Reduced motion keeps them still at full height. */
+@keyframes pricing-eq {
+  from { transform: scaleY(.25); }
+  to { transform: scaleY(1); }
+}
+
+.pricing-eq { animation: pricing-eq 1s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pricing-eq { animation: none; }
+}

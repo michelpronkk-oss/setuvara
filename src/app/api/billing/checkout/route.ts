@@ -129,8 +129,8 @@ export async function POST(request: Request) {
           setuvara_plan: plan,
           setuvara_interval: interval,
         },
-        return_url: `${origin}/app?billing=return`,
-        cancel_url: `${origin}/app?billing=cancelled`,
+        return_url: `${origin}/app/settings/billing?billing=return`,
+        cancel_url: `${origin}/app/settings/billing?billing=cancelled`,
       }, { idempotencyKey: reserved.attemptId });
       const checkoutUrl = safeProviderUrl(checkout.checkout_url, "checkout");
       if (!checkoutUrl || !checkout.session_id) throw new Error("billing_checkout_response_invalid");
