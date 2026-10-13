@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     deviceSizes: [320, 360, 384, 480, 640, 720, 900, 1080, 1200, 1440, 1920, 2560],
     imageSizes: [48, 96, 120, 160, 240],
     qualities: [100],
-    formats: ["image/webp", "image/avif"],
+    formats: ["image/webp"],
     minimumCacheTTL: 3600,
     remotePatterns: supabaseStorageHostname ? [{
       protocol: "https",
