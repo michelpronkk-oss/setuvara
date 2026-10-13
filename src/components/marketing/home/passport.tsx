@@ -2,7 +2,12 @@ import { passportDisplay } from "@/app/app/passport/fonts";
 import { MilestoneLine } from "@/components/passport/milestone-line";
 import { PassportCover } from "@/components/passport/passport-cover";
 import { PassportAheadStamp, PassportStamp } from "@/components/passport/passport-stamp";
+import { QrFrame } from "@/components/profile/qr-frame";
+import { PASSPORT_REWARDS, type PassportReward } from "@/lib/passport/rewards";
 import { coverSerial, nextMilestone } from "@/lib/passport/view";
+
+import { QRCodeSVG } from "qrcode.react";
+import type { ReactNode } from "react";
 
 import { Display, Label, Shell } from "./primitives";
 
@@ -95,7 +100,78 @@ export function Passport() {
             <MilestoneLine count={example.count} />
           </div>
         </div>
+
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <Label>Rewards</Label>
+            <p className="text-[13px] text-ink/60">Earned, never bought. Worn on your identity.</p>
+          </div>
+          <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-8 sm:scroll-px-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible lg:px-0">
+            <RewardCard reward={reward("signal_accent")} tone="uncommon" visual={<AccentVisual />} />
+            <RewardCard reward={reward("coral_qr_frame")} tone="signature" visual={<FrameVisual />} />
+            <RewardCard reward={reward("thousand_cover")} tone="legendary" visual={<CoverVisual />} />
+          </div>
+        </div>
       </Shell>
     </section>
+  );
+}
+
+const reward = (id: string) => PASSPORT_REWARDS.find((item) => item.id === id)!;
+
+const RARITY = {
+  uncommon: { card: "bg-paper text-ink", stage: "bg-white", chip: "bg-sky text-ink", muted: "text-ink/60" },
+  signature: { card: "bg-coral text-ink", stage: "bg-ink", chip: "bg-ink text-paper", muted: "text-ink/70" },
+  legendary: { card: "bg-ink text-paper shadow-[inset_0_0_0_1px_rgba(214,178,94,.45)]", stage: "bg-[radial-gradient(circle_at_50%_40%,#2a2418,#0d0d0d_70%)]", chip: "bg-[#d6b25e] text-ink", muted: "text-paper/60" },
+};
+
+function RewardCard({ reward: item, tone, visual }: { reward: PassportReward; tone: keyof typeof RARITY; visual: ReactNode }) {
+  const style = RARITY[tone];
+  const unlocked = item.milestone <= example.count;
+  return (
+    <article className={`reveal flex w-[80%] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-[1.75rem] lg:w-auto lg:max-w-none ${style.card}`}>
+      <div aria-hidden="true" className={`relative grid h-60 place-items-center overflow-hidden ${style.stage}`}>{visual}</div>
+      <div className="flex flex-1 flex-col gap-2 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <span className={`rounded-full px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.14em] ${style.chip}`}>{item.rarity}</span>
+          <span className={`font-label text-[10px] uppercase tracking-[0.14em] ${style.muted}`}>{unlocked ? "Earned" : `At ${item.milestone} connections`}</span>
+        </div>
+        <p className="mt-2 font-display text-[28px] font-bold leading-none tracking-[-0.045em]">{item.name}</p>
+        <p className={`text-[13px] leading-5 ${style.muted}`}>{item.description}</p>
+      </div>
+    </article>
+  );
+}
+
+/** Signal Accent: the coral note on a public identity (name rule, link edge, Connect). */
+function AccentVisual() {
+  return (
+    <div className="w-[74%] -rotate-3 rounded-[20px] bg-paper p-4 shadow-[0_22px_36px_-20px_rgba(13,13,13,.5)]">
+      <p className="font-label text-[8px] uppercase tracking-[0.2em] text-coral">Personal</p>
+      <p className="mt-2 font-display text-[30px] font-extrabold leading-none tracking-[-0.05em]">Aanya Rao</p>
+      <span className="mt-2 block h-[3px] w-14 rounded-full bg-coral" />
+      <div className="mt-3 flex h-8 items-center rounded-[10px] px-2.5 text-[10px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(255,90,79,.55)]">Sunday run mix</div>
+      <div className="mt-2 flex h-8 items-center justify-center rounded-full bg-coral text-[11px] font-semibold text-ink">Connect</div>
+    </div>
+  );
+}
+
+/** Coral Frame: the real QR frame from Share, around a real code. */
+function FrameVisual() {
+  return (
+    <div className="w-[132px] rotate-2">
+      <QrFrame accent="#FF5A4F" modeLabel="Personal" name="Aanya Rao" style="accent-frame">
+        <QRCodeSVG bgColor="#ffffff" className="block h-auto w-full" fgColor="#0d0d0d" level="M" marginSize={0} size={120} value="https://setuvara.com/" />
+      </QrFrame>
+    </div>
+  );
+}
+
+/** Thousand Cover: the real Passport cover in its Thousand look. */
+function CoverVisual() {
+  return (
+    <div className="-rotate-6 [filter:drop-shadow(0_24px_30px_rgba(0,0,0,.7))]">
+      <PassportCover connections={1000} handle={example.handle} idPrefix="home-thousand" look="thousand" name={example.name} serial={coverSerial(example.handle)} since={example.since} stamps={24} width="138px" />
+    </div>
   );
 }
