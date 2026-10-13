@@ -7,6 +7,48 @@ html:has(.marketing-root) {
   scroll-padding-top: 72px;
 }
 
+/* Keep the first viewport's header and hero on the normal render path. Large,
+   independent sections below it can be skipped until they approach the viewport. */
+#product { content-visibility: auto; contain-intrinsic-block-size: auto 305px; }
+#modes { content-visibility: auto; contain-intrinsic-block-size: auto 1140px; }
+section[aria-labelledby="looks-title"] { content-visibility: auto; contain-intrinsic-block-size: auto 809px; }
+#share { content-visibility: auto; contain-intrinsic-block-size: auto 1429px; }
+#how { content-visibility: auto; contain-intrinsic-block-size: auto 1695px; }
+#remember { content-visibility: auto; contain-intrinsic-block-size: auto 1737px; }
+#passport { content-visibility: auto; contain-intrinsic-block-size: auto 2451px; }
+#events { content-visibility: auto; contain-intrinsic-block-size: auto 851px; }
+#teams { content-visibility: auto; contain-intrinsic-block-size: auto 1484px; }
+section[aria-labelledby="physical-title"] { content-visibility: auto; contain-intrinsic-block-size: auto 764px; }
+section[aria-labelledby="cta-title"] { content-visibility: auto; contain-intrinsic-block-size: auto 605px; }
+
+@media (min-width: 640px) {
+  #product { contain-intrinsic-block-size: auto 204px; }
+  #modes { contain-intrinsic-block-size: auto 1397px; }
+  section[aria-labelledby="looks-title"] { contain-intrinsic-block-size: auto 771px; }
+  #share { contain-intrinsic-block-size: auto 1678px; }
+  #how { contain-intrinsic-block-size: auto 1765px; }
+  #remember { contain-intrinsic-block-size: auto 1643px; }
+  #passport { contain-intrinsic-block-size: auto 2449px; }
+  #events { contain-intrinsic-block-size: auto 950px; }
+  #teams { contain-intrinsic-block-size: auto 1576px; }
+  section[aria-labelledby="physical-title"] { contain-intrinsic-block-size: auto 944px; }
+  section[aria-labelledby="cta-title"] { contain-intrinsic-block-size: auto 783px; }
+}
+
+@media (min-width: 1024px) {
+  #product { contain-intrinsic-block-size: auto 186px; }
+  #modes { contain-intrinsic-block-size: auto 1469px; }
+  section[aria-labelledby="looks-title"] { contain-intrinsic-block-size: auto 936px; }
+  #share { contain-intrinsic-block-size: auto 1109px; }
+  #how { contain-intrinsic-block-size: auto 1220px; }
+  #remember { contain-intrinsic-block-size: auto 1366px; }
+  #passport { contain-intrinsic-block-size: auto 1874px; }
+  #events { contain-intrinsic-block-size: auto 1073px; }
+  #teams { contain-intrinsic-block-size: auto 891px; }
+  section[aria-labelledby="physical-title"] { contain-intrinsic-block-size: auto 748px; }
+  section[aria-labelledby="cta-title"] { contain-intrinsic-block-size: auto 771px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:has(.marketing-root) { scroll-behavior: auto; }
 }
