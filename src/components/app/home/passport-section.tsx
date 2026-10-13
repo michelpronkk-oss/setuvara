@@ -34,6 +34,7 @@ export async function PassportSection({ plan }: { plan: PlanCode }) {
   const left = next ? next.threshold - count : 0;
   const unlocks = next ? PASSPORT_REWARDS.filter((reward) => reward.milestone === next.threshold).map((reward) => reward.name) : [];
   const stamp = [...(overview.stamps ?? [])].sort((a, b) => Date.parse(b.earnedAt) - Date.parse(a.earnedAt))[0];
+  const code = stamp ? stampCode(stamp) : "?";
   const premiumFinish = hasCapability(plan, "passport.premium_treatment") && overview.presentation?.memberFinishEnabled !== false;
   const finishColor = plan === "pro" ? "#C7FF4A" : "#FF5A4F";
   const cover = COVER_COLORS[overview.presentation?.coverId ?? "standard"] ?? { paper: "#0D0D0D", ink: "#F5F4EF", accent: "#FF5A4F" };
@@ -60,7 +61,7 @@ export async function PassportSection({ plan }: { plan: PlanCode }) {
       <p className="text-[15px] leading-[1.45] [text-wrap:pretty]">{copy}</p>
       <div className="flex items-center justify-between gap-4 border-t pt-4" style={{ borderColor: `${cover.ink}26` }}>
         <span className="flex min-w-0 items-center gap-3">
-          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-[10px] font-label text-[10px] tracking-[0.06em] [clip-path:polygon(0_0,100%_0,100%_calc(100%-12px),calc(100%-7px)_100%,0_100%)]" style={{ backgroundColor: stamp ? cover.accent : "transparent", color: cover.ink, boxShadow: stamp ? undefined : `inset 0 0 0 1.5px ${cover.ink}59` }}>{stamp ? stampCode(stamp) : "?"}</span>
+          <span aria-hidden="true" className={`grid size-10 shrink-0 place-items-center rounded-[10px] ${/^\d+$/.test(code) ? "font-display text-[17px] font-bold tracking-[-0.03em]" : "font-label text-[10px] tracking-[0.06em]"} [clip-path:polygon(0_0,100%_0,100%_calc(100%-12px),calc(100%-7px)_100%,0_100%)]`} style={{ backgroundColor: stamp ? cover.accent : "transparent", color: cover.ink, boxShadow: stamp ? undefined : `inset 0 0 0 1.5px ${cover.ink}59` }}>{code}</span>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-[15px] font-semibold">{stamp ? stamp.title : "Your first stamp is waiting"}</span>
             <span className="truncate text-[13px] opacity-70">{stamp ? `${stamp.type[0].toUpperCase()}${stamp.type.slice(1)} stamp · ${new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(new Date(stamp.earnedAt))}` : "Meet someone at an event or in a new city"}</span>
@@ -88,6 +89,9 @@ export function PassportSkeleton() {
 
 function stampCode(stamp: Overview["stamps"][number]) {
   if (stamp.type === "country" && stamp.countryCode) return stamp.countryCode.toUpperCase();
+  // Milestones read as their number ("5"), not the first letters of "5 connections".
+  const count = stamp.type === "milestone" ? (stamp.subtitle ?? stamp.title).match(/\d+/)?.[0] : undefined;
+  if (count) return count;
   return (stamp.subtitle ?? stamp.title).replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "★";
 }
 

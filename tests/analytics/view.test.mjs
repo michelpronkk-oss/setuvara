@@ -98,6 +98,7 @@ Deno.test("headlines derive from real data, never sample copy", () => {
   assert.equal(pageTitle({ ...base, range: { kind: "30d", start: "2026-09-11", end: "2026-10-10" }, comparison: { profileViewsDelta: null, connectionsDelta: null } }), "People are starting to find you.");
   assert.equal(pageTitle({ ...base, range: { kind: "custom", start: "2026-07-13", end: "2026-10-10" } }, new Date("2026-10-10T12:00:00Z")), "Your signals since July.");
   assert.equal(pageTitle({ ...base, range: { kind: "custom", start: "2025-07-13", end: "2026-10-10" } }, new Date("2026-10-10T12:00:00Z")), "Your signals since July 2025.");
+  assert.equal(pageTitle({ ...base, summary: { ...base.summary, profileViews: 0, connections: 1 }, range: { kind: "7d", start: "2026-10-04", end: "2026-10-10" }, comparison: { profileViewsDelta: null, connectionsDelta: null } }), "Share it once and the views start here.");
   assert.equal(pageTitle(null), "Your signals");
 });
 
