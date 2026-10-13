@@ -110,12 +110,12 @@ export function PlusShowcase() {
                 <div className="-rotate-3 transition-transform duration-500">
                   <PassportCover
                     connections={47}
-                    handle="michel"
+                    handle="aanya"
                     idPrefix="pricing-cover"
                     label={`Setuvara Passport cover${finish ? ", Member edition" : ""}`}
                     look="standard"
                     member={finish}
-                    name="Michel Pronk"
+                    name="Aanya Rao"
                     serial="SV-0047"
                     since="2026"
                     stamps={12}
@@ -138,13 +138,13 @@ export function PlusShowcase() {
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)] items-end gap-6 sm:grid-cols-2">
               <div className="flex flex-col items-center gap-3">
-                <QrFrame accent="#FF5A4F" className="w-full max-w-[220px]" modeLabel="Personal" name="Michel" style="standard">
+                <QrFrame accent="#FF5A4F" className="w-full max-w-[220px]" modeLabel="Personal" name="Aanya" style="standard">
                   <QRCodeSVG className="h-auto w-full" fgColor="#0D0D0D" level="M" marginSize={0} size={180} title="Example QR code for setuvara.com" value="https://setuvara.com" />
                 </QrFrame>
                 <Mono className="text-ink/65">Free · Standard</Mono>
               </div>
               <div className="flex flex-col items-center gap-3">
-                <QrFrame accent="#FF5A4F" className="w-full max-w-[240px] rotate-[1.5deg]" modeLabel="Personal" name="Meet Michel" style={choice.style}>
+                <QrFrame accent="#FF5A4F" className="w-full max-w-[240px] rotate-[1.5deg]" modeLabel="Personal" name="Meet Aanya" style={choice.style}>
                   <QRCodeSVG className="h-auto w-full" fgColor="#0D0D0D" level="M" marginSize={0} size={180} title="Example QR code for setuvara.com" value="https://setuvara.com" />
                 </QrFrame>
                 <Mono className="text-coral">Plus · {choice.label}</Mono>

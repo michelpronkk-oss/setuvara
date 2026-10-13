@@ -56,7 +56,7 @@ export function Tap() {
               <div className="flex flex-col gap-2.5">
                 <div className="flex flex-col gap-3 rounded-[18px] bg-paper p-3.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]">
                   <div className="flex items-center gap-1.5"><MeetMark className="size-4" /><Wordmark className="text-sm" /></div>
-                  <div className="flex flex-col gap-0.5"><Mono className="text-[8px] text-ink/65">Personal</Mono><span className="font-display text-lg font-bold leading-none tracking-[-0.03em]">Michel Pronk</span></div>
+                  <div className="flex flex-col gap-0.5"><Mono className="text-[8px] text-ink/65">Personal</Mono><span className="font-display text-lg font-bold leading-none tracking-[-0.03em]">Aanya Rao</span></div>
                   <div className="rounded-[10px] bg-white p-2"><PassQr /></div>
                 </div>
                 <Mono className="text-[10px] tracking-[0.12em] text-ink/65">Free · Core pass</Mono>
@@ -65,7 +65,7 @@ export function Tap() {
                 <div className="relative flex flex-col gap-3 overflow-hidden rounded-[18px] bg-coral p-3.5 shadow-[0_24px_40px_-24px_#ff5a4f]">
                   <MeetMark className="absolute -right-[30px] -top-6 size-[110px] text-ink opacity-10" />
                   <div className="relative flex items-center gap-1.5"><MeetMark className="size-4" /><Mono className="text-[8px]">Connect in person</Mono></div>
-                  <div className="relative flex flex-col gap-0.5"><Mono className="text-[8px]">Personal</Mono><span className="whitespace-nowrap font-display text-lg font-extrabold leading-none tracking-[-0.03em]">Michel Pronk <PlusInkBadge size={13} /></span></div>
+                  <div className="relative flex flex-col gap-0.5"><Mono className="text-[8px]">Personal</Mono><span className="whitespace-nowrap font-display text-lg font-extrabold leading-none tracking-[-0.03em]">Aanya Rao <PlusInkBadge size={13} /></span></div>
                   <div className="relative rounded-[10px] bg-paper p-2"><PassQr /></div>
                 </div>
                 <Mono className="text-[10px] tracking-[0.12em] text-coral">Plus · Premium pass</Mono>
