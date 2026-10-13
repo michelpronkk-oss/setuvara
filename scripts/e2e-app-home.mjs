@@ -93,12 +93,9 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
     await image.evaluate((img) => img.decode());
     assert(await image.evaluate((img) => img.naturalWidth > 0), "Home photo must load");
     assert.equal(await image.evaluate((img) => getComputedStyle(img).objectPosition), "50% 0%", "Home crop must keep the top of a portrait visible");
-    await page.getByRole("button", { name: "View full Personal Mode photo", exact: true }).click();
-    const photoDialog = page.getByRole("dialog", { name: "Personal Mode full photo", exact: true });
-    const fullPhoto = await photoDialog.locator("img").getAttribute("src");
-    assert(fullPhoto === await image.getAttribute("src"), "Full photo viewer must use the complete saved image");
-    assert.equal((await anon.request.get(fullPhoto)).status(), 200, "Full photo must load");
-    await photoDialog.getByRole("button", { name: "Close full photo" }).click();
+    const heroStage = page.getByRole("region", { name: "Personal Mode", exact: true });
+    assert.equal(await heroStage.getByRole("button", { name: /full .*photo/i }).count(), 0, "Home hero has no full photo button");
+    assert(await heroStage.locator("[data-member-badge]").count() <= 1, "Home hero renders at most one member badge");
 
     // Actual Mode state, URL precedence, remembered selection and keyboard radios.
     for (const slug of Object.keys(names)) {

@@ -52,10 +52,8 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   const [selected, setSelected] = useState<ModeSlug | null>(null);
   const slug = selected ?? (hasRequestedMode ? initialMode : saved ?? initialMode);
   const [sharing, setSharing] = useState(false);
-  const [viewingPhoto, setViewingPhoto] = useState(false);
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const shareButton = useRef<HTMLButtonElement>(null);
-  const photoButton = useRef<HTMLButtonElement>(null);
   const mode = modes.find((item) => item.slug === slug) ?? modes[0];
   const hasMemberBadge = hasCapability(plan, "identity.plus_badge") || hasCapability(plan, "identity.pro_badge");
   const live = isPublished && mode.enabled;
@@ -69,7 +67,6 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   }, []);
   const openShare = (event: MouseEvent<HTMLButtonElement>) => { shareButton.current = event.currentTarget; setSharing(true); };
   const closeShare = useCallback(() => { setSharing(false); shareButton.current?.focus(); }, []);
-  const closePhoto = useCallback(() => { setViewingPhoto(false); photoButton.current?.focus(); }, []);
 
   return (
     <>
@@ -94,7 +91,6 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <span className="hidden lg:inline">{NAMES[slug].toUpperCase()} MODE · </span>{live ? "LIVE" : isPublished ? "MODE OFF" : "PRIVATE"}
           </span>
           <div className="flex shrink-0 items-center gap-2">
-            {hasPhoto && <button aria-label={`View full ${NAMES[slug]} Mode photo`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:text-sm" onClick={(event) => { photoButton.current = event.currentTarget; setViewingPhoto(true); }} type="button">View full photo<span aria-hidden="true">↗</span></button>}
             {live && <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:px-4 lg:text-sm" href={publicUrl(slug)} rel="noreferrer" target="_blank">View profile<span aria-hidden="true">↗</span></a>}
           </div>
         </div>
@@ -104,7 +100,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <p className="font-label text-[10px] tracking-[0.14em] text-[#f5f4ef]/80 lg:hidden">{NAMES[slug].toUpperCase()} MODE</p>
             <p className="break-words font-display text-[clamp(36px,11vw,48px)] font-bold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] lg:text-[clamp(64px,5.6vw,112px)] lg:leading-[0.9]">
               {displayName}
-              {hasMemberBadge && <span className="ml-[0.16em] inline-block align-[0.08em]"><StatusBadge className="lg:hidden" plan={plan} size={20} /><StatusBadge className="hidden lg:inline-block" plan={plan} size={30} /></span>}
+              {hasMemberBadge && <span className="ml-[0.16em] inline-block align-[0.08em]"><StatusBadge className="size-5 lg:size-[30px]" plan={plan} size={20} /></span>}
             </p>
             <p className="text-sm leading-[1.4] text-[#f5f4ef]/90 [text-wrap:pretty] lg:text-[19px]">{mode.line}</p>
             <p className="hidden truncate font-label text-[13px] text-[#f5f4ef]/70 lg:block">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
@@ -134,34 +130,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       </div>
 
       {sharing && <ShareSheet displayName={displayName} isPublished={isPublished} modes={modes} onClose={closeShare} onPick={pick} plan={plan} publicUrl={publicUrl} slug={slug} username={username} />}
-      {viewingPhoto && mode.imageUrl && <FullPhotoViewer imageUrl={mode.imageSource?.url ?? mode.imageUrl} modeName={NAMES[slug]} onClose={closePhoto} />}
     </>
-  );
-}
-
-function FullPhotoViewer({ imageUrl, modeName, onClose }: { imageUrl: string; modeName: string; onClose: () => void }) {
-  const closeButton = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeButton.current?.focus();
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); onClose(); }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
-  }, [onClose]);
-
-  return (
-    <div aria-label={`${modeName} Mode full photo`} aria-modal="true" className="fixed inset-0 z-[85] flex flex-col items-center justify-center bg-[#0d0d0d]/95 p-4 pb-[calc(16px+env(safe-area-inset-bottom))] text-[#f5f4ef] sm:p-6" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }} role="dialog">
-      <div className="mb-3 flex w-full max-w-6xl shrink-0 items-center justify-between gap-4">
-        <p className="font-label text-xs uppercase tracking-[0.14em]">{modeName} Mode · full photo</p>
-        <button aria-label="Close full photo" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/10 text-xl focus-visible:outline-2 focus-visible:outline-offset-2" onClick={onClose} ref={closeButton} type="button">×</button>
-      </div>
-      {/* eslint-disable-next-line @next/next/no-img-element -- display the original user-uploaded photo without cropping */}
-      <img alt={`${modeName} Mode profile photo`} className="max-h-[calc(100dvh-100px)] max-w-full object-contain" decoding="async" src={imageUrl} />
-    </div>
   );
 }
 
