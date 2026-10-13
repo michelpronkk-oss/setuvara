@@ -7,7 +7,7 @@ import { Display, Label, Shell } from "../home/primitives";
 export type LegalSection = { id: string; title: string; body: ReactNode };
 
 /**
- * Shared layout for /privacy and /terms: a short "in plain words" summary up top, then numbered
+ * Shared layout for /privacy, /terms, /cookies and /refunds: a short "in plain words" summary up top, then numbered
  * sections with a sticky contents list on wide screens.
  */
 export function LegalPage({ kicker, title, updated, sections, other }: { kicker: string; title: string; updated: string; sections: LegalSection[]; other: { href: string; label: string } }) {
@@ -17,10 +17,7 @@ export function LegalPage({ kicker, title, updated, sections, other }: { kicker:
         <span aria-hidden="true" className="absolute -right-32 -top-40 -z-10 size-[520px] rounded-full bg-coral/15 blur-[120px]" />
         <Shell className="grid grid-cols-[minmax(0,1fr)] gap-10 pb-14 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:pb-8 lg:pt-16">
           <div className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <Label className="text-coral">{kicker}</Label>
-              <span className="inline-flex items-center rounded-full bg-ink px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.14em] text-paper">Draft · in legal review</span>
-            </div>
+            <Label className="text-coral">{kicker}</Label>
             <Display as="h1" className="text-[clamp(46px,7vw,104px)] leading-[0.9]"><span id="legal-title">{title}</span></Display>
             <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/55">Last updated {updated}</p>
           </div>
