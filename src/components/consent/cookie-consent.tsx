@@ -38,13 +38,13 @@ export function CookieConsent() {
   return (
     <section
       aria-labelledby={`${id}-title`}
-      className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-[440px] rounded-[1.75rem] bg-[#0d0d0d] p-5 text-[#f5f4ef] shadow-[0_40px_80px_-30px_rgba(0,0,0,.7),inset_0_0_0_1px_rgba(245,244,239,.08)] [animation:sv-modal-in_.45s_cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-5 sm:left-5 sm:p-6"
+      className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-[440px] rounded-[1.75rem] bg-[#0d0d0d] p-5 font-sans text-[#f5f4ef] shadow-[0_40px_80px_-30px_rgba(0,0,0,.7),inset_0_0_0_1px_rgba(245,244,239,.08)] [animation:sv-modal-in_.45s_cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-5 sm:left-5 sm:p-6"
       role="dialog"
     >
       <div className="flex items-start gap-3.5">
         <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-[#ff5a4f] text-[#0d0d0d]"><Mark className="size-6" /></span>
         <div className="min-w-0">
-          <h2 className="font-display text-[19px] font-bold leading-tight tracking-[-0.03em]" id={`${id}-title`}>Cookies, kept to a minimum.</h2>
+          <h2 className="text-[19px] font-bold leading-tight tracking-[-0.03em]" id={`${id}-title`}>Cookies, kept to a minimum.</h2>
           <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#f5f4ef]/70">Setuvara only uses what it needs to work. Music and video players from Spotify, YouTube and others can set their own. <Link className="font-semibold text-[#f5f4ef] underline underline-offset-4 hover:text-[#ff5a4f]" href="/cookies">Cookie policy</Link></p>
         </div>
       </div>
@@ -53,7 +53,7 @@ export function CookieConsent() {
         <ul className="mt-5 divide-y divide-[#f5f4ef]/10 rounded-2xl bg-[#f5f4ef]/[0.05] px-4 shadow-[inset_0_0_0_1px_rgba(245,244,239,.08)]">
           <li className="flex items-center justify-between gap-4 py-3.5">
             <span><span className="block text-[14px] font-semibold">Essential</span><span className="block text-[12px] text-[#f5f4ef]/55">Sign-in, guest connections and Connection Passes.</span></span>
-            <span className="shrink-0 font-label text-[10px] uppercase tracking-[0.14em] text-[#f5f4ef]/50">Always on</span>
+            <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[#f5f4ef]/50">Always on</span>
           </li>
           <li className="flex items-center justify-between gap-4 py-3.5">
             <label className="min-w-0 cursor-pointer" htmlFor={`${id}-media`}><span className="block text-[14px] font-semibold">Media players</span><span className="block text-[12px] text-[#f5f4ef]/55">Spotify, SoundCloud, Apple Music, Deezer and YouTube on profiles.</span></label>

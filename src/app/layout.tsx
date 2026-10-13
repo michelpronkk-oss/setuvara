@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { CookieConsent } from "@/components/consent/cookie-consent";
 import { I18nProvider } from "@/lib/i18n/provider";
 
-import { marketingFontClasses } from "./(marketing)/fonts";
 import "./globals.css";
 
 const siteUrl = "https://setuvara.com";
@@ -45,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en">
       <body className="bg-[#f5f4ef] text-[#0d0d0d] antialiased">
         <I18nProvider>{children}</I18nProvider>
-        <div className={`${marketingFontClasses} font-brand`}><CookieConsent /></div>
+        <CookieConsent />
       </body>
     </html>
   );
