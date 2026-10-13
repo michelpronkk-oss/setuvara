@@ -28,9 +28,9 @@ export function Modes() {
               return <span className="-ml-2.5 size-11 overflow-hidden rounded-full bg-cover shadow-[0_0_0_2.5px_#fff] first:ml-0" key={slug} style={{ backgroundImage: `url(${who.photo})`, backgroundPosition: `${who.face.x}% ${who.face.y}%` }} />;
             })}
           </span>
-          <span className="shrink-0 text-[15px] font-semibold">Three people · Three Modes</span>
-          <span className="h-[1.5px] min-w-6 flex-1 bg-ink" />
-          <span className="shrink-0 font-label text-[11px] uppercase tracking-[0.16em]">3 Modes</span>
+          <span className="min-w-0 truncate text-[15px] font-semibold">Three people · Three Modes</span>
+          <span className="hidden h-[1.5px] min-w-6 flex-1 bg-ink sm:block" />
+          <span className="hidden shrink-0 font-label text-[11px] uppercase tracking-[0.16em] sm:block">3 Modes</span>
         </div>
 
         {/* Phones and tablets get a swipeable rail of Modes; wider screens see all three side by side. */}

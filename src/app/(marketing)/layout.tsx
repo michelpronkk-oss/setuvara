@@ -13,7 +13,8 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <SiteHeader />
-      <main id="main-content">{children}</main>
+      {/* clip, not hidden: a stray wide element can never pan the page sideways on phones, and sticky still works. */}
+      <main className="overflow-x-clip" id="main-content">{children}</main>
       <SiteFooter />
     </div>
   );
