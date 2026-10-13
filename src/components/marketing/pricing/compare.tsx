@@ -18,6 +18,7 @@ const GROUPS: Group[] = [
     { label: "Personal, Event and Business Modes", cells: [true, true, true] },
     { label: "Public profile, links and content blocks", cells: [true, true, true] },
     { label: "Profile soundtrack", cells: [true, true, true] },
+    { label: "Connect: everyone, in person only, or off", cells: [true, true, true] },
     { label: "Member badge", cells: [false, "Plus", "Pro"] },
     { label: "“Made with Setuvara” on your profile", cells: [m("Shown"), "Removed", "Removed"] },
     { label: "Photo slideshow", cells: [false, `${PLAN_COUNTS.plusSlides} photos`, `${PLAN_COUNTS.proSlides} photos`] },
@@ -87,9 +88,9 @@ export function Compare() {
             <div className="flex flex-col" key={group.name} role="rowgroup">
               <div role="row"><span className={`block pb-2.5 pt-8 font-label text-[11px] uppercase tracking-[0.14em] ${group.color}`} role="rowheader">{group.name}</span></div>
               {group.rows.map((row) => (
-                <div className={`${grid} items-center border-b border-ink/[0.08] py-3.5 text-[15px]`} key={row.label} role="row">
+                <div className={`${grid} items-center border-b border-ink/[0.08] py-3 text-[14px]`} key={row.label} role="row">
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pr-2 font-medium leading-[1.35]" role="rowheader">{row.label}{row.soon && group.name !== "Coming to Pro" && <SoonPill />}</span>
-                  {row.cells.map((cell, index) => <span className="flex items-center text-sm leading-[1.35]" key={index} role="cell"><CellView cell={cell} plan={index} /></span>)}
+                  {row.cells.map((cell, index) => <span className="flex items-center text-[13px] leading-[1.35]" key={index} role="cell"><CellView cell={cell} plan={index} /></span>)}
                 </div>
               ))}
             </div>

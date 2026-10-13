@@ -18,7 +18,7 @@ export function Tap() {
   return (
     <section aria-labelledby="tap-title" className="scroll-mt-16 bg-paper" id="tap">
       <div className={`${SECTION} ${SECTION_PAD} gap-[clamp(36px,4vw,56px)]`}>
-        <SectionHead lede={<Lede>Tap isn’t a business card. It points to your Setuvara. Equip a Mode and an action once, and the same state powers your Quick QR today, and your card and Wallet pass when they launch.</Lede>}>
+        <SectionHead lede={<Lede>Equip a Mode once. Quick QR follows today, your card and Wallet pass when they launch.</Lede>}>
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-3"><Mono className="text-coral">Setuvara Tap</Mono><SoonPill>Card and Wallet coming soon</SoonPill></div>
             <H2 id="tap-title">Your identity,<br />off the screen.</H2>
@@ -26,18 +26,18 @@ export function Tap() {
         </SectionHead>
 
         <div className="flex flex-wrap gap-5">
-          <article className="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px] rounded-[32px] bg-ink p-[clamp(24px,3vw,36px)] text-paper">
+          <article className="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px] rounded-[28px] bg-ink p-[clamp(24px,3vw,36px)] text-paper">
             <Mono className="flex items-center gap-2 text-lime"><span className="size-2 rounded-full bg-lime" />Equipped</Mono>
-            <div className="flex flex-col gap-1.5"><span className="font-display text-[clamp(48px,5vw,64px)] font-extrabold leading-[0.88] tracking-[-0.055em]">Personal</span><span className="text-lg font-semibold text-coral">Connect in person</span></div>
+            <div className="flex flex-col gap-1.5"><span className="font-display text-[clamp(40px,4vw,52px)] font-extrabold leading-[0.88] tracking-[-0.055em]">Personal</span><span className="text-lg font-semibold text-coral">Connect in person</span></div>
             <div className="mt-auto flex flex-col">
               {[["Quick QR", true], ["NFC card", false], ["Wallet pass", false]].map(([label, live]) => (
                 <div className="flex items-center justify-between border-t border-paper/10 py-3 text-[15px] font-semibold" key={label as string}><span>{label}</span><Status live={live as boolean} /></div>
               ))}
             </div>
-            <span className="text-[13px] text-paper/70">Change it once. Every surface follows.</span>
+            <span className="text-[13px] text-paper/60">Change it once. Everything follows.</span>
           </article>
 
-          <article className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[32px] bg-[#e6e4dc] p-[clamp(24px,3vw,36px)]">
+          <article className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[28px] bg-[#e6e4dc] p-[clamp(24px,3vw,36px)]">
             <Mono className="text-ink/65">NFC card · Concept</Mono>
             <div className="flex min-h-[240px] flex-1 items-center justify-center">
               <div className="relative aspect-[1.586] w-[min(360px,100%)] -rotate-[4deg] overflow-hidden rounded-[20px] bg-ink shadow-[0_36px_50px_-26px_rgba(13,13,13,.7),inset_0_0_0_1px_rgba(245,244,239,.12)]">
@@ -47,10 +47,10 @@ export function Tap() {
                 <span className="absolute bottom-5 left-[22px] font-label text-[10px] tracking-[0.24em] text-paper/50">TAP</span>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5"><h3 className="m-0 font-display text-[26px] font-bold leading-none tracking-[-0.03em]">Nothing printed but the mark.</h3><p className="m-0 text-[15px] leading-[1.5] text-ink/70">Tap it to a phone and your equipped Mode opens. Your details live on your Setuvara, not on the card.</p></div>
+            <div className="flex flex-col gap-1.5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Nothing printed but the mark.</h3><p className="m-0 text-[14px] leading-[1.5] text-ink/65">Tap a phone. Your Mode opens.</p></div>
           </article>
 
-          <article className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[32px] bg-white p-[clamp(24px,3vw,36px)]">
+          <article className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[28px] bg-white p-[clamp(24px,3vw,36px)]">
             <Mono className="text-ink/65">Wallet pass · Standard vs Plus</Mono>
             <div className="grid grid-cols-2 items-end gap-3.5">
               <div className="flex flex-col gap-2.5">
@@ -71,16 +71,16 @@ export function Tap() {
                 <Mono className="text-[10px] tracking-[0.12em] text-coral">Plus · Premium pass</Mono>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5"><h3 className="m-0 font-display text-[26px] font-bold leading-none tracking-[-0.03em]">The core pass will be free. Plus changes how it looks.</h3><p className="m-0 text-[15px] leading-[1.5] text-ink/70">Your Wallet pass will share the same equipped state as your card and Quick QR.</p></div>
+            <div className="flex flex-col gap-1.5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Free pass. Plus makes it premium.</h3><p className="m-0 text-[14px] leading-[1.5] text-ink/65">Same equipped Mode as your Quick QR.</p></div>
           </article>
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] border-t-[1.5px] border-ink md:grid-cols-3">
           {[
-            { tag: "Free", tone: "text-ink/65", line: "Quick QR and equipped Modes today. Core Tap card and Wallet pass when they launch." },
-            { tag: "Plus", tone: "text-coral", line: "A premium Wallet pass look, matched to your Appearance, when Wallet launches." },
-            { tag: "Pro", tone: "text-[#a8843a]", line: "Tap sharing and device insights, already part of Pro analytics." },
-          ].map((item) => <div className="flex flex-col gap-1.5 pr-6 pt-[22px]" key={item.tag}><Mono className={item.tone}>{item.tag}</Mono><span className="text-[15px] leading-[1.45]">{item.line}</span></div>)}
+            { tag: "Free", tone: "text-ink/65", line: "Quick QR today. Core card and pass at launch." },
+            { tag: "Plus", tone: "text-coral", line: "A premium pass look, at launch." },
+            { tag: "Pro", tone: "text-[#a8843a]", line: "Tap and device insights, live now." },
+          ].map((item) => <div className="flex flex-col gap-1.5 pr-6 pt-[22px]" key={item.tag}><Mono className={item.tone}>{item.tag}</Mono><span className="text-[14px] leading-[1.45] text-ink/75">{item.line}</span></div>)}
         </div>
       </div>
     </section>

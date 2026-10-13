@@ -49,7 +49,7 @@ Deno.test("pricing copy only sells live capabilities and real counts", () => {
 Deno.test("pricing notes come from catalog prices", () => {
   assert.equal(formatPrice(6900), "$69");
   assert.equal(formatPrice(699), "$6.99");
-  assert.equal(yearlyNote("plus"), "$5.75 a month, billed yearly. Save $14.88.");
-  assert.equal(yearlyNote("pro"), "$10.75 a month, billed yearly. Save $26.88.");
-  assert.equal(monthlyNote("pro"), "Or $129 a year, 2 months free.");
+  assert.equal(yearlyNote("plus"), "$5.75/mo billed yearly · save $14.88");
+  assert.equal(yearlyNote("pro"), "$10.75/mo billed yearly · save $26.88");
+  assert.equal(monthlyNote("pro"), "Or $129/yr · 2 months free");
 });

@@ -4,16 +4,16 @@ import { PLAN_COUNTS } from "@/lib/billing/plan-copy";
 
 import { BadgedName, Lede, Mono, Portrait, SECTION, SECTION_PAD, SectionHead, SoonPill } from "./shared";
 
-const CARD = "flex min-w-0 flex-col gap-7 rounded-[32px] p-[clamp(24px,3vw,40px)]";
+const CARD = "flex min-w-0 flex-col gap-6 rounded-[28px] p-[clamp(22px,2.6vw,36px)]";
 
 export function ProShowcase() {
   return (
     <section aria-labelledby="pro-title" className="relative scroll-mt-16 overflow-hidden bg-ink text-paper" id="pro">
       <div className={`${SECTION} ${SECTION_PAD} gap-[clamp(36px,4vw,56px)]`}>
-        <SectionHead lede={<Lede className="text-paper/80">For founders, creators and anyone who uses Setuvara for work. Pro is the deepest view of how your identity performs, with more room to show your work.</Lede>}>
+        <SectionHead lede={<Lede className="text-paper/70">The full picture of how your identity performs. More room for the work.</Lede>}>
           <div className="flex flex-col gap-5">
-            <Mono className="flex items-center gap-2.5 text-[12px] tracking-[0.16em] text-[#e8d28a]"><MemberBadge decorative size={20} tier="pro" />What you get with Pro</Mono>
-            <h2 className="m-0 font-display text-[clamp(44px,5.6vw,88px)] font-extrabold leading-[0.92] tracking-[-0.05em]" id="pro-title">Your identity,<br /><span className="text-[#d6b25e]">at work.</span></h2>
+            <Mono className="flex items-center gap-2.5 tracking-[0.16em] text-[#e8d28a]"><MemberBadge decorative size={18} tier="pro" />Pro</Mono>
+            <h2 className="m-0 font-display text-[clamp(36px,4.4vw,68px)] font-extrabold leading-[0.94] tracking-[-0.05em]" id="pro-title">Your identity,<br /><span className="text-[#d6b25e]">at work.</span></h2>
           </div>
         </SectionHead>
 
@@ -37,7 +37,7 @@ export function ProShowcase() {
               <div className="flex flex-col gap-1 rounded-[14px] px-3.5 py-3 shadow-[inset_0_0_0_1px_rgba(245,244,239,.15)]"><Mono className="text-[10px] tracking-[0.12em] text-paper/65">Plus</Mono><span className="text-[13px]">{PLAN_COUNTS.plusSlides} photos</span></div>
               <div className="flex flex-col gap-1 rounded-[14px] bg-[#d6b25e] px-3.5 py-3 text-ink"><Mono className="text-[10px] tracking-[0.12em]">Pro</Mono><span className="text-[13px] font-semibold">{PLAN_COUNTS.proSlides} photos</span></div>
             </div>
-            <div className="flex flex-col gap-2 border-t border-paper/15 pt-5"><h3 className="m-0 font-display text-[30px] font-bold leading-none tracking-[-0.035em]">Show the work, not just the face.</h3><p className="m-0 text-[15px] leading-[1.5] text-paper/70">{`Pro holds ${PLAN_COUNTS.proSlides} photos in each Mode’s slideshow, Plus ${PLAN_COUNTS.plusSlides}. They turn at the speed you choose, so a Business Mode can lead with the work.`}</p></div>
+            <div className="flex flex-col gap-2 border-t border-paper/15 pt-5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Show the work, not just the face.</h3><p className="m-0 text-[14px] leading-[1.5] text-paper/70">{`${PLAN_COUNTS.proSlides} photos per Mode, at your pace.`}</p></div>
           </article>
 
           <article className={`${CARD} flex-[1_1_480px] bg-[#1a1a1a]`}>
@@ -52,7 +52,7 @@ export function ProShowcase() {
               <div className="flex flex-col gap-1 rounded-[14px] px-3.5 py-3 shadow-[inset_0_0_0_1px_rgba(245,244,239,.15)]"><Mono className="text-[10px] tracking-[0.12em] text-paper/65">Custom range</Mono><span className="text-[13px]">Any period, up to two years</span></div>
               <div className="flex flex-col gap-1 rounded-[14px] px-3.5 py-3 shadow-[inset_0_0_0_1px_rgba(245,244,239,.15)]"><Mono className="text-[10px] tracking-[0.12em] text-paper/65">Devices</Mono><span className="text-[13px]">Phone, desktop and tablet</span></div>
             </div>
-            <div className="flex flex-col gap-2 border-t border-paper/15 pt-5"><h3 className="m-0 font-display text-[30px] font-bold leading-none tracking-[-0.035em]">Take the numbers with you.</h3><p className="m-0 text-[15px] leading-[1.5] text-paper/70">Download any period as CSV for your own reports. The Connection journey shows how shares turn into views and new Connections.</p></div>
+            <div className="flex flex-col gap-2 border-t border-paper/15 pt-5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Take the numbers with you.</h3><p className="m-0 text-[14px] leading-[1.5] text-paper/70">Any period, as CSV.</p></div>
           </article>
 
           <article className={`${CARD} flex-[1_1_100%] bg-paper text-ink`}>
@@ -62,16 +62,16 @@ export function ProShowcase() {
                 <div className="flex h-9 items-center gap-2 rounded-full bg-[#e6e4dc] px-3 font-label text-[12px] text-ink/70">
                   <svg aria-hidden="true" className="size-3 shrink-0" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3 7h10v7H3z" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>michelpronk.com
                 </div>
-                <h3 className="m-0 font-display text-[22px] font-bold leading-none tracking-[-0.03em]">Your own domain</h3>
-                <p className="m-0 text-sm leading-[1.5] text-ink/70">Point a domain you already own at your Setuvara. Your setuvara.com link keeps working.</p>
+                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Your own domain</h3>
+                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Your domain, your Setuvara.</p>
                 <span className="mt-auto"><SoonPill /></span>
               </div>
               <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
                 <div className="flex flex-col gap-1.5">
                   {["Request an intro", "RSVP", "Book a call"].map((label, index) => <span className={`flex h-9 items-center rounded-full px-4 text-[13px] font-semibold ${index === 0 ? "bg-ink text-paper" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} key={label}>{label}</span>)}
                 </div>
-                <h3 className="m-0 font-display text-[22px] font-bold leading-none tracking-[-0.03em]">Advanced actions</h3>
-                <p className="m-0 text-sm leading-[1.5] text-ink/70">A main button that does more than open a link, set per Mode. Connect stays right below.</p>
+                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Advanced actions</h3>
+                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">A main button that does more, per Mode.</p>
                 <span className="mt-auto"><SoonPill /></span>
               </div>
               <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
@@ -80,12 +80,12 @@ export function ProShowcase() {
                     <span className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-2 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" key={title}><span className="text-[13px] font-semibold">{title}</span><span className="text-[12px] text-ink/60">{line}</span></span>
                   ))}
                 </div>
-                <h3 className="m-0 font-display text-[22px] font-bold leading-none tracking-[-0.03em]">Leads and integrations</h3>
-                <p className="m-0 text-sm leading-[1.5] text-ink/70">Only for actions you set up. Meeting someone never becomes a sales record.</p>
+                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Leads and integrations</h3>
+                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Only for actions you set up.</p>
                 <span className="mt-auto"><SoonPill /></span>
               </div>
             </div>
-            <div className="flex flex-col gap-2 border-t border-ink/15 pt-5"><h3 className="m-0 flex items-center gap-2 font-display text-[30px] font-bold leading-none tracking-[-0.035em]"><MeetMark className="size-6 text-[#a8843a]" />Built for Pro, shipping in steps.</h3><p className="m-0 max-w-[720px] text-[15px] leading-[1.5] text-ink/70">These are in development and are not part of Pro today. Pro’s price covers what’s live above, and each of these joins Pro when it ships.</p></div>
+            <div className="flex flex-col gap-2 border-t border-ink/15 pt-5"><h3 className="m-0 flex items-center gap-2 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]"><MeetMark className="size-5 text-[#a8843a]" />Coming to Pro.</h3><p className="m-0 max-w-[560px] text-[14px] leading-[1.5] text-ink/65">Not part of Pro today. Each one joins when it ships.</p></div>
           </article>
         </div>
       </div>
