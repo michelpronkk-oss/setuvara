@@ -128,7 +128,6 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <ModePicker modes={modes} onPick={pick} slug={slug} variant="stage" />
             <div className="flex gap-2.5">
               <MeetActions variant="stage" />
-              <Link className="inline-flex min-h-[54px] items-center rounded-full px-4 text-[15px] font-semibold text-[#f5f4ef]/85 underline-offset-4 hover:underline focus-visible:outline-2" href="/app/tap">Tap ↗</Link>
               <Link className="inline-flex min-h-[54px] items-center rounded-full px-[22px] text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.45)] hover:bg-white/10 focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>Edit</Link>
               <button className="inline-flex min-h-[54px] items-center gap-2.5 rounded-full bg-[#ff5a4f] px-[26px] text-base font-semibold text-[#0d0d0d] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5f4ef]" onClick={openShare} type="button">
                 Share {NAMES[slug]}<ArrowIcon />

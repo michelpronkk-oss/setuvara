@@ -38,7 +38,12 @@ export function MeetActions({ variant }: { variant: "bar" | "stage" }) {
             <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_#0d0d0d] focus-visible:outline-2" data-tab="tap" onClick={open} type="button"><TapIcon />Tap</button>
           </div>
         )
-        : <button className="inline-flex min-h-[54px] items-center gap-2 rounded-full px-4 text-[15px] font-semibold text-[#f5f4ef]/85 underline-offset-4 hover:underline focus-visible:outline-2" data-tab="scan" onClick={open} type="button"><ScanIcon />Scan QR</button>}
+        : (
+          <div aria-label="Meet in person" className="flex" role="group">
+            <button className="inline-flex min-h-[54px] items-center gap-2 rounded-full px-4 text-[15px] font-semibold text-[#f5f4ef]/85 underline-offset-4 hover:underline focus-visible:outline-2" data-tab="scan" onClick={open} type="button"><ScanIcon />Scan QR</button>
+            <button className="inline-flex min-h-[54px] items-center gap-2 rounded-full px-4 text-[15px] font-semibold text-[#f5f4ef]/85 underline-offset-4 hover:underline focus-visible:outline-2" data-tab="tap" onClick={open} type="button"><TapIcon />Tap</button>
+          </div>
+        )}
       {tab && <MeetSheet initialTab={tab} onClose={close} />}
     </>
   );
