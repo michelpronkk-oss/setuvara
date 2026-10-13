@@ -45,7 +45,7 @@ export function ScrollCue({ cue, animated, color, accent, label, text, up = true
       data-scroll-cue-motion={animated ? "loop" : "still"}
       onClick={go}
       ref={host}
-      style={{ bottom, color, outlineColor: color }}
+      style={{ bottom: `calc(${bottom}px + var(--sv-cue-lift, 0px))`, color, outlineColor: color }}
       tabIndex={visible ? 0 : -1}
       type="button"
     >
@@ -71,7 +71,7 @@ export function CueGlyph({ cue, animated, accent, text, up = true }: { cue: CueI
   switch (cue) {
     case "glide":
       // Immersive: one fine chevron sliding down and fading, like breath on glass.
-      return <Chevron style={loop(animated, "sv-cue-glide 2.2s ease-in-out infinite")} />;
+      return <Chevron size={22} style={loop(animated, "sv-cue-glide 2.2s ease-in-out infinite")} />;
     case "rail":
       // Motion: a thin rail with a light running down it, the marquee turned vertical.
       return (

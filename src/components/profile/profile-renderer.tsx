@@ -218,6 +218,10 @@ function Profile(props: ProfileProps) {
         color: theme.fg,
         "--sv-h": "clamp(560px, var(--profile-vh, 100svh), 1000px)",
         "--sv-card-r": `${theme.radius}px`,
+        // Phones drawn edge to edge (viewport-fit=cover) keep the home indicator and Safari's
+        // bottom bar over the last stretch of the hero. With a cue, everything at the hero's foot
+        // rises by that inset so the cue sits in view instead of underneath them.
+        "--sv-cue-lift": look.scrollCue ? "env(safe-area-inset-bottom, 0px)" : "0px",
         "--sv-card-r-small": `${theme.radiusSmall}px`,
         ...connectVars,
       } as CSSProperties}
@@ -320,6 +324,22 @@ function Treatment({ scene }: { scene: Scene }) {
   return <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_3px_#FF5A4F73]" data-earned-treatment />;
 }
 
+/** The device's bottom safe-area inset in px while a cue shows (0 elsewhere and on the server). */
+function useCueLift(on: boolean) {
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    if (!on) return;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none";
+    document.body.appendChild(probe);
+    const measure = () => setLift(Math.round(probe.getBoundingClientRect().height));
+    const frame = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", measure); probe.remove(); };
+  }, [on]);
+  return on ? lift : 0;
+}
+
 // ---------------------------------------------------------------- Hero (phones)
 
 function AppearanceHero({ scene }: { scene: Scene }) {
@@ -372,6 +392,7 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
   const align = options.align ?? theme.identity.align;
   const flex = align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start";
   const id = theme.identity;
+  const lifted = typeof options.style?.bottom === "number" ? { bottom: `calc(${options.style.bottom}px + var(--sv-cue-lift, 0px))` } : {};
   const top = (
     <div className="flex flex-col gap-3 self-stretch" style={{ alignItems: flex }}>
       <LiveContextPresentation context={scene.live} copy={copy} theme={theme} />
@@ -390,7 +411,7 @@ function IdentityLayer({ scene, options }: { scene: Scene; options: IdentityOpti
     <div
       className="absolute z-[3] flex flex-col gap-3"
       data-identity-align={align}
-      style={{ color: id.fg, textAlign: align, alignItems: flex, justifyContent: options.split ? "space-between" : "flex-start", animation: look.id === "motion" && !scene.still ? "sv-rise .9s .25s both" : undefined, ...options.style }}
+      style={{ color: id.fg, textAlign: align, alignItems: flex, justifyContent: options.split ? "space-between" : "flex-start", animation: look.id === "motion" && !scene.still ? "sv-rise .9s .25s both" : undefined, ...options.style, ...lifted }}
     >
       {top}
       {bottom}
@@ -438,6 +459,8 @@ function nameSizeCss(scene: Scene, base: number, fitWidth = "calc(100cqw - 44px)
 
 function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number; height: number } }) {
   const { look, theme } = scene;
+  // The identity rises by the cue lift, so the face-safe solve keeps that room free too.
+  const lift = useCueLift(Boolean(look.scrollCue));
   const layout = solveFaceSafe({
     frame,
     focus: scene.source ? scene.source.focus : null,
@@ -454,6 +477,7 @@ function ImmersiveHero({ scene, frame }: { scene: Scene; frame: { width: number;
     featuredSound: scene.sound === "featured",
     socialStyle: scene.socials.length ? look.socialStyle : "hidden",
     secondary: scene.secondary,
+    bottomInset: lift,
   });
   const percent = (value: number) => `${((value / frame.height) * 100).toFixed(2)}%`;
   const position: CSSProperties = layout.strategy === "split" ? { top: 66, bottom: 34 } : layout.strategy === "top" ? { top: 66 } : { bottom: 34 };

@@ -38,6 +38,8 @@ export type FaceSafeInput = {
   featuredSound: boolean;
   socialStyle: "rail" | "row" | "compact" | "hidden";
   secondary: boolean;
+  /** Extra room kept free under the identity (the scroll cue above a phone's safe area). */
+  bottomInset?: number;
 };
 
 export type FaceSafeLayout = {
@@ -139,7 +141,7 @@ export function solveFaceSafe(input: FaceSafeInput): FaceSafeLayout {
   const above = (size: number) => (input.liveContext ? 42 : 0) + Math.round(lines(size) * size * leading) + 12 + (input.meta ? 30 : 0);
   const below = (input.featuredSound ? 27 : 0) + SOCIAL_HEIGHT[input.socialStyle] + 68 + (input.secondary && width < 360 ? 62 : 0);
   const total = (size: number) => above(size) + below;
-  const bottomLimit = height - SAFE_BOTTOM;
+  const bottomLimit = height - SAFE_BOTTOM - (input.bottomInset ?? 0);
 
   if (!input.focus) {
     return { strategy: "bottom", nameSize: base, shiftY: 0, align: "left", face: null, imageTop: 0, imageBottom: height, decision: "NO PHOTO · BOTTOM" };

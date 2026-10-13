@@ -772,6 +772,18 @@ describe("Scroll cue", () => {
     assert.match(render(withBlocks({ theme: "immersive" }), "plus", "off"), /data-scroll-cue-motion="still"/, "thumbnails stay still");
   });
 
+  test("the cue and the identity rise above a phone's bottom safe area", () => {
+    const html = render(withBlocks({ theme: "immersive" }), "plus");
+    assert.match(html, /--sv-cue-lift:env\(safe-area-inset-bottom, 0px\)/);
+    assert.match(html, /data-scroll-cue="glide"[^>]*bottom:calc\(6px \+ var\(--sv-cue-lift, 0px\)\)/);
+    assert.match(html, /bottom:calc\(34px \+ var\(--sv-cue-lift, 0px\)\)/, "identity lifted with it");
+    assert.match(render(withBlocks({ theme: "immersive", scrollCue: "off" }), "plus"), /--sv-cue-lift:0px/, "no cue, no lift");
+    const base = { frame: { width: 390, height: 844 }, focus: { x: 50, y: 30 }, zoom: 1, name: "Aanya Rao", nameBase: 64, nameScale: 1, namePosition: "auto", liveContext: false, meta: true, featuredSound: false, socialStyle: "compact", secondary: false };
+    const plain = lib.solveFaceSafe(base);
+    const inset = lib.solveFaceSafe({ ...base, bottomInset: 34 });
+    assert.ok(inset.nameSize <= plain.nameSize, "less room never grows the name");
+  });
+
   test("Social no longer repeats the Mode's pictures in the hero", () => {
     const images = [{ id: "i1", kind: "image", is_visible: true, sort_order: 0, data: { image_url: "https://media.example.test/one.png" } }, { id: "i2", kind: "image", is_visible: true, sort_order: 1, data: { image_url: "https://media.example.test/two.png" } }];
     const html = render(mode("personal", { theme: "social" }, { blocks: images }), "plus");
