@@ -218,7 +218,7 @@ function Profile(props: ProfileProps) {
 
   return (
     <article
-      className={`@container/profile relative isolate w-full overflow-x-clip font-brand ${className}`}
+      className={`@container/profile relative isolate w-full overflow-clip font-brand ${className}`}
       data-appearance={look.id}
       data-motion={look.motion}
       data-profile-mode={look.slug}
@@ -338,8 +338,6 @@ function Treatment({ scene }: { scene: Scene }) {
 
 /** Height the in-flow cue adds under Connect (its 32px box and 4px gap). */
 const CUE_ROOM = 36;
-/** iOS 26 Safari's floating toolbar with the home indicator under it, when the browser does not report it. */
-const IOS_TOOLBAR = 100;
 
 /**
  * What covers the bottom of an edge-to-edge page, measured once per width (not while Safari's
@@ -367,10 +365,9 @@ function useBottomCover(on: boolean) {
       width = window.innerWidth;
       const visible = Math.min(fixed.getBoundingClientRect().height, window.innerHeight, window.visualViewport?.height ?? Infinity);
       const measured = Math.max(0, Math.round(small.getBoundingClientRect().height - visible));
-      // When iOS 26+ Safari reports its overlaid toolbar to none of the above, keep its usual
-      // height (above the home indicator) clear. Older iOS stops the page above the toolbar.
-      const safari = /iP(hone|od)/.test(navigator.userAgent) && Number(/Version\/(\d+)/.exec(navigator.userAgent)?.[1] ?? 0) >= 26;
-      const bar = measured || (safari && !window.matchMedia("(display-mode: standalone)").matches ? IOS_TOOLBAR : 0);
+      // iOS 26 Safari reports a small viewport that already ends above its toolbar (svh = innerHeight
+      // on an iPhone 16 Pro), so only a measured overlap is taken off; never a guessed one.
+      const bar = measured;
       const next = { bar, foot: bar ? 0 : Math.round(inset.getBoundingClientRect().height) };
       setCover(next);
       if (new URLSearchParams(window.location.search).has("svdebug")) {
