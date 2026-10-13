@@ -36,6 +36,9 @@ export const metadata: Metadata = {
     icon: [{ url: "/icons/setuvara-icon.png", type: "image/png", sizes: "512x512" }],
     apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
   },
+  // Added to the Home Screen, Setuvara opens full screen like an app (manifest.ts covers Android).
+  appleWebApp: { capable: true, title: "Setuvara", statusBarStyle: "default" },
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = { themeColor: "#F5F4EF", viewportFit: "cover" };
