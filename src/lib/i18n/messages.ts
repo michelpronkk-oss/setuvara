@@ -87,7 +87,7 @@ const messages = {
       login: "Log in", getSetuvara: "Get Setuvara", createSetuvara: "Create your Setuvara",
       oneIdentity: "One identity. Every version of you.", yourIdentity: "Your identity. Your connections.",
       shareConnect: "Share & Connect", roadmap: "Roadmap", account: "Account", setuvaraFor: "Setuvara for",
-      connections: "Connections", passport: "Passport", meetOnce: "Meet once. Stay connected.",
+      connections: "Connections", passport: "Passport", meetOnce: "Meet once. Stay connected.", contact: "Contact",
     },
     encounter: {
       liveContext: "Live Context", modeShared: "Mode shared", contextUnknown: "No context was set for this Encounter.",

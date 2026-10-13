@@ -26,6 +26,7 @@ const marketingUrls: MetadataRoute.Sitemap = [
   { url: `${SETUVARA_ORIGIN}/cookies`, changeFrequency: "yearly", priority: 0.3 },
   { url: `${SETUVARA_ORIGIN}/refunds`, changeFrequency: "yearly", priority: 0.3 },
   { url: `${SETUVARA_ORIGIN}/modes`, changeFrequency: "monthly", priority: 0.8 },
+  { url: `${SETUVARA_ORIGIN}/contact`, changeFrequency: "yearly", priority: 0.5 },
 ];
 
 const profileUrlLimit = sitemapUrlLimit - marketingUrls.length;
