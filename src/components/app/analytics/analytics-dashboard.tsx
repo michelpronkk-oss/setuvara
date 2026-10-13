@@ -451,7 +451,7 @@ function Conversion({ data, fmt }: { data: AnalyticsData; fmt: Format }) {
     <section aria-labelledby="conversion-title" className="col-span-full flex min-w-0 flex-col gap-4 rounded-[24px] bg-white p-6 lg:col-span-1 lg:p-[26px]">
       <h2 className={label} id="conversion-title">Views → Connections</h2>
       <div className="flex flex-wrap items-end gap-4 lg:flex-col lg:items-start">
-        <span className="font-display text-[92px] font-extrabold leading-[0.82] tracking-[-0.065em] lg:text-[clamp(72px,6.7vw,96px)]">{rateLabel(rate)}</span>
+        <span className="font-display text-[clamp(64px,21vw,92px)] font-extrabold leading-[0.82] tracking-[-0.065em] lg:text-[clamp(72px,6.7vw,96px)]">{data.summary.profileViews === 0 ? "—" : rateLabel(rate)}</span>
         <p className="max-w-[220px] pb-1 text-[15px] leading-[1.45] lg:max-w-none lg:pb-0">{rateLine(rate, data.summary.profileViews)}</p>
       </div>
       <div aria-hidden="true" className="grid max-w-[420px] grid-cols-[repeat(20,minmax(0,1fr))] gap-[5px] lg:max-w-none">

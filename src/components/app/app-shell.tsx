@@ -184,7 +184,6 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
             <span className="shrink-0 text-[13px] font-semibold text-black/70">{plan === "free" ? messages.common.upgrade : messages.common.manageBilling}<span aria-hidden="true"> →</span></span>
           </Link>
           <Link className={item} href="/app/context" role="menuitem">{messages.common.liveContext}</Link>
-          <Link className={item} href="/app/settings/region" role="menuitem">{messages.common.region}</Link>
           {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">{messages.common.viewProfile}<span aria-hidden="true" className="text-black/50">↗</span></a>}
           <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">{messages.common.modeSettings}</Link>
           <Link className={item} href="/app/settings/notifications" role="menuitem">{messages.common.emailPreferences}</Link>

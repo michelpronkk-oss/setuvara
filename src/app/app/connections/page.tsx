@@ -30,6 +30,9 @@ type EncounterRow = {
   share_back_company: string | null;
   event_name: string | null;
   city: string | null;
+  live_context_type_snapshot: string | null;
+  live_context_label_snapshot: string | null;
+  live_context_city_snapshot: string | null;
   created_at: string;
 };
 
@@ -51,7 +54,7 @@ export default async function ConnectionsPage() {
   const connectionIds = rows.map((item) => item.id);
   const profileIds = [...new Set(rows.flatMap((item) => [item.user_id, item.connected_user_id].filter((id): id is string => Boolean(id))))];
   const [{ data: encounters }, { data: profiles }] = await Promise.all([
-    connectionIds.length ? supabase.from("connection_encounters").select("id,connection_id,created_by_user_id,shared_by_user_id,shared_mode_slug,share_back_mode_slug,shared_display_name,shared_role,shared_company,share_back_display_name,share_back_role,share_back_company,event_name,city,created_at").in("connection_id", connectionIds).order("created_at", { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
+    connectionIds.length ? supabase.from("connection_encounters").select("id,connection_id,created_by_user_id,shared_by_user_id,shared_mode_slug,share_back_mode_slug,shared_display_name,shared_role,shared_company,share_back_display_name,share_back_role,share_back_company,event_name,city,live_context_type_snapshot,live_context_label_snapshot,live_context_city_snapshot,created_at").in("connection_id", connectionIds).order("created_at", { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
     profileIds.length ? supabase.from("profiles").select("id,username,display_name").in("id", profileIds) : Promise.resolve({ data: [] }),
   ]);
   const encounterRows = (encounters ?? []) as EncounterRow[];
@@ -75,6 +78,8 @@ export default async function ConnectionsPage() {
       encounter.share_back_company ?? "",
       encounter.event_name ?? "",
       encounter.city ?? "",
+      encounter.live_context_label_snapshot ?? "",
+      encounter.live_context_city_snapshot ?? "",
       context?.city ?? "",
       context?.venue ?? "",
       context?.event_label ?? "",
@@ -102,10 +107,10 @@ export default async function ConnectionsPage() {
       role: viewerIsSharedBy ? latest?.share_back_role ?? null : latest?.shared_role ?? null,
       company: viewerIsSharedBy ? latest?.share_back_company ?? null : latest?.shared_company ?? null,
       mode: modeSlug,
-      event: latest?.event_name ?? context?.event_label ?? null,
-      city: context?.city ?? latest?.city ?? null,
+      event: context?.event_label ?? (latest?.live_context_type_snapshot === "event" ? latest.live_context_label_snapshot : null) ?? latest?.event_name ?? null,
+      city: context?.city ?? latest?.live_context_city_snapshot ?? latest?.city ?? null,
       venue: context?.venue ?? null,
-      lastMet: latest ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(latest.created_at)) : "Recently",
+      lastMet: latest ? shortDate(latest.created_at) : "Recently",
       isGuest,
       searchText: searchableByConnection.get(connection.id)?.join(" ") ?? "",
     };
@@ -128,11 +133,17 @@ export default async function ConnectionsPage() {
   return (
     <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl">
-        <section className="mt-5"><p className="text-[10px] font-bold tracking-[0.2em] text-black/45">YOUR PEOPLE</p><h1 className="mt-3 text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">Connections that stay.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-black/55">A little memory of the people you’ve met and the moments you shared.</p></section>
+        <section className="mt-3 sm:mt-5"><p className="text-[10px] font-bold tracking-[0.2em] text-black/45">YOUR PEOPLE</p><h1 className="mt-3 text-[2.15rem] font-semibold leading-[1.02] tracking-[-0.055em] sm:text-5xl">Connections that stay.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-black/55">Who you met, and where.</p></section>
         <ConnectionsList items={items} />
       </div>
     </main>
   );
+}
+
+function shortDate(value: string) {
+  const date = new Date(value);
+  const sameYear = date.getUTCFullYear() === new Date().getUTCFullYear();
+  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" }).format(date);
 }
 
 function ConnectionsError() {

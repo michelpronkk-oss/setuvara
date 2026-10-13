@@ -115,7 +115,7 @@ export function pageTitle(data: AnalyticsData | null, now = new Date()) {
   }
   const word = PERIOD_WORD[kind as "7d" | "30d" | "90d"] ?? "week";
   const delta = data.comparison?.profileViewsDelta ?? null;
-  if (delta === null) return "People are starting to find you.";
+  if (delta === null) return data.summary.profileViews === 0 ? "Share it once and the views start here." : "People are starting to find you.";
   if (delta > 0) return kind === "7d" ? "A good week for being found." : `Your world grew this ${word}.`;
   if (delta < 0) return `A quieter ${word}, still being found.`;
   return `A steady ${word} of being found.`;

@@ -170,7 +170,7 @@ export function BillingPanel({ billing, granted, scheduled, intent, notice, chec
           </div>
         </div>
 
-        {intentLine && <p className="mt-5 rounded-2xl bg-[#fff1ef] px-4 py-3 text-sm font-medium text-[#a43d36]">{intentLine}</p>}
+        {intentLine && <p className="mt-5 flex gap-2.5 rounded-2xl bg-white px-4 py-3 text-sm leading-5 text-black/75 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"><span aria-hidden="true" className="mt-[7px] size-1.5 shrink-0 rounded-full bg-[#ff5a4f]" /><span>{intentLine}</span></p>}
         {!checkoutConfigured && <p className="mt-5 rounded-2xl bg-black/[0.05] px-4 py-3 text-sm text-black/70" role="status">Upgrades are paused for a moment. Your plan is unchanged.</p>}
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">

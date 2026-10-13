@@ -23,6 +23,9 @@ export type ConnectionListItem = {
   searchText?: string;
 };
 
+const modeLabel: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
+const modeDot: Record<ModeSlug, string> = { personal: "bg-[#FF5A4F]", event: "bg-[#C7FF4A] ring-1 ring-black/10", business: "bg-[#AFCBFF]", creator: "bg-[#E8A6FF]" };
+
 const filters: { label: string; value: ModeSlug | "all" | "recent" }[] = [
   { label: "All", value: "all" },
   { label: "Personal", value: "personal" },
@@ -59,7 +62,7 @@ export function ConnectionsList({ items }: { items: ConnectionListItem[] }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-semibold tracking-tight">{item.displayName}</p>
             {(item.role || item.company) && <p className="mt-0.5 truncate text-xs text-black/55">{[item.role, item.company].filter(Boolean).join(" · ")}</p>}
-            <p className="mt-1 truncate text-xs text-black/55">{[item.event, item.city, item.venue].filter(Boolean).join(" · ") || "A connection worth keeping"}</p>
+            <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-black/50"><span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${modeDot[item.mode]}`} /><span className="truncate">{[item.event, item.city, item.venue].filter(Boolean).join(" · ") || `${modeLabel[item.mode]} Mode`}</span><span className="shrink-0 sm:hidden">· {item.lastMet}</span></p>
           </div>
           <div className="hidden shrink-0 text-right sm:block"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/45">{item.mode}</p><p className="mt-1 text-xs text-black/45">{item.lastMet}</p></div>
           <span aria-hidden="true" className="text-lg text-black/30 transition group-hover:translate-x-1">→</span>
