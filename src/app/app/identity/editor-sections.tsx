@@ -23,7 +23,7 @@ import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
-import { Card, Counter, Field, MonoLabel, Pill, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper } from "./editor-ui";
+import { Card, Counter, Field, MonoLabel, Pill, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper, previewVisitorAction } from "./editor-ui";
 
 const modeIntro: Record<ModeSlug, string> = {
   personal: "The version of you that you give personally, to friends, communities and people you choose.",
@@ -112,6 +112,7 @@ function CardHead({ index, light = false }: { index: number; light?: boolean }) 
 export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () => void }) {
   const { mode, profile, slug } = api;
   const info = summaries(api);
+  const { messages } = useI18n();
   const statusText = !profile.is_published ? "Draft · not live yet" : !mode.is_enabled ? "Mode is off" : "Live";
   return (
     <div>
@@ -120,7 +121,7 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
         <div aria-label="Open full-screen preview" className="relative h-[196px] w-[104px] shrink-0 cursor-pointer overflow-hidden rounded-[18px] bg-[#0D0D0D] p-[3px]" onClick={onPreview} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPreview(); } }} role="button" tabIndex={0}>
           <div aria-hidden="true" className="pointer-events-none h-full overflow-hidden rounded-[15px]">
             <div className="w-[360px] origin-top-left scale-[0.272] [&>article]:rounded-none" inert>
-              <ProfileRenderer mode={mode} plan={api.plan} profile={profile} selectedRewards={api.selectedRewards} sound="off" viewerState="owner" />
+              <ProfileRenderer mode={mode} plan={api.plan} profile={profile} selectedRewards={api.selectedRewards} sound="off" viewerState="visitor_unconnected" visitorAction={previewVisitorAction(mode, messages.profile.connect)} />
             </div>
           </div>
         </div>

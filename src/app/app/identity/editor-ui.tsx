@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 
-import type { ModeSlug } from "@/components/profile/types";
+import type { ModeSlug, ProfileMode } from "@/components/profile/types";
 
 export const coral = "#FF5A4F";
 export const ink = "#0D0D0D";
@@ -138,4 +138,19 @@ export function Sheet({ title, onClose, children, footer, wide = false }: { titl
 
 export function BlockIcon({ path, className = "size-10 rounded-xl bg-[#F5F4EF]" }: { path: string; className?: string }) {
   return <span aria-hidden="true" className={`grid shrink-0 place-items-center ${className}`}><svg className="size-[18px]" fill="currentColor" viewBox="0 0 24 24"><path d={path} /></svg></span>;
+}
+
+/**
+ * The visitor's Connect, drawn with the public ConnectFlow button's tokens. In previews it only
+ * shows the next step (or nothing), so no owner ever "connects" with themselves.
+ */
+export function PreviewConnect({ label, onClick }: { label: string; onClick?: () => void }) {
+  return (
+    <button className="inline-flex h-[var(--sv-connect-h,52px)] w-[var(--sv-connect-w,100%)] min-w-11 items-center justify-[var(--sv-connect-justify,center)] gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-fill)] px-[var(--sv-connect-px,20px)] text-[16px] font-semibold text-[var(--sv-connect-ink)] shadow-[var(--sv-connect-edge,none)] after:content-[var(--sv-connect-arrow,none)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" data-connect-trigger onClick={onClick} tabIndex={onClick ? undefined : -1} type="button"><span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[var(--sv-connect-dot,transparent)] [display:var(--sv-connect-dot-display,none)]" /><span>{label}</span></button>
+  );
+}
+
+/** The visitor action a Mode's Connect policy allows on its public link, for previews. */
+export function previewVisitorAction(mode: ProfileMode, label: string, onClick?: () => void) {
+  return (mode.connect_policy ?? "anyone") === "anyone" ? <PreviewConnect label={label} onClick={onClick} /> : undefined;
 }

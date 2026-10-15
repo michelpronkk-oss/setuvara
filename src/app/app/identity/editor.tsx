@@ -82,13 +82,13 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
   const [section, setSection] = useState<Section>(isSection(initialSection) ? initialSection : "home");
   const [selectedRewards, setSelectedRewards] = useState(initialSelectedRewards);
-  const [previewState, setPreviewState] = useState<PreviewState>("owner");
+  const [previewState, setPreviewState] = useState<PreviewState>("visitor");
   const [fullPreview, setFullPreview] = useState(false);
-  // Phones: the live preview docks under the editor unless the member hid it (remembered).
-  const peekHidden = useSyncExternalStore(peekStore.subscribe, peekStore.read, () => false);
+  // Phones: the live preview docks over the tab bar as one slim bar; opened, it stays open (remembered).
+  const dockOpen = useSyncExternalStore(peekStore.subscribe, peekStore.read, () => false);
   // Only where edits change the profile itself; Style has its own full-screen preview.
   const peekable = section === "profile" || section === "links";
-  const peekOpen = !peekHidden && peekable;
+  const peekOpen = dockOpen && peekable;
   const [soundIntroOn, setSoundIntroOn] = useState(false);
   const soundIntro = useMemo<SoundIntro>(() => ({ on: soundIntroOn, set: setSoundIntroOn }), [soundIntroOn]);
   const [status, setStatus] = useState<SaveStatus>("saved");
@@ -862,7 +862,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   );
 
   return (
-    <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden`} style={{ "--editor-dock": peekOpen ? "min(46dvh, 420px)" : "0px" } as CSSProperties}>
+    <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
       {/* Desktop top bar */}
       <header className="hidden h-[72px] shrink-0 items-center justify-between gap-5 border-b border-black/10 pl-7 pr-6 lg:flex">
         <div className="flex min-w-0 items-center gap-3">
@@ -883,9 +883,11 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F5F4EF]/92 backdrop-blur-md lg:hidden">
         <div className="flex h-14 items-center gap-2 px-3">
           <Link aria-label="Back to Setuvara home" className="grid size-10 shrink-0 place-items-center rounded-full" href="/app"><MeetMark className="size-6" /></Link>
-          <p className="min-w-0 flex-1 truncate font-display text-[1.3rem] font-bold tracking-[-0.04em]">{section === "home" ? "Home" : section === "settings" ? "Settings" : sectionTitle}</p>
-          <button aria-label="Mode settings" className={`grid size-10 shrink-0 place-items-center rounded-full ${section === "settings" ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-black/70 hover:bg-black/5"}`} onClick={() => go("settings")} type="button"><svg aria-hidden="true" className="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10.3 2.6a1 1 0 0 1 1-.6h1.4a1 1 0 0 1 1 .6l.6 1.6c.5.2 1 .5 1.4.8l1.7-.3a1 1 0 0 1 1 .5l.7 1.2a1 1 0 0 1-.1 1.1l-1.1 1.3a6.6 6.6 0 0 1 0 1.6l1.1 1.3a1 1 0 0 1 .1 1.1l-.7 1.2a1 1 0 0 1-1 .5l-1.7-.3c-.4.3-.9.6-1.4.8l-.6 1.6a1 1 0 0 1-1 .6h-1.4a1 1 0 0 1-1-.6l-.6-1.6c-.5-.2-1-.5-1.4-.8l-1.7.3a1 1 0 0 1-1-.5l-.7-1.2a1 1 0 0 1 .1-1.1l1.1-1.3a6.6 6.6 0 0 1 0-1.6L4.5 7.5a1 1 0 0 1-.1-1.1l.7-1.2a1 1 0 0 1 1-.5l1.7.3c.4-.3.9-.6 1.4-.8l.6-1.6ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" transform="translate(0 1.5)" /></svg></button>
-          <button aria-label={!peekable ? "Preview" : peekOpen ? "Hide live preview" : "Show live preview"} aria-pressed={peekable ? peekOpen : undefined} className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition ${peekOpen ? "bg-[#0D0D0D] text-[#F5F4EF]" : "shadow-[inset_0_0_0_1.5px_#0D0D0D]"}`} onClick={() => (peekable ? peekStore.write(peekOpen) : setFullPreview(true))} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg>View</button>
+          <div className="min-w-0 flex-1 leading-none">
+            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{section === "home" ? "Home" : section === "settings" ? "Settings" : sectionTitle}</p>
+            <p aria-live="polite" className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50">{modeMeta[slug].name} Mode<span aria-hidden="true">·</span>{status === "error" ? <span className="text-[#B42318]">Not saved</span> : status === "saved" ? "Saved" : "Saving…"}</p>
+          </div>
+          <button aria-label="Full-screen preview" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition active:scale-[.97]" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg>Preview</button>
           {profile.is_published
             ? <a aria-label="Your Setuvara is live. Open it." className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[13px] font-semibold text-black/70" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
             : <button className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold" onClick={() => void setPublished(true)} type="button">Publish</button>}
@@ -930,7 +932,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
           <div className={`mx-auto w-full max-w-[720px] px-4 pb-36 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10 xl:px-11 ${section === "home" ? "max-lg:hidden" : ""}`}>{content}</div>
           {section === "home" && <div className="px-4 pb-32 pt-5 sm:px-6 lg:hidden"><MobileHome api={api} onPreview={() => setFullPreview(true)} /></div>}
           {/* Room to scroll the last controls above the docked preview. */}
-          {peekOpen && <div aria-hidden="true" className="lg:hidden" style={{ height: "var(--editor-dock)" }} />}
+          {peekable && <div aria-hidden="true" className="lg:hidden" style={{ height: "var(--editor-dock)" }} />}
         </main>
 
         {/* Live preview */}
@@ -954,7 +956,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         </div>
       </nav>
 
-      {peekOpen && <PeekPreview api={api} onExpand={() => setFullPreview(true)} onHide={() => peekStore.write(true)} previewState={previewState} setPreviewState={setPreviewState} />}
+      {peekable && <PeekPreview api={api} onExpand={() => setFullPreview(true)} onToggle={() => peekStore.write(!peekOpen)} open={peekOpen} previewState={previewState} setPreviewState={setPreviewState} />}
       {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} soundIntro={soundIntro} />}
       {crop && <CropDialog key={crop.source} busy={busyPhoto} initialCrop={crop.initialCrop} initialFocus={crop.focus} onCancel={() => { if (crop.revoke) URL.revokeObjectURL(crop.source); setCrop(null); }} onReplace={() => { photoTarget.current = crop.modeId; slideTarget.current = Boolean(crop.slide); fileRef.current?.click(); }} onSave={async ({ pixels, crop: area, natural, focus }) => {
         try {
@@ -1001,16 +1003,16 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   );
 }
 
-/** Whether the phone's docked live preview is hidden. Remembered on this device only. */
-const PEEK_KEY = "setuvara:editor-peek";
+/** Whether the phone's docked live preview is open (folded by default). Remembered on this device only. */
+const PEEK_KEY = "setuvara:editor-dock";
 const peekListeners = new Set<() => void>();
-let peekHiddenHere = false;
+let peekOpenHere = false;
 const peekStore = {
   subscribe(listener: () => void) { peekListeners.add(listener); return () => { peekListeners.delete(listener); }; },
-  read() { try { return window.localStorage.getItem(PEEK_KEY) === "hidden"; } catch { return peekHiddenHere; } },
-  write(hidden: boolean) {
-    peekHiddenHere = hidden;
-    try { if (hidden) window.localStorage.setItem(PEEK_KEY, "hidden"); else window.localStorage.removeItem(PEEK_KEY); } catch { /* private mode: remembered for this visit only */ }
+  read() { try { return window.localStorage.getItem(PEEK_KEY) === "open"; } catch { return peekOpenHere; } },
+  write(open: boolean) {
+    peekOpenHere = open;
+    try { if (open) window.localStorage.setItem(PEEK_KEY, "open"); else window.localStorage.removeItem(PEEK_KEY); } catch { /* private mode: remembered for this visit only */ }
     peekListeners.forEach((listener) => listener());
   },
 };
@@ -1068,7 +1070,8 @@ function SaveChip({ status, message, justPublished, onRetry }: { status: SaveSta
 }
 
 function MobileSaveLine({ status, message, justPublished, onRetry }: { status: SaveStatus; message: string; justPublished: boolean; onRetry: () => void }) {
-  if (status === "saved" && !justPublished) return null;
+  // Saving and Saved live under the title; this line only carries a publish or a failed save.
+  if (status !== "error" && !(justPublished && status === "saved")) return null;
   return (
     <div className="flex items-center justify-center gap-2 border-t border-black/5 px-4 py-1.5 text-[12px] font-medium" style={{ background: justPublished && status === "saved" ? "#C7FF4A" : undefined }}>
       {status === "error" ? <button className="font-semibold text-[#B42318]" onClick={onRetry} type="button">{message || "Not saved"} · Retry</button>
