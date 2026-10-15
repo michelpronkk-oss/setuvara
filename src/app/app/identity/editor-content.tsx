@@ -17,11 +17,11 @@ import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, validateBlo
 import { removePendingContentMedia } from "@/lib/blocks/storage";
 import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, normalizeProviderValue, providerForLink, resolveStoredLink, type LinkProvider, type LinkProviderId } from "@/lib/links/providers";
 import { createClient } from "@/lib/supabase/client";
-import { AddLinkPanel, DragHandle, LinkRow } from "./editor-sections";
+import { AddLinkPanel, DragHandle, LinkRow, RowChevron } from "./editor-sections";
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { ContentImageControl } from "./content-image-control";
 import { ContentVideoControl } from "./content-video-control";
-import { BlockIcon, Card, Field, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
+import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
 type SheetState =
   | { type: "add" }
@@ -62,77 +62,77 @@ export function ContentSection({ api }: { api: EditorApi }) {
     if (from >= 0 && to >= 0) api.reorderLinks(arrayMove(mode.links, from, to));
   }
 
+  const hiddenLinks = mode.links.filter((link) => !link.is_visible).length;
+
   return (
     <div>
-      <SectionHeader description={`Everything visitors see in ${modeMeta[slug].name} Mode, in order. Paste any link and Setuvara works out the rest.`} slug={slug} title="Content" />
+      <SectionHeader description={`Everything visitors see in ${modeMeta[slug].name} Mode, top to bottom. Drag to reorder, switch off to hide.`} slug={slug} title="Content" />
 
-      <button className="group flex min-h-[60px] w-full items-center gap-3 rounded-[20px] bg-white px-4 text-left shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-[#0D0D0D] hover:text-[#F5F4EF] max-lg:hidden" onClick={() => setSheet({ type: "add" })} type="button">
-        <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-[#FF5A4F] text-xl font-semibold text-[#0D0D0D]">+</span>
-        <span className="flex-1"><span className="block text-[15px] font-semibold">Add content</span><span className="block text-[13px] opacity-60">Paste a link, or pick a video, music, a featured card, services…</span></span>
+      <button className="group flex min-h-[64px] w-full items-center gap-3.5 rounded-[20px] bg-white px-4 text-left shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-[#0D0D0D] hover:text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[.99]" data-add-content onClick={() => setSheet({ type: "add" })} type="button">
+        <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FF5A4F] text-xl font-semibold text-[#0D0D0D]">+</span>
+        <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold">Add content</span><span className="block truncate text-[13px] opacity-60">Paste any link, or add a video, music, a card…</span></span>
       </button>
 
       {/* Blocks */}
-      <div className="mb-3 mt-8 flex items-end justify-between gap-3">
-        <div><MonoLabel className="text-black/50">Blocks</MonoLabel><p className="mt-1 text-[13px] text-black/55">Rich sections: videos, music, cards{slug === "business" ? ", services, proof" : ""}.</p></div>
-        <span className="font-label text-[11px] text-black/40">{blocks.length}/{BLOCK_LIMIT}</span>
-      </div>
-      {blocks.length > 0 && (
-        <DndContext collisionDetection={closestCenter} id={blockDnd} onDragEnd={onBlockDrag} sensors={sensors}>
-          <SortableContext items={blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
-            <ul className="grid grid-cols-1 gap-2.5">
-              {blocks.map((block) => <BlockRow api={api} block={block} key={block.id} onEdit={() => setSheet({ type: "block", kind: block.kind, block })} />)}
-            </ul>
-          </SortableContext>
-        </DndContext>
-      )}
-      {blocks.filter((block) => block.kind === "image" && block.is_visible).length > 1 && <PictureLayout api={api} />}
-      {suggested.length > 0 && (
-        <div className={`grid grid-cols-1 gap-2 sm:grid-cols-3 ${blocks.length ? "mt-2.5" : ""}`}>
-          {suggested.map((kind) => (
-            <button className="flex min-h-[64px] items-center gap-3 rounded-[18px] border-[1.5px] border-dashed border-black/20 px-3.5 text-left transition hover:border-black/60 hover:bg-white/70" key={kind} onClick={() => setSheet({ type: "block", kind })} type="button">
-              <BlockIcon className="size-9 rounded-xl bg-white" path={BLOCKS[kind].icon} />
-              <span className="min-w-0"><span className="block text-[14px] font-semibold">Add {BLOCKS[kind].name.toLowerCase()}</span><span className="block truncate text-[12px] text-black/50">{BLOCKS[kind].hint}</span></span>
-            </button>
-          ))}
-        </div>
-      )}
+      <section aria-label="Blocks" className="mt-8">
+        <GroupHead meta={`${blocks.length} of ${BLOCK_LIMIT}`} title="Blocks" />
+        {blocks.length > 0 && (
+          <DndContext collisionDetection={closestCenter} id={blockDnd} onDragEnd={onBlockDrag} sensors={sensors}>
+            <SortableContext items={blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
+              <ul className="grid grid-cols-1 gap-2">
+                {blocks.map((block) => <BlockRow api={api} block={block} key={block.id} onEdit={() => setSheet({ type: "block", kind: block.kind, block })} />)}
+              </ul>
+            </SortableContext>
+          </DndContext>
+        )}
+        {blocks.filter((block) => block.kind === "image" && block.is_visible).length > 1 && <PictureLayout api={api} />}
+        {suggested.length > 0 && (blocks.length
+          ? <div className="mt-2.5 flex flex-wrap gap-2" data-block-suggestions>
+              {suggested.map((kind) => (
+                <button className="inline-flex min-h-10 items-center gap-2 rounded-full border-[1.5px] border-dashed border-black/20 pl-1.5 pr-3.5 text-[13px] font-semibold text-black/75 transition hover:border-black/60 hover:text-black" key={kind} onClick={() => setSheet({ type: "block", kind })} type="button">
+                  <BlockIcon className="size-7 rounded-full bg-white" path={BLOCKS[kind].icon} />{BLOCKS[kind].name}
+                </button>
+              ))}
+            </div>
+          : <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" data-block-suggestions>
+              {suggested.map((kind) => (
+                <button className="flex min-h-[64px] items-center gap-3 rounded-[18px] border-[1.5px] border-dashed border-black/20 px-3.5 text-left transition hover:border-black/60 hover:bg-white/70" key={kind} onClick={() => setSheet({ type: "block", kind })} type="button">
+                  <BlockIcon className="size-9 rounded-xl bg-white" path={BLOCKS[kind].icon} />
+                  <span className="min-w-0"><span className="block text-[14px] font-semibold">{BLOCKS[kind].name}</span><span className="block truncate text-[12px] text-black/50">{BLOCKS[kind].hint}</span></span>
+                </button>
+              ))}
+            </div>)}
+      </section>
 
       {/* Links */}
-      <div className="mb-3 mt-9">
-        <MonoLabel className="text-black/50">Links</MonoLabel>
-        <p className="mt-1 text-[13px] text-black/55">{slug === "personal" ? "Social links show as round icons under your name; others as buttons." : "Drag to reorder. Hidden links stay saved here."}</p>
-      </div>
+      <section aria-label="Links" className="mt-8">
+        <GroupHead meta={mode.links.length ? `${mode.links.length}${hiddenLinks ? ` · ${hiddenLinks} hidden` : ""}` : undefined} title="Links" />
 
-      {slug === "business" && (
-        <Card className="mb-3 flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <div className="min-w-0"><p className="text-[15px] font-semibold">Next to Connect, visitors see</p><p className="mt-0.5 truncate text-[13px] text-black/55">{booking ? `${booking.title} · ${resolveStoredLink(providerForLink(booking.link_type).id, booking.url)?.displayValue ?? ""}` : "Nothing yet. A visible booking link becomes a “Book intro” button."}</p></div>
-          {booking ? <span className="inline-flex min-h-10 items-center rounded-full bg-[#0D0D0D] px-4 text-sm font-semibold text-[#F5F4EF]">Book intro</span> : <Pill onClick={() => setSheet({ type: "link", provider: linkProviderById.cal_com })}>Add booking link</Pill>}
-        </Card>
-      )}
-
-      {mode.links.length > 0 ? (
-        <DndContext collisionDetection={closestCenter} id={linkDnd} onDragEnd={onLinkDrag} sensors={sensors}>
-          <SortableContext items={mode.links.map((link) => link.id)} strategy={verticalListSortingStrategy}>
-            <ul className="grid grid-cols-1 gap-2.5">
-              {mode.links.map((link) => <LinkRow api={api} editing={editingLink === link.id} key={link.id} link={link} onEdit={(open) => setEditingLink(open ? link.id : null)} />)}
-            </ul>
-          </SortableContext>
-        </DndContext>
-      ) : (
-        <Card className="px-5 py-5">
-          <p className="text-[15px] font-semibold">No links in {modeMeta[slug].name} Mode yet</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Pill onClick={() => setSheet({ type: "link", provider: null })} variant="ink">+ Add a link</Pill>
-            {copySources.map((item) => <Pill key={item} onClick={() => void api.copyLinksFrom(item)}>Copy from {modeMeta[item].name}</Pill>)}
+        {slug === "business" && (
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-[#0D0D0D]/[0.04] px-4 py-3">
+            <div className="min-w-0"><p className="text-[14px] font-semibold">Next to Connect</p><p className="mt-0.5 truncate text-[13px] text-black/55">{booking ? `${booking.title} · ${resolveStoredLink(providerForLink(booking.link_type).id, booking.url)?.displayValue ?? ""}` : "A visible booking link becomes a “Book intro” button."}</p></div>
+            {booking ? <span className="inline-flex min-h-9 items-center rounded-full bg-[#0D0D0D] px-3.5 text-[13px] font-semibold text-[#F5F4EF]">Book intro</span> : <Pill className="!min-h-10" onClick={() => setSheet({ type: "link", provider: linkProviderById.cal_com })}>Add booking link</Pill>}
           </div>
-        </Card>
-      )}
-      <p className="mt-4 pb-28 text-[13px] text-black/50 lg:pb-0">Turn anything off to hide it without deleting it.</p>
+        )}
 
-      {/* Mobile add button sits above the tab bar */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 pb-3 lg:hidden">
-        <button className="pointer-events-auto inline-flex min-h-[52px] items-center gap-2 rounded-full bg-[#0D0D0D] px-6 text-[15px] font-semibold text-[#F5F4EF] shadow-[0_16px_40px_-14px_rgba(13,13,13,.7)]" onClick={() => setSheet({ type: "add" })} type="button"><span aria-hidden="true" className="text-xl leading-none">+</span>Add</button>
-      </div>
+        {mode.links.length > 0 ? (
+          <DndContext collisionDetection={closestCenter} id={linkDnd} onDragEnd={onLinkDrag} sensors={sensors}>
+            <SortableContext items={mode.links.map((link) => link.id)} strategy={verticalListSortingStrategy}>
+              <ul className="grid grid-cols-1 gap-2">
+                {mode.links.map((link) => <LinkRow api={api} editing={editingLink === link.id} key={link.id} link={link} onEdit={(open) => setEditingLink(open ? link.id : null)} />)}
+              </ul>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <Card className="px-5 py-5">
+            <p className="text-[15px] font-semibold">No links in {modeMeta[slug].name} Mode yet</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Pill onClick={() => setSheet({ type: "link", provider: null })} variant="ink">+ Add a link</Pill>
+              {copySources.map((item) => <Pill key={item} onClick={() => void api.copyLinksFrom(item)}>Copy from {modeMeta[item].name}</Pill>)}
+            </div>
+          </Card>
+        )}
+      </section>
 
       {sheet?.type === "add" && <AddSheet api={api} onClose={() => setSheet(null)} onPick={setSheet} />}
       {sheet?.type === "block" && <BlockSheet api={api} block={sheet.block} key={sheet.block?.id ?? sheet.kind} kind={sheet.kind} onClose={() => setSheet(null)} seed={sheet.seed} />}
@@ -153,18 +153,17 @@ function BlockRow({ api, block, onEdit }: { api: EditorApi; block: ProfileBlock;
   const soundtrack = Boolean(block.is_soundtrack);
   return (
     <li className={`min-w-0 rounded-[18px] bg-white transition-shadow ${isDragging ? "relative z-10 shadow-[0_24px_50px_-20px_rgba(13,13,13,.45),inset_0_0_0_2px_#0D0D0D]" : soundtrack ? "shadow-[inset_0_0_0_1.5px_#0D0D0D]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null), transition }}>
-      <div className="flex min-h-[70px] items-center gap-1.5 py-2 pl-1.5 pr-2 sm:gap-2 sm:pr-3">
+      <div className="flex min-h-[66px] items-center gap-1.5 py-2 pl-1 pr-1 sm:gap-2">
         <DragHandle {...attributes} {...listeners} />
         {soundtrack
           ? <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#FF5A4F] text-[#0D0D0D]"><SpeakerIcon className="size-5" on /></span>
           : <BlockIcon className="size-10 rounded-xl bg-[#0D0D0D] text-[#F5F4EF]" path={meta.icon} />}
         <button className={`min-w-0 flex-1 px-1.5 text-left ${block.is_visible ? "" : "opacity-50"}`} onClick={onEdit} type="button">
-          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{meta.name}</span>{soundtrack && <span className="shrink-0 rounded-full bg-[#0D0D0D] px-2 py-0.5 font-label text-[9px] tracking-[0.1em] text-[#F5F4EF]"><span className="max-sm:hidden">PROFILE </span>SOUNDTRACK</span>}{!block.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
+          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{meta.name}</span>{soundtrack && <span className="shrink-0 rounded-full max-[389px]:hidden bg-[#0D0D0D] px-2 py-0.5 font-label text-[9px] tracking-[0.1em] text-[#F5F4EF]">SOUNDTRACK</span>}{!block.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
           <span className="block truncate text-[13px] text-black/55">{blockSummary(block)}</span>
         </button>
         <Toggle label={`${block.is_visible ? "Hide" : "Show"} ${meta.name}`} on={block.is_visible} onChange={() => api.toggleBlock(block)} />
-        <button className="hidden min-h-10 rounded-full px-3 text-sm font-semibold hover:bg-black/[0.05] sm:block" onClick={onEdit} type="button">Edit</button>
-        <button aria-label={`Delete ${meta.name}`} className="hidden size-10 place-items-center rounded-full text-lg text-black/40 hover:bg-[#B42318]/[0.07] hover:text-[#B42318] sm:grid" onClick={() => api.deleteBlock(block)} type="button">×</button>
+        <RowChevron label={`Edit ${meta.name}`} onClick={onEdit} />
       </div>
     </li>
   );
@@ -233,7 +232,7 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
         </div>
       )}
 
-      <MonoLabel className="mb-2.5 mt-7 text-black/50">Blocks for {modeMeta[api.slug].name} Mode</MonoLabel>
+      <GroupHead className="mt-7" meta={`Only in ${modeMeta[api.slug].name}`} title="Blocks" />
       {full && <p className="mb-2 text-[13px] text-[#B42318]">This Mode has {BLOCK_LIMIT} blocks. Remove one to add more.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[...first, ...rest].map((kind, index) => (
@@ -244,7 +243,7 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
         ))}
       </div>
 
-      <MonoLabel className="mb-2.5 mt-7 text-black/50">Links</MonoLabel>
+      <GroupHead className="mt-7" title="Links" />
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {quickLinks.map((provider) => (
           <button className="flex min-h-[76px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-white px-2 text-center text-[12px] font-semibold shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" key={provider.id} onClick={() => onPick({ type: "link", provider })} type="button">

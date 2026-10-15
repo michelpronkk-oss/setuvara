@@ -23,7 +23,7 @@ import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
-import { Card, Counter, Field, MonoLabel, Pill, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper, previewVisitorAction } from "./editor-ui";
+import { Card, Counter, Field, MonoLabel, Pill, PlusTag, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper, previewVisitorAction } from "./editor-ui";
 
 const modeIntro: Record<ModeSlug, string> = {
   personal: "The version of you that you give personally, to friends, communities and people you choose.",
@@ -62,8 +62,8 @@ export function HomeSection({ api }: { api: EditorApi }) {
   const others = MODE_SLUGS.filter((item) => item !== slug);
   return (
     <div>
-      <h1 className="font-display text-[3.4rem] font-extrabold leading-[0.92] tracking-[-0.055em] xl:text-[4rem]">{modeMeta[slug].name} Mode</h1>
-      <p className="mt-3 max-w-[540px] text-[16px] leading-[1.55] text-black/65">{modeIntro[slug]} It lives at <span className="font-medium text-black">{info.share}</span>.</p>
+      <h1 className="font-display text-[2.5rem] font-extrabold leading-[0.95] tracking-[-0.05em]">{modeMeta[slug].name} Mode</h1>
+      <p className="mt-2.5 max-w-[540px] text-[15px] leading-6 text-black/60">{modeIntro[slug]} It lives at <span className="font-medium text-black">{info.share}</span>.</p>
 
       <div className="mt-8 grid grid-cols-2 gap-4">
         <button className="group relative row-span-2 flex min-h-[290px] flex-col justify-end overflow-hidden rounded-[22px] bg-[#0D0D0D] p-6 text-left text-[#F5F4EF]" onClick={() => api.go("profile")} type="button">
@@ -143,12 +143,6 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
         ))}
       </nav>
 
-      <div className="mt-6 grid gap-2.5">
-        {MODE_SLUGS.filter((item) => item !== slug).map((item) => {
-          const meta = modeMeta[item];
-          return <button className="flex min-h-14 items-center justify-between rounded-[16px] px-4 text-left text-[15px] font-bold" key={item} onClick={() => api.go("home", item)} style={{ background: meta.bg, color: meta.fg, boxShadow: meta.ring }} type="button">{meta.name} Mode<span className="text-sm font-semibold">Open →</span></button>;
-        })}
-      </div>
       <Link className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-black/60 underline underline-offset-4" href="/app">Back to Setuvara home</Link>
     </div>
   );
@@ -193,7 +187,7 @@ function SlideshowRow({ api }: { api: EditorApi }) {
   if (!limit) {
     return (
       <button className="mt-3 flex min-h-9 items-center gap-2 text-[13px] font-semibold" data-slideshow-upsell onClick={api.pickSlide} type="button">
-        Slideshow<span className="rounded-full bg-[#FF5A4F] px-2 py-0.5 text-[11px] font-bold text-[#0D0D0D]">Plus</span>
+        Slideshow<PlusTag />
       </button>
     );
   }
@@ -314,6 +308,15 @@ export function DragHandle(props: Record<string, unknown>) {
   );
 }
 
+/** Opens a row's editor. The whole row label opens it too; this is the visible affordance. */
+export function RowChevron({ label, onClick, open }: { label: string; onClick: () => void; open?: boolean }) {
+  return (
+    <button aria-expanded={open} aria-label={label} className="grid size-10 shrink-0 place-items-center rounded-full text-black/40 transition hover:bg-black/[0.05] hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2" onClick={onClick} type="button">
+      <svg aria-hidden="true" className={`size-[18px] transition-transform ${open ? "rotate-90" : ""}`} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" /></svg>
+    </button>
+  );
+}
+
 export function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void }) {
   const provider = providerForLink(link.link_type);
   const resolved = resolveStoredLink(provider.id, link.url);
@@ -346,7 +349,7 @@ export function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: 
 
   return (
     <li className={`min-w-0 rounded-[18px] bg-white transition-shadow ${isDragging ? "relative z-10 shadow-[0_24px_50px_-20px_rgba(13,13,13,.45),inset_0_0_0_2px_#0D0D0D]" : editing ? "shadow-[inset_0_0_0_2px_#0D0D0D]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null), transition }}>
-      <div className="flex min-h-[70px] items-center gap-1.5 py-2 pl-1.5 pr-2 sm:gap-2 sm:pr-3">
+      <div className="flex min-h-[66px] items-center gap-1.5 py-2 pl-1 pr-1 sm:gap-2">
         <DragHandle {...attributes} {...listeners} />
         <ProviderMark className="size-10 rounded-xl bg-[#F5F4EF]" icon={provider.icon} label={provider.name} url={resolved?.url ?? link.url} />
         <button className={`min-w-0 flex-1 px-1.5 text-left ${link.is_visible ? "" : "opacity-50"}`} onClick={toggleEditing} type="button">
@@ -354,8 +357,7 @@ export function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: 
           <span className="block truncate text-[13px] text-black/55">{editing ? provider.name : resolved?.displayValue ?? provider.name}</span>
         </button>
         <Toggle label={`${link.is_visible ? "Hide" : "Show"} ${link.title}`} on={link.is_visible} onChange={() => api.toggleLink(link)} />
-        <button className="hidden min-h-10 rounded-full px-3 text-sm font-semibold hover:bg-black/[0.05] sm:block" onClick={toggleEditing} type="button">{editing ? "Close" : "Edit"}</button>
-        <button aria-label={`Delete ${link.title}`} className="hidden size-10 place-items-center rounded-full text-lg text-black/40 hover:bg-[#B42318]/[0.07] hover:text-[#B42318] sm:grid" onClick={() => api.deleteLink(link)} type="button">×</button>
+        <RowChevron label={editing ? `Close ${link.title}` : `Edit ${link.title}`} onClick={toggleEditing} open={editing} />
       </div>
       {editing && (
         <form className="border-t border-black/[0.07] px-4 pb-4 pt-4 sm:px-5" onSubmit={save}>
@@ -651,7 +653,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
       {/* Sized by the space the editor leaves (preview pane open or not), not the window. */}
       <div className="@container/share">
       <div className="grid grid-cols-1 items-start gap-4 @min-[560px]/share:grid-cols-[minmax(0,236px)_minmax(0,1fr)] @min-[760px]/share:grid-cols-[minmax(0,280px)_minmax(0,1fr)] @min-[760px]/share:gap-6">
-        <div className="mx-auto w-full max-w-[360px] rounded-[24px] bg-[#0D0D0D] p-4 text-[#F5F4EF] @min-[560px]/share:sticky @min-[560px]/share:top-6 @min-[760px]/share:p-5">
+        <div className="order-2 mx-auto w-full max-w-[360px] self-start rounded-[24px] @min-[560px]/share:order-none @min-[560px]/share:row-span-2 bg-[#0D0D0D] p-4 text-[#F5F4EF] @min-[560px]/share:sticky @min-[560px]/share:top-6 @min-[760px]/share:p-5">
           <MonoLabel className="truncate !text-[10px]" color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
           <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} data-qr-treatment={qrStyle} disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }} type="button">
             <QrFrame accent={resolveAppearance(mode, api.plan).accent} modeLabel={modeMeta[slug].name} name={profile.display_name} style={shownQrStyle}>
@@ -669,8 +671,8 @@ export function ShareSection({ api }: { api: EditorApi }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <section aria-label="Link" className="@container/link rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5">
+        {/* Phones lead with the link (copy and share sit above the fold); wide, the QR holds the left column. */}
+          <section aria-label="Link" className="@container/link order-1 min-w-0 rounded-[22px] @min-[560px]/share:order-none bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5">
             {policy === "direct_only" && <div className="mb-4"><Segmented full label="What you are sharing" onChange={setIntent} options={[{ value: "profile", label: "Share profile" }, { value: "in_person", label: "Connect in person" }]} size="sm" value={inPerson ? "in_person" : "profile"} /></div>}
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-sm font-semibold">{inPerson ? "Connection Pass link" : slug === "personal" ? "Public link" : "Private Mode link"}</p>
@@ -704,12 +706,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
             )}
           </section>
 
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
-            <p className="text-[13px] font-semibold text-black/65">Share another Mode</p>
-            <Segmented label="Mode to share" onChange={(next) => api.go("share", next)} options={MODE_SLUGS.map((item) => ({ value: item, label: modeMeta[item].name }))} size="sm" value={slug} />
-          </div>
-
-          <section aria-label={qrCopy.qr} className="@container/qr rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5" data-qr-treatment={qrStyle}>
+          <section aria-label={qrCopy.qr} className="@container/qr order-3 min-w-0 rounded-[22px] @min-[560px]/share:order-none bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5" data-qr-treatment={qrStyle}>
             <p className="text-sm font-semibold">{qrCopy.qr}</p>
             <p className="mt-1 text-[12.5px] leading-5 text-black/55">{(mode.appearance.qrStyle ?? "standard") !== qrStyle ? qrCopy.inactive : qrCopy.qrNote}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 @min-[460px]/qr:grid-cols-3">
@@ -717,9 +714,9 @@ export function ShareSection({ api }: { api: EditorApi }) {
                 const on = qrStyle === style;
                 const allowed = style === "standard" || hasCapability(api.plan, "share.qr_premium");
                 return (
-                  <button aria-pressed={on} className={`flex min-h-[52px] min-w-0 flex-col items-start justify-center gap-0.5 rounded-2xl px-3.5 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-[#0D0D0D] text-white" : "bg-[#F5F4EF] hover:bg-black/[0.06]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button">
+                  <button aria-label={`${qrCopy.qrStyles[style]}${style === "standard" ? "" : ` · ${qrCopy.plus}`}`} aria-pressed={on} className={`flex min-h-[52px] min-w-0 flex-col items-start justify-center gap-1 rounded-2xl px-3.5 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-[#0D0D0D] text-white" : "bg-[#F5F4EF] hover:bg-black/[0.06]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button">
                     <span className="w-full break-words text-[13px] font-semibold leading-[1.2]">{qrCopy.qrStyles[style]}</span>
-                    <span className={`font-label text-[9px] uppercase leading-none tracking-[0.12em] ${on ? "text-white/60" : style === "standard" ? "text-black/40" : "text-[#A43D36]"}`}>{style === "standard" ? qrCopy.free : qrCopy.plus}</span>
+                    {!allowed && <PlusTag dark={on} />}
                   </button>
                 );
               })}
@@ -728,7 +725,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
               {(["qr_frame", "share_treatment"] as const).map((category) => <RewardSelect api={api} category={category} key={category} />)}
             </div>
           </section>
-        </div>
+
       </div>
 
       </div>

@@ -632,7 +632,7 @@ try {
     await ep.getByRole("button", { name: /log in|sign in/i }).click();
     await ep.waitForURL(/\/app/);
     await ep.goto(`${appUrl}/app/identity?mode=personal&section=links`);
-    await ep.getByText("PROFILE SOUNDTRACK").first().waitFor();
+    await ep.getByText("SOUNDTRACK", { exact: true }).first().waitFor();
     // The sound intro never covers the editor preview; it shows only on request.
     const pane = ep.getByRole("complementary", { name: "Live preview" });
     await pane.locator("[data-sound-control]").first().waitFor();

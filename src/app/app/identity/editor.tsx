@@ -86,7 +86,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const [fullPreview, setFullPreview] = useState(false);
   // Phones: the live preview docks over the tab bar as one slim bar; opened, it stays open (remembered).
   const dockOpen = useSyncExternalStore(peekStore.subscribe, peekStore.read, () => false);
-  // Only where edits change the profile itself; Style has its own full-screen preview.
+  // Only where edits change the profile itself; Appearance has its own full-screen preview.
   const peekable = section === "profile" || section === "links";
   const peekOpen = dockOpen && peekable;
   const [soundIntroOn, setSoundIntroOn] = useState(false);
@@ -850,8 +850,16 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     ? <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-black/[0.06] px-4 text-sm font-semibold text-black/70 transition hover:bg-black/10" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
     : <button className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-5 text-sm font-semibold text-[#0D0D0D] transition hover:brightness-95" onClick={() => void setPublished(true)} type="button">Publish</button>;
 
+  // A Mode that is off still edits normally; one quiet line says why its link won't open.
+  const modeOff = !mode.is_enabled && (section === "profile" || section === "links" || section === "appearance");
   const content = (
     <>
+      {modeOff && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-[16px] bg-[#0D0D0D]/[0.05] py-2 pl-4 pr-2 text-[13px]" data-mode-off-notice>
+          <p className="min-w-0"><span className="font-semibold">{modeMeta[slug].name} Mode is off.</span> <span className="text-black/60">Its link doesn’t open until you turn it on.</span></p>
+          <button className="min-h-9 shrink-0 rounded-full bg-[#0D0D0D] px-3.5 text-[13px] font-semibold text-[#F5F4EF]" onClick={() => void setModeEnabled(true)} type="button">Turn on</button>
+        </div>
+      )}
       {section === "home" && <HomeSection api={api} key={slug} />}
       {section === "profile" && <ProfileSection api={api} />}
       {section === "links" && <ContentSection api={api} key={slug} />}
@@ -887,7 +895,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
             <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{section === "home" ? "Home" : section === "settings" ? "Settings" : sectionTitle}</p>
             <p aria-live="polite" className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50">{modeMeta[slug].name} Mode<span aria-hidden="true">·</span>{status === "error" ? <span className="text-[#B42318]">Not saved</span> : status === "saved" ? "Saved" : "Saving…"}</p>
           </div>
-          <button aria-label="Full-screen preview" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition active:scale-[.97]" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg>Preview</button>
+          <button aria-label="Full-screen preview" className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition active:scale-[.97] max-[374px]:px-0" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg><span className="max-[374px]:hidden">Preview</span></button>
           {profile.is_published
             ? <a aria-label="Your Setuvara is live. Open it." className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[13px] font-semibold text-black/70" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
             : <button className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold" onClick={() => void setPublished(true)} type="button">Publish</button>}
@@ -901,7 +909,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         <aside className="hidden min-h-0 flex-col border-r border-black/10 px-4 py-6 lg:flex">
           <button className="flex items-center gap-3 rounded-2xl px-2 py-1.5 text-left transition hover:bg-black/[0.04]" onClick={() => go("home")} type="button">
             <Avatar mode={modes.find((item) => item.slug === "personal") ?? mode} name={profile.display_name} />
-            <span className="min-w-0"><span className="block truncate text-[15px] font-semibold">{profile.display_name || "Your name"}</span><span className="block text-[13px] text-black/55">One identity · 3 Modes</span></span>
+            <span className="min-w-0"><span className="block truncate text-[15px] font-semibold">{profile.display_name || "Your name"}</span><span className="block truncate text-[13px] text-black/55">One identity · 3 Modes</span></span>
           </button>
           <nav aria-label="Editor sections" className="mt-7 grid gap-1">
             {SECTIONS.map((item, index) => {
@@ -919,7 +927,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
             <p className="text-[13px] text-black/55">{profile.is_published ? "Live at" : "Will live at"}</p>
             <p className="mt-1 truncate font-label text-[12px]" title={publicUrl(slug)}>{publicUrl(slug).replace(/^https?:\/\//, "") || "Link unavailable"}</p>
             <a className="mt-2 inline-flex min-h-9 items-center text-sm font-semibold underline underline-offset-4" href={publicUrl(slug)} rel="noreferrer" target="_blank">View live profile ↗</a>
-            <div className="mt-5 flex items-center gap-4 border-t border-black/10 pt-4 text-[13px] text-black/55">
+            <div className="mt-5 flex items-center gap-x-3.5 whitespace-nowrap border-t border-black/10 pt-4 text-[13px] text-black/55 xl:gap-x-4">
               <Link className="min-h-9 py-2 hover:text-black" href="/app">Home</Link>
               <Link className="min-h-9 py-2 hover:text-black" href="/app/connections">Connections</Link>
               <form action={signOut}><button className="min-h-9 py-2 hover:text-black" type="submit">Sign out</button></form>
@@ -1041,7 +1049,7 @@ const MOBILE_TABS: { id: Section; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "M4 10.6 12 4l8 6.6V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1v-8.4Z" },
   { id: "profile", label: "Profile", icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7.5 8c.4-3.6 3.6-6 7.5-6s7.1 2.4 7.5 6a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1Z" },
   { id: "links", label: "Content", icon: "M4 5.5A1.5 1.5 0 0 1 5.5 4h5A1.5 1.5 0 0 1 12 5.5v5A1.5 1.5 0 0 1 10.5 12h-5A1.5 1.5 0 0 1 4 10.5v-5Zm10 0A1.5 1.5 0 0 1 15.5 4h3A1.5 1.5 0 0 1 20 5.5v3A1.5 1.5 0 0 1 18.5 10h-3A1.5 1.5 0 0 1 14 8.5v-3ZM4 15.5A1.5 1.5 0 0 1 5.5 14h3a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3Zm8 0a1.5 1.5 0 0 1 1.5-1.5h5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-3Z" },
-  { id: "appearance", label: "Style", icon: "M12 3a9 9 0 0 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2A4.6 4.6 0 0 0 21 10.6C21 6.4 17 3 12 3Zm-5 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" },
+  { id: "appearance", label: "Appearance", icon: "M12 3a9 9 0 0 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2A4.6 4.6 0 0 0 21 10.6C21 6.4 17 3 12 3Zm-5 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" },
   { id: "share", label: "Share", icon: "M4 4h6v6H4V4Zm2 2v2h2V6H6Zm8-2h6v6h-6V4Zm2 2v2h2V6h-2ZM4 14h6v6H4v-6Zm2 2v2h2v-2H6Zm8-2h2v2h-2v-2Zm2 2h2v2h-2v-2Zm2-2h2v2h-2v-2Zm-4 4h2v2h-2v-2Zm4 0h2v2h-2v-2Z" },
 ];
 
