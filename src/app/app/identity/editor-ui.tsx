@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 
+import { MemberBadge } from "@/components/app/status-badge";
 import type { ModeSlug, ProfileMode } from "@/components/profile/types";
 
 export const coral = "#FF5A4F";
@@ -15,21 +16,43 @@ export const modeMeta: Record<ModeSlug, { name: string; bg: string; fg: string; 
   creator: { name: "Creator", bg: "#E8A6FF", fg: ink },
 };
 
-export function ModeTag({ slug, size = "md" }: { slug: ModeSlug; size?: "sm" | "md" }) {
-  const meta = modeMeta[slug];
-  return <span className={`inline-flex shrink-0 items-center rounded-full font-semibold ${size === "sm" ? "h-6 px-2.5 text-[11px]" : "h-7 px-3 text-[13px]"}`} style={{ background: meta.bg, color: meta.fg, boxShadow: slug === "business" ? `inset 0 0 0 1.5px ${ink}` : undefined }}>{meta.name} Mode</span>;
+/**
+ * One header for every editor section. The Mode lives in the editor's own switch, so it is never
+ * repeated here. Phones already name the section in the top bar: there only the line shows.
+ */
+export function SectionHeader({ title, description, action }: { title: string; slug?: ModeSlug; description: ReactNode; action?: ReactNode }) {
+  return (
+    <header className="mb-5 sm:mb-7" data-section-header>
+      <div className="flex items-end justify-between gap-4 max-lg:hidden">
+        <h1 className="font-display text-[2.5rem] font-extrabold leading-[0.95] tracking-[-0.05em]">{title}</h1>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+      <p className="max-w-xl text-[14px] leading-[1.45] text-black/60 lg:mt-2.5 lg:text-[15px] lg:leading-6">{description}</p>
+    </header>
+  );
 }
 
-export function SectionHeader({ title, slug, description, action }: { title: string; slug: ModeSlug; description: string; action?: ReactNode }) {
+/** A group inside a section: a quiet title with its count or note on the right. */
+export function GroupHead({ title, meta, className = "" }: { title: ReactNode; meta?: ReactNode; className?: string }) {
   return (
-    <header className="mb-5 sm:mb-7">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="font-display text-[2.4rem] font-extrabold leading-[0.95] tracking-[-0.055em] sm:text-[3.1rem]">{title}</h1>
-        <ModeTag slug={slug} />
-        {action && <div className="ml-auto">{action}</div>}
-      </div>
-      <p className="mt-2.5 max-w-xl text-[15px] leading-6 text-black/65">{description}</p>
-    </header>
+    <div className={`mb-2.5 flex items-baseline justify-between gap-3 px-0.5 ${className}`}>
+      <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+      {meta && <span className="shrink-0 text-[13px] text-black/50">{meta}</span>}
+    </div>
+  );
+}
+
+/**
+ * The Plus mark, drawn from the canonical member badge (the coral burst). One element for every
+ * plan indicator in the editor: `tag` reads "Plus" beside the burst, `mark` is the burst alone
+ * for dense controls. `dark` is for marks that sit on ink.
+ */
+export function PlusTag({ variant = "tag", dark = false, label = "Plus", className = "" }: { variant?: "tag" | "mark"; dark?: boolean; label?: string; className?: string }) {
+  if (variant === "mark") return <span className={`inline-flex shrink-0 ${className}`} data-plus-mark><MemberBadge decorative size={12} tier="plus" /><span className="sr-only">{label}</span></span>;
+  return (
+    <span className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full pl-[3px] pr-[7px] font-label text-[9.5px] uppercase leading-none tracking-[0.12em] ${dark ? "text-[#F5F4EF] shadow-[inset_0_0_0_1px_rgba(255,90,79,.7)]" : "text-[#0D0D0D] shadow-[inset_0_0_0_1px_rgba(255,90,79,.55)]"} ${className}`} data-plus-tag>
+      <MemberBadge decorative size={14} tier="plus" />{label}
+    </span>
   );
 }
 

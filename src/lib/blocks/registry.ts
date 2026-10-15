@@ -160,7 +160,7 @@ export function blockSummary(block: Pick<ProfileBlock, "kind" | "data">): string
     case "music": return str(data.title) || "Music";
     case "feature": return str(data.title) || "Featured link";
     case "image": return str(data.caption) || "Image";
-    case "services": return `${(data.items as unknown[] | undefined)?.length ?? 0} services`;
+    case "services": { const count = (data.items as unknown[] | undefined)?.length ?? 0; return `${count} service${count === 1 ? "" : "s"}`; }
     case "highlights": return ((data.items as { value: string; label: string }[] | undefined) ?? []).map((item) => `${item.value} ${item.label}`).join(" · ") || "Highlights";
     case "testimonial": return str(data.author) ? `“${str(data.quote).slice(0, 40)}${str(data.quote).length > 40 ? "…" : ""}” · ${str(data.author)}` : "Testimonial";
   }

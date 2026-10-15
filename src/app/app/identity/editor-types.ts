@@ -15,7 +15,7 @@ export type EditableProfile = Pick<ProfileIdentity, "username" | "display_name" 
 export const SECTIONS: { id: Exclude<Section, "home">; title: string; short: string }[] = [
   { id: "profile", title: "Profile", short: "Profile" },
   { id: "links", title: "Content", short: "Content" },
-  { id: "appearance", title: "Appearance", short: "Style" },
+  { id: "appearance", title: "Appearance", short: "Appearance" },
   { id: "settings", title: "Mode Settings", short: "Settings" },
   { id: "share", title: "Share", short: "Share" },
 ];
