@@ -121,8 +121,8 @@ function FeaturedImage({ url, alt, tone, onError }: { url: string; alt: string; 
   // A cached picture can finish loading before hydration, so measure on mount too.
   useEffect(() => measure(ref.current), [url]);
   return (
-    <div className="relative w-full overflow-hidden rounded-[22px]" data-featured-media style={{ aspectRatio: tall ? "4 / 5" : undefined, background: mediaFrame(tone).background }}>
-      <ProfileImage alt={alt} className={`block w-full ${tall ? "h-full object-cover" : "h-auto"}`} onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={url} />
+    <div className="relative w-full overflow-hidden rounded-[22px] @min-[1100px]/profile:max-h-[min(82vh,760px)]" data-featured-media style={{ aspectRatio: tall ? "4 / 5" : undefined, background: mediaFrame(tone).background }}>
+      <ProfileImage alt={alt} className={`block w-full ${tall ? "h-full object-cover object-[50%_30%]" : "h-auto"}`} onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={url} />
       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }} />
     </div>
   );

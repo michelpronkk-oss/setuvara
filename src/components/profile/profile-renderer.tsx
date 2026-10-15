@@ -24,7 +24,7 @@ import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./fa
 import { ScrollCue } from "./scroll-cue";
 import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
-import { AppearanceEnvironment, AppearanceHero, CUE_ROOM, NameBadge, WideHero, type Scene, type Identity, type PhotoPresentationProps } from "./profile-presentation";
+import { AppearanceEnvironment, AppearanceHero, CUE_ROOM, NameBadge, WideHero, wideIdentityLines, type Scene, type Identity, type PhotoPresentationProps } from "./profile-presentation";
 
 export { BOOKING_PROVIDERS } from "./appearance-theme";
 
@@ -275,6 +275,9 @@ function Profile(props: ProfileProps) {
   const soundTop = look.id === "clean" || look.id === "social" ? 28 : 18;
   const soundRight = look.id === "clean" || look.id === "social" ? 28 : 16;
   const floating = !owner && !connected && Boolean(props.visitorAction);
+  const bookingLink = booking && <a className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-full px-[18px] text-[15px] font-semibold transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={booking.url} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${theme.identity.line}`, color: theme.fg, outlineColor: theme.fg }} target="_blank">{copy.bookCall}</a>;
+  // The desktop card's actions: the hero's own (owner, connected), or one that opens the hero's Connect.
+  const cardActions = owner || connected ? scene.actions : floating || booking ? <>{floating && <DeskConnect dot={connect.dot} label={copy.connect} />}{bookingLink}</> : null;
 
   return (
     <article
@@ -312,7 +315,7 @@ function Profile(props: ProfileProps) {
         <WideHero scene={scene} />
       </div>
 
-      <AppearanceContent attribution={attribution} blockTone={blockTone} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
+      <AppearanceContent attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
       {floating && <FloatingConnect dot={connect.dot} label={copy.connect} style={{ background: connect.bg, color: connect.fg, boxShadow: [connect.edge !== "none" ? connect.edge : "", "0 14px 34px -12px #0D0D0D99"].filter(Boolean).join(","), outlineColor: theme.identity.fg }} />}
     </article>
   );
@@ -376,41 +379,101 @@ function aboutParagraphs(scene: Scene, bio = "") {
   return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 
-function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy }) {
+function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode }) {
   const { theme, mode, look } = scene;
   const bio = profile.bio?.trim() ?? "";
   const paragraphs = aboutParagraphs(scene, bio);
   const hasBlocks = Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
+  // On desktop the first paragraph sits in the hero; the page keeps what the hero does not show.
+  const earned = Boolean(rewards.profile_mark === "signal_50_mark" || rewards.profile_mark === "thousand_mark");
+  const spread = paragraphs.length > 1 || hasBlocks || earned;
+  const shownLinks = look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links;
+  const label = "hidden font-label text-[10.5px] uppercase tracking-[0.2em] @min-[1100px]/profile:block";
+  // Phones and tablets: one column, exactly as before (the two groups dissolve into it).
+  // Desktop: a spread. The story (About, pictures, content) gets the room; a quiet column beside
+  // it keeps who this is, Connect and the links in reach while the visitor reads.
   return (
     <div className="relative z-[3]" data-appearance-page style={{ background: theme.base }}>
     {/* Phones end the hero mid-pixel; the page reaches up under the fade so no hairline of the photo shows. */}
     {theme.atmosphere.on && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[3px] h-[3px]" data-hero-seam style={{ background: theme.base }} />}
-    <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10" data-appearance-content>
-      {paragraphs.length > 0 && (
-        <section aria-label={copy.about} className="mb-2 flex flex-col gap-3" data-profile-about>
-          {paragraphs.map((text, index) => (
-            <p className={`whitespace-pre-line text-[19px] leading-[1.42] [text-wrap:pretty] ${index === 0 ? "@min-[900px]/profile:hidden" : ""}`} key={text} style={{ color: theme.fg, textAlign: theme.bioAlign }}>{text}</p>
-          ))}
-        </section>
-      )}
-      <EarnedMark copy={copy} rewards={rewards} theme={theme} />
-      {mode.slug === "event" && setting(mode, "eventName") && <EventCard copy={copy} mode={mode} theme={theme} />}
-      <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="" gallery mediaLayout={look.mediaLayout} tone={blockTone} />
-      {/* Under name: the rows skip what the name shows. In links and Both: every row stays. */}
-      <Links copy={copy} links={look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links} scene={scene} />
-      {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
-      {footer}
-      {attribution && branded && (
-        <footer className="mt-10 flex flex-col items-center gap-3.5" data-attribution="setuvara">
-          <span aria-hidden="true" className="h-px w-16" style={{ background: `linear-gradient(90deg,transparent,${theme.card.edge},transparent)` }} />
-          <Link aria-label={copy.makeYours} className="group flex min-h-11 flex-col items-center gap-1.5 rounded-[14px] px-4 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={`/signup?appearance=${look.id}`} style={{ color: theme.fg, outlineColor: theme.fg }}>
-            <span className="flex items-center gap-[7px] text-[15px] font-semibold tracking-[-0.02em] opacity-90 transition group-hover:opacity-100"><MeetMark className="size-4" />setuvara</span>
-            <span className="flex items-center gap-1 font-label text-[9.5px] uppercase tracking-[0.22em] transition group-hover:opacity-100" style={{ color: theme.muted }}>{copy.makeYoursShort}<span aria-hidden="true">↗</span></span>
-          </Link>
-        </footer>
-      )}
+    <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10 @min-[1100px]/profile:grid @min-[1100px]/profile:items-start @min-[1100px]/profile:gap-x-[clamp(48px,5cqw,88px)] @min-[1100px]/profile:px-12 @min-[1100px]/profile:pb-28 @min-[1100px]/profile:pt-16 ${spread ? "@min-[1100px]/profile:max-w-[1240px] @min-[1100px]/profile:grid-cols-[minmax(0,1fr)_360px]" : "@min-[1100px]/profile:max-w-[640px] @min-[1100px]/profile:grid-cols-1"}`} data-appearance-content data-spread={spread ? "split" : "single"}>
+      <div className="contents @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6" data-profile-story>
+        {paragraphs.length > 0 && (
+          <section aria-label={copy.about} className={`mb-2 flex flex-col gap-3 @min-[1100px]/profile:mb-6 @min-[1100px]/profile:gap-4 ${paragraphs.length === 1 ? "@min-[900px]/profile:hidden" : ""}`} data-profile-about>
+            <h2 className={label} style={{ color: theme.muted, textAlign: theme.bioAlign }}>{copy.about}</h2>
+            {paragraphs.map((text, index) => (
+              <p className={`whitespace-pre-line text-[19px] leading-[1.42] [text-wrap:pretty] @min-[1100px]/profile:max-w-[28em] @min-[1100px]/profile:text-[clamp(24px,2cqw,30px)] @min-[1100px]/profile:font-medium @min-[1100px]/profile:leading-[1.32] @min-[1100px]/profile:tracking-[-0.018em] ${theme.bioAlign === "center" ? "@min-[1100px]/profile:mx-auto" : ""} ${index === 0 ? "@min-[900px]/profile:hidden" : ""}`} key={text} style={{ color: theme.fg, textAlign: theme.bioAlign }}>{text}</p>
+            ))}
+          </section>
+        )}
+        <EarnedMark copy={copy} rewards={rewards} theme={theme} />
+        {mode.slug === "event" && setting(mode, "eventName") && <EventCard className={spread ? "@min-[1100px]/profile:hidden" : ""} copy={copy} mode={mode} theme={theme} />}
+        <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-6" gallery mediaLayout={look.mediaLayout} tone={blockTone} />
+      </div>
+      <div className={`contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6 ${spread ? "@min-[1100px]/profile:sticky @min-[1100px]/profile:top-8" : ""}`} data-profile-aside>
+        {spread && card}
+        {/* Under name: the rows skip what the name shows. In links and Both: every row stays. */}
+        {shownLinks.length > 0 && <div className="contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-2.5"><h2 aria-hidden="true" className={label} style={{ color: theme.muted }}>{copy.links}</h2><Links copy={copy} links={shownLinks} scene={scene} /></div>}
+        {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
+        {footer}
+        {attribution && branded && (
+          <footer className="mt-10 flex flex-col items-center gap-3.5 @min-[1100px]/profile:mt-4" data-attribution="setuvara">
+            <span aria-hidden="true" className="h-px w-16" style={{ background: `linear-gradient(90deg,transparent,${theme.card.edge},transparent)` }} />
+            <Link aria-label={copy.makeYours} className="group flex min-h-11 flex-col items-center gap-1.5 rounded-[14px] px-4 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={`/signup?appearance=${look.id}`} style={{ color: theme.fg, outlineColor: theme.fg }}>
+              <span className="flex items-center gap-[7px] text-[15px] font-semibold tracking-[-0.02em] opacity-90 transition group-hover:opacity-100"><MeetMark className="size-4" />setuvara</span>
+              <span className="flex items-center gap-1 font-label text-[9.5px] uppercase tracking-[0.22em] transition group-hover:opacity-100" style={{ color: theme.muted }}>{copy.makeYoursShort}<span aria-hidden="true">↗</span></span>
+            </Link>
+          </footer>
+        )}
+      </div>
     </div>
     </div>
+  );
+}
+
+/**
+ * Desktop only: who this is and the one action, beside the content once the hero has scrolled
+ * away (phones have the floating Connect instead). It never holds its own Connect flow: it opens
+ * the hero's, so access, passes and state stay exactly the hero's.
+ */
+function IdentityCard({ scene, actions, copy }: { scene: Scene; actions: ReactNode; copy: Copy }) {
+  const { theme, who, mode, look } = scene;
+  const event = mode.slug === "event" ? [setting(mode, "eventName"), setting(mode, "dateLabel")].filter(Boolean).join(" · ") : "";
+  const { meta } = wideIdentityLines(scene);
+  return (
+    <section aria-label={who.name} className="hidden flex-col gap-4 rounded-[var(--sv-card-r,26px)] p-5 @min-[1100px]/profile:flex" data-profile-card style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}>
+      <div className="flex items-center gap-3.5">
+        <span aria-hidden="true" className="relative size-14 shrink-0 overflow-hidden rounded-full" style={{ background: scene.photo ? "#2A2622" : look.accent, boxShadow: `0 0 0 1px ${theme.card.edge}` }}>
+          {scene.photo ? <ProfilePhoto cover frameAspect={1} scene={scene} sizes="112px" /> : <span className="absolute inset-0 grid place-items-center font-display text-[20px] font-extrabold" style={{ color: inkOn(look.accent) }}>{who.initials}</span>}
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="truncate text-[17px] font-semibold tracking-[-0.01em]">{who.name}<NameBadge decorative size={15} tier={scene.memberTier} /></p>
+          {meta && <p className="truncate text-[13px]" style={{ color: theme.muted }}>{meta}</p>}
+        </div>
+      </div>
+      {event && (
+        <p className="flex items-center gap-2 border-t pt-3.5 font-label text-[10.5px] uppercase tracking-[0.16em]" style={{ borderColor: theme.card.edge, color: theme.muted }}>
+          <span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: look.accent }} />{copy.atTheEvent} · <span style={{ color: theme.fg }}>{event}</span>
+        </p>
+      )}
+      {actions && <div className="grid gap-2 [--sv-connect-h:48px] [--sv-connect-w:100%] [&>*]:w-full" data-card-actions>{actions}</div>}
+    </section>
+  );
+}
+
+/** Opens the hero's own Connect (the visible one), exactly like the phone's floating Connect. */
+function DeskConnect({ label, dot }: { label: string; dot: string | null }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const open = () => {
+    const article = ref.current?.closest("article");
+    const trigger = Array.from(article?.querySelectorAll<HTMLElement>("[data-wide-connect] [data-connect-trigger]") ?? []).find((node) => node.offsetParent !== null);
+    trigger?.click();
+  };
+  return (
+    <button className="inline-flex h-12 items-center justify-center gap-2.5 whitespace-nowrap rounded-full px-6 text-[16px] font-semibold transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" data-card-connect onClick={open} ref={ref} style={{ background: "var(--sv-connect-fill)", color: "var(--sv-connect-ink)", boxShadow: "var(--sv-connect-edge)", outlineColor: "var(--sv-focus)" }} type="button">
+      {dot && <span aria-hidden="true" className="size-2 rounded-full" style={{ background: dot }} />}
+      {label}
+    </button>
   );
 }
 
@@ -424,10 +487,10 @@ function EarnedMark({ rewards, theme, copy }: { rewards: Partial<Record<string, 
   );
 }
 
-function EventCard({ mode, theme, copy }: { mode: ProfileMode; theme: AppearanceTheme; copy: Copy }) {
+function EventCard({ mode, theme, copy, className = "" }: { mode: ProfileMode; theme: AppearanceTheme; copy: Copy; className?: string }) {
   const where = [setting(mode, "city"), setting(mode, "dateLabel")].filter(Boolean).join(" · ");
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[18px] px-4 py-3.5" data-event-card style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>
+    <div className={`flex items-center justify-between gap-3 rounded-[18px] px-4 py-3.5 ${className}`} data-event-card style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>
       <div className="flex min-w-0 flex-col gap-[3px]">
         <span className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: theme.muted }}>{copy.atTheEvent}</span>
         <span className="break-words text-[16px] font-bold">{setting(mode, "eventName")}</span>
