@@ -9,6 +9,7 @@ import { marketingFontClasses } from "@/app/(marketing)/fonts";
 import { nameFontClasses } from "@/components/profile/name-fonts";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import { ProfileStage } from "@/components/profile/profile-stage";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
 import { extraSlideLimit, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { getMessages } from "@/lib/i18n/messages";
@@ -299,42 +300,44 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   return (
     <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       {!shareToken && <JsonLd data={personStructuredData} />}
-      <ProfileRenderer
-        attribution
-        className="min-h-dvh"
-        edgeToEdge
-        chrome={owner ? (
-          <Link className="inline-flex h-8 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-3.5 text-[12.5px] font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>
-        ) : undefined}
-        footer={sharedPassportStamp ? (
-          <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
-            <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
-            <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{sharedPassportStamp.subtitle}</p>}</div>
-          </aside>
-        ) : undefined}
-        profile={identity}
-        mode={mode}
-        viewerState={viewerState}
-        selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
-        connectionContext={connectedState?.context as ConnectionContext | undefined}
-        connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
-        guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
-        memberTier={memberTier}
-        plan={plan}
-        liveContext={liveContext}
-        sound="live"
-        visitorAction={canInitiateConnection ? <ConnectFlow
-          username={username}
-          mode={slug}
-          source={query.source ?? "direct"}
-          registered={Boolean(userId)}
-          shareBackModes={shareBackModes}
-          guestSessionName={guestSessionName}
-          alreadyConnected={Boolean(connectedState?.connection_id)}
-          label={copy.connect}
-          accent={resolveModeAccent(mode)}
-        /> : undefined}
-      />
+      <ProfileStage accent={resolveModeAccent(mode)} base={pageTone.bg} dark={pageTone.dark} photo={imageUrl}>
+        <ProfileRenderer
+          attribution
+          className="min-h-dvh"
+          edgeToEdge
+          chrome={owner ? (
+            <Link className="inline-flex h-8 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-3.5 text-[12.5px] font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>
+          ) : undefined}
+          footer={sharedPassportStamp ? (
+            <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
+              <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
+              <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{sharedPassportStamp.subtitle}</p>}</div>
+            </aside>
+          ) : undefined}
+          profile={identity}
+          mode={mode}
+          viewerState={viewerState}
+          selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
+          connectionContext={connectedState?.context as ConnectionContext | undefined}
+          connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
+          guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
+          memberTier={memberTier}
+          plan={plan}
+          liveContext={liveContext}
+          sound="live"
+          visitorAction={canInitiateConnection ? <ConnectFlow
+            username={username}
+            mode={slug}
+            source={query.source ?? "direct"}
+            registered={Boolean(userId)}
+            shareBackModes={shareBackModes}
+            guestSessionName={guestSessionName}
+            alreadyConnected={Boolean(connectedState?.connection_id)}
+            label={copy.connect}
+            accent={resolveModeAccent(mode)}
+          /> : undefined}
+        />
+      </ProfileStage>
     </main>
   );
 }

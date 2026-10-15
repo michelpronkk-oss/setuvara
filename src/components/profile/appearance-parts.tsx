@@ -93,7 +93,7 @@ export function SocialPresentation({ links, style, theme, align, size = 42, copy
             </li>
           ))}
         </ul>
-        <span className="pl-1.5 text-[12px] font-semibold">{copy.platforms.replace("{count}", String(links.length))}</span>
+        <span className="pl-1.5 text-[12px] font-semibold">{(links.length === 1 ? copy.platforms.replace(/s$/, "") : copy.platforms).replace("{count}", String(links.length))}</span>
       </div>
     );
   }
