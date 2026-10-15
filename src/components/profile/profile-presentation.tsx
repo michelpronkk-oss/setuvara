@@ -480,10 +480,12 @@ export function WideHero({ scene }: { scene: Scene }) {
   const longest = Math.max(1, ...name.split(/\s+/).map((part) => [...part].length));
   const charWidth = scene.type.charWidth;
   const scale = NAME_SCALE[look.nameSize] * scene.type.scale;
-  const nameSize = `min(max(${Math.round((look.id === "film" ? 66 : 57) * scale)}px, ${+((look.id === "film" ? 8.333 : 7.222) * scale).toFixed(3)}cqw), ${+(42 / (charWidth * longest)).toFixed(3)}cqw)`;
+  // Fitted to the column, and capped so a very wide window never turns the name into a billboard.
+  const nameSize = `min(max(${Math.round((look.id === "film" ? 66 : 57) * scale)}px, ${+((look.id === "film" ? 8.333 : 7.222) * scale).toFixed(3)}cqw), ${+(42 / (charWidth * longest)).toFixed(3)}cqw, ${Math.round((look.id === "film" ? 156 : 144) * scale)}px)`;
   const inset = theme.wide.inset;
   const centered = look.align === "center";
   const align = centered ? "center" : "flex-start";
+  const { eyebrow, meta } = wideIdentityLines(scene);
   return (
     <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
       <HeroFoot className="!h-[22%]" scene={scene} />
@@ -497,19 +499,42 @@ export function WideHero({ scene }: { scene: Scene }) {
           {look.id === "motion" && <WideMarquee scene={scene} />}
         </div>
       )}
-      <div className="relative z-[2] flex min-w-0 flex-col justify-center gap-[max(11px,1.39cqw)] pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
-        <SceneLiveContext scene={scene} context={scene.live} copy={copy} theme={theme} />
-        <scene.nameAs className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></scene.nameAs>
-        {(look.showUsername || who.roleLine) && <p className="text-[max(14px,1.18cqw)]" style={{ color: theme.muted }}>{[look.showUsername ? `@${who.username}` : "", who.roleLine].filter(Boolean).join(" · ")}</p>}
-        {scene.sound === "featured" && <SceneFeaturedSound scene={scene} accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
-        <SceneSocials scene={scene} align={align} copy={copy} links={scene.socials} size={44} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
-        <div className="flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect>{scene.actions}</div>
-        <WideBio scene={scene} />
+      <div className="relative z-[2] flex min-w-0 flex-col justify-center pl-[max(31px,3.89cqw)] pr-[max(44px,5.56cqw)]" style={{ color: theme.fg, alignItems: align, textAlign: centered ? "center" : undefined }}>
+        {/* One reading order: where (Live or the Mode's context), who, what they are about, then the actions. */}
+        <div className="flex w-full max-w-[600px] flex-col gap-[clamp(11px,1.39cqw,20px)]" data-wide-identity style={{ alignItems: align }}>
+          <SceneLiveContext scene={scene} context={scene.live} copy={copy} theme={theme} />
+          {eyebrow && !scene.live && (
+            <p className="-mb-1 flex items-center gap-2 font-label text-[11.5px] uppercase tracking-[0.2em]" data-wide-eyebrow style={{ color: theme.muted }}>
+              {look.slug === "event" && <span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: look.accent }} />}
+              {eyebrow}
+            </p>
+          )}
+          <scene.nameAs className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></scene.nameAs>
+          {meta && <p className="text-[clamp(15px,1.18cqw,18px)]" data-wide-meta style={{ color: theme.muted }}>{meta}</p>}
+          {scene.sound === "featured" && <SceneFeaturedSound scene={scene} accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
+          <WideBio scene={scene} />
+          <div className="mt-[clamp(6px,.7cqw,12px)] flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect style={{ justifyContent: align }}>{scene.actions}</div>
+          <SceneSocials scene={scene} align={align} copy={copy} links={scene.socials} size={40} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
+        </div>
         {/* Under the identity column, never across the photo. */}
         {scene.cue(true)}
       </div>
-      </div>
+    </div>
   );
+}
+
+/**
+ * The wide hero's context lines. Each Mode leads with its own frame: an Event names where you
+ * are (when no Live Context already does), Business names the company, Personal is just you.
+ */
+export function wideIdentityLines(scene: Scene) {
+  const { mode, look, who } = scene;
+  const get = (key: string) => { const value = mode.settings[key]; return typeof value === "string" ? value.trim() : ""; };
+  const join = (...parts: string[]) => parts.filter(Boolean).join(" · ");
+  const handle = look.showUsername ? `@${who.username}` : "";
+  if (mode.slug === "event") return { eyebrow: join(get("eventName"), get("dateLabel")), meta: join(handle, who.roleLine) };
+  if (mode.slug === "business" && get("company")) return { eyebrow: get("company"), meta: join(handle, get("role"), get("city")) };
+  return { eyebrow: "", meta: join(handle, who.roleLine) };
 }
 
 /** Appearances whose wide hero is a composition on the page rather than a full photo panel. */
@@ -626,7 +651,7 @@ function WideMarquee({ scene }: { scene: Scene }) {
 function WideBio({ scene }: { scene: Scene }) {
   const text = aboutParagraphs(scene, scene.bio ?? "")[0];
   if (!text) return null;
-  return <p className="max-w-[460px] whitespace-pre-line text-[max(15px,1.25cqw)] leading-[1.45] [text-wrap:pretty]" style={{ color: scene.theme.fg }}>{text}</p>;
+  return <p className="max-w-[480px] whitespace-pre-line text-[clamp(16px,1.25cqw,19px)] leading-[1.5] opacity-90 [text-wrap:pretty]" data-wide-bio style={{ color: scene.theme.fg }}>{text}</p>;
 }
 
 // ---------------------------------------------------------------- Identity helpers
