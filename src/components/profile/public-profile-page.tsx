@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
 import { after } from "next/server";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
@@ -27,6 +26,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
 import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
 import { isAllowedUsername } from "@/lib/usernames";
+import { OwnerBar, OwnerConnect } from "@/components/profile/owner-view";
 
 export type PublicProfileTarget = {
   username: string;
@@ -300,14 +300,12 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   return (
     <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       {!shareToken && <JsonLd data={personStructuredData} />}
+      {owner && <OwnerBar editHref={`/app/identity?mode=${slug}`} shareHref={`/app/identity?mode=${slug}&section=share`} />}
       <ProfileStage accent={resolveModeAccent(mode)} base={pageTone.bg} dark={pageTone.dark} photo={imageUrl}>
         <ProfileRenderer
           attribution
           className="min-h-dvh"
           edgeToEdge
-          chrome={owner ? (
-            <Link className="inline-flex h-8 items-center rounded-full bg-[var(--sv-chrome-chip-bg)] px-3.5 text-[12.5px] font-semibold text-[var(--sv-chrome-chip-fg)] backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current" href={`/app/identity?mode=${slug}`}>Edit profile</Link>
-          ) : undefined}
           footer={sharedPassportStamp ? (
             <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
               <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
@@ -317,6 +315,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           profile={identity}
           mode={mode}
           viewerState={viewerState}
+          previewAsVisitor={owner}
           selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
           connectionContext={connectedState?.context as ConnectionContext | undefined}
           connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
@@ -325,7 +324,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           plan={plan}
           liveContext={liveContext}
           sound="live"
-          visitorAction={canInitiateConnection ? <ConnectFlow
+          visitorAction={owner ? ((mode.connect_policy ?? "anyone") === "anyone" ? <OwnerConnect label={copy.connect} /> : undefined) : canInitiateConnection ? <ConnectFlow
             username={username}
             mode={slug}
             source={query.source ?? "direct"}

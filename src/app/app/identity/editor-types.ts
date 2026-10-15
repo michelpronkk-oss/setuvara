@@ -8,7 +8,7 @@ import type { RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 
 export type Section = "home" | "profile" | "links" | "appearance" | "settings" | "share";
-export type PreviewState = "owner" | "visitor" | "connected";
+export type PreviewState = "visitor" | "connected";
 export type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 export type EditableProfile = Pick<ProfileIdentity, "username" | "display_name" | "bio">;
 

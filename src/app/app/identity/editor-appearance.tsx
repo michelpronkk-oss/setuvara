@@ -23,7 +23,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageDictionary } from "@/lib/i18n/messages";
 import { PASSPORT_REWARDS } from "@/lib/passport/rewards";
 import { MODE_SLUGS, type EditorApi, type PlusTrigger } from "./editor-types";
-import { Pill, Sheet, modeMeta } from "./editor-ui";
+import { Pill, Sheet, modeMeta, previewVisitorAction } from "./editor-ui";
 
 /**
  * Appearance editor from the approved Equip design. One identity, ten Appearances, equipped per
@@ -575,6 +575,7 @@ function usePreviewZoom() {
 /** Full-screen preview with a bottom sheet: Choose → Preview → Personalize → Apply. */
 function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State; onMore: (key: MoreKey) => void }) {
   const { copy, look, previewing } = state;
+  const connectLabel = useI18n().messages.profile.connect;
   const [tab, setTab] = useState<MobileTab>("choose");
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -592,7 +593,7 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
       <div aria-label={copy.previewLabel} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]" role="region" tabIndex={0}>
         <div className="mx-auto overflow-hidden rounded-t-[22px]" inert style={{ width: 390 * zoom }}>
           <div style={{ width: 390, zoom, "--profile-vh": "844px" } as CSSProperties}>
-            <ProfileRenderer attribution memberTier={api.memberTier} mode={api.mode} onShare={() => api.go("share")} plan={api.plan} previewLook={previewing ? look : undefined} profile={api.profile} selectedRewards={api.selectedRewards} sound="preview" viewerState="owner" />
+            <ProfileRenderer attribution memberTier={api.memberTier} mode={api.mode} plan={api.plan} previewLook={previewing ? look : undefined} profile={api.profile} selectedRewards={api.selectedRewards} sound="preview" viewerState="visitor_unconnected" visitorAction={previewVisitorAction(api.mode, connectLabel)} />
           </div>
         </div>
         <div style={{ height: sheetHeight }} />

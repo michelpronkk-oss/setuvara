@@ -5,7 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
-import { resolveAppearance } from "@/components/profile/appearance";
+import { resolveAppearance, resolveModeAccent } from "@/components/profile/appearance";
+import { profileTone } from "@/components/profile/appearance-theme";
+import { ProfileStage } from "@/components/profile/profile-stage";
 import { SpeakerIcon } from "@/components/profile/soundtrack";
 import { soundtrackBlock } from "@/lib/blocks/registry";
 import type { ConnectionContext, ProfileMode } from "@/components/profile/types";
@@ -13,18 +15,17 @@ import type { EditorApi, PreviewState } from "./editor-types";
 import { PreviewingBar, useAppearance } from "./editor-appearance";
 import { useI18n } from "@/lib/i18n/provider";
 import { MODE_SLUGS } from "./editor-types";
-import { MonoLabel, Segmented, modeMeta } from "./editor-ui";
+import { MonoLabel, Segmented, modeMeta, previewVisitorAction } from "./editor-ui";
 
 const stateOptions: { value: PreviewState; label: string }[] = [
-  { value: "owner", label: "Owner" },
   { value: "visitor", label: "Visitor" },
   { value: "connected", label: "Connected" },
 ];
 
+// Previews only ever show what other people see: never the owner's own buttons.
 const notes: Record<PreviewState, string> = {
-  owner: "What you see when you open your own Setuvara.",
-  visitor: "Seen by someone you haven’t connected with yet. Tap Connect to preview the next step.",
-  connected: "Sample connection shown. Your real data is not changed.",
+  visitor: "Exactly what people see when they open your link.",
+  connected: "What people see after you connect. Sample connection, nothing is changed.",
 };
 
 // Visitor preview shows the public link. A Connection Pass is never faked here.
@@ -53,11 +54,6 @@ function PreviewProfile({ api, state, setState, soundGate = false }: { api: Edit
   const { mode, profile } = api;
   const { messages } = useI18n();
   const context = useSampleContext(mode);
-  const label = messages.profile.connect;
-  // Same Connect trigger tokens as the public ConnectFlow button.
-  const visitorAction = (
-    <button className="inline-flex h-[var(--sv-connect-h,52px)] w-[var(--sv-connect-w,100%)] min-w-11 items-center justify-[var(--sv-connect-justify,center)] gap-2.5 rounded-[var(--sv-connect-radius,999px)] bg-[var(--sv-connect-fill)] px-[var(--sv-connect-px,20px)] text-[16px] font-semibold text-[var(--sv-connect-ink)] shadow-[var(--sv-connect-edge,none)] after:content-[var(--sv-connect-arrow,none)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sv-focus,#0d0d0d)]" data-connect-trigger onClick={() => setState("connected")} type="button"><span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[var(--sv-connect-dot,transparent)] [display:var(--sv-connect-dot-display,none)]" /><span>{label}</span></button>
-  );
   return (
     <ProfileRenderer
       attribution
@@ -66,15 +62,13 @@ function PreviewProfile({ api, state, setState, soundGate = false }: { api: Edit
       connectionHref={state === "connected" ? "/app/connections" : undefined}
       memberTier={api.memberTier}
       mode={mode}
-      onEditMode={() => api.go("profile")}
-      onShare={() => api.go("share")}
       profile={profile}
       plan={api.plan}
       selectedRewards={api.selectedRewards}
       sound="preview"
       soundGate={soundGate}
-      viewerState={state === "owner" ? "owner" : state === "connected" ? "visitor_connected" : "visitor_unconnected"}
-      visitorAction={state === "visitor" && (mode.connect_policy ?? "anyone") === "anyone" ? visitorAction : undefined}
+      viewerState={state === "connected" ? "visitor_connected" : "visitor_unconnected"}
+      visitorAction={state === "visitor" ? previewVisitorAction(mode, messages.profile.connect, () => setState("connected")) : undefined}
     />
   );
 }
@@ -133,6 +127,7 @@ export function PreviewPane({ api, previewState, setPreviewState, soundIntro }: 
 
 export function FullPreview({ api, previewState, setPreviewState, onClose, soundIntro }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; onClose: () => void; soundIntro: SoundIntro }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const tone = profileTone(api.mode, api.plan);
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -142,7 +137,8 @@ export function FullPreview({ api, previewState, setPreviewState, onClose, sound
 
   return (
     <div aria-label="Full-screen preview" aria-modal="true" className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-[#E9E7E0]" role="dialog">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-[#E9E7E0]/90 px-4 py-3 backdrop-blur-md sm:px-8">
+      {/* All controls sit on top, so nothing covers the profile's own Connect at the bottom. */}
+      <div className="sticky top-0 z-[70] flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-[#E9E7E0]/90 px-3 py-2.5 backdrop-blur-md sm:px-8 sm:py-3">
         <div className="flex gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]">
           {MODE_SLUGS.map((slug) => {
             const on = slug === api.slug;
@@ -150,21 +146,18 @@ export function FullPreview({ api, previewState, setPreviewState, onClose, sound
             return <button aria-pressed={on} className="min-h-9 rounded-full px-3.5 text-[13px] font-semibold" key={slug} onClick={() => api.go(api.section, slug)} style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.6)", boxShadow: on ? meta.ring : undefined }} type="button">{meta.name}</button>;
           })}
         </div>
-        <div className="flex items-center gap-2">
+        <button aria-label="Close preview" className="order-2 grid size-10 place-items-center rounded-full bg-[#0D0D0D] text-lg leading-none text-[#F5F4EF] sm:order-3" onClick={onClose} ref={closeRef} type="button">×</button>
+        <div className="order-3 flex w-full items-center justify-between gap-2 sm:order-2 sm:w-auto">
+          <Segmented label="Preview as" onChange={setPreviewState} options={stateOptions} size="sm" value={previewState} />
           <SoundIntroToggle api={api} compact intro={soundIntro} />
-          <button className="hidden min-h-10 items-center rounded-full px-4 text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] sm:inline-flex" onClick={onClose} type="button">Exit preview</button>
         </div>
       </div>
       {/* Full width: the same responsive composition visitors get on this screen. */}
-      <div className="w-full pb-36" style={{ "--profile-vh": "100dvh" } as CSSProperties}>
-        <PreviewProfile api={api} setState={setPreviewState} soundGate={soundIntro.on} state={previewState} />
-        <p className="mt-4 text-center text-[13px] text-black/55">{previewNote(api, previewState)}</p>
-      </div>
-      <div className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-1.5 rounded-full bg-white p-1.5 shadow-[0_20px_50px_-20px_rgba(13,13,13,.6),inset_0_0_0_1px_rgba(13,13,13,.08)]">
-          <Segmented label="Preview as" onChange={setPreviewState} options={stateOptions} size="sm" value={previewState} />
-          <button aria-label="Close preview" className="grid size-10 place-items-center rounded-full bg-[#0D0D0D] text-lg leading-none text-[#F5F4EF]" onClick={onClose} ref={closeRef} type="button">×</button>
-        </div>
+      <div className="w-full pb-16" style={{ "--profile-vh": "100dvh" } as CSSProperties}>
+        <ProfileStage accent={resolveModeAccent(api.mode)} base={tone.bg} dark={tone.dark} photo={api.mode.image_url ?? null}>
+          <PreviewProfile api={api} setState={setPreviewState} soundGate={soundIntro.on} state={previewState} />
+        </ProfileStage>
+        <p className="relative mt-4 text-center text-[13px] text-black/55">{previewNote(api, previewState)}</p>
       </div>
     </div>
   );
@@ -172,10 +165,11 @@ export function FullPreview({ api, previewState, setPreviewState, onClose, sound
 
 
 /**
- * Phones: the live preview docked under the editor, so every change shows while you make it.
- * The phone composition is drawn at 390 and zoomed to the dock's width, exactly like the pane.
+ * Phones: the live preview docked above the tab bar. Folded, it is one slim bar so the editor
+ * keeps the screen; open, every change shows while you make it. The phone composition is drawn
+ * at 390 and zoomed to the dock's width, exactly like the pane.
  */
-export function PeekPreview({ api, previewState, setPreviewState, onExpand, onHide }: { api: EditorApi; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; onExpand: () => void; onHide: () => void }) {
+export function PeekPreview({ api, open, previewState, setPreviewState, onExpand, onToggle }: { api: EditorApi; open: boolean; previewState: PreviewState; setPreviewState: (state: PreviewState) => void; onExpand: () => void; onToggle: () => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ scale: 0.68, height: 844 });
   useEffect(() => {
@@ -188,31 +182,34 @@ export function PeekPreview({ api, previewState, setPreviewState, onExpand, onHi
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [open]);
   const icon = "grid size-10 place-items-center rounded-full text-black/70 transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2";
   return (
-    <section aria-label="Live preview" className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col overflow-hidden rounded-t-[26px] border-t border-black/10 bg-[#E9E7E0] shadow-[0_-22px_44px_-26px_rgba(13,13,13,.5)] [animation:sheet-up_.24s_ease-out] lg:hidden" data-preview-peek style={{ height: "var(--editor-dock)" }}>
-      <div className="flex h-12 shrink-0 items-center justify-between gap-2 pl-4 pr-1.5">
-        <button className="flex min-h-10 min-w-0 items-center gap-2 text-left text-[13px] font-semibold" onClick={onExpand} type="button">
+    <section aria-label="Live preview" className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col overflow-hidden rounded-t-[22px] border-t border-black/10 bg-[#E9E7E0] shadow-[0_-18px_40px_-26px_rgba(13,13,13,.45)] transition-[height] duration-300 ease-out lg:hidden" data-preview-peek={open ? "open" : "folded"} style={{ height: "var(--editor-dock)" }}>
+      <div className="flex h-[52px] shrink-0 items-center justify-between gap-2 pl-2 pr-1.5">
+        <button aria-expanded={open} className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full pl-2 text-left text-[13.5px] font-semibold" onClick={onToggle} type="button">
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[#2BB673] [animation:sound-breathe_2.4s_ease-in-out_infinite]" />
           <span className="truncate">Live preview</span>
-          <span className="truncate font-normal text-black/50">· {modeMeta[api.slug].name}</span>
+          <span className="truncate font-normal text-black/50">{previewState === "connected" ? "· after connecting" : "· as visitors see it"}</span>
+          <svg aria-hidden="true" className={`ml-auto size-[18px] shrink-0 text-black/60 transition-transform ${open ? "" : "rotate-180"}`} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+          <span className="sr-only">{open ? "Fold the live preview" : "Show the live preview"}</span>
         </button>
         <div className="flex shrink-0 items-center gap-0.5">
-          {previewState !== "owner" && <button className="min-h-9 rounded-full bg-white px-3 text-[12px] font-semibold text-black/70 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" onClick={() => setPreviewState("owner")} title="Back to your own view" type="button">As {previewState === "visitor" ? "visitor" : "connection"} ×</button>}
+          {open && previewState !== "visitor" && <button className="min-h-9 rounded-full bg-white px-3 text-[12px] font-semibold text-black/70 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" onClick={() => setPreviewState("visitor")} title="Back to the visitor view" type="button">Reset</button>}
           <button aria-label="Full-screen preview" className={icon} onClick={onExpand} type="button"><svg aria-hidden="true" className="size-[18px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" /></svg></button>
-          <button aria-label="Hide live preview" className={icon} onClick={onHide} type="button"><svg aria-hidden="true" className="size-[18px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 px-4">
-        <div className="mx-auto h-full w-full max-w-[272px] overflow-hidden rounded-t-[24px] bg-[#F5F4EF] shadow-[0_0_0_4px_#0D0D0D]" ref={frame}>
-          <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div style={{ width: 390, zoom: fit.scale, "--profile-vh": `${fit.height}px` } as CSSProperties}>
-              <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
+      {open && (
+        <div className="min-h-0 flex-1 px-4 [animation:sheet-up_.24s_ease-out]">
+          <div className="mx-auto h-full w-full max-w-[272px] overflow-hidden rounded-t-[24px] bg-[#F5F4EF] shadow-[0_0_0_4px_#0D0D0D]" ref={frame}>
+            <div className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div style={{ width: 390, zoom: fit.scale, "--profile-vh": `${fit.height}px` } as CSSProperties}>
+                <PreviewProfile api={api} setState={setPreviewState} state={previewState} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
