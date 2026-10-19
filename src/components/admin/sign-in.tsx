@@ -3,38 +3,46 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { MeetMark } from "@/components/marketing/brand";
+import { MeetMark, Wordmark } from "@/components/marketing/brand";
 import { createClient } from "@/lib/supabase/client";
 
 type Step = "signed_out" | "no_access" | "mfa_enroll" | "mfa_verify";
 
-const field = "h-11 w-full rounded-[10px] bg-white px-3.5 text-[14px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none transition-shadow placeholder:text-ink/35 focus:shadow-[inset_0_0_0_2px_#0d0d0d]";
-const primary = "flex h-11 w-full items-center justify-center rounded-[10px] bg-ink text-[14px] font-semibold text-paper transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
-const quiet = "text-[12.5px] font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline";
+const field = "h-[52px] w-full rounded-full bg-white px-5 text-[15px] shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.2)] outline-none transition-shadow placeholder:text-ink/35 focus:shadow-[inset_0_0_0_2.5px_#0d0d0d]";
+const primary = "flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-ink text-[15px] font-semibold text-paper transition-colors hover:bg-[#262626] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral";
+const quiet = "mx-auto h-10 rounded-full px-4 text-[13px] font-semibold text-ink/55 underline-offset-4 hover:text-ink hover:underline";
 
 function Frame({ step, title, lead, children }: { step?: string; title: string; lead: ReactNode; children: ReactNode }) {
   return (
-    <main className="grid min-h-dvh place-items-center px-4 py-10">
-      <div className="w-full max-w-[380px]">
-        <div className="flex items-center gap-2.5">
-          <MeetMark className="size-7 text-ink" />
-          <span className="text-[16px] font-semibold tracking-[-0.02em]">Setuvara</span>
-          <span className="rounded-md bg-ink px-1.5 py-0.5 font-label text-[9.5px] font-medium uppercase tracking-[0.14em] text-paper">Admin</span>
+    <main className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      {/* The ink side carries the brand, like the homepage's dark cards */}
+      <section className="relative overflow-hidden bg-ink px-6 pb-10 pt-6 text-paper sm:px-10 lg:flex lg:min-h-dvh lg:flex-col lg:px-14 lg:pb-14 lg:pt-10">
+        <MeetMark className="pointer-events-none absolute -bottom-24 -right-20 size-[340px] text-paper/[0.04] sm:size-[520px] lg:-bottom-40 lg:-right-32 lg:size-[720px]" />
+        <div className="relative flex items-center gap-2.5">
+          <MeetMark className="size-[26px] text-paper" />
+          <Wordmark className="text-[22px] leading-none" />
         </div>
-        <section className="mt-6 rounded-[16px] bg-white p-6 shadow-[0_0_0_1px_rgba(13,13,13,.07),0_12px_40px_-18px_rgba(13,13,13,.25)]">
-          {step ? <p className="font-label text-[10.5px] uppercase tracking-[0.14em] text-ink/45">{step}</p> : null}
-          <h1 className="mt-1.5 font-display text-[24px] font-bold leading-tight tracking-[-0.04em]">{title}</h1>
-          <p className="mt-1.5 text-[13px] leading-5 text-ink/60">{lead}</p>
-          <div className="mt-5">{children}</div>
-        </section>
-        <p className="mt-4 text-center text-[11.5px] leading-4 text-ink/45">Internal tool. Every sign-in and action is recorded.</p>
-      </div>
+        <div className="relative mt-12 lg:mt-auto">
+          <p className="font-label text-[10.5px] font-medium uppercase tracking-[0.2em] text-coral sm:text-[11px]">Internal · admin.setuvara.com</p>
+          <p className="mt-4 font-display text-[48px] font-extrabold leading-[0.88] tracking-[-0.06em] sm:text-[72px] lg:text-[96px]">Control<br />center<span className="text-coral">.</span></p>
+          <p className="mt-5 max-w-sm text-[14px] leading-[21px] text-paper/55 sm:text-[15px]">Members, billing, support and platform health, in one place. Every sign-in and action is recorded.</p>
+        </div>
+      </section>
+
+      <section className="grid place-items-center px-5 py-10 sm:px-10 lg:min-h-dvh">
+        <div className="w-full max-w-[400px]">
+          {step ? <p className="font-label text-[10.5px] font-medium uppercase tracking-[0.18em] text-coral">{step}</p> : null}
+          <h1 className="mt-3 font-display text-[34px] font-extrabold leading-[0.95] tracking-[-0.055em] sm:text-[42px]">{title}</h1>
+          <p className="mt-3 text-[14px] leading-[21px] text-ink/60">{lead}</p>
+          <div className="mt-7">{children}</div>
+        </div>
+      </section>
     </main>
   );
 }
 
 function ErrorLine({ message }: { message: string }) {
-  return message ? <p aria-live="assertive" className="mt-3 text-[13px] text-[#b3261e]" role="alert">{message}</p> : null;
+  return message ? <p aria-live="assertive" className="rounded-full bg-coral/15 px-4 py-2.5 text-[13px] font-medium text-[#b32a1f]" role="alert">{message}</p> : null;
 }
 
 function CodeInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -109,14 +117,14 @@ function PasswordStep({ busy, error, setBusy, setError, onDone }: {
   return (
     <Frame lead="Use your Setuvara account. Admin access is granted per account." step="Step 1 of 2" title="Sign in to Admin">
       <form className="flex flex-col gap-3" noValidate onSubmit={submit}>
-        <label className="flex flex-col gap-1.5 text-[12.5px] font-semibold">Email
+        <label className="flex flex-col gap-2 font-label text-[10.5px] font-medium uppercase tracking-[0.14em] text-ink/55"><span className="px-5">Email</span>
           <input autoComplete="email" autoFocus className={field} onChange={(event) => setEmail(event.target.value)} type="email" value={email} />
         </label>
-        <label className="flex flex-col gap-1.5 text-[12.5px] font-semibold">Password
+        <label className="flex flex-col gap-2 font-label text-[10.5px] font-medium uppercase tracking-[0.14em] text-ink/55"><span className="px-5">Password</span>
           <input autoComplete="current-password" className={field} onChange={(event) => setPassword(event.target.value)} type="password" value={password} />
         </label>
         <ErrorLine message={error} />
-        <button className={`${primary} mt-1`} disabled={busy} type="submit">{busy ? "Checking…" : "Continue"}</button>
+        <button className={`${primary} mt-2`} disabled={busy} type="submit">{busy ? "Checking…" : <>Continue <span aria-hidden="true">→</span></>}</button>
       </form>
     </Frame>
   );
@@ -165,16 +173,16 @@ function EnrollStep({ email, onDone, onSignOut }: { email: string | null; onDone
       title="Set up two-step sign-in"
     >
       <form className="flex flex-col gap-3" noValidate onSubmit={submit}>
-        <div className="grid place-items-center rounded-[12px] bg-[#f6f5f1] p-4">
+        <div className="grid place-items-center rounded-[26px] bg-white p-5 shadow-[0_0_0_1px_rgba(13,13,13,.08)]">
           {factor ? (
             // eslint-disable-next-line @next/next/no-img-element -- Supabase returns the QR as an SVG data URL.
             <img alt="Authenticator QR code" className="size-[168px]" height={168} src={factor.qr} width={168} />
           ) : <div aria-label="Preparing QR code" className="size-[168px] animate-pulse rounded-lg bg-ink/[0.06]" role="status" />}
         </div>
         {factor ? (
-          <details className="text-[12px] text-ink/60">
+          <details className="px-1 text-[12.5px] text-ink/60">
             <summary className="cursor-pointer font-semibold">Can’t scan? Enter the key</summary>
-            <code className="mt-2 block break-all rounded-md bg-ink/[0.04] px-2 py-1.5 font-label text-[12px] text-ink" data-testid="totp-secret">{factor.secret}</code>
+            <code className="mt-2 block break-all rounded-[14px] bg-white px-3 py-2 font-label text-[12px] text-ink shadow-[0_0_0_1px_rgba(13,13,13,.08)]" data-testid="totp-secret">{factor.secret}</code>
           </details>
         ) : null}
         <CodeInput onChange={(value) => { setCode(value); setError(""); }} value={code} />

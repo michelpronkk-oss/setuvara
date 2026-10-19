@@ -38,16 +38,16 @@ function target(row: AuditRow) {
 export function AuditList({ rows, compact = false }: { rows: AuditRow[]; compact?: boolean }) {
   if (rows.length === 0) return <Empty>No entries yet.</Empty>;
   return (
-    <ul className="divide-y divide-ink/[0.06]">
+    <ul className="divide-y divide-ink/[0.07] border-t border-ink/[0.07]">
       {rows.map((row) => {
         const diff = change(row);
         return (
-          <li className="grid gap-1 px-4 py-3 sm:grid-cols-[170px_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-5" key={row.id}>
-            <time className="text-[12px] tabular-nums text-ink/50" dateTime={row.occurred_at} title={formatDateTime(row.occurred_at)}>
+          <li className="grid gap-1.5 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-5 sm:px-7" key={row.id}>
+            <time className="font-label text-[11px] tabular-nums text-ink/45" dateTime={row.occurred_at} title={formatDateTime(row.occurred_at)}>
               {compact ? formatRelative(row.occurred_at) : formatDateTime(row.occurred_at)}
             </time>
             <div className="min-w-0">
-              <p className="text-[13px]">
+              <p className="text-[14px]">
                 <span className="font-semibold">{ACTION_LABELS[row.action] ?? row.action}</span>
                 {!compact && target(row) ? <span className="ml-2 text-ink/55">{target(row)}</span> : null}
               </p>

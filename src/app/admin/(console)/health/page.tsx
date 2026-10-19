@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Badge, Notice, PageHeader, Panel, type Tone } from "@/components/admin/ui";
+import { Badge, Notice, PageHeader, Panel, focusRing, type Tone } from "@/components/admin/ui";
 import { requireAdminPage, roleCanOpen } from "@/lib/admin/auth";
 import { getHealth } from "@/lib/admin/data";
 import { formatCount, formatDateTime, formatRelative, plural, titleCase } from "@/lib/admin/format";
@@ -15,16 +15,17 @@ function Card({ check }: { check: Check }) {
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-[14px] font-semibold">{check.title}</h2>
+        <h2 className="font-display text-[20px] font-bold leading-6 tracking-[-0.035em]">{check.title}</h2>
         <Badge dot tone={check.tone}>{check.state}</Badge>
       </div>
-      <ul className="mt-3 space-y-1.5 text-[12.5px] text-ink/65">
-        {check.lines.map((line, index) => <li key={index}>{line}</li>)}
+      <ul className="mt-auto space-y-2 pt-6 text-[13px] text-ink/60">
+        {check.lines.map((line, index) => <li className="flex gap-2.5" key={index}><span aria-hidden="true" className="mt-[7px] size-1 shrink-0 rounded-full bg-ink/30" />{line}</li>)}
       </ul>
+      {check.href ? <span aria-hidden="true" className="absolute bottom-5 right-6 text-[15px] text-ink/25 transition-transform group-hover:translate-x-0.5">→</span> : null}
     </>
   );
-  const className = "block rounded-[14px] bg-white px-4 py-4 shadow-[0_0_0_1px_rgba(13,13,13,.07),0_1px_2px_rgba(13,13,13,.04)] sm:px-5";
-  return check.href ? <Link className={`${className} hover:shadow-[0_0_0_1px_rgba(13,13,13,.16)]`} href={check.href}>{body}</Link> : <div className={className}>{body}</div>;
+  const className = "group relative flex min-h-[200px] flex-col rounded-[22px] bg-white px-5 py-5 shadow-[0_0_0_1px_rgba(13,13,13,.08)] sm:rounded-[26px] sm:px-6 sm:py-6";
+  return check.href ? <Link className={`${className} transition-shadow hover:shadow-[0_0_0_1.5px_#0d0d0d] ${focusRing}`} href={check.href}>{body}</Link> : <div className={className}>{body}</div>;
 }
 
 const HOUR = 3_600_000;
@@ -98,16 +99,29 @@ export default async function HealthPage() {
     },
   ];
 
+  const attention = checks.filter((check) => check.tone === "bad" || check.tone === "warn");
+
   return (
     <>
-      <PageHeader description={<>Built from records the platform already keeps. Checked {formatDateTime(health.checked_at)}.</>} title="Health" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <PageHeader description={<>Built from records the platform already keeps. Checked {formatDateTime(health.checked_at)}.</>} eyebrow="Platform" title="Health" />
+      <div className={`mb-3 flex items-center gap-4 rounded-[22px] px-5 py-5 sm:mb-4 sm:rounded-[26px] sm:px-7 sm:py-6 ${attention.length ? "bg-coral text-ink" : "bg-ink text-paper"}`}>
+        <span aria-hidden="true" className={`grid size-11 shrink-0 place-items-center rounded-full text-[20px] font-bold ${attention.length ? "bg-ink text-coral" : "bg-lime text-ink"}`}>{attention.length ? "!" : "✓"}</span>
+        <div className="min-w-0">
+          <p className="font-display text-[22px] font-extrabold leading-tight tracking-[-0.045em] sm:text-[28px]">
+            {attention.length ? `${plural(attention.length, "check needs", "checks need")} a look.` : "Everything looks healthy."}
+          </p>
+          <p className={`mt-1 text-[13px] ${attention.length ? "text-ink/70" : "text-paper/60"}`}>
+            {attention.length ? attention.map((check) => check.title).join(" · ") : `${checks.length} checks, all clear.`}
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
         {checks.map((check) => <Card check={check} key={check.title} />)}
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+      <div className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-2">
         <Panel title="Recent webhook failures">
-          {health.webhook_failures.length === 0 ? <p className="text-[13px] text-ink/50">None on record.</p> : (
+          {health.webhook_failures.length === 0 ? <p className="text-[13.5px] text-ink/50">None on record.</p> : (
             <ul className="space-y-2 text-[12.5px]">
               {health.webhook_failures.map((failure, index) => (
                 <li className="flex flex-wrap justify-between gap-2" key={index}>
@@ -119,7 +133,7 @@ export default async function HealthPage() {
           )}
         </Panel>
         <Panel title="Recent email failures">
-          {health.email_failures.length === 0 ? <p className="text-[13px] text-ink/50">None on record.</p> : (
+          {health.email_failures.length === 0 ? <p className="text-[13.5px] text-ink/50">None on record.</p> : (
             <ul className="space-y-2 text-[12.5px]">
               {health.email_failures.map((failure, index) => (
                 <li className="flex flex-wrap justify-between gap-2" key={index}>
@@ -132,7 +146,7 @@ export default async function HealthPage() {
         </Panel>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-6">
         <Notice>
           Server errors, response times and Edge Function logs aren’t stored in the database, so they aren’t shown here. Use the Vercel and Supabase dashboards for those.
         </Notice>

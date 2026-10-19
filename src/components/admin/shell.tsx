@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
-import { MeetMark } from "@/components/marketing/brand";
+import { focusRing } from "@/components/admin/ui";
+import { MeetMark, Wordmark } from "@/components/marketing/brand";
 import type { AdminArea, AdminRole } from "@/lib/admin/auth";
 import { createClient } from "@/lib/supabase/client";
 
@@ -19,7 +20,7 @@ const NAV: { area: AdminArea; href: string; label: string; icon: ReactNode }[] =
 ];
 
 function Icon({ children }: { children: ReactNode }) {
-  return <svg aria-hidden="true" className="size-[18px] shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24">{children}</svg>;
+  return <svg aria-hidden="true" className="size-[19px] shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24">{children}</svg>;
 }
 
 function isActive(pathname: string, href: string) {
@@ -47,74 +48,78 @@ export function AdminShell({ areas, email, role, environment, children }: {
   }
 
   const live = environment === "Live data";
+  const initial = email.trim().charAt(0).toUpperCase() || "?";
+  const envPill = (short: boolean) => (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label text-[10px] font-medium uppercase tracking-[0.14em] ${live ? "bg-coral text-ink" : "bg-sky text-ink"}`}>
+      <span aria-hidden="true" className={`size-1.5 rounded-full bg-ink ${live ? "animate-pulse" : ""}`} />{short ? (live ? "Live" : "Local") : environment}
+    </span>
+  );
 
   return (
-    <div className="lg:grid lg:min-h-dvh lg:grid-cols-[236px_minmax(0,1fr)]">
-      {/* Desktop sidebar */}
-      <div className="hidden border-r border-ink/[0.08] bg-[#ecebe6] lg:block">
-        <aside className="sticky top-0 flex h-dvh flex-col px-3 py-4">
-          <Link className="flex items-center gap-2.5 rounded-lg px-2 py-1.5" href="/">
-            <MeetMark className="size-6 text-ink" />
-            <span className="text-[15px] font-semibold tracking-[-0.02em]">Setuvara</span>
-            <span className="rounded-md bg-ink px-1.5 py-0.5 font-label text-[9.5px] font-medium uppercase tracking-[0.14em] text-paper">Admin</span>
+    <div className="lg:grid lg:min-h-dvh lg:grid-cols-[264px_minmax(0,1fr)]">
+      {/* Desktop sidebar: an ink rail, like the dark cards on the homepage */}
+      <div className="hidden bg-ink text-paper lg:block">
+        <aside className="sticky top-0 flex h-dvh flex-col px-4 pb-4 pt-6">
+          <Link className={`flex items-center gap-2.5 rounded-xl px-2.5 py-1 ${focusRing}`} href="/">
+            <MeetMark className="size-[26px] text-paper" />
+            <Wordmark className="text-[22px] leading-none" />
           </Link>
-          <nav aria-label="Admin" className="mt-6 flex flex-col gap-0.5">
+          <p className="mt-2 px-2.5 font-label text-[10px] font-medium uppercase tracking-[0.2em] text-coral">Control center</p>
+          <nav aria-label="Admin" className="mt-8 flex flex-col gap-1">
             {items.map((item) => {
               const active = isActive(pathname, item.href);
               return (
                 <Link
                   aria-current={active ? "page" : undefined}
-                  className={`flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${active ? "bg-white text-ink shadow-[0_0_0_1px_rgba(13,13,13,.07)]" : "text-ink/60 hover:bg-ink/[0.04] hover:text-ink"}`}
+                  className={`group flex h-11 items-center gap-3 rounded-full px-4 text-[14px] font-semibold transition-colors ${focusRing} ${active ? "bg-paper text-ink" : "text-paper/60 hover:bg-paper/[0.07] hover:text-paper"}`}
                   href={item.href}
                   key={item.href}
                 >
                   <Icon>{item.icon}</Icon>
                   {item.label}
+                  {active ? <span aria-hidden="true" className="ml-auto size-1.5 rounded-full bg-coral" /> : null}
                 </Link>
               );
             })}
           </nav>
-          <div className="mt-auto space-y-3 px-1">
-            <p className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ${live ? "bg-coral/15 text-[#a72f26]" : "bg-sky/50 text-[#21406f]"}`}>
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />{environment}
-            </p>
-            <div className="rounded-xl bg-white/70 px-3 py-2.5 shadow-[0_0_0_1px_rgba(13,13,13,.06)]">
-              <p className="truncate text-[12.5px] font-semibold" title={email}>{email}</p>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/50">{role}</span>
-                <button className="text-[12px] font-semibold text-ink/60 hover:text-ink disabled:opacity-50" disabled={signingOut} onClick={() => void signOut()} type="button">
-                  {signingOut ? "Signing out…" : "Sign out"}
-                </button>
+          <div className="mt-auto space-y-3">
+            <div className="px-1">{envPill(false)}</div>
+            <div className="flex items-center gap-3 rounded-[20px] bg-paper/[0.07] p-3">
+              <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-lime font-display text-[15px] font-extrabold text-ink">{initial}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12.5px] font-semibold" title={email}>{email}</p>
+                <p className="mt-0.5 font-label text-[9.5px] uppercase tracking-[0.16em] text-paper/45">{role}</p>
               </div>
+              <button aria-label="Sign out" className={`grid size-9 shrink-0 place-items-center rounded-full text-paper/60 transition-colors hover:bg-paper/10 hover:text-paper disabled:opacity-50 ${focusRing}`} disabled={signingOut} onClick={() => void signOut()} title="Sign out" type="button">
+                <Icon><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10" /></Icon>
+              </button>
             </div>
           </div>
         </aside>
       </div>
 
-      {/* Phone and tablet header */}
-      <header className="sticky top-0 z-30 border-b border-ink/[0.08] bg-[#f3f2ee]/95 backdrop-blur lg:hidden">
-        <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <Link className="flex items-center gap-2" href="/">
-            <MeetMark className="size-[22px] text-ink" />
-            <span className="rounded-md bg-ink px-1.5 py-0.5 font-label text-[9.5px] font-medium uppercase tracking-[0.14em] text-paper">Admin</span>
+      {/* Phone and tablet: ink bar with the sections as a sliding pill row */}
+      <header className="sticky top-0 z-30 bg-ink text-paper lg:hidden">
+        <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
+          <Link className={`flex items-center gap-2 rounded-lg ${focusRing}`} href="/">
+            <MeetMark className="size-[22px] text-paper" />
+            <Wordmark className="text-[19px] leading-none" />
           </Link>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${live ? "bg-coral/15 text-[#a72f26]" : "bg-sky/50 text-[#21406f]"}`}>
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />{live ? "Live" : "Local"}
-            </span>
-            <button className="h-8 rounded-full px-3 text-[12px] font-semibold shadow-[0_0_0_1px_rgba(13,13,13,.12)] disabled:opacity-50" disabled={signingOut} onClick={() => void signOut()} type="button">
-              Sign out
+          <div className="flex min-w-0 items-center gap-2">
+            {envPill(true)}
+            <button aria-label="Sign out" className={`grid size-10 place-items-center rounded-full text-paper/70 hover:bg-paper/10 hover:text-paper disabled:opacity-50 ${focusRing}`} disabled={signingOut} onClick={() => void signOut()} type="button">
+              <Icon><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10" /></Icon>
             </button>
           </div>
         </div>
-        <nav aria-label="Admin" className="overflow-x-auto px-2 pb-2 [scrollbar-width:none]">
+        <nav aria-label="Admin" className="overflow-x-auto px-3 pb-3 [mask-image:linear-gradient(90deg,#000_88%,transparent)] [scrollbar-width:none] sm:px-5 sm:[mask-image:none]">
           <div className="flex min-w-max gap-1">
             {items.map((item) => {
               const active = isActive(pathname, item.href);
               return (
                 <Link
                   aria-current={active ? "page" : undefined}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold ${active ? "bg-ink text-paper" : "text-ink/60"}`}
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors ${focusRing} ${active ? "bg-paper text-ink" : "text-paper/65 hover:text-paper"}`}
                   href={item.href}
                   key={item.href}
                 >
@@ -126,8 +131,8 @@ export function AdminShell({ areas, email, role, environment, children }: {
         </nav>
       </header>
 
-      <main className="min-w-0 px-4 pb-16 pt-5 sm:px-6 lg:px-9 lg:pt-8">
-        <div className="mx-auto max-w-[1240px]">{children}</div>
+      <main className="min-w-0 px-4 pb-20 pt-8 sm:px-8 sm:pt-10 lg:px-12 lg:pt-14">
+        <div className="mx-auto max-w-[1280px]">{children}</div>
       </main>
     </div>
   );
