@@ -21,6 +21,7 @@ import { PassportRecordStamp, type PassportStampType } from "@/components/passpo
 import { JsonLd } from "@/components/seo/json-ld";
 import { getUserBillingState } from "@/lib/billing/service";
 import { classifyAnalyticsDevice, isAnalyticsMode, isAnalyticsSource, recordProductAnalyticsEvent } from "@/lib/analytics/events";
+import { recordSitePageView } from "@/lib/analytics/site";
 import { getPublishedPublicMode, publicProfileDescription, publicProfileTitle, publicSetting, safePublicHttpUrl } from "@/lib/seo/public-profile";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
@@ -181,6 +182,8 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           source,
           deviceClass,
         });
+        // Site traffic counts the view too, with the edge country, but without the profile.
+        await recordSitePageView("profile", requestHeaders);
       });
     }
   }

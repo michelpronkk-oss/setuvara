@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 
-import { DailyBars, Meter, Notice, PageHeader, Panel, Segmented, Stat, Table, Td, Th } from "@/components/admin/ui";
+import { CountryFlag, countryName } from "@/components/admin/flag";
+import { DailyBars, Empty, Meter, Notice, PageHeader, Panel, Segmented, Stat, Table, Td, Th } from "@/components/admin/ui";
 import { requireAdminPage } from "@/lib/admin/auth";
-import { ADMIN_RANGES, getOverview, parseRange } from "@/lib/admin/data";
-import { formatCount, formatDay, formatDelta, formatMoneyMinor, formatPercent, sourceLabel, titleCase } from "@/lib/admin/format";
+import { ADMIN_RANGES, getOverview, parseRange, type SiteTraffic } from "@/lib/admin/data";
+import { SITE_PAGES } from "@/lib/analytics/site-pages";
+import { formatCount, formatDay, formatDelta, formatMoneyMinor, formatPercent, plural, sourceLabel, titleCase } from "@/lib/admin/format";
 
 export const metadata: Metadata = { title: "Overview" };
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   await requireAdminPage("overview");
   const days = parseRange((await searchParams).range);
-  const { from, to, overview, journey, plans } = await getOverview(days);
+  const { from, to, overview, traffic, journey, plans } = await getOverview(days);
   const { accounts, profiles, activation, engagement, engagement_previous: previous, connections } = overview;
 
   const funnel = [
@@ -77,6 +79,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           )}
         </Panel>
       </div>
+
+      <SiteTrafficSection traffic={traffic} />
 
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat delta={formatDelta(engagement.profile_views, previous.profile_views)} label="Profile views" note={<>{formatCount(engagement.members_viewed)} members were viewed</>} value={formatCount(engagement.profile_views)} />
@@ -150,5 +154,79 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </Notice>
       </div>
     </>
+  );
+}
+
+const TOP_COUNTRIES = 10;
+
+function SiteTrafficSection({ traffic }: { traffic: SiteTraffic | null }) {
+  if (!traffic) {
+    return <div className="mt-3"><Notice tone="warn">Site traffic isn’t available yet. It starts once its database update has been applied.</Notice></div>;
+  }
+  const { totals } = traffic;
+  const top = traffic.countries.find((item) => item.country) ?? null;
+  const pageMax = Math.max(0, ...traffic.pages.map((item) => item.count));
+  const countryMax = Math.max(0, ...traffic.countries.map((item) => item.count));
+  const shownCountries = traffic.countries.slice(0, TOP_COUNTRIES);
+  const otherCountries = traffic.countries.slice(TOP_COUNTRIES);
+  const otherViews = otherCountries.reduce((sum, item) => sum + item.count, 0);
+  const since = traffic.recording_since ? <>Counting since {formatDay(traffic.recording_since)}.</> : <>Counting starts with the first visit.</>;
+
+  return (
+    <section aria-labelledby="site-traffic" className="mt-6">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em]" id="site-traffic">Site traffic</h2>
+        <p className="text-[12.5px] text-ink/50">Page views of setuvara.com, including public profiles. {since}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Stat delta={formatDelta(totals.views, totals.views_previous)} label="Page views" note="Every public page, profiles included" value={formatCount(totals.views)} />
+        <Stat delta={formatDelta(totals.home, totals.home_previous)} label="Homepage views" note={<>{formatPercent(totals.home, totals.views)} of page views</>} value={formatCount(totals.home)} />
+        <Stat label="Countries" note="Where visits came from" value={formatCount(totals.countries)} />
+        <Stat
+          label="Top country"
+          note={top ? <>{formatCount(top.count)} views · {formatPercent(top.count, totals.views)}</> : "No visits in this range"}
+          value={top ? <span className="flex min-w-0 items-center gap-2"><CountryFlag code={top.country} /><span className="min-w-0 truncate text-[18px] tracking-[-0.03em] sm:text-[22px]">{countryName(top.country)}</span></span> : "—"}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        <Panel description="Every public page, and the homepage on its own." title="Page views by day">
+          <div className="grid gap-6">
+            <DailyBars label="Page views" points={traffic.daily.map((day) => ({ date: day.date, value: day.views }))} />
+            <DailyBars label="Homepage" points={traffic.daily.map((day) => ({ date: day.date, value: day.home }))} />
+          </div>
+        </Panel>
+        <Panel description="Views per page in this range." title="Pages">
+          {traffic.pages.length === 0 ? <Empty>No page views in this range.</Empty> : (
+            <ul className="space-y-3">
+              {traffic.pages.map((item) => (
+                <li key={item.page}>
+                  <Meter detail={<>{formatCount(item.count)} · {formatPercent(item.count, totals.views)}</>} label={SITE_PAGES[item.page as keyof typeof SITE_PAGES] ?? titleCase(item.page)} max={pageMax} value={item.count} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel description="Country of the visit, as reported by the hosting edge." title="Countries">
+          {traffic.countries.length === 0 ? <Empty>No page views in this range.</Empty> : (
+            <ul className="space-y-3">
+              {shownCountries.map((item) => (
+                <li key={item.country ?? "unknown"}>
+                  <Meter
+                    detail={<>{formatCount(item.count)} · {formatPercent(item.count, totals.views)}</>}
+                    label={<span className="flex min-w-0 items-center gap-2"><CountryFlag code={item.country} /><span className="truncate">{countryName(item.country)}</span></span>}
+                    max={countryMax}
+                    value={item.count}
+                  />
+                </li>
+              ))}
+              {otherCountries.length ? (
+                <li><Meter detail={<>{formatCount(otherViews)} · {formatPercent(otherViews, totals.views)}</>} label={`${plural(otherCountries.length, "other country", "other countries")}`} max={countryMax} value={otherViews} /></li>
+              ) : null}
+            </ul>
+          )}
+        </Panel>
+      </div>
+    </section>
   );
 }

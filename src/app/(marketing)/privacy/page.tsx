@@ -36,7 +36,8 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>When someone views your identity, opens a link or connects, we record the event, the time, the source (for example QR or link), the Mode, and a device class (mobile, tablet or desktop). That is how your Analytics work.</p>
-        <p>We do not store who viewed you, their IP address, their email, their exact browser or their location. We use no third-party analytics, advertising pixels or cross-site trackers.</p>
+        <p>To understand how the site is used, we also count page views of setuvara.com: the page, the country the visit came from (as reported by our hosting provider), and the device class. These counts are not linked to you, your identity or any visitor, and use no cookies.</p>
+        <p>We do not store who viewed you, their IP address, their email, their exact browser or their precise location, and visitor countries are never shown against a person's identity. We use no third-party analytics, advertising pixels or cross-site trackers.</p>
       </>
     ),
   },
@@ -147,7 +148,7 @@ export default function PrivacyRoute() {
       other={{ href: "/terms", label: "Read the Terms" }}
       sections={sections}
       title="Privacy, in plain words."
-      updated="13 October 2026"
+      updated="19 October 2026"
     />
   );
 }

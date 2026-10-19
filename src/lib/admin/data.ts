@@ -49,6 +49,14 @@ export type Overview = {
   devices: { device: string; count: number }[];
 };
 
+export type SiteTraffic = {
+  recording_since: string | null;
+  totals: { views: number; views_previous: number; home: number; home_previous: number; countries: number };
+  daily: { date: string; views: number; home: number }[];
+  pages: { page: string; count: number }[];
+  countries: { country: string | null; count: number }[];
+};
+
 export type Journey = {
   guestConnections: number;
   guestClaims: number;
@@ -63,8 +71,10 @@ function count(value: unknown) {
 
 export async function getOverview(days: AdminRange) {
   const { from, to } = rangeDates(days);
-  const [overview, journeyPayload, billing] = await Promise.all([
+  const [overview, traffic, journeyPayload, billing] = await Promise.all([
     rpc<Overview>("admin_overview", { p_from: from, p_to: to }),
+    // Site traffic arrived after the console; until its migration runs the section says so.
+    rpc<SiteTraffic>("admin_site_traffic", { p_from: from, p_to: to }).catch(() => null),
     // The existing internal product report (same source as /internal/analytics) covers the guest journey.
     getInternalAnalyticsAggregate(from, to).catch(() => null),
     getBillingOverview(),
@@ -77,7 +87,7 @@ export async function getOverview(days: AdminRange) {
     repeatShares: count(summary.repeat_shares),
     newConnectionsAfterFirstShare: count(summary.new_connections_after_first_share),
   } : null;
-  return { from, to, overview, journey, plans: billing.plans };
+  return { from, to, overview, traffic, journey, plans: billing.plans };
 }
 
 /* Billing */

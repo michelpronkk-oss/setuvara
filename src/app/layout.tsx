@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { SitePageView } from "@/components/analytics/site-page-view";
 import { CookieConsent } from "@/components/consent/cookie-consent";
 import { I18nProvider } from "@/lib/i18n/provider";
 
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="bg-[#f5f4ef] text-[#0d0d0d] antialiased">
         <I18nProvider>{children}</I18nProvider>
         <div className={`${marketingFontClasses} font-brand`}><CookieConsent /></div>
+        <SitePageView />
       </body>
     </html>
   );
