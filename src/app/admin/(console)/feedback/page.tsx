@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FeedbackStatusActions } from "@/components/admin/actions";
-import { Badge, Empty, PageHeader, Pager, Panel, Tabs } from "@/components/admin/ui";
+import { Badge, buttonClass, Empty, Initial, PageHeader, Pager, Panel, Tabs } from "@/components/admin/ui";
 import { requireAdminPage } from "@/lib/admin/auth";
 import { FEEDBACK_STATUSES, getHealth, listFeedback, type FeedbackStatus } from "@/lib/admin/data";
 import { formatDateTime, formatRelative, titleCase } from "@/lib/admin/format";
@@ -23,7 +23,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader description="Notes members send from the app’s account menu. Status changes are recorded in the audit log." title="Support" />
+      <PageHeader description="Notes members send from the app’s account menu. Status changes are recorded in the audit log." eyebrow={health.feedback.open ? `${health.feedback.open} open` : "Inbox zero"} title="Support" />
       <Tabs
         current={current}
         options={[
@@ -34,20 +34,22 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
         ]}
       />
 
-      <Panel className="mt-3" padded={false}>
+      <Panel className="mt-4" padded={false}>
         {feedback.rows.length === 0 ? <Empty>{status === "open" ? "Inbox zero. No open feedback." : "Nothing here."}</Empty> : (
-          <ul className="divide-y divide-ink/[0.06]">
+          <ul className="divide-y divide-ink/[0.07]">
             {feedback.rows.map((note) => (
-              <li className="px-4 py-4 sm:px-5" key={note.id}>
-                <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink/55">
+              <li className="flex gap-3 px-5 py-5 sm:gap-4 sm:px-7 sm:py-6" key={note.id}>
+                <Initial name={note.display_name ?? note.email} />
+                <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink/50">
                   <Badge tone={KIND_TONE[note.kind as keyof typeof KIND_TONE] ?? "neutral"}>{titleCase(note.kind)}</Badge>
                   {status === null ? <Badge tone={note.status === "done" ? "good" : note.status === "reviewing" ? "sky" : "warn"}>{titleCase(note.status)}</Badge> : null}
-                  <Link className="font-semibold text-ink hover:underline" href={`/members/${note.user_id}`}>{note.display_name ?? note.email ?? "Member"}</Link>
+                  <Link className="text-[14px] font-semibold text-ink underline-offset-4 hover:underline" href={`/members/${note.user_id}`}>{note.display_name ?? note.email ?? "Member"}</Link>
                   {note.username ? <span>@{note.username}</span> : null}
                   <time dateTime={note.created_at} title={formatDateTime(note.created_at)}>{formatRelative(note.created_at)}</time>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap break-words text-[13.5px] leading-[21px]">{note.message}</p>
-                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 font-label text-[11px] text-ink/45">
+                <p className="mt-2.5 whitespace-pre-wrap break-words text-[15px] leading-[23px]">{note.message}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5 font-label text-[10.5px] text-ink/50 [&>span]:rounded-full [&>span]:bg-paper [&>span]:px-2.5 [&>span]:py-1">
                   {note.route ? <span>Page {note.route}</span> : null}
                   {note.mode ? <span>Mode {note.mode}</span> : null}
                   {note.plan ? <span>Plan {note.plan}</span> : null}
@@ -55,17 +57,18 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
                   {note.locale ? <span>Locale {note.locale}</span> : null}
                 </div>
                 {note.user_agent ? <p className="mt-1 truncate font-label text-[11px] text-ink/35" title={note.user_agent}>{note.user_agent}</p> : null}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                   <FeedbackStatusActions id={note.id} status={note.status} />
                   {note.has_screenshot ? (
-                    <a className="inline-flex h-8 items-center rounded-full px-3 text-[12px] font-semibold text-ink/65 hover:text-ink" href={`/api/admin/feedback/${note.id}/screenshot`} rel="noreferrer" target="_blank">Screenshot ↗</a>
+                    <a className={buttonClass("quiet")} href={`/api/admin/feedback/${note.id}/screenshot`} rel="noreferrer" target="_blank">Screenshot <span aria-hidden="true">↗</span></a>
                   ) : null}
+                </div>
                 </div>
               </li>
             ))}
           </ul>
         )}
-        <div className="border-t border-ink/[0.06]">
+        <div className="border-t border-ink/[0.07]">
           <Pager href={(next) => href(current, next)} page={page} pageSize={30} total={feedback.total} />
         </div>
       </Panel>

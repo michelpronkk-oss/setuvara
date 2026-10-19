@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { CopyButton, ProviderCheck } from "@/components/admin/actions";
 import { AuditList } from "@/components/admin/audit-list";
-import { Badge, Empty, Initial, KeyValues, Notice, Panel, PlanBadge, Table, Td, Th } from "@/components/admin/ui";
+import { Badge, buttonClass, Empty, Eyebrow, Initial, KeyValues, Notice, Panel, PlanBadge, Table, Td, Th } from "@/components/admin/ui";
 import { recordAdminAccess, requireAdminPage } from "@/lib/admin/auth";
 import { getMemberDetail, listAudit } from "@/lib/admin/data";
 import { formatCount, formatDateTime, formatDay, formatRelative, titleCase } from "@/lib/admin/format";
@@ -29,32 +29,35 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <nav className="mb-4 text-[12.5px] text-ink/55"><Link className="hover:text-ink" href="/members">Members</Link> <span aria-hidden="true">/</span> {profile?.display_name ?? account.email}</nav>
+      <nav aria-label="Breadcrumb" className="mb-6 sm:mb-8">
+        <Link className={buttonClass("quiet")} href="/members"><span aria-hidden="true">←</span> Members</Link>
+      </nav>
 
-      <header className="flex flex-wrap items-start justify-between gap-4 pb-5">
-        <div className="flex min-w-0 items-center gap-3.5">
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-5 pb-6 sm:pb-9">
+        <div className="flex min-w-0 items-center gap-4 sm:gap-5">
           <Initial large name={profile?.display_name ?? account.email} />
           <div className="min-w-0">
-            <h1 className="truncate font-display text-[26px] font-bold leading-none tracking-[-0.045em] sm:text-[30px]">{profile?.display_name ?? "No profile yet"}</h1>
-            <p className="mt-1.5 truncate text-[13px] text-ink/60">{profile ? `@${profile.username} · ` : ""}{account.email}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <PlanBadge plan={billing.plan} />
-              {profile?.is_published ? <Badge dot tone="good">Published</Badge> : <Badge>Not published</Badge>}
-              {!account.email_confirmed_at ? <Badge tone="warn">Email unconfirmed</Badge> : null}
-              {account.banned ? <Badge tone="bad">Banned until {formatDay(account.banned_until)}</Badge> : null}
-              {member.admin_role ? <Badge tone="sky">Admin · {member.admin_role}</Badge> : null}
-            </div>
+            <Eyebrow className="text-coral">{member.admin_role ? `Member · Admin ${member.admin_role}` : "Member"}</Eyebrow>
+            <h1 className="mt-2 truncate font-display text-[34px] font-extrabold leading-[0.95] tracking-[-0.055em] sm:text-[52px]">{profile?.display_name ?? "No profile yet"}</h1>
+            <p className="mt-2 truncate text-[13.5px] text-ink/55 sm:text-[14.5px]">{profile ? `@${profile.username} · ` : ""}{account.email}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {publicUrl ? <a className="inline-flex h-8 items-center rounded-full bg-ink px-3 text-[12px] font-semibold text-paper" href={publicUrl} rel="noreferrer" target="_blank">Open public profile ↗</a> : null}
           <CopyButton value={account.id} />
+          {publicUrl ? <a className={buttonClass("primary")} href={publicUrl} rel="noreferrer" target="_blank">Public profile <span aria-hidden="true">↗</span></a> : null}
+        </div>
+        <div className="flex w-full flex-wrap gap-1.5">
+          <PlanBadge plan={billing.plan} />
+          {profile?.is_published ? <Badge dot tone="good">Published</Badge> : <Badge>Not published</Badge>}
+          {!account.email_confirmed_at ? <Badge tone="warn">Email unconfirmed</Badge> : null}
+          {account.banned ? <Badge tone="bad">Banned until {formatDay(account.banned_until)}</Badge> : null}
+          {account.mfa_factors > 0 ? <Badge tone="sky">Two-step on</Badge> : null}
         </div>
       </header>
 
-      <div className="mb-3"><Notice>Your view of this record was added to the audit log.</Notice></div>
+      <div className="mb-4"><Notice>Your view of this record was added to the audit log.</Notice></div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
         <Panel title="Account">
           <KeyValues items={[
             { label: "Joined", value: formatDateTime(account.created_at) },
@@ -64,7 +67,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
             { label: "Two-step sign-in", value: account.mfa_factors > 0 ? "On" : "Off" },
             { label: "Profile updated", value: profile ? formatRelative(profile.updated_at) : "—" },
           ]} />
-          <p className="mt-3 break-all font-label text-[11px] text-ink/40">{account.id}</p>
+          <p className="mt-4 break-all rounded-[12px] bg-paper px-3 py-2 font-label text-[11px] text-ink/45">{account.id}</p>
         </Panel>
 
         <Panel
@@ -81,7 +84,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           {member.subscriptions.length ? (
             <ul className="mt-3 space-y-2">
               {member.subscriptions.map((sub) => (
-                <li className="rounded-[10px] bg-ink/[0.03] px-3 py-2.5 text-[12.5px]" key={sub.dodo_subscription_id}>
+                <li className="rounded-[16px] bg-paper px-4 py-3 text-[12.5px]" key={sub.dodo_subscription_id}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <code className="font-label text-[11.5px] text-ink/70">{sub.dodo_subscription_id}</code>
                     <Badge tone={sub.provider_status === "active" ? "good" : sub.provider_status === "past_due" ? "warn" : "neutral"}>{titleCase(sub.provider_status)}</Badge>
@@ -101,17 +104,17 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         </Panel>
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+      <div className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-3">
         <Panel className="lg:col-span-2" padded={false} title="Modes">
           {member.modes.length === 0 ? <Empty>No Modes yet.</Empty> : (
             <Table minWidth={560}>
-              <thead className="bg-ink/[0.02]">
+              <thead>
                 <tr><Th>Mode</Th><Th>Connect</Th><Th>Look</Th><Th align="right">Photo</Th><Th align="right">Links</Th><Th align="right">Blocks</Th></tr>
               </thead>
               <tbody>
                 {member.modes.map((mode) => (
                   <tr className="border-t border-ink/[0.06]" key={mode.slug}>
-                    <Td><span className="font-semibold">{mode.label}</span>{!mode.is_enabled ? <span className="ml-2"><Badge>Off</Badge></span> : null}</Td>
+                    <Td><span className="font-display text-[15px] font-bold tracking-[-0.03em]">{mode.label}</span>{!mode.is_enabled ? <span className="ml-2"><Badge>Off</Badge></span> : null}</Td>
                     <Td className="text-ink/70">{titleCase(mode.connect_policy)}</Td>
                     <Td className="text-ink/70">{titleCase(mode.theme)}</Td>
                     <Td align="right">{mode.has_photo ? "Yes" : "—"}</Td>
@@ -137,12 +140,12 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         </Panel>
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <Panel actions={<Link className="text-[12px] font-semibold text-ink/55 hover:text-ink" href="/feedback">Support inbox →</Link>} title="Feedback from this member">
+      <div className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-2">
+        <Panel actions={<Link className={buttonClass("quiet")} href="/feedback">Support inbox <span aria-hidden="true">→</span></Link>} title="Feedback from this member">
           {member.feedback.length === 0 ? <Empty>No feedback sent.</Empty> : (
-            <ul className="divide-y divide-ink/[0.06]">
+            <ul className="divide-y divide-ink/[0.07]">
               {member.feedback.map((note) => (
-                <li className="py-2.5 first:pt-0 last:pb-0" key={note.id}>
+                <li className="py-3.5 first:pt-0 last:pb-0" key={note.id}>
                   <div className="flex items-center gap-2 text-[12px] text-ink/55"><Badge>{titleCase(note.kind)}</Badge><Badge tone={note.status === "done" ? "good" : note.status === "reviewing" ? "sky" : "warn"}>{titleCase(note.status)}</Badge>{formatRelative(note.created_at)}</div>
                   <p className="mt-1.5 line-clamp-2 text-[13px] leading-5">{note.message}</p>
                 </li>
@@ -152,9 +155,9 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         </Panel>
         <Panel title="Emails sent">
           {member.emails.length === 0 ? <Empty>No product emails on record.</Empty> : (
-            <ul className="divide-y divide-ink/[0.06] text-[12.5px]">
+            <ul className="divide-y divide-ink/[0.07] text-[13px]">
               {member.emails.map((email, index) => (
-                <li className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0" key={`${email.template_key}-${index}`}>
+                <li className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0" key={`${email.template_key}-${index}`}>
                   <span className="min-w-0 truncate"><span className="font-medium">{titleCase(email.template_key)}</span> <span className="text-ink/45">· {email.category}</span></span>
                   <span className="flex shrink-0 items-center gap-2 text-ink/55">
                     <Badge tone={email.status === "sent" ? "good" : email.status === "failed" ? "bad" : "neutral"}>{titleCase(email.status)}</Badge>
@@ -167,7 +170,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         </Panel>
       </div>
 
-      <Panel className="mt-3" description="Who opened or changed this member’s record." padded={false} title="Audit trail">
+      <Panel className="mt-3 sm:mt-4" description="Who opened or changed this member’s record." padded={false} title="Audit trail">
         <AuditList rows={audit.rows} compact />
       </Panel>
     </>

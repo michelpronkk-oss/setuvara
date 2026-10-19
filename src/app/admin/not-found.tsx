@@ -1,12 +1,14 @@
 import Link from "next/link";
 
+import { buttonClass } from "@/components/admin/ui";
+
 export default function AdminNotFound() {
   return (
-    <main className="grid min-h-dvh place-items-center px-4">
+    <main className="grid min-h-dvh place-items-center px-5">
       <div className="text-center">
-        <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/45">404</p>
-        <h1 className="mt-2 font-display text-[28px] font-bold tracking-[-0.045em]">Nothing here.</h1>
-        <Link className="mt-5 inline-flex h-10 items-center rounded-full bg-ink px-5 text-[13px] font-semibold text-paper" href="/">Back to overview</Link>
+        <p className="font-label text-[11px] font-medium uppercase tracking-[0.2em] text-coral">404</p>
+        <h1 className="mt-4 font-display text-[56px] font-extrabold leading-[0.9] tracking-[-0.06em] sm:text-[80px]">Nothing here<span className="text-coral">.</span></h1>
+        <Link className={`${buttonClass("primary", "md")} mt-8`} href="/">Back to overview <span aria-hidden="true">→</span></Link>
       </div>
     </main>
   );

@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { buttonClass } from "@/components/admin/ui";
 import type { FeedbackStatus } from "@/lib/admin/data";
 
-const small = "inline-flex h-8 items-center rounded-full px-3 text-[12px] font-semibold shadow-[0_0_0_1px_rgba(13,13,13,.14)] transition-colors hover:bg-ink/[0.04] disabled:cursor-wait disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const small = buttonClass("secondary");
 
 export function CopyButton({ value, label = "Copy ID" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -16,11 +17,11 @@ export function CopyButton({ value, label = "Copy ID" }: { value: string; label?
         void navigator.clipboard.writeText(value).then(() => {
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1500);
-        });
+        }, () => window.prompt("Copy this ID", value));
       }}
       type="button"
     >
-      {copied ? "Copied" : label}
+      {copied ? <><span aria-hidden="true">✓</span> Copied</> : label}
     </button>
   );
 }
@@ -56,9 +57,9 @@ export function ProviderCheck({ memberId }: { memberId: string }) {
       <button className={small} disabled={state === "busy"} onClick={() => void run()} type="button">
         {state === "busy" ? "Checking Dodo…" : state === "done" ? "Check again" : "Verify with Dodo"}
       </button>
-      {state === "error" ? <p className="mt-2 text-[12px] text-[#b3261e]" role="alert">{message}</p> : null}
+      {state === "error" ? <p className="mt-2 text-[12px] font-medium text-[#b32a1f]" role="alert">{message}</p> : null}
       {state === "done" ? (
-        <ul className="mt-2 space-y-1 text-[12px]">
+        <ul className="mt-3 space-y-1.5 text-[12px]">
           {results.length === 0 ? <li className="text-ink/55">No subscription rows to check.</li> : results.map((result) => (
             <li className="flex flex-wrap gap-x-2" key={result.id}>
               <code className="font-label text-[11.5px] text-ink/60">{result.id}</code>
@@ -105,11 +106,11 @@ export function FeedbackStatusActions({ id, status }: { id: string; status: Feed
   return (
     <div className="flex flex-wrap items-center gap-2">
       {NEXT_STATUS[status].map((option) => (
-        <button className={option.status === "done" ? `${small} bg-ink text-paper shadow-none hover:bg-ink/85` : small} disabled={busy} key={option.status} onClick={() => void move(option.status)} type="button">
+        <button className={option.status === "done" ? buttonClass("primary") : small} disabled={busy} key={option.status} onClick={() => void move(option.status)} type="button">
           {option.label}
         </button>
       ))}
-      {error ? <span className="text-[12px] text-[#b3261e]" role="alert">{error}</span> : null}
+      {error ? <span className="text-[12px] font-medium text-[#b32a1f]" role="alert">{error}</span> : null}
     </div>
   );
 }

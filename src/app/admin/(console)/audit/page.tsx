@@ -14,10 +14,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader description="Every admin sign-in, member view, provider check and change, newest first. Entries can’t be edited or deleted, by anyone." title="Audit log" />
+      <PageHeader description="Every admin sign-in, member view, provider check and change, newest first. Entries can’t be edited or deleted, by anyone." eyebrow="Append-only" title="Audit log" />
       <Panel padded={false}>
         <AuditList rows={audit.rows} />
-        <div className="border-t border-ink/[0.06]">
+        <div className="border-t border-ink/[0.07]">
           <Pager href={(next) => `/audit?page=${next}`} page={page} pageSize={50} total={audit.total} />
         </div>
       </Panel>

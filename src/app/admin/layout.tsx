@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function AdminRootLayout({ children }: { children: React.ReactNode }) {
   if (!isAdminHost((await headers()).get("host"))) notFound();
   return (
-    <div className={`${marketingFontClasses} min-h-dvh bg-[#f3f2ee] font-brand text-ink`} data-setuvara-admin="">
+    <div className={`${marketingFontClasses} min-h-dvh bg-paper font-brand text-ink`} data-setuvara-admin="">
       {children}
     </div>
   );
