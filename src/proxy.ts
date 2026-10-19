@@ -1,8 +1,56 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ADMIN_ROUTE_PREFIX, isAdminHost } from "@/lib/admin/host";
 import { updateSession } from "@/lib/supabase/proxy";
+
+const ADMIN_RESPONSE_HEADERS: Record<string, string> = {
+  "X-Robots-Tag": "noindex, nofollow, noarchive",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "X-Content-Type-Options": "nosniff",
+  "Cache-Control": "private, no-store",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+};
+
+function notFound() {
+  return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
+function isAdminPath(pathname: string) {
+  return pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`) || pathname.startsWith("/api/admin/");
+}
+
+/**
+ * admin.setuvara.com serves only the Admin Control Center: every page path is rewritten into the
+ * /admin route tree and only /api/admin/* is reachable. On every other host the admin tree 404s.
+ */
+async function adminProxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  let response: NextResponse;
+
+  if (pathname.startsWith("/api/")) {
+    if (!pathname.startsWith("/api/admin/")) return notFound();
+    response = await updateSession(request);
+  } else if (pathname === ADMIN_ROUTE_PREFIX || pathname.startsWith(`${ADMIN_ROUTE_PREFIX}/`)) {
+    // Admin URLs never carry the internal prefix.
+    const destination = request.nextUrl.clone();
+    destination.pathname = pathname.slice(ADMIN_ROUTE_PREFIX.length) || "/";
+    return NextResponse.redirect(destination, 308);
+  } else {
+    const destination = request.nextUrl.clone();
+    destination.pathname = pathname === "/" ? ADMIN_ROUTE_PREFIX : `${ADMIN_ROUTE_PREFIX}${pathname}`;
+    response = await updateSession(request, new Headers(request.headers), destination);
+  }
+
+  for (const [name, value] of Object.entries(ADMIN_RESPONSE_HEADERS)) response.headers.set(name, value);
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  if (isAdminHost(request.headers.get("host"))) return adminProxy(request);
+  if (isAdminPath(pathname)) return notFound();
+
   if (pathname === "/nl" || pathname.startsWith("/nl/")) {
     const destination = request.nextUrl.clone();
     destination.pathname = pathname === "/nl" ? "/" : pathname.slice(3);

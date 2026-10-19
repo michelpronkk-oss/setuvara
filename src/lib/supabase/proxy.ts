@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getSupabaseConfig } from "./config";
 
-export async function updateSession(request: NextRequest, forwardedHeaders = new Headers(request.headers)) {
+export async function updateSession(request: NextRequest, forwardedHeaders = new Headers(request.headers), rewriteTo?: URL) {
   const config = getSupabaseConfig();
 
   const next = () => {
@@ -11,7 +11,9 @@ export async function updateSession(request: NextRequest, forwardedHeaders = new
     const cookieHeader = request.headers.get("cookie");
     if (cookieHeader) headers.set("cookie", cookieHeader);
     else headers.delete("cookie");
-    return NextResponse.next({ request: { headers } });
+    return rewriteTo
+      ? NextResponse.rewrite(rewriteTo, { request: { headers } })
+      : NextResponse.next({ request: { headers } });
   };
 
   if (!config) {
