@@ -22,6 +22,8 @@ function Mark({ className = "" }: { className?: string }) {
  */
 export function CookieConsent() {
   const hydrated = useSyncExternalStore(noop, () => true, () => false);
+  // The admin console (admin.setuvara.com) sets only essential sign-in cookies, so it never asks.
+  const adminSurface = useSyncExternalStore(noop, () => document.querySelector("[data-setuvara-admin]") !== null, () => false);
   const { choice } = useConsent();
   const [open, setOpen] = useState(false);
   const [details, setDetails] = useState(false);
@@ -30,7 +32,7 @@ export function CookieConsent() {
 
   useEffect(() => onOpenConsentPreferences(() => { setMedia(choice !== "essential"); setDetails(true); setOpen(true); }), [choice]);
 
-  const visible = hydrated && (open || choice === "unset");
+  const visible = hydrated && !adminSurface && (open || choice === "unset");
   if (!visible) return null;
 
   const save = (value: "essential" | "media") => { setConsent(value); setOpen(false); setDetails(false); };
