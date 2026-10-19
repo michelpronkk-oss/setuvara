@@ -42,6 +42,12 @@ Paid plans are resolved in TypeScript with the app's own `selectEffectiveSubscri
 `resolveBillingSnapshot`, so admin shows exactly what the product grants. Run-rate is list price
 (`PUBLIC_PLAN_CATALOG`), not collected revenue; Dodo stays the record for payments.
 
+Site traffic (migration `20261019200000_site_page_views`) counts views of public site pages. Fixed
+pages are counted by `SitePageView` in the root layout via `POST /api/site/view` (same-origin only,
+in-memory per-IP limit, crawlers and headless browsers ignored); public profiles are counted server-side
+next to `profile_viewed`. Each row keeps only a page key, the `x-vercel-ip-country` code and a device
+class: no IP, cookie, visitor ID, user agent, URL or profile link. The admin host is never counted.
+
 ## Audit
 
 `private.admin_audit_log` is append-only (update, delete and truncate raise). It records admin
