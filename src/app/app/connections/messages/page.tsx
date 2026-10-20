@@ -39,5 +39,5 @@ export default async function MessagesPage({ searchParams }: {
     target = { id: targetId, name, connectionId: connection.id };
   }
 
-  return <ChatWorkspace initialConversationId={selectedId} key={selectedId ?? target?.connectionId ?? "inbox"} target={target} viewerId={viewerId} />;
+  return <ChatWorkspace initialConversationId={selectedId} key={target?.connectionId ?? "inbox"} target={target} viewerId={viewerId} />;
 }

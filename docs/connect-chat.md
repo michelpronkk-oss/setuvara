@@ -20,13 +20,13 @@ The database migration installs `private.chat_runtime.enabled = false`. Particip
 
 ## Local verification
 
-Use an **isolated** Setuvara local Supabase stack. Do not reset a shared local database or use the hosted project for tests. Apply all 54 migrations. In that isolated database, run:
+Use an **isolated** Setuvara local Supabase stack. Do not reset a shared local database or use the hosted project for tests. Apply all 54 migrations. For the E2E scripts, in that isolated database run:
 
 ```sql
 update private.chat_runtime set enabled = true, updated_at = now() where singleton;
 ```
 
-Then run `npx supabase test db` for pgTAP authorization and deletion checks. The local multi-account flow is `npm run e2e:chat`, with `CHAT_TEST_LOCAL=1`, `CHAT_TEST_SUPABASE_URL`, `CHAT_TEST_PUBLISHABLE_KEY`, and `CHAT_TEST_SECRET_KEY` pointing only to that isolated local stack. Start the Next app with `CONNECT_CHAT_ENABLED=true` and the same local Supabase URL/key, then run `npm run e2e:chat:ui` with `CHAT_TEST_APP_URL` set to its local URL. Both scripts reject nonlocal URLs. The browser script checks request, acceptance, realtime delivery, reporting, preferences, blocking, and horizontal overflow at mobile and desktop sizes. Run `npx next typegen`, `npx tsc --noEmit --incremental false`, focused lint, and a production build. Inspect member and reviewer flows visually before release.
+Run `npx supabase test db` for pgTAP authorization and deletion checks **before** that update (the chat test asserts the shipped gate is closed and opens it inside its own rolled-back transaction), then enable it for the scripts below. The local multi-account flow is `npm run e2e:chat`, with `CHAT_TEST_LOCAL=1`, `CHAT_TEST_SUPABASE_URL`, `CHAT_TEST_PUBLISHABLE_KEY`, and `CHAT_TEST_SECRET_KEY` pointing only to that isolated local stack. Start the Next app with `CONNECT_CHAT_ENABLED=true` and the same local Supabase URL/key, then run `npm run e2e:chat:ui` with `CHAT_TEST_APP_URL` set to its local URL. Both scripts reject nonlocal URLs. The browser script checks request, acceptance, realtime delivery, reporting, preferences, blocking, and horizontal overflow at mobile and desktop sizes. Run `npx next typegen`, `npx tsc --noEmit --incremental false`, focused lint, and a production build. Inspect member and reviewer flows visually before release.
 
 ## Hosted release sequence — approval required
 
@@ -40,8 +40,19 @@ Then run `npx supabase test db` for pgTAP authorization and deletion checks. The
 
 Set `private.chat_runtime.enabled=false` first to stop participant reads and writes, then disable `CONNECT_CHAT_ENABLED` in the application. Keep the migration and data in place while investigating; reverting the migration would destroy chat data and is not an operational rollback. The reviewer tools and retention maintenance must continue for existing reports while messaging is disabled. Re-enable only after the incident is resolved and the two gates are deliberately restored.
 
+## Verified locally (2026-10-20)
+
+On an isolated local Supabase stack (CLI 2.120, Postgres 17) started from this branch:
+
+- All 54 migrations apply from scratch; `apply-connect-chat.sql` (the hosted-release file) applies on top of the 53 and its preflight refuses a second run.
+- `npx supabase test db`: `connect_chat_security.sql` passes (runtime gate on reads and writes, consent, retries, reciprocal requests, blocks, reports, unrelated and unconnected accounts, unread totals, display-name sync, deletion and purge). The only failure is `creator_security.sql` test 35, which fails identically on `main` without this migration.
+- `npm run e2e:chat` (multi-account, concurrency and retry) and `npm run e2e:chat:ui` (phone 390 and desktop 1440: request, unread badge, accept, realtime delivery, a 20-message burst staying scrolled to the newest, Back/Forward between inbox and thread, report, preferences, block, no horizontal overflow) pass. Set `E2E_CHROMIUM` to a local Chromium if Playwright's bundled one is missing and `CHAT_TEST_SHOTS` to a folder to keep screenshots.
+- With `CONNECT_CHAT_ENABLED` unset the People page has no Messages entry, the shell makes no chat calls and `/app/connections/messages` renders Not found.
+- `npx tsc --noEmit`, focused ESLint and `npm run build` pass.
+
 ## Open release gates
 
-- This Codex environment has not verified the hosted migration ledger or live schema (403).
-- The isolated local Docker engine returned HTTP 500 during migration startup; migration execution, pgTAP, the multi-account script and browser flows remain unverified until an isolated database is available.
-- Legal/privacy approval and an operational purge schedule are required before live enablement.
+- Hosted state is unverified from the development environments: confirm the 53 recorded migrations on `wizqtlgnuiicvpycvhhc` before applying (the apply file checks for `20261019200000`).
+- Legal/privacy approval of the Messages copy and 90-day report retention, and an installed purge schedule, before live enablement.
+- At least one named reviewer provisioned and the report flow exercised in the Admin Control Center.
+- Not covered by automated tests: real iOS Safari keyboard behaviour in the composer, flaky mobile networks, Realtime on the hosted project, and load.

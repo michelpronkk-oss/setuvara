@@ -475,6 +475,33 @@ returns table(
   limit least(greatest(coalesce(p_limit,30),1),50);
 $fn$;
 
+-- Account-wide unread total for navigation badges. Invoker: RLS and the runtime gate apply.
+create or replace function public.chat_unread_total()
+returns integer language sql stable security invoker set search_path = '' as $fn$
+  select coalesce(sum(s.unread_count),0)::integer
+  from public.chat_participant_state s
+  join public.chat_conversations c on c.id = s.conversation_id
+  where s.user_id = auth.uid()
+    and (s.hidden_through_sequence = 0 or c.last_sequence > s.hidden_through_sequence);
+$fn$;
+
+-- Conversation rows carry display names so the inbox never needs profile reads
+-- (unpublished profiles are not readable by others). Keep them current.
+create or replace function private.chat_sync_display_name()
+returns trigger language plpgsql security definer set search_path = '' as $fn$
+declare v_name text := pg_catalog.left(pg_catalog.btrim(new.display_name),80);
+begin
+  if v_name is null or v_name = '' or new.display_name is not distinct from old.display_name then return new; end if;
+  update public.chat_conversations set user_low_name = v_name where user_low_id = new.id and user_low_name <> v_name;
+  update public.chat_conversations set user_high_name = v_name where user_high_id = new.id and user_high_name <> v_name;
+  return new;
+end;
+$fn$;
+
+create trigger profiles_chat_display_name
+after update of display_name on public.profiles
+for each row execute function private.chat_sync_display_name();
+
 -- A reviewer must be both an MFA-gated Setuvara admin in the application and
 -- explicitly allowlisted here. This helper is called only by service-role RPCs.
 create or replace function private.chat_require_reviewer(p_actor uuid)
@@ -556,17 +583,17 @@ $fn$;
 revoke all on function private.chat_actor(),private.chat_require_connection(uuid,uuid),
   private.chat_require_unblocked(uuid,uuid),private.chat_lock_pair(uuid,uuid),private.chat_lock_actor(uuid),
   private.chat_record_message(public.chat_conversations,uuid,uuid,text,boolean),
-  private.chat_require_reviewer(uuid) from public,anon,authenticated;
+  private.chat_require_reviewer(uuid),private.chat_sync_display_name() from public,anon,authenticated;
 revoke all on function public.chat_start_request(uuid,uuid,text),public.chat_send(uuid,uuid,text),
   public.chat_decide_request(uuid,text),public.chat_set_requests_enabled(boolean),
   public.chat_mark_read(uuid,bigint),public.chat_hide(uuid),public.chat_block(uuid),
   public.chat_unblock(uuid),public.chat_report(uuid,uuid,text,text),
-  public.chat_inbox(integer,timestamptz,uuid) from public,anon,authenticated;
+  public.chat_inbox(integer,timestamptz,uuid),public.chat_unread_total() from public,anon,authenticated;
 grant execute on function public.chat_start_request(uuid,uuid,text),public.chat_send(uuid,uuid,text),
   public.chat_decide_request(uuid,text),public.chat_set_requests_enabled(boolean),
   public.chat_mark_read(uuid,bigint),public.chat_hide(uuid),public.chat_block(uuid),
   public.chat_unblock(uuid),public.chat_report(uuid,uuid,text,text),
-  public.chat_inbox(integer,timestamptz,uuid) to authenticated;
+  public.chat_inbox(integer,timestamptz,uuid),public.chat_unread_total() to authenticated;
 revoke all on function public.chat_admin_list_reports(uuid,integer,timestamptz,uuid),
   public.chat_admin_open_report(uuid,uuid),public.chat_admin_set_report_status(uuid,uuid,text),
   public.chat_purge_closed_reports() from public,anon,authenticated;

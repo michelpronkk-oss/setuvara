@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { chatError, chatTime, type ChatInboxItem, type ChatMessage, type ChatTarget } from "@/lib/chat/types";
@@ -21,6 +20,16 @@ function initials(name: string) {
   return (words.length > 1 ? `${words[0][0]}${words.at(-1)?.[0] ?? ""}` : words[0]?.slice(0, 2) || "S").toUpperCase();
 }
 
+function dayLabel(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return new Intl.DateTimeFormat("en", { weekday: "short", day: "numeric", month: "short",
+    ...(date.getFullYear() === today.getFullYear() ? {} : { year: "numeric" }) }).format(date);
+}
+
 function relativeTime(value: string) {
   const date = new Date(value);
   const today = new Date();
@@ -31,7 +40,6 @@ function relativeTime(value: string) {
 export function ChatWorkspace({ viewerId, initialConversationId, target }: {
   viewerId: string; initialConversationId: string | null; target: ChatTarget | null;
 }) {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [selectedId, setSelectedId] = useState(initialConversationId);
   const [newTarget, setNewTarget] = useState(target);
@@ -60,6 +68,10 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
   const newestRef = useRef(0);
   const inboxRef = useRef(inbox);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Follow the newest message only while the reader is already at the bottom;
+  // loading earlier history keeps the reader's place.
+  const stickRef = useRef(true);
+  const prependRef = useRef<number | null>(null);
   const selectedRef = useRef(selectedId);
   useEffect(() => { inboxRef.current = inbox; }, [inbox]);
   useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
@@ -130,12 +142,13 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
     if (error) { setNotice("Messages couldn’t load. Try again."); setThreadLoading(false); return; }
     if (selectedRef.current !== id) return;
     const rows = ((data ?? []) as ChatMessage[]).reverse();
+    if (before) prependRef.current = scrollRef.current?.scrollHeight ?? null;
+    else stickRef.current = true;
     mergeMessages(rows);
     setHistoryMore(rows.length === PAGE);
     if (!before) {
       setThreadLoading(false);
       if (rows.length) void markRead(id, rows.at(-1)!.sequence);
-      requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }));
     }
   }, [markRead, mergeMessages, supabase]);
 
@@ -157,6 +170,29 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
     }
     if (after) void markRead(id, after);
   }, [markRead, mergeMessages, supabase]);
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    if (prependRef.current !== null) {
+      element.scrollTop += element.scrollHeight - prependRef.current;
+      prependRef.current = null;
+    } else if (stickRef.current) element.scrollTop = element.scrollHeight;
+  }, [messages, outgoing, threadLoading]);
+
+  // Selection lives in the URL without a server round trip; Back and Forward restore it.
+  useEffect(() => {
+    const onPop = () => {
+      const id = new URL(window.location.href).searchParams.get("conversation");
+      if (id === selectedRef.current) return;
+      selectedRef.current = id;
+      setNotice(""); setOutgoing(null); setSelectedId(id); setNewTarget(null);
+      setSelected(null); setMessages([]); setHistoryMore(false);
+      setThreadLoading(Boolean(id)); newestRef.current = 0; stickRef.current = true;
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   useEffect(() => { void loadInbox(); }, [loadInbox]);
   useEffect(() => {
@@ -231,14 +267,15 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
     selectedRef.current = id;
     setNotice(""); setOutgoing(null); setSelectedId(id); setNewTarget(null);
     setSelected(null); setMessages([]); setHistoryMore(false);
-    setThreadLoading(Boolean(id)); newestRef.current = 0;
-    router.push(id ? `/app/connections/messages?conversation=${id}` : "/app/connections/messages");
+    setThreadLoading(Boolean(id)); newestRef.current = 0; stickRef.current = true;
+    window.history.pushState(null, "", id ? `/app/connections/messages?conversation=${id}` : "/app/connections/messages");
   };
 
   const send = async (body: string, clientId = crypto.randomUUID()) => {
     const text = body.trim();
     if (!text || text.length > 2000 || outgoing?.state === "sending") return;
     setNotice(""); setOutgoing({ clientId, body: text, state: "sending" }); setDraft("");
+    stickRef.current = true;
     const result = selectedId && selected?.status === "accepted"
       ? await supabase.rpc("chat_send", { p_conversation_id: selectedId, p_client_id: clientId, p_body: text })
       : newTarget || (selected?.status === "declined" && selected.requester_id !== viewerId)
@@ -347,8 +384,10 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
     || (active?.status === "declined" && active.requester_id !== viewerId && !isBlockedByMe));
   const showThread = Boolean(active || newTarget || selectedId);
 
-  return <main className="mx-auto w-full max-w-[1320px] px-0 text-[#0d0d0d] sm:px-5 lg:px-8">
-    <div className="flex items-center justify-between px-5 pb-4 pt-5 sm:px-1 sm:pt-8">
+  // The workspace fills the viewport under the app header so the composer is always on screen.
+  // On phones an open conversation takes the whole height; the page heading belongs to the inbox.
+  return <main className="mx-auto flex h-[calc(100dvh-60px)] w-full max-w-[1320px] flex-col px-0 text-[#0d0d0d] sm:px-5 sm:pb-6 md:h-[calc(100dvh-76px)] lg:px-8">
+    <div className={`${showThread ? "hidden lg:flex" : "flex"} shrink-0 items-center justify-between px-5 pb-4 pt-5 sm:px-1 sm:pt-6`}>
       <div><Link className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-black/50 hover:text-black" href="/app/connections">← People</Link>
         <h1 className="mt-2 font-display text-[30px] font-bold tracking-[-0.055em] sm:text-[38px]">Messages<span className="text-[#ff5a4f]">.</span></h1>
         <p className="mt-1 text-[13px] text-black/50">A place to keep the conversation going.</p></div>
@@ -356,7 +395,7 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
     </div>
     {offline && <p className="mx-4 mb-3 rounded-xl bg-[#fff0e6] px-4 py-3 text-sm" role="status">You’re offline. Your messages will refresh when you reconnect.</p>}
     {notice && <p className="mx-4 mb-3 rounded-xl bg-white px-4 py-3 text-sm text-[#9f3b31]" role="alert">{notice}</p>}
-    <div className="grid h-[calc(100dvh-166px)] min-h-[360px] overflow-hidden border-y border-black/10 bg-white sm:h-[calc(100dvh-215px)] sm:rounded-[28px] sm:border lg:grid-cols-[350px_minmax(0,1fr)] lg:shadow-[0_18px_60px_-45px_rgba(13,13,13,.45)]">
+    <div className={`grid min-h-[320px] flex-1 overflow-hidden border-black/10 bg-white sm:rounded-[28px] sm:border lg:grid-cols-[350px_minmax(0,1fr)] lg:shadow-[0_18px_60px_-45px_rgba(13,13,13,.45)] ${showThread ? "" : "border-t"}`} style={{ gridTemplateRows: "minmax(0,1fr)" }}>
       <aside aria-label="Conversations" className={`${showThread ? "hidden lg:flex" : "flex"} min-h-0 flex-col border-black/10 lg:border-r`}>
         <div className="flex items-center justify-between border-b border-black/10 px-5 py-5"><div><h2 className="font-display text-[18px] font-bold tracking-tight">Your inbox</h2><p className="mt-0.5 text-xs text-black/50">One inbox for every Mode</p></div><span className="rounded-full bg-[#c7ff4a] px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-wider">Connect</span></div>
         <div className="flex-1 divide-y divide-black/[0.07] overflow-y-auto">
@@ -373,11 +412,11 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
       <section aria-label={active ? `Conversation with ${active.other_name}` : "Message"} className={`${showThread ? "flex" : "hidden lg:flex"} min-h-0 min-w-0 flex-col bg-[#faf9f5]`}>
         {!showThread ? <div className="m-auto max-w-xs px-6 py-16 text-center"><div className="mx-auto grid size-16 place-items-center rounded-[20px] bg-[#c7ff4a] text-2xl">✦</div><h2 className="mt-6 font-display text-2xl font-bold tracking-tight">Stay connected.</h2><p className="mt-2 text-sm leading-6 text-black/50">Pick a conversation, or visit a Connection to start one.</p></div> : <>
           <div className="flex items-center gap-3 border-b border-black/10 bg-white px-4 py-3 sm:px-6"><button aria-label="Back to inbox" className="grid size-11 place-items-center rounded-full hover:bg-[#f5f4ef] focus-visible:outline-2 lg:hidden" onClick={() => goTo(null)} type="button">←</button><span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[#c7ff4a] font-display text-sm font-bold">{initials(active?.other_name ?? newTarget?.name ?? "S")}</span><div className="min-w-0 flex-1"><h2 className="truncate font-display text-[17px] font-bold tracking-tight">{active?.other_name ?? newTarget?.name}</h2><p className="text-[11px] text-black/45">{active?.status === "accepted" ? "Connected on Setuvara" : active?.status === "pending" ? "Message request" : "A Connection on Setuvara"}</p></div>{active && !isBlockedByMe && <button className="min-h-10 rounded-full px-2 text-[12px] font-semibold text-[#a43d33] hover:bg-[#fff0e6]" onClick={() => setConfirmBlock(true)} type="button">Block</button>}{active && active.status !== "pending" && <button className="min-h-10 rounded-full px-2 text-[12px] font-semibold text-black/55 hover:bg-[#f5f4ef]" onClick={() => void hide()} type="button">Hide</button>}</div>
-          <div className="flex flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-8" ref={scrollRef}>
+          <div className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5 sm:px-8" onScroll={(event) => { const element = event.currentTarget; stickRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120; }} ref={scrollRef}>
             {historyMore && <button className="mx-auto mb-5 min-h-10 rounded-full border border-black/10 bg-white px-4 text-xs font-semibold" onClick={() => { const first = messages[0]; if (first && selectedId) void loadHistory(selectedId, first.sequence); }} type="button">Earlier messages</button>}
             {threadLoading && <p className="text-center text-sm text-black/45" role="status">Loading messages…</p>}
             {newTarget && <div className="mx-auto mt-8 max-w-sm rounded-[24px] bg-white p-6 text-center shadow-[0_12px_40px_-30px_rgba(13,13,13,.3)]"><span className="font-label text-[10px] font-bold uppercase tracking-widest text-[#cc5147]">A thoughtful start</span><h3 className="mt-3 font-display text-xl font-bold">Say hello to {newTarget.name}.</h3><p className="mt-2 text-sm leading-6 text-black/55">Your first message arrives as a request. They choose whether to open the conversation.</p></div>}
-            <ol className="mt-auto space-y-3" aria-label="Message history">{messages.map((message) => <li className={`group flex ${message.sender_id === viewerId ? "justify-end" : "justify-start"}`} key={message.id}><div className={`max-w-[min(85%,470px)] rounded-[20px] px-4 py-3 ${message.sender_id === viewerId ? "rounded-br-[5px] bg-[#0d0d0d] text-white" : "rounded-bl-[5px] bg-white text-[#0d0d0d] shadow-[0_0_0_1px_rgba(13,13,13,.06)]"}`}><p className="whitespace-pre-wrap break-words text-[14px] leading-[22px]">{message.body}</p><div className={`mt-1.5 flex items-center justify-end gap-2 text-[10px] ${message.sender_id === viewerId ? "text-white/55" : "text-black/40"}`}><time dateTime={message.created_at}>{message.sender_id === viewerId ? "Sent · " : ""}{chatTime(message.created_at)}</time>{message.sender_id !== viewerId && <button className="rounded px-1 underline-offset-2 hover:underline focus-visible:outline-2" onClick={() => { setReportDone(false); setReportId(message.id); }} type="button">Report</button>}</div></div></li>)}</ol>
+            <ol className="mt-auto" aria-label="Message history">{messages.map((message, index) => <Fragment key={message.id}>{(index === 0 || new Date(messages[index - 1].created_at).toDateString() !== new Date(message.created_at).toDateString()) && <li className="flex justify-center pb-1 pt-4 first:pt-0"><span className="rounded-full bg-black/[0.05] px-3 py-1 font-label text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">{dayLabel(message.created_at)}</span></li>}<li className={`group flex ${index && messages[index - 1].sender_id === message.sender_id ? "mt-1.5" : "mt-3"} ${message.sender_id === viewerId ? "justify-end" : "justify-start"}`}><div className={`max-w-[min(85%,470px)] rounded-[20px] px-4 py-3 ${message.sender_id === viewerId ? "rounded-br-[5px] bg-[#0d0d0d] text-white" : "rounded-bl-[5px] bg-white text-[#0d0d0d] shadow-[0_0_0_1px_rgba(13,13,13,.06)]"}`}><p className="whitespace-pre-wrap break-words text-[14px] leading-[22px]">{message.body}</p><div className={`mt-1.5 flex items-center justify-end gap-2 text-[10px] ${message.sender_id === viewerId ? "text-white/55" : "text-black/40"}`}><time dateTime={message.created_at}>{message.sender_id === viewerId ? "Sent · " : ""}{chatTime(message.created_at)}</time>{message.sender_id !== viewerId && <button className="rounded px-1 underline-offset-2 hover:underline focus-visible:outline-2" onClick={() => { setReportDone(false); setReportId(message.id); }} type="button">Report</button>}</div></div></li></Fragment>)}</ol>
             {outgoing && <div className="mt-3 flex justify-end"><div className="max-w-[85%] rounded-[20px] rounded-br-[5px] bg-[#0d0d0d]/75 px-4 py-3 text-white"><p className="whitespace-pre-wrap break-words text-sm">{outgoing.body}</p><div className="mt-2 flex items-center justify-end gap-3 text-[11px] text-white/70"><span>{outgoing.state === "sending" ? "Sending…" : "Failed to send"}</span>{outgoing.state === "failed" && <button className="font-semibold underline" onClick={() => void send(outgoing.body, outgoing.clientId)} type="button">Retry</button>}</div></div></div>}
           </div>
           {active && isRecipient && !isBlockedByMe && <div className="border-t border-black/10 bg-white px-5 py-5 sm:px-8"><p className="text-sm font-semibold">A message request from {active.other_name}</p><p className="mt-1 text-xs leading-5 text-black/55">Accept to reply. You can decline or block instead.</p><div className="mt-4 flex flex-wrap gap-2"><button className="min-h-11 rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white" onClick={() => void decide("accept")} type="button">Accept request</button><button className="min-h-11 rounded-full border border-black/15 px-5 text-sm font-semibold" onClick={() => void decide("decline")} type="button">Decline</button><button className="min-h-11 rounded-full px-4 text-sm font-semibold text-[#a43d33]" onClick={() => setConfirmBlock(true)} type="button">Block</button></div></div>}

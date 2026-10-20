@@ -23,7 +23,8 @@ insert into auth.users(id,aud,role,email,raw_user_meta_data,email_confirmed_at,c
 values
 ('00000000-0000-4000-8000-000000000001','authenticated','authenticated','chat-a@example.test','{"username":"chat_a","display_name":"Alice"}',now(),now(),now()),
 ('00000000-0000-4000-8000-000000000002','authenticated','authenticated','chat-b@example.test','{"username":"chat_b","display_name":"Bob"}',now(),now(),now()),
-('00000000-0000-4000-8000-000000000003','authenticated','authenticated','chat-c@example.test','{"username":"chat_c","display_name":"Carol"}',now(),now(),now());
+('00000000-0000-4000-8000-000000000003','authenticated','authenticated','chat-c@example.test','{"username":"chat_c","display_name":"Carol"}',now(),now(),now()),
+('00000000-0000-4000-8000-000000000004','authenticated','authenticated','chat-d@example.test','{"username":"chat_d","display_name":"Dan"}',now(),now(),now());
 insert into public.connections(user_id,connected_user_id,user_display_name_snapshot,connected_display_name_snapshot)
 values
 ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002','Alice','Bob'),
@@ -63,6 +64,12 @@ select throws_ok(format('select public.chat_start_request(%L,%L,%L)',
   '00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','Self'),
   '22023',null,'self requests fail');
 
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select throws_ok(format('select public.chat_start_request(%L,%L,%L)',
+  '00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000040','Hi stranger'),
+  '42501','chat_connection_required','an account without a registered Connection cannot request');
+select throws_ok(format('select public.chat_block(%L)','00000000-0000-4000-8000-000000000001'),
+  '42501',null,'an unrelated account cannot create block rows for arbitrary members');
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 select is((select count(*)::int from public.chat_messages),0,'unrelated account sees no message');
 select is((select count(*)::int from public.chat_conversations),0,'unrelated account sees no conversation');
@@ -85,9 +92,9 @@ select is((select unread_count from public.chat_participant_state
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select ok((public.chat_send((select value::uuid from chat_test where key='ab'),
   '20000000-0000-4000-8000-000000000002','After accept')->>'message_id') is not null,'accepted sender can send');
-select is((select unread_count from public.chat_participant_state where
+select is((select count(*)::int from public.chat_participant_state where
   conversation_id=(select value::uuid from chat_test where key='ab')
-  and user_id='00000000-0000-4000-8000-000000000002'),1,'recipient gains one unread');
+  and user_id='00000000-0000-4000-8000-000000000002'),0,'sender cannot read the recipient unread state');
 select ok((public.chat_send((select value::uuid from chat_test where key='ab'),
   '20000000-0000-4000-8000-000000000002','After accept')->>'message_id') is not null,'send retry succeeds');
 select is((select count(*)::int from public.chat_messages where conversation_id=(select value::uuid from chat_test where key='ab')),
@@ -98,9 +105,13 @@ select throws_ok(format('select public.chat_send(%L,%L,%L)',
 select ok((select count(*)::int from public.chat_inbox(30,null,null))=1,'sender sees one account-level inbox row');
 
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select is((select unread_count from public.chat_participant_state where
+  conversation_id=(select value::uuid from chat_test where key='ab') and user_id=auth.uid()),1,'recipient gains one unread, retry adds none');
+select is(public.chat_unread_total(),1,'account unread total counts the incoming message');
 select public.chat_mark_read((select value::uuid from chat_test where key='ab'),2);
 select is((select unread_count from public.chat_participant_state where
   conversation_id=(select value::uuid from chat_test where key='ab') and user_id=auth.uid()),0,'mark read clears unread');
+select is(public.chat_unread_total(),0,'unread total follows mark read');
 select public.chat_hide((select value::uuid from chat_test where key='ab'));
 select is((select count(*)::int from public.chat_inbox(30,null,null)),0,'hide affects only own inbox');
 select public.chat_block('00000000-0000-4000-8000-000000000001');
@@ -148,6 +159,18 @@ select is(public.chat_start_request('00000000-0000-4000-8000-000000000003',
   (select value from chat_test where key='ac'),'declining recipient may explicitly initiate');
 
 reset role;
+update private.chat_runtime set enabled = false,updated_at = now() where singleton;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select is((select count(*)::int from public.chat_messages),0,'turning the runtime gate off hides existing messages');
+select throws_ok(format('select public.chat_send(%L,%L,%L)',
+  (select value from chat_test where key='ac'),'20000000-0000-4000-8000-000000000050','Closed'),
+  '42501','chat_sign_in_required','turning the runtime gate off stops sends');
+reset role;
+update private.chat_runtime set enabled = true,updated_at = now() where singleton;
+update public.profiles set display_name='Caroline' where id='00000000-0000-4000-8000-000000000003';
+select is((select user_high_name from public.chat_conversations where id=(select value::uuid from chat_test where key='ac')),
+  'Caroline','display name changes reach existing conversations');
 select ok((select count(*) from private.chat_reports where id=(select value::uuid from chat_test where key='report'))=1,
   'report evidence is stored privately');
 select ok((select pg_catalog.jsonb_array_length(evidence) <= 5 from private.chat_reports

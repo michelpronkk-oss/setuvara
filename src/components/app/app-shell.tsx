@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { MeetMark } from "@/components/marketing/brand";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { DEFAULT_FOCUS, focusPosition, type PhotoFocus } from "@/components/profile/photo-focus";
+import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeedbackSheet } from "./feedback-sheet";
 import { HomeScreenRuntime, HomeScreenSheet, useStandalone } from "./home-screen";
@@ -40,7 +41,42 @@ function NavIcon({ name }: { name: NavIconName }) {
 // The 60° tick that marks the current destination. Same angle as the Meet mark cut.
 const tick = "polygon(2.3px 0,100% 0,calc(100% - 2.3px) 100%,0 100%)";
 
-export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut, walletPubliclyLaunched }: {
+// Unread messages across the account inbox. Conversation changes wake a recount;
+// the count itself always comes from the database.
+function useChatUnread(enabled: boolean, pathname: string) {
+  const [count, setCount] = useState(0);
+  const supabase = useMemo(() => (enabled ? createClient() : null), [enabled]);
+  const refresh = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("chat_unread_total");
+    if (!error && typeof data === "number") setCount(data);
+  }, [supabase]);
+  useEffect(() => { queueMicrotask(() => void refresh()); }, [refresh, pathname]);
+  useEffect(() => {
+    if (!supabase) return;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const wake = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => void refresh(), 400); };
+    const onVisible = () => { if (document.visibilityState === "visible") wake(); };
+    void supabase.auth.getClaims().then(({ data }) => {
+      const id = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
+      if (!id) return;
+      channel = supabase.channel(`chat-unread:${id}:${crypto.randomUUID()}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "chat_conversations", filter: `user_low_id=eq.${id}` }, wake)
+        .on("postgres_changes", { event: "*", schema: "public", table: "chat_conversations", filter: `user_high_id=eq.${id}` }, wake)
+        .subscribe();
+    });
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      if (timer) clearTimeout(timer);
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [refresh, supabase]);
+  return count;
+}
+
+export function AppShell({ children, displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut, walletPubliclyLaunched, chatEnabled = false }: {
   children: ReactNode;
   displayName: string;
   username: string | null;
@@ -50,8 +86,10 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
   publicProfileUrl: string | null;
   signOut: () => Promise<void>;
   walletPubliclyLaunched: boolean;
+  chatEnabled?: boolean;
 }) {
   const pathname = usePathname();
+  const unread = useChatUnread(chatEnabled, pathname);
   // Any in-app link: the destination tab lights up at once and a thin line runs under the header until
   // the next page commits, so a slow server response never reads as a frozen app.
   const [pending, setPending] = useState<{ path: string; from: string } | null>(null);
@@ -89,7 +127,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
           <span className="font-display text-[19px] font-bold tracking-[-0.03em] md:text-[21px]">setuvara</span>
         </Link>
         <nav aria-label="Main navigation" className="hidden gap-0 md:flex lg:gap-1.5">
-          {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} variant="top" />)}
+          {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} unread={item.href === "/app/connections" ? unread : 0} variant="top" />)}
         </nav>
         <div className="flex items-center gap-3 justify-self-end">
           <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} displayName={displayName} plan={plan} publicProfileUrl={publicProfileUrl} signOut={signOut} username={username} />
@@ -100,27 +138,33 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
       <div className={`min-w-0 md:pb-0 ${messagesSurface ? "" : "pb-[calc(78px+env(safe-area-inset-bottom))]"}`} id="app-main" tabIndex={-1}>{children}</div>
 
       {!messagesSurface && <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
-        {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} variant="bottom" />)}
+        {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} unread={item.href === "/app/connections" ? unread : 0} variant="bottom" />)}
       </nav>}
     </div>
   );
 }
 
-function NavLink({ item, pathname, pendingPath, variant }: { item: (typeof navigation)[number]; pathname: string; pendingPath: string | null; variant: "top" | "bottom" }) {
+function UnreadDot({ count, className }: { count: number; className: string }) {
+  if (!count) return null;
+  return <span aria-hidden="true" className={`pointer-events-none absolute grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#ff5a4f] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#f5f4ef] ${className}`}>{count > 99 ? "99+" : count}</span>;
+}
+
+function NavLink({ item, pathname, pendingPath, variant, unread = 0 }: { item: (typeof navigation)[number]; pathname: string; pendingPath: string | null; variant: "top" | "bottom"; unread?: number }) {
   const { messages } = useI18n();
+  const unreadLabel = unread ? `, ${unread} unread ${unread === 1 ? "message" : "messages"}` : "";
   // While a tab is loading it already reads as the current one.
   const active = isActive(pendingPath ?? pathname, item.href);
   if (variant === "bottom") {
     return (
       <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[10.5px] leading-none tracking-[-0.005em] focus-visible:outline-2 sm:text-[12px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/50"}`} href={item.href}>
-        <span className={`grid h-8 w-12 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out active:scale-90 ${active ? "bg-[#0d0d0d] text-[#f5f4ef]" : "text-black/60"}`}><NavIcon name={item.icon} /></span>
-        <span className="max-w-full truncate">{messages.common[item.shortKey]}</span>
+        <span className={`relative grid h-8 w-12 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out active:scale-90 ${active ? "bg-[#0d0d0d] text-[#f5f4ef]" : "text-black/60"}`}><NavIcon name={item.icon} /><UnreadDot className="-right-0.5 -top-1" count={unread} /></span>
+        <span className="max-w-full truncate">{messages.common[item.shortKey]}{unreadLabel && <span className="sr-only">{unreadLabel}</span>}</span>
       </Link>
     );
   }
   return (
     <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-[5px] rounded-full px-2.5 text-[13px] transition-colors focus-visible:outline-2 lg:px-4 lg:text-[15px] ${active ? "font-semibold text-[#0d0d0d]" : "font-medium text-black/60 hover:text-black"}`} href={item.href}>
-      <span>{messages.common[item.labelKey]}</span><span aria-hidden="true" className={`h-1 w-5 bg-[#ff5a4f] transition-opacity ${active ? "opacity-100" : "opacity-0"}`} style={{ clipPath: tick }} />
+      <span className="relative">{messages.common[item.labelKey]}{unreadLabel && <span className="sr-only">{unreadLabel}</span>}<UnreadDot className="-right-4 -top-2.5" count={unread} /></span><span aria-hidden="true" className={`h-1 w-5 bg-[#ff5a4f] transition-opacity ${active ? "opacity-100" : "opacity-0"}`} style={{ clipPath: tick }} />
     </Link>
   );
 }
