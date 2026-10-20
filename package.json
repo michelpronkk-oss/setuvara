@@ -9,6 +9,8 @@
     "test:soundtrack": "deno test tests/soundtrack/focus.test.ts",
     "e2e:connection-access": "node scripts/e2e-connection-access.mjs",
     "e2e:connection-detail": "node scripts/e2e-connection-detail.mjs",
+    "e2e:chat": "node scripts/e2e-chat.mjs",
+    "e2e:chat:ui": "node scripts/e2e-chat-ui.mjs",
     "e2e:tap": "node scripts/e2e-tap.mjs",
     "e2e:analytics": "node scripts/e2e-analytics.mjs",
     "test:appearance": "node --test tests/appearance/appearance.test.mjs",

@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import { cache } from "react";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
+import { connectChatEnabled } from "@/lib/chat/launch";
 import { nameFontClasses } from "@/components/profile/name-fonts";
 import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
@@ -322,6 +323,8 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           selectedRewards={Object.fromEntries((publicCosmetics ?? []).map((item) => [item.category, item.reward_id]))}
           connectionContext={connectedState?.context as ConnectionContext | undefined}
           connectionHref={connectedState?.connection_id ? (isGuestSession ? `/connections/${connectedState.connection_id}` : `/app/connections/${connectedState.connection_id}`) : undefined}
+          messageHref={connectChatEnabled() && userId && connectedState?.connection_id && !owner && !isGuestSession
+            ? `/app/connections/messages?connection=${connectedState.connection_id}` : undefined}
           guestClaimHref={isGuestSession ? "/signup?claim=1" : undefined}
           memberTier={memberTier}
           plan={plan}

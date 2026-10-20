@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { getPublicOrigin, getViewerPlan } from "@/lib/app/viewer";
 import { signHomeImage } from "@/lib/app/media";
 import { WALLET_PUBLICLY_LAUNCHED } from "@/lib/wallet/launch";
+import { connectChatEnabled } from "@/lib/chat/launch";
 import { readFocus } from "@/components/profile/photo-focus";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { createClient } from "@/lib/supabase/server";
@@ -43,6 +44,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <AppShell
           avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
           avatarUrl={avatarUrl}
+          chatEnabled={connectChatEnabled()}
           displayName={profile?.display_name ?? "Your identity"}
           plan={billing.plan}
           publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}

@@ -14,9 +14,9 @@ const MODE_COLOR: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7F
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 const cutCorner = (size: number) => `polygon(0 0,100% 0,100% calc(100% - ${size}px),calc(100% - ${Math.round(size * 0.58)}px) 100%,0 100%)`;
 
-type Props = { model: RelationshipModel; photoUrl: string | null; viewerId: string };
+type Props = { model: RelationshipModel; photoUrl: string | null; viewerId: string; canMessage: boolean };
 
-export function ConnectionDetail({ model, photoUrl, viewerId }: Props) {
+export function ConnectionDetail({ model, photoUrl, viewerId, canMessage }: Props) {
   const router = useRouter();
   const timeZone = useTimeZone();
   const [memories, setMemories] = useState(() => new Map(model.encounters.map((item) => [item.id, item.memory])));
@@ -85,7 +85,7 @@ export function ConnectionDetail({ model, photoUrl, viewerId }: Props) {
   return (
     <main className="min-h-dvh bg-[#f5f4ef] text-[#0d0d0d]">
       <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 pt-3 md:px-8 lg:pt-6">
-        <Link className="inline-flex min-h-11 items-center gap-2 rounded-full pr-3 text-sm font-semibold text-black/65 hover:text-[#0d0d0d] focus-visible:outline-2" href="/app/connections"><span aria-hidden="true">←</span>People</Link>
+        <div className="flex flex-wrap items-center justify-between gap-3"><Link className="inline-flex min-h-11 items-center gap-2 rounded-full pr-3 text-sm font-semibold text-black/65 hover:text-[#0d0d0d] focus-visible:outline-2" href="/app/connections"><span aria-hidden="true">←</span>People</Link>{canMessage && <Link className="inline-flex min-h-11 items-center rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2" href={`/app/connections/messages?connection=${model.id}`}>Message {person.firstName}<span aria-hidden="true" className="ml-2 text-[#c7ff4a]">↗</span></Link>}</div>
 
         <div className="mt-2 grid grid-cols-1 gap-7 lg:mt-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-14 xl:gap-20">
           <PersonPanel person={person} photoUrl={photoUrl} />

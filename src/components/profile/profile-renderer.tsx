@@ -45,6 +45,7 @@ type ProfileRendererProps = {
   previewAsVisitor?: boolean;
   visitorAction?: ReactNode;
   connectionHref?: string;
+  messageHref?: string;
   connectionContext?: ConnectionContext | null;
   guestClaimHref?: string;
   onShare?: () => void;
@@ -329,7 +330,7 @@ function inkOn(hex: string) {
 
 // ---------------------------------------------------------------- Actions
 
-function Actions({ mode, owner, connected, theme, copy, visitorAction, connectionContext, connectionHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; connected: boolean; theme: AppearanceTheme; copy: Copy; booking?: ResolvedLink }) {
+function Actions({ mode, owner, connected, theme, copy, visitorAction, connectionContext, connectionHref, messageHref, guestClaimHref, onShare, booking }: ProfileProps & { owner: boolean; connected: boolean; theme: AppearanceTheme; copy: Copy; booking?: ResolvedLink }) {
   const share = `/app/identity?mode=${mode.slug}&section=share`;
   const onShareClick = onShare ? (event: { preventDefault: () => void }) => { event.preventDefault(); onShare(); } : undefined;
   const id = theme.identity;
@@ -357,6 +358,7 @@ function Actions({ mode, owner, connected, theme, copy, visitorAction, connectio
         {connectionHref
           ? <Link aria-label={`${copy.connected}. ${copy.viewConnection}`} className={`${primary} max-w-full`} data-profile-action="connected" href={connectionHref} style={line}>{label}</Link>
           : <p aria-live="polite" className={`${primary} max-w-full`} data-profile-action="connected" style={line}>{label}</p>}
+        {messageHref && <Link className={secondary} data-profile-action="message" href={messageHref} style={fill}>Message</Link>}
         {guestClaimHref && <Link className={`inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-4 text-xs font-semibold text-[#0D0D0D] ${focus}`} href={guestClaimHref} style={{ outlineColor: id.fg }}>{copy.claimSetuvara}</Link>}
       </>
     );
