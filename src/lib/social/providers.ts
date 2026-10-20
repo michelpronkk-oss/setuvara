@@ -21,6 +21,8 @@ export type Snapshot = {
   avatarUrl: string | null;
   audience: number | null;
   audienceHidden: boolean;
+  /** A second platform id, kept only to match deletion callbacks (Instagram's app-scoped id). */
+  scopedId?: string | null;
 };
 
 export class ProviderError extends Error {
@@ -229,8 +231,10 @@ export function parseInstagramMe(json: unknown): Snapshot {
   const type = str(me.account_type).toUpperCase();
   if (type && type !== "BUSINESS" && type !== "MEDIA_CREATOR") throw new ProviderError("not_professional", type);
   const username = str(me.username);
+  const scoped = str(me.id) || (typeof me.id === "number" ? String(me.id) : "");
   return {
     accountId: id,
+    scopedId: scoped && scoped !== id && scoped.length <= 200 ? scoped : null,
     username,
     displayName: str(me.name).slice(0, 120),
     profileUrl: /^[A-Za-z0-9._]{1,30}$/.test(username) ? `https://www.instagram.com/${username}` : null,
@@ -269,7 +273,7 @@ const instagram: Spec = {
   },
   // Instagram Login has no token revoke call. Disconnecting deletes the token; the member can also remove Setuvara under Instagram's app settings.
   revoke: null,
-  snapshot: async ({ accessToken }) => parseInstagramMe(await call(`https://graph.instagram.com/${INSTAGRAM_GRAPH_VERSION}/me?${new URLSearchParams({ fields: "user_id,username,name,account_type,profile_picture_url,followers_count", access_token: accessToken })}`)),
+  snapshot: async ({ accessToken }) => parseInstagramMe(await call(`https://graph.instagram.com/${INSTAGRAM_GRAPH_VERSION}/me?${new URLSearchParams({ fields: "user_id,id,username,name,account_type,profile_picture_url,followers_count", access_token: accessToken })}`)),
 };
 
 export const PROVIDERS: Record<SocialProvider, Spec> = { youtube, twitch, tiktok, instagram };

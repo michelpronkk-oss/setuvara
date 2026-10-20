@@ -61,6 +61,7 @@ export function SiteFooter() {
             <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/terms">Terms</Link>
             <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/refunds">Refunds</Link>
             <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/cookies">Cookies</Link>
+            <Link className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/data-deletion">Data deletion</Link>
             <CookieSettingsButton className="min-h-11 content-center transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" />
           </div>
           <p className="font-label text-[11px] uppercase tracking-[0.16em]">{copy.meetOnce}</p>
