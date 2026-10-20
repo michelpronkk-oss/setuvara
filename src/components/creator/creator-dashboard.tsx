@@ -160,7 +160,7 @@ export type CreatorDashboardData = {
 export function CreatorDashboardView({ data }: { data: CreatorDashboardData }) {
   const { firstName, imageUrl, focus, shareUrl, enabled, story, stats, firstRun, steps, stepsDone, today, actionCount, monthLabel, revenue, perDay, storeLine, liveActions, pipeline, platforms, combined, featured, accounts } = data;
   return (
-    <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-8 lg:grid lg:min-h-[calc(100dvh-76px)] lg:grid-cols-[minmax(0,1.25fr)_minmax(400px,1fr)] lg:gap-6 lg:pt-1 min-[1800px]:gap-8">
+    <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-6 md:pt-6 lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,1.25fr)_minmax(400px,1fr)] lg:gap-6 min-[1800px]:gap-8">
       <h1 className="sr-only">Your Setuvara · Creator</h1>
       <section aria-label="Creator" className="relative isolate flex min-h-[340px] flex-col overflow-hidden rounded-[28px] bg-[#0D0D0D] text-[#F5F4EF] [clip-path:polygon(0_0,100%_0,100%_calc(100%-64px),calc(100%-36px)_100%,0_100%)] lg:min-h-0">
         {imageUrl && (

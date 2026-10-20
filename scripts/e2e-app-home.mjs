@@ -222,7 +222,9 @@ export async function validateHomeWithData({ page, browser, appUrl, owner, owner
         const target = await shareButton(page).boundingBox();
         assert(target && target.height >= 44 && target.width >= 44, "Share touch target");
         const stageBox = await page.getByRole("region", { name: "Personal Mode", exact: true }).boundingBox();
-        assert(stageBox.width >= (width < 768 ? width * .9 : width * .45), "Identity must dominate the Home stage");
+        // Measured against the content column: from 768px the app sidebar takes the left edge.
+        const content = await page.locator("#app-main").evaluate((node) => node.clientWidth - parseFloat(getComputedStyle(node).paddingLeft));
+        assert(stageBox.width >= (width < 768 ? width * .9 : content * .5), "Identity must dominate the Home stage");
         const nameBox = await page.getByRole("region", { name: "Personal Mode", exact: true }).getByText(name, { exact: true }).boundingBox();
         assert(nameBox && nameBox.x >= stageBox.x && nameBox.x + nameBox.width <= stageBox.x + stageBox.width + 1, "Name must fit the stage");
         assert(nameBox.y >= stageBox.y + 64 && nameBox.y + nameBox.height <= stageBox.y + stageBox.height, "Name must not overlap the status or escape the stage");

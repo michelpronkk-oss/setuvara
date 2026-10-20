@@ -119,7 +119,7 @@ export function WalletExperience({ walletPubliclyLaunched }: { walletPubliclyLau
   }
 
   return (
-    <main className="mx-auto min-h-[calc(100dvh-60px)] w-full max-w-[1440px] px-4 py-6 text-[#0d0d0d] sm:px-6 md:min-h-[calc(100dvh-76px)] md:px-8 md:py-10">
+    <main className="mx-auto min-h-[calc(100dvh-60px)] w-full max-w-[1440px] px-4 py-6 text-[#0d0d0d] sm:px-6 md:min-h-dvh md:px-8 md:py-10">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)] lg:gap-8">
         <section className="flex min-w-0 flex-col justify-between overflow-hidden rounded-[28px] bg-[#0d0d0d] p-6 text-[#f5f4ef] sm:p-8 lg:min-h-[470px] lg:p-10">
           <div>
@@ -204,7 +204,7 @@ function ComingSoonWallet({ loading, notice, onRetry, state }: {
   state: WalletState | null;
 }) {
   return (
-    <main className="mx-auto min-h-[calc(100dvh-60px)] w-full max-w-[1440px] px-4 py-6 text-[#0d0d0d] sm:px-6 md:min-h-[calc(100dvh-76px)] md:px-8 md:py-10">
+    <main className="mx-auto min-h-[calc(100dvh-60px)] w-full max-w-[1440px] px-4 py-6 text-[#0d0d0d] sm:px-6 md:min-h-dvh md:px-8 md:py-10">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)] lg:gap-8">
         <section className="flex min-w-0 flex-col justify-between overflow-hidden rounded-[28px] bg-[#0d0d0d] p-6 text-[#f5f4ef] sm:p-8 lg:min-h-[470px] lg:p-10">
           <div>

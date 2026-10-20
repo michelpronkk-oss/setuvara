@@ -62,11 +62,12 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   const initialMode = launch ? parseLaunchMode(cookieStore.get(LAUNCH_MODE_COOKIE)?.value) : ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 
   return (
-    <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-8 lg:grid lg:h-[calc(100dvh-76px)] lg:min-h-[680px] lg:grid-cols-[minmax(0,1.25fr)_minmax(400px,1fr)] lg:gap-6 lg:pt-1 min-[1800px]:gap-8">
+    <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-6 md:pt-6 lg:grid lg:h-dvh lg:min-h-[680px] lg:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)] lg:gap-6 min-[1800px]:gap-8">
       <h1 className="sr-only">Your Setuvara</h1>
       <IdentityStage
         displayName={profile.display_name}
         initialMode={initialMode}
+        key={launch ? "launch" : query.mode ?? "home"}
         hasRequestedMode={launch || ORDER.includes(query.mode as ModeSlug)}
         launch={launch}
         isPublished={profile.is_published}

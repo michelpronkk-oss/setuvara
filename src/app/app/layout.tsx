@@ -13,7 +13,10 @@ import { connectChatEnabled } from "@/lib/chat/launch";
 import { readFocus } from "@/components/profile/photo-focus";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { createClient } from "@/lib/supabase/server";
+import type { ModeSlug } from "@/components/profile/types";
 import { signOut } from "./identity/actions";
+
+const MODE_SLUGS: ModeSlug[] = ["personal", "event", "business", "creator"];
 
 export const metadata: Metadata = {
   title: { default: "Your Setuvara", template: "%s | Setuvara" },
@@ -28,12 +31,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (error || !userId) redirect("/login?next=/app");
 
-  const [{ data: profile }, { data: personal }, requestHeaders, billing] = await Promise.all([
-    supabase.from("profiles").select("username, display_name").eq("id", userId).maybeSingle(),
-    supabase.from("profile_modes").select("image_path, image_focus_x, image_focus_y").eq("profile_id", userId).eq("slug", "personal").maybeSingle(),
+  const [{ data: profile }, { data: modeRows }, requestHeaders, billing] = await Promise.all([
+    supabase.from("profiles").select("username, display_name, is_published").eq("id", userId).maybeSingle(),
+    supabase.from("profile_modes").select("slug, is_enabled, image_path, image_focus_x, image_focus_y").eq("profile_id", userId).order("sort_order"),
     headers(),
     getViewerPlan(userId),
   ]);
+  const personal = modeRows?.find((row) => row.slug === "personal");
+  // Mode status for the sidebar: which Modes exist and whether each one opens publicly.
+  const modes = (modeRows ?? []).filter((row): row is typeof row & { slug: ModeSlug } => MODE_SLUGS.includes(row.slug as ModeSlug)).map((row) => ({ slug: row.slug, enabled: Boolean(row.is_enabled) }));
   const publicOrigin = await getPublicOrigin(requestHeaders);
   // Small signed thumbnail for the avatar. Width transform keeps the header light.
   const avatarUrl = await signHomeImage(supabase, personal?.image_path, true);
@@ -45,6 +51,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
           avatarUrl={avatarUrl}
           chatEnabled={connectChatEnabled()}
+          isPublished={Boolean(profile?.is_published)}
+          modes={modes}
           displayName={profile?.display_name ?? "Your identity"}
           plan={billing.plan}
           publicProfileUrl={profile?.username ? `${publicOrigin}/${profile.username}` : null}

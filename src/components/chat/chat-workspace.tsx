@@ -386,7 +386,7 @@ export function ChatWorkspace({ viewerId, initialConversationId, target }: {
 
   // The workspace fills the viewport under the app header so the composer is always on screen.
   // On phones an open conversation takes the whole height; the page heading belongs to the inbox.
-  return <main className="mx-auto flex h-[calc(100dvh-60px)] w-full max-w-[1320px] flex-col px-0 text-[#0d0d0d] sm:px-5 sm:pb-6 md:h-[calc(100dvh-76px)] lg:px-8">
+  return <main className="mx-auto flex h-[calc(100dvh-60px)] w-full max-w-[1320px] flex-col px-0 text-[#0d0d0d] sm:px-5 sm:pb-6 md:h-dvh lg:px-8">
     <div className={`${showThread ? "hidden lg:flex" : "flex"} shrink-0 items-center justify-between px-5 pb-4 pt-5 sm:px-1 sm:pt-6`}>
       <div><Link className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-black/50 hover:text-black" href="/app/connections">← People</Link>
         <h1 className="mt-2 font-display text-[30px] font-bold tracking-[-0.055em] sm:text-[38px]">Messages<span className="text-[#ff5a4f]">.</span></h1>
