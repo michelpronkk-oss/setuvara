@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LegalPage, type LegalSection } from "@/components/marketing/legal/legal-page";
+import { connectChatEnabled } from "@/lib/chat/launch";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
@@ -23,6 +24,7 @@ const sections: LegalSection[] = [
         <p><b>Your account.</b> Email address, password (stored by our authentication provider, never in plain text), username and display name. Your language and region preferences.</p>
         <p><b>What you put on your identity.</b> Your Modes and their settings (for example role, company, event, city), photos, links, content blocks, music and video you add, and your Appearance choices.</p>
         <p><b>Connections.</b> Who you connected with, the context of the encounter (event, city, venue, date and time, and which Mode was shared), and private notes you write. Notes are visible only to you.</p>
+        {connectChatEnabled() && <p><b>Messages.</b> If you use Connect Chat, we store your message requests, conversations, unread state and messaging preferences. You can block another member. If you report a message, we keep that message and limited surrounding context for a restricted safety review.</p>}
         <p><b>Guests.</b> When someone without an account connects with you, we store the name and email they give us so they can keep the connection and claim it later. Once claimed, we remove that email from the guest record. We never send notification emails to guests.</p>
         <p><b>Live Context, Passport and Wallet.</b> Live Context you set (type, label, venue, city, start and end time), your Passport milestones and stamps, and, if you add a pass to Apple or Google Wallet, the identifiers needed to update it.</p>
         <p><b>Billing.</b> Your plan, billing interval and subscription status. Card details are handled by our payment provider; we never see your full card number.</p>
@@ -37,7 +39,7 @@ const sections: LegalSection[] = [
       <>
         <p>When someone views your identity, opens a link or connects, we record the event, the time, the source (for example QR or link), the Mode, and a device class (mobile, tablet or desktop). That is how your Analytics work.</p>
         <p>To understand how the site is used, we also count page views of setuvara.com: the page, the country the visit came from (as reported by our hosting provider), and the device class. These counts are not linked to you, your identity or any visitor, and use no cookies.</p>
-        <p>We do not store who viewed you, their IP address, their email, their exact browser or their precise location, and visitor countries are never shown against a person's identity. We use no third-party analytics, advertising pixels or cross-site trackers.</p>
+        <p>We do not store who viewed you, their IP address, their email, their exact browser or their precise location, and visitor countries are never shown against a person&apos;s identity. We use no third-party analytics, advertising pixels or cross-site trackers.</p>
       </>
     ),
   },
@@ -49,6 +51,7 @@ const sections: LegalSection[] = [
         <p>When your identity is published, anyone with the link can see your Personal Mode at setuvara.com/your-username, including the links, blocks and media you choose to show. Published identities may be listed in our sitemap so search engines can find them.</p>
         <p>Event and Business Modes open only through their own private short links (setuvara.com/s/…). You can make a new link at any time, which retires the old one.</p>
         <p>While Live Context is on, its label and end time are shown on your page; venue and history stay private. Connections, encounter context and notes are only visible to the people in that connection. You decide per Mode who can connect: anyone, only people you meet in person, or nobody.</p>
+        {connectChatEnabled() && <p>Messages are visible only to the two people in the conversation. A Connection lets you send one message request, but the other person must accept before normal messaging begins. Messaging preferences and blocking apply across all Modes. Approved safety reviewers can open only a reported message and limited context; each evidence view is recorded.</p>}
       </>
     ),
   },
@@ -115,7 +118,8 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>We keep your account data for as long as you have an account. Guest sessions expire after 30 days; unsubscribe links after one year; Connection Passes within 24 hours.</p>
-        <p>If you delete your account, we delete your identity, Modes, media, links, notes and preferences. A connection is shared by two people, so the other person keeps their own record of meeting you (the name and details you showed at the time). We keep billing records as long as tax law requires.</p>
+        <p>If you delete your account, we delete your identity, Modes, media, links, notes and preferences. This also removes the shared Connection and encounter history from the other person&apos;s account. We keep billing records as long as tax law requires.</p>
+        {connectChatEnabled() && <p>Deleting your account also removes Connect Chat conversations, including messages visible to the other participant. Hiding a chat removes it only from your inbox. A report may retain the selected message and limited context while a safety case is open, and for 90 days after closure unless an applicable legal obligation requires a different period.</p>}
       </>
     ),
   },

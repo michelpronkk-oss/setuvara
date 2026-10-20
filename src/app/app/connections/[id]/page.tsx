@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { ConnectionDetail } from "@/components/connections/detail/connection-detail";
+import { connectChatEnabled } from "@/lib/chat/launch";
 import { loadRelationship } from "@/lib/connections/load-relationship";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,8 +23,12 @@ export default async function ConnectionDetailPage({ params }: ConnectionDetailP
 
   const relationship = await loadRelationship(supabase, userId, id);
   if (!relationship) notFound();
+  const { data: connection } = await supabase.from("connections")
+    .select("user_id,connected_user_id").eq("id", id).maybeSingle();
+  const canMessage = connectChatEnabled() && Boolean(connection?.connected_user_id
+    && (connection.user_id === userId || connection.connected_user_id === userId));
   // The client gets a signed URL, never the storage path.
   const model = { ...relationship.model, person: { ...relationship.model.person, photoPath: null } };
 
-  return <ConnectionDetail model={model} photoUrl={relationship.photoUrl} viewerId={userId} />;
+  return <ConnectionDetail canMessage={canMessage} model={model} photoUrl={relationship.photoUrl} viewerId={userId} />;
 }

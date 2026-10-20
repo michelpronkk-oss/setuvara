@@ -75,6 +75,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
     return () => window.clearTimeout(timeout);
   }, [pendingPath]);
   const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
+  const messagesSurface = pathname.startsWith("/app/connections/messages");
   // The identity editor is a full-screen workspace with its own navigation.
   if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <div lang="en"><HomeScreenRuntime />{children}</div>;
 
@@ -96,11 +97,11 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
         {pendingPath && <span aria-hidden="true" className="sv-nav-progress pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#ff5a4f]" key={pendingPath} />}
       </header>
 
-      <div className="min-w-0 pb-[calc(78px+env(safe-area-inset-bottom))] md:pb-0" id="app-main" tabIndex={-1}>{children}</div>
+      <div className={`min-w-0 md:pb-0 ${messagesSurface ? "" : "pb-[calc(78px+env(safe-area-inset-bottom))]"}`} id="app-main" tabIndex={-1}>{children}</div>
 
-      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
+      {!messagesSurface && <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid bg-[#f5f4ef]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(13,13,13,.08)] backdrop-blur sm:px-2 md:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
         {visibleNavigation.map((item) => <NavLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} variant="bottom" />)}
-      </nav>
+      </nav>}
     </div>
   );
 }

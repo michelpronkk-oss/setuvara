@@ -22,6 +22,7 @@ export const ADMIN_AREAS = {
   health: ["owner", "admin", "analyst"],
   members: ["owner", "admin"],
   feedback: ["owner", "admin"],
+  chatReports: ["owner", "admin"],
   audit: ["owner", "admin"],
   access: ["owner"],
 } as const satisfies Record<string, readonly AdminRole[]>;
