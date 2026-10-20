@@ -66,7 +66,7 @@ export function KitStudio({ profileId, initial, base, kitUrl }: { profileId: str
   }
 
   return (
-    <div className="grid gap-8 rounded-[28px] bg-[#E6E4DC] p-4 sm:p-6 md:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 print:m-0 print:block print:bg-white print:p-0">
+    <div className="-mx-3.5 grid gap-8 bg-[#E6E4DC] px-3.5 py-6 md:-mx-8 md:px-8 md:py-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 print:m-0 print:block print:bg-white print:p-0">
       <div className="min-w-0"><MediaKitDocument doc={doc} /></div>
       <aside className="flex flex-col gap-5 print:hidden">
         <div>

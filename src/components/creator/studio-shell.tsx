@@ -75,8 +75,8 @@ export function StudioShell({ children, profile, modes, plan, liveUrl, shareUrl,
         <div className="flex h-14 items-center gap-2 px-3">
           <Link aria-label="Back to Creator Mode" className="flex h-10 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 transition hover:bg-black/[0.05]" href="/app/identity?mode=creator"><svg aria-hidden="true" className="size-4 text-black/45" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7" /></svg><MeetMark className="size-6" /></Link>
           <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{page.title}</p>
-            <p className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#E8A6FF]" />Creator studio{!enabled && <><span aria-hidden="true">·</span>Off</>}</p>
+            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">Creator studio</p>
+            <p className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#E8A6FF]" />Creator Mode{!enabled && <><span aria-hidden="true">·</span>Off</>}</p>
           </div>
           <Link aria-label="Share page" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold text-[#0D0D0D]" href="/app/identity?mode=creator&section=share"><StudioShareIcon />Share</Link>
         </div>
