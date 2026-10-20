@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicProfilePage, publicProfileMetadata, publicProfileViewport } from "@/components/profile/public-profile-page";
+import { redirectIfRenamed } from "@/lib/handles/renamed";
+import { getPublishedPublicMode } from "@/lib/seo/public-profile";
 import { DEFAULT_PUBLIC_MODE } from "@/lib/share/mode-share";
 import { isAllowedUsername, normalizeUsername } from "@/lib/usernames";
 
@@ -21,14 +23,17 @@ export async function generateViewport({ params }: UsernamePageProps): Promise<V
   return publicProfileViewport(await target(params));
 }
 
-export async function generateMetadata({ params }: UsernamePageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: UsernamePageProps): Promise<Metadata> {
   const resolved = await target(params);
   if (!resolved) notFound();
+  // An unknown name may be one its owner just changed: send visitors on to the new one.
+  if (!await getPublishedPublicMode(resolved.username, resolved.slug)) await redirectIfRenamed(resolved.username, (await searchParams).source);
   return publicProfileMetadata(resolved);
 }
 
 export default async function UsernamePage({ params, searchParams }: UsernamePageProps) {
   const [resolved, query] = await Promise.all([target(params), searchParams]);
   if (!resolved) notFound();
+  if (!await getPublishedPublicMode(resolved.username, resolved.slug)) await redirectIfRenamed(resolved.username, query.source);
   return <PublicProfilePage source={query.source} target={resolved} />;
 }

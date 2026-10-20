@@ -233,7 +233,7 @@ function UsernameField({ api }: { api: EditorApi }) {
   const id = useId();
   const status = api.usernameStatus;
   const message = api.fieldErrors.username ?? (status === "invalid" ? "Use 3–24 lowercase letters, numbers or underscores." : status === "taken" ? "That username is taken." : undefined);
-  const hint = status === "checking" ? "Checking…" : status === "available" ? <span className="font-semibold text-[#1E7B4F]">Available ✓</span> : `setuvara.com/${api.profile.username || "you"}`;
+  const hint = status === "checking" ? "Checking…" : status === "available" ? <span className="font-semibold text-[#1E7B4F]">Available ✓ · your old link keeps working and stays yours</span> : `setuvara.com/${api.profile.username || "you"}`;
   return (
     <Field error={message} hint={hint} htmlFor={id} label="Username">
       <div className="relative">
