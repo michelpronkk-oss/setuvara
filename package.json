@@ -39,6 +39,7 @@
     "test:scan": "node --test tests/share/scan-target.test.mjs",
     "test:actions": "node --test tests/actions/actions.test.mjs",
     "test:actions:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/creator_actions_security.sql",
+    "test:actions-modes:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/actions_all_modes_security.sql",
     "test:commerce": "node --test tests/commerce/commerce.test.mjs",
     "test:commerce:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/creator_commerce_security.sql",
     "test:handles": "node --test tests/handles/handles.test.mjs",

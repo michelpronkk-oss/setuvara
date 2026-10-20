@@ -152,13 +152,16 @@ export function ActionInbox({ action, submissions, chatLinks, rates, initialId =
 }
 
 /**
- * Giveaway entries: confirmed, unconfirmed and disqualified, with a CSV for the draw. Setuvara
- * doesn't pick winners yet, so nothing here pretends to.
+ * Giveaway entries and newsletter subscribers: confirmed, unconfirmed and removed, with a CSV for the
+ * draw or the mailing tool. Setuvara doesn't pick winners or send newsletters, so nothing here pretends to.
  */
 export function GiveawayEntries({ action, submissions, canExport }: { action: ProfileAction; submissions: Submission[]; canExport: boolean }) {
   const router = useRouter();
-  const groups: { label: string; status: SubmissionStatus }[] = [{ label: "Confirmed", status: "entered" }, { label: "Unconfirmed", status: "pending_verification" }, { label: "Disqualified", status: "disqualified" }];
-  const [filter, setFilter] = useState<SubmissionStatus>("entered");
+  const newsletter = action.kind === "newsletter";
+  const counted: SubmissionStatus = newsletter ? "subscribed" : "entered";
+  const removed: SubmissionStatus = newsletter ? "unsubscribed" : "disqualified";
+  const groups: { label: string; status: SubmissionStatus }[] = [{ label: newsletter ? "Subscribed" : "Confirmed", status: counted }, { label: "Unconfirmed", status: "pending_verification" }, { label: newsletter ? "Removed" : "Disqualified", status: removed }];
+  const [filter, setFilter] = useState<SubmissionStatus>(counted);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +174,7 @@ export function GiveawayEntries({ action, submissions, canExport }: { action: Pr
     setError(null);
     const ok = await setStatus(item.id, status);
     setBusy(null);
-    if (!ok) setError(status === "entered" ? "Only confirmed entries can be reinstated." : "That didn't save. Try again.");
+    if (!ok) setError(status === counted ? (newsletter ? "Only people who confirmed can be restored." : "Only confirmed entries can be reinstated.") : "That didn't save. Try again.");
     router.refresh();
   }
 
@@ -187,7 +190,7 @@ export function GiveawayEntries({ action, submissions, canExport }: { action: Pr
       </dl>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">{groups.map((group) => <FilterPill count={submissions.filter((item) => item.status === group.status).length} key={group.status} label={group.label} on={filter === group.status} onClick={() => setFilter(group.status)} />)}</div>
-        <input aria-label="Search entries" className="min-h-10 min-w-0 flex-1 rounded-full bg-white px-4 text-[15px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] outline-none focus:shadow-[inset_0_0_0_2px_#0D0D0D] sm:max-w-[260px]" onChange={(event) => setQuery(event.target.value)} placeholder="Search name or email" value={query} />
+        <input aria-label={newsletter ? "Search subscribers" : "Search entries"} className="min-h-10 min-w-0 flex-1 rounded-full bg-white px-4 text-[15px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] outline-none focus:shadow-[inset_0_0_0_2px_#0D0D0D] sm:max-w-[260px]" onChange={(event) => setQuery(event.target.value)} placeholder="Search name or email" value={query} />
         {canExport
           ? <a className={`${lineButton} sm:ml-auto`} download href={`/api/actions/${action.id}/export`}>Export CSV</a>
           : <span className="flex items-center gap-2 text-[14px] text-black/60 sm:ml-auto"><PlusTag /> Export comes with Plus</span>}
@@ -198,15 +201,17 @@ export function GiveawayEntries({ action, submissions, canExport }: { action: Pr
             <li className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3" key={item.id}>
               <span className="min-w-0 flex-1"><span className="block truncate text-[16px] font-semibold">{item.name || "No name"}</span><span className="block truncate text-[14px] text-black/60">{item.email ?? "Contact details removed"}</span></span>
               <span className="text-[13px] text-black/55">{item.verified_at ? `confirmed ${relativeTime(item.verified_at)}` : `entered ${relativeTime(item.created_at)}`}</span>
-              {item.status === "entered" && <button className="min-h-10 rounded-full px-3 text-[14px] font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={() => void change(item, "disqualified")} type="button">Disqualify</button>}
-              {item.status === "disqualified" && item.verified_at && <button className="min-h-10 rounded-full px-3 text-[14px] font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={() => void change(item, "entered")} type="button">Reinstate</button>}
+              {(item.status === counted || (newsletter && item.status === "pending_verification")) && <button className="min-h-10 rounded-full px-3 text-[14px] font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={() => void change(item, removed)} type="button">{newsletter ? "Remove" : "Disqualify"}</button>}
+              {item.status === removed && item.verified_at && <button className="min-h-10 rounded-full px-3 text-[14px] font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={() => void change(item, counted)} type="button">{newsletter ? "Restore" : "Reinstate"}</button>}
             </li>
           ))}
         </ul>
-      ) : <p className="py-4 text-[15px] text-black/60">{submissions.length ? "No entries match." : "No entries yet."}</p>}
+      ) : <p className="py-4 text-[15px] text-black/60">{submissions.length ? (newsletter ? "No one matches." : "No entries match.") : newsletter ? "No subscribers yet." : "No entries yet."}</p>}
       {error && <p className="text-sm font-medium text-[#B42318]" role="alert">{error}</p>}
       <p className="max-w-[70ch] text-[13px] leading-[1.5] text-black/60">
-        {ended ? "This giveaway has ended. " : ""}Only confirmed entries count. Setuvara doesn&apos;t draw winners yet: export the confirmed entries, pick fairly and keep a note of how. Unconfirmed entries are deleted after 7 days, and entrant details 180 days after the end.
+        {newsletter
+          ? <>Only people who confirmed by email count. Export them into the tool you send with, and honour unsubscribes there. Unconfirmed signups are deleted after 7 days.</>
+          : <>{ended ? "This giveaway has ended. " : ""}Only confirmed entries count. Setuvara doesn&apos;t draw winners yet: export the confirmed entries, pick fairly and keep a note of how. Unconfirmed entries are deleted after 7 days, and entrant details 180 days after the end.</>}
       </p>
     </div>
   );

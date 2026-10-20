@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
+import { nameFontClasses } from "@/components/profile/name-fonts";
 import { CreatorOffBanner } from "@/components/creator/creator-switch";
 import { StudioShell } from "@/components/creator/studio-shell";
 import { readFocus } from "@/components/profile/photo-focus";
@@ -33,7 +34,7 @@ export default async function CreatorStudioLayout({ children }: { children: Reac
   const shareUrl = studio.mode.is_enabled && studio.profile.is_published ? handle ?? studio.shareUrl : null;
   const fresh = studio.submissions.filter((item) => NEEDS_ATTENTION.includes(item.status)).length;
   return (
-    <div className={marketingFontClasses}>
+    <div className={`${marketingFontClasses} ${nameFontClasses}`}>
       <StudioShell
         avatarFocus={readFocus(personal?.image_focus_x, personal?.image_focus_y)}
         avatarUrl={avatarUrl}

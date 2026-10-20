@@ -21,7 +21,7 @@ export function ActionCard({ action, coverUrl, href, accent, accentInk }: { acti
 
   if (action.kind === "collab") {
     return (
-      <section aria-label={action.title} className="flex flex-col gap-3 rounded-[22px] bg-[#0D0D0D] p-5 text-[#F5F4EF] @min-[700px]/profile:p-7" data-action={action.kind}>
+      <section aria-label={action.title} className="flex flex-col gap-3 rounded-[22px] bg-[#0D0D0D] p-5 text-[#F5F4EF] @min-[700px]/profile:p-7" data-action={action.kind} data-action-id={action.id}>
         <p className={`${label} text-[#B79CFF]`}>{config.availability || "Open for collaborations"}</p>
         <h2 className="font-display text-[26px] font-bold leading-[1.05] tracking-[-0.04em] @min-[700px]/profile:text-[30px]">{action.title}</h2>
         {action.intro && <p className="max-w-[52ch] text-[15px] leading-[1.5] text-white/80">{action.intro}</p>}
@@ -33,10 +33,12 @@ export function ActionCard({ action, coverUrl, href, accent, accentInk }: { acti
 
   const eyebrow = action.kind === "giveaway"
     ? `Giveaway${action.ends_at ? ` · ${when === "ended" ? "ended" : "ends"} ${shortDate(action.ends_at)}` : ""}`
-    : action.kind === "booking" ? (config.offering === "application" ? "Applications" : "Bookings") : "Ask";
-  const body = action.kind === "giveaway" ? config.prize : action.kind === "booking" ? config.details : config.prompt;
+    : action.kind === "booking" ? (config.offering === "application" ? "Applications" : "Bookings")
+      : action.kind === "newsletter" ? ["Newsletter", config.frequency].filter(Boolean).join(" · ")
+        : action.kind === "form" ? (action.ends_at && when === "open" ? `Open until ${shortDate(action.ends_at)}` : "Form") : "Ask";
+  const body = action.kind === "giveaway" ? config.prize : action.kind === "booking" ? config.details : action.kind === "newsletter" ? config.promise : action.kind === "form" ? null : config.prompt;
   return (
-    <section aria-label={action.title} className="flex flex-col overflow-hidden rounded-[22px]" data-action={action.kind} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
+    <section aria-label={action.title} className="flex flex-col overflow-hidden rounded-[22px]" data-action={action.kind} data-action-id={action.id} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
       {coverUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- public profile media
         <img alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" src={coverUrl} />
@@ -50,5 +52,15 @@ export function ActionCard({ action, coverUrl, href, accent, accentInk }: { acti
         {button}
       </div>
     </section>
+  );
+}
+
+/** A Mode's live Actions on its page, in the owner's order. Creator pages place them among their sections. */
+export function ActionCards({ actions, actionHref, accent, accentInk }: { actions: { action: PublicAction; coverUrl: string | null }[]; actionHref?: (id: string) => string; accent: string; accentInk: string }) {
+  if (!actions.length) return null;
+  return (
+    <div className="flex flex-col gap-4 text-left" data-mode-actions>
+      {actions.map(({ action, coverUrl }) => <ActionCard accent={accent} accentInk={accentInk} action={action} coverUrl={coverUrl} href={actionHref?.(action.id)} key={action.id} />)}
+    </div>
   );
 }

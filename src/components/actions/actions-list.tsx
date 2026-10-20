@@ -19,7 +19,7 @@ const STATUS_TONE: Record<ProfileAction["status"], string> = {
 };
 
 /** Actions in page order. Order is the order visitors see; archived ones stay out of the way. */
-export function ActionsList({ rows, profileId }: { rows: ActionRow[]; profileId: string }) {
+export function ActionsList({ rows, profileId, base }: { rows: ActionRow[]; profileId: string; base: string }) {
   const router = useRouter();
   const [showArchived, setShowArchived] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,7 +58,7 @@ export function ActionsList({ rows, profileId }: { rows: ActionRow[]; profileId:
                   <button aria-label={`Move ${row.title} down`} className="grid h-5 w-8 place-items-center rounded text-black/45 hover:text-black disabled:opacity-25" disabled={busy || index === active.length - 1} onClick={() => void move(row, 1)} type="button">▼</button>
                 </span>
               )}
-              <Link className="flex min-w-0 flex-1 items-center gap-3.5 rounded-[16px] py-1 focus-visible:outline-2 md:gap-4" href={`/app/identity/creator/actions/${row.id}`}>
+              <Link className="flex min-w-0 flex-1 items-center gap-3.5 rounded-[16px] py-1 focus-visible:outline-2 md:gap-4" href={`${base}/${row.id}`}>
                 <KindTile kind={row.kind} size={44} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[16px] font-semibold">{row.title}</span>
@@ -66,7 +66,7 @@ export function ActionsList({ rows, profileId }: { rows: ActionRow[]; profileId:
                 </span>
                 <span className="hidden text-right sm:block">
                   <span className="block font-display text-[22px] font-bold leading-none tracking-[-0.04em] tabular-nums">{row.responses}</span>
-                  <span className="block text-[12px] text-black/55">{row.kind === "giveaway" ? "entries" : "responses"}</span>
+                  <span className="block text-[12px] text-black/55">{row.kind === "giveaway" ? "entries" : row.kind === "newsletter" ? "subscribers" : "responses"}</span>
                 </span>
                 <span className="flex w-[92px] shrink-0 flex-col items-end gap-1.5">
                   <span className={`rounded-[5px] px-2 py-[3px] font-label text-[10px] tracking-[0.12em] ${STATUS_TONE[row.status]}`}>{(row.status === "published" && when === "ended" ? "Ended" : ACTION_STATUS_LABEL[row.status]).toUpperCase()}</span>

@@ -63,15 +63,15 @@ export function StudioIcon({ name }: { name: StudioPageId }) {
  * The editor's desktop sidebar: the same dark panel as the app, holding the Mode and the section.
  * The Creator studio pages share it; there `section` is null and `studio` names the open page.
  */
-export function EditorSidebar({ profile, modes, slug, section, studio = null, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
+export function EditorSidebar({ profile, modes, slug, section, studio = null, actions = false, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
   profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; slug: ModeSlug; section: Section | null;
-  studio?: StudioPageId | null; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
+  studio?: StudioPageId | null; /** The Mode's Actions page is open (Personal, Event, Business). */ actions?: boolean; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
   avatarUrl: string | null; avatarFocus?: PhotoFocus; onGo: (section: Section, mode?: ModeSlug) => void; signOut: () => Promise<void>;
 }) {
   const url = liveUrl;
   const scroller = useRef<HTMLDivElement>(null);
   // A tall sidebar scrolls; keep the open page in view.
-  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio]);
+  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio, actions]);
   return (
     <aside aria-label="Identity editor" className="print:hidden fixed inset-y-3 left-3 z-40 hidden w-[256px] flex-col rounded-[26px] bg-[#0D0D0D] text-[#F5F4EF] shadow-[0_30px_60px_-34px_rgba(13,13,13,.8)] lg:flex">
       <div className="mx-3 mt-3 flex h-[60px] items-center justify-between gap-2 px-3.5">
@@ -118,6 +118,13 @@ export function EditorSidebar({ profile, modes, slug, section, studio = null, ne
               </button>
             );
           })}
+          {slug !== "creator" && (
+            <Link aria-current={actions ? "page" : undefined} className={`flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${actions ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href={`/app/identity/actions?mode=${slug}`}>
+              <span className={actions ? "text-[#FF5A4F]" : ""}><StudioIcon name="actions" /></span>
+              <span className="min-w-0 flex-1 truncate">Actions</span>
+              {needsYou > 0 && <span aria-label={`${needsYou} new`} className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FF5A4F] px-1 text-[10px] font-bold text-[#0D0D0D]">{needsYou}</span>}
+            </Link>
+          )}
           {slug === "creator" && <>
             <Link aria-current={studio ? "true" : undefined} className={`mt-1 flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${studio ? "font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href={studio ? STUDIO_PAGES.find((item) => item.id === studio)!.href : STUDIO_PAGES[0].href}>
               <span className="text-[#E8A6FF]"><StudioMark /></span>

@@ -96,9 +96,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: creator } = action ? await service.from("profiles").select("display_name").eq("id", action.profile_id).maybeSingle() : { data: null };
   const origin = await getPublicOrigin(request.headers);
   const sent = await sendEntryConfirmation({
+    kind: kind?.kind === "newsletter" ? "newsletter" : "giveaway",
     to: input.email.trim(),
-    title: action?.title ?? "Giveaway",
-    creatorName: creator?.display_name ?? "a Setuvara creator",
+    title: action?.title ?? (kind?.kind === "newsletter" ? "Newsletter" : "Giveaway"),
+    creatorName: creator?.display_name ?? "a Setuvara member",
     confirmUrl: `${origin}/s/confirm?token=${result.verify_token}`,
   });
   if (sent !== "sent") {

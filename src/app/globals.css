@@ -376,3 +376,65 @@ html:has(head > meta[name="theme-color"][content="#F1ECEA"]) body {
   from { opacity: 0; transform: translateY(18px) scale(.97); }
   to { opacity: 1; transform: none; }
 }
+
+/* Action success: the page's accent blooms from the button, rings and confetti leave the mark,
+   the words rise in. Colours come from the Appearance (--av-*); reduced motion shows the end. */
+@keyframes av-bloom {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  42% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.04); opacity: 0; }
+}
+@keyframes av-glow {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes av-ring {
+  0% { transform: translate(-50%, -50%) scale(.55); opacity: .9; }
+  100% { transform: translate(-50%, -50%) scale(3.4); opacity: 0; }
+}
+@keyframes av-pop {
+  0% { transform: scale(.2) rotate(-14deg); opacity: 0; }
+  55% { transform: scale(1.1) rotate(3deg); opacity: 1; }
+  78% { transform: scale(.97) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes av-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes av-confetti {
+  0% { transform: translate(-50%, -50%) translate(0, 0) rotate(0) scale(0); opacity: 1; }
+  12% { transform: translate(-50%, -50%) translate(calc(var(--tx) * .28), calc(var(--ty) * .28)) rotate(calc(var(--rot) * .2)) scale(1); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--tx), calc(var(--ty) + var(--fall))) rotate(var(--rot)) scale(.7); opacity: 0; }
+}
+@keyframes av-rise {
+  from { opacity: 0; transform: translateY(18px); filter: blur(8px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes av-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes av-shine {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(220%) skewX(-18deg); }
+}
+[data-av-success] [data-av="bloom"] { animation: av-bloom 1.25s cubic-bezier(.22, .9, .3, 1) both; }
+[data-av-success] [data-av="glow"] { animation: av-glow 1.4s .35s cubic-bezier(.22, .9, .3, 1) both; }
+[data-av-success] [data-av="ring"] { animation: av-ring 1.5s var(--d, 0s) cubic-bezier(.16, .84, .3, 1) both; }
+[data-av-success] [data-av="emblem"] { animation: av-pop .9s .38s cubic-bezier(.2, 1.4, .4, 1) both, av-float 5s 1.6s ease-in-out infinite; }
+[data-av-success] [data-av="draw"] { stroke-dasharray: 1; stroke-dashoffset: 1; animation: av-draw .55s var(--d, .8s) cubic-bezier(.65, 0, .35, 1) forwards; }
+[data-av-success] [data-av="bit"] { animation: av-confetti var(--t, 1.6s) var(--d, .45s) cubic-bezier(.12, .7, .3, 1) both; }
+[data-av-success] [data-av="rise"] { animation: av-rise .75s var(--d, .9s) cubic-bezier(.2, .8, .2, 1) both; }
+[data-av-success] [data-av="shine"] { animation: av-shine 1.1s 1.5s cubic-bezier(.4, 0, .2, 1) both; }
+[data-av-success][data-motion="subtle"] [data-av="bit"],
+[data-av-success][data-motion="subtle"] [data-av="ring"]:nth-of-type(n+2) { display: none; }
+[data-av-success][data-motion="off"] *,
+[data-av-success][data-motion="off"] [data-av] { animation: none !important; stroke-dashoffset: 0 !important; }
+[data-av-success][data-motion="off"] [data-av="bloom"],
+[data-av-success][data-motion="off"] [data-av="ring"],
+[data-av-success][data-motion="off"] [data-av="bit"] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  [data-av-success] *, [data-av-success] [data-av] { animation: none !important; stroke-dashoffset: 0 !important; }
+  [data-av-success] [data-av="bloom"], [data-av-success] [data-av="ring"], [data-av-success] [data-av="bit"] { display: none; }
+}
