@@ -9,6 +9,7 @@ import { parseConnectPolicy } from "@/lib/connections/access";
 import { createClient } from "@/lib/supabase/server";
 import { getViewerPlan } from "@/lib/app/viewer";
 import { ownerModeShareUrls } from "@/lib/share/mode-share";
+import { ownerModeHandles } from "@/lib/handles/mode-server";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 
 import { signOut } from "./actions";
@@ -56,7 +57,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
 
   const profile = profileResult.data as ProfileIdentity;
   // Every signing call and the share links run side by side: no per-Mode waterfall.
-  const [modes, modeShareUrls] = await Promise.all([
+  const [modes, modeShareUrls, modeHandles] = await Promise.all([
     Promise.all(modesResult.data.map(async (mode): Promise<ProfileMode> => {
       const slides = parseSlidePhotos(mode.slide_photos);
       const [{ data: signed }, { data: original }, slideUrls, blocks] = await Promise.all([
@@ -98,6 +99,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
     })),
     // Event and Business are shared through opaque locators, never `?mode=`.
     ownerModeShareUrls(userId, profile.username, modesResult.data.map((mode) => mode.slug as ModeSlug), publicOrigin),
+    ownerModeHandles(userId),
   ]);
   const requestedMode = modes.find((mode) => mode.slug === query.mode)?.slug ?? "personal";
   const passport = (passportResult.data ?? {}) as { rewards?: { id: string }[]; preferences?: Partial<Record<RewardCategory, string>>; milestones?: { threshold: number; seenAt: string | null }[] };
@@ -118,6 +120,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
       plan={viewer.plan}
       publicOrigin={publicOrigin}
       modeShareUrls={modeShareUrls}
+      modeHandles={modeHandles}
       saved={query.saved}
       signOut={signOut}
     />

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { ModeSlug } from "@/components/profile/types";
 import { createBillingAdminClient } from "@/lib/billing/admin";
+import { liveModeHandle } from "@/lib/handles/mode-server";
 import { createClient } from "@/lib/supabase/server";
 import { getTapOrigin } from "@/lib/tap/server";
 import { modeShareTokenPattern, modeShortIdPattern } from "@/lib/share/mode-share-pattern";
@@ -75,11 +76,20 @@ export async function getModeShareId(profileId: string, mode: ModeSlug): Promise
   }
 }
 
-/** Public path for a profile's Mode: the canonical username for the default Mode, `/s/<token>` otherwise. */
-export async function publicModePath(profileId: string, username: string, mode: ModeSlug): Promise<string | null> {
+/** The Mode's own link: the canonical username for the default Mode, `/s/<short id>` otherwise. */
+export async function modeShortPath(profileId: string, username: string, mode: ModeSlug): Promise<string | null> {
   if (mode === DEFAULT_PUBLIC_MODE) return `/${username}`;
   const shortId = await getModeShareId(profileId, mode);
   return shortId ? `/s/${shortId}` : null;
+}
+
+/**
+ * Where a visitor lands for a profile's Mode (Quick QR, Tap, Connection Pass): a Business or
+ * Creator handle the owner made live, otherwise the Mode's own link.
+ */
+export async function publicModePath(profileId: string, username: string, mode: ModeSlug): Promise<string | null> {
+  const handle = await liveModeHandle(profileId, mode);
+  return handle ? `/${handle}` : modeShortPath(profileId, username, mode);
 }
 
 /**
@@ -98,10 +108,13 @@ export async function publicModePathForUsername(username: string, mode: ModeSlug
   }
 }
 
-/** Absolute share URLs for each of the owner's Modes, for the editor and home. */
+/**
+ * Absolute share URLs for each of the owner's Modes, for the editor and home. These are the Modes'
+ * own links (`/s/<short id>`), which sub-pages and "New link" build on; live handles are separate.
+ */
 export async function ownerModeShareUrls(profileId: string, username: string, modes: ModeSlug[], origin = getTapOrigin()) {
   const entries = await Promise.all(modes.map(async (mode) => {
-    const path = await publicModePath(profileId, username, mode);
+    const path = await modeShortPath(profileId, username, mode);
     return [mode, path ? `${origin}${path}` : null] as const;
   }));
   return Object.fromEntries(entries) as Partial<Record<ModeSlug, string | null>>;

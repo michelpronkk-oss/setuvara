@@ -32,13 +32,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
 import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
 import { isAllowedUsername } from "@/lib/usernames";
+import { liveModeHandle } from "@/lib/handles/mode-server";
 import { OwnerBar, OwnerConnect } from "@/components/profile/owner-view";
 
 export type PublicProfileTarget = {
   username: string;
   slug: ModeSlug;
-  /** Set when the page was opened through an opaque Mode share locator. */
+  /** Set when the page was opened through an opaque Mode share locator (or a handle, for its sub-pages). */
   shareToken?: string;
+  /** Set when the page was opened through a live Business or Creator handle. */
+  handle?: string;
+  /** The owner chose to let search engines list this handle. */
+  indexable?: boolean;
 };
 
 const FALLBACK_BROWSER_THEME_COLOR = "#F5F4EF";
@@ -72,8 +77,9 @@ type ConnectionState = {
   context?: ConnectionContext | null;
 };
 
-function publicPageUrls({ username, slug, shareToken }: PublicProfileTarget) {
-  // A Mode share page points at itself, never at a predictable Mode URL.
+function publicPageUrls({ username, slug, shareToken, handle }: PublicProfileTarget) {
+  // A Mode handle or share page points at itself, never at the username or a predictable Mode URL.
+  if (handle) return { pageUrl: `https://setuvara.com/${handle}`, image: `https://setuvara.com/og/h/${handle}` };
   const pageUrl = shareToken
     ? `https://setuvara.com/s/${shareToken}`
     : `https://setuvara.com/${encodeURIComponent(username)}`;
@@ -83,10 +89,14 @@ function publicPageUrls({ username, slug, shareToken }: PublicProfileTarget) {
   return { pageUrl, image };
 }
 
+const indexed: Metadata["robots"] = { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } };
+
 export async function publicProfileMetadata(target: PublicProfileTarget): Promise<Metadata> {
-  const { username, slug, shareToken } = target;
+  const { username, slug, shareToken, handle, indexable } = target;
   const record = await getPublishedPublicMode(username, slug);
   if (!record) notFound();
+  // A /s/ link to a Mode that also has a live handle names the handle as canonical (still unlisted).
+  const liveHandle = shareToken && !handle ? await liveModeHandle(record.profile.id, slug) : null;
 
   const title = publicProfileTitle(record.profile);
   const description = publicProfileDescription(record);
@@ -95,14 +105,17 @@ export async function publicProfileMetadata(target: PublicProfileTarget): Promis
   return {
     title,
     description,
-    // Only the Personal username URL can be indexed (publishing is the opt-in, as the Privacy policy
-    // says). Event and Business pages behind /s/<token> are private links: never indexed or followed.
-    ...(shareToken
-      ? { robots: { index: false, follow: false } }
-      : { alternates: { canonical: pageUrl }, robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } } }),
+    // The Personal username URL is indexed (publishing is the opt-in, as the Privacy policy says).
+    // A Business or Creator handle is indexed only when its owner turned search listing on.
+    // Pages behind /s/<token> are private links: never indexed or followed.
+    ...(handle
+      ? { alternates: { canonical: pageUrl }, robots: indexable ? indexed : { index: false, follow: false } }
+      : shareToken
+        ? { ...(liveHandle ? { alternates: { canonical: `https://setuvara.com/${liveHandle}` } } : {}), robots: { index: false, follow: false } }
+        : { alternates: { canonical: pageUrl }, robots: indexed }),
     openGraph: {
       type: "profile",
-      ...(shareToken ? {} : { username }),
+      ...(handle ? { username: handle } : shareToken ? {} : { username }),
       siteName: "Setuvara",
       locale: "en_US",
       title: `${title} | Setuvara`,
@@ -115,7 +128,7 @@ export async function publicProfileMetadata(target: PublicProfileTarget): Promis
 }
 
 export async function PublicProfilePage({ target, source: rawSource }: { target: PublicProfileTarget; source?: string }) {
-  const { username, slug, shareToken } = target;
+  const { username, slug, shareToken, handle, indexable } = target;
   if (!isAllowedUsername(username)) notFound();
   const query = { source: rawSource };
 
@@ -291,7 +304,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     mainEntity: {
       "@type": "Person",
       name: publicProfileTitle(profile),
-      alternateName: `@${profile.username}`,
+      alternateName: `@${handle ?? profile.username}`,
       url: canonicalUrl,
       ...(imageUrl ? { image: previewImageUrl } : {}),
       ...(publicRole ? { jobTitle: publicRole } : {}),
@@ -311,7 +324,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
 
   return (
     <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
-      {!shareToken && <JsonLd data={personStructuredData} />}
+      {(handle ? indexable : !shareToken) && <JsonLd data={personStructuredData} />}
       {owner && <OwnerBar editHref={`/app/identity?mode=${slug}`} shareHref={`/app/identity?mode=${slug}&section=share`} />}
       <ProfileStage accent={resolveModeAccent(mode)} base={pageTone.bg} dark={pageTone.dark} photo={imageUrl}>
         <ProfileRenderer

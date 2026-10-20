@@ -22,6 +22,8 @@ import { linkProviderById, MODE_LINK_SUGGESTIONS, normalizeLinkPayload, provider
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
+import { isModeHandleSlug } from "@/lib/handles/mode-handle";
+import { PublicLinkCard } from "./editor-public-link";
 import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
 import { Card, Counter, Field, MonoLabel, Pill, PlusTag, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper, previewVisitorAction } from "./editor-ui";
 
@@ -614,9 +616,14 @@ export function ShareSection({ api }: { api: EditorApi }) {
   const inPerson = intent === "in_person" && policy === "direct_only";
   const { pass, end: resetPass } = useConnectPass(slug, inPerson && !offline);
   const passUrl = pass?.ok ? pass.url : null;
-  const linkUrl = inPerson ? passUrl : api.publicUrl(slug, "link");
+  const handleSlug = isModeHandleSlug(slug) ? slug : null;
+  const handleLive = Boolean(handleSlug && api.modeHandles[handleSlug]?.is_live);
+  // With a live handle, "Your public link" shares the handle and this card keeps the shortlink.
+  const shortlinkCard = handleLive && !inPerson;
+  const linkUrl = inPerson ? passUrl : shortlinkCard ? api.shortUrl(slug) : api.publicUrl(slug, "link");
   const qrUrl = inPerson ? passUrl : api.publicUrl(slug, "qr");
-  const displayUrl = inPerson ? (passUrl ? passUrl.replace(/^https?:\/\//, "").replace(/\/connect\/.+$/, "/connect/…") : "Connection Pass") : api.publicUrl(slug).replace(/^https?:\/\//, "");
+  const displayUrl = inPerson ? (passUrl ? passUrl.replace(/^https?:\/\//, "").replace(/\/connect\/.+$/, "/connect/…") : "Connection Pass") : (shortlinkCard ? api.shortUrl(slug) ?? "" : api.publicUrl(slug)).replace(/^https?:\/\//, "");
+  const qrDisplayUrl = api.publicUrl(slug).replace(/^https?:\/\//, "");
   const darkShare = api.selectedRewards.share_treatment === "signal_share" || api.selectedRewards.share_treatment === "network_share";
   const coralFrame = api.selectedRewards.qr_frame === "coral_qr_frame";
   const qrStyle = resolveQrStyle(mode, api.plan);
@@ -625,7 +632,6 @@ export function ShareSection({ api }: { api: EditorApi }) {
   const { messages } = useI18n();
   const qrCopy = messages.appearance;
   const eventName = text(mode, "eventName");
-
   async function copy() {
     if (!linkUrl) return;
     const ok = await copyText(linkUrl);
@@ -633,6 +639,12 @@ export function ShareSection({ api }: { api: EditorApi }) {
     api.toast(ok ? "Link copied" : "Copy didn’t work. Select the link instead.");
     if (ok && !inPerson && !offline) recordProfileShare(slug, "copy");
     if (ok) window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function copyPublic() {
+    const ok = await copyText(api.publicUrl(slug, "link"));
+    api.toast(ok ? "Link copied" : "Copy didn’t work. Select the link instead.");
+    if (ok && !offline) recordProfileShare(slug, "copy");
   }
 
   async function newLink() {
@@ -668,7 +680,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
       {/* Sized by the space the editor leaves (preview pane open or not), not the window. */}
       <div className="@container/share">
       <div className="grid grid-cols-1 items-start gap-4 @min-[560px]/share:grid-cols-[minmax(0,236px)_minmax(0,1fr)] @min-[760px]/share:grid-cols-[minmax(0,280px)_minmax(0,1fr)] @min-[760px]/share:gap-6">
-        <div className="order-2 mx-auto w-full max-w-[360px] self-start rounded-[24px] @min-[560px]/share:order-none @min-[560px]/share:row-span-2 bg-[#0D0D0D] p-4 text-[#F5F4EF] @min-[560px]/share:sticky @min-[560px]/share:top-6 @min-[760px]/share:p-5">
+        <div className={`order-2 mx-auto w-full max-w-[360px] self-start rounded-[24px] @min-[560px]/share:order-none ${handleSlug ? "@min-[560px]/share:row-span-3" : "@min-[560px]/share:row-span-2"} bg-[#0D0D0D] p-4 text-[#F5F4EF] @min-[560px]/share:sticky @min-[560px]/share:top-6 @min-[760px]/share:p-5`}>
           <MonoLabel className="truncate !text-[10px]" color={coral}>{inPerson ? "Connect in person" : "Sharing now"} · {modeMeta[slug].name}{eventName && slug === "event" ? ` · ${eventName}` : ""}</MonoLabel>
           <button aria-label="Show QR code full screen" className={`mt-4 block w-full rounded-[20px] disabled:cursor-default ${coralFrame ? "outline outline-4 outline-offset-2 outline-[#FF5A4F]" : ""}`} data-qr-treatment={qrStyle} disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }} type="button">
             <QrFrame accent={resolveAppearance(mode, api.plan).accent} modeLabel={modeMeta[slug].name} name={profile.display_name} style={shownQrStyle}>
@@ -686,11 +698,13 @@ export function ShareSection({ api }: { api: EditorApi }) {
           </div>
         </div>
 
+        {handleSlug && !inPerson && <PublicLinkCard api={api} key={handleSlug} onCopy={() => void copyPublic()} onQr={() => { setFull(true); if (!offline) recordProfileShare(slug, "qr_open"); }} onShare={() => void share()} slug={handleSlug} />}
+
         {/* Phones lead with the link (copy and share sit above the fold); wide, the QR holds the left column. */}
           <section aria-label="Link" className="@container/link order-1 min-w-0 rounded-[22px] @min-[560px]/share:order-none bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[760px]/share:p-5">
             {policy === "direct_only" && <div className="mb-4"><Segmented full label="What you are sharing" onChange={setIntent} options={[{ value: "profile", label: "Share profile" }, { value: "in_person", label: "Connect in person" }]} size="sm" value={inPerson ? "in_person" : "profile"} /></div>}
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-semibold">{inPerson ? "Connection Pass link" : slug === "personal" ? "Public link" : "Private Mode link"}</p>
+              <p className="text-sm font-semibold">{inPerson ? "Connection Pass link" : slug === "personal" ? "Public link" : shortlinkCard ? "Shortlink" : "Private Mode link"}</p>
               {!inPerson && policy !== "anyone" && <span className="shrink-0 text-[12px] text-black/50">View only</span>}
             </div>
             <p className="mt-1 text-[12.5px] leading-5 text-black/55">
@@ -698,16 +712,18 @@ export function ShareSection({ api }: { api: EditorApi }) {
                 ? <>Anyone who scans or opens this can connect with your {modeMeta[slug].name} Mode{pass?.ok ? ` until ${passExpiryLabel(pass.expiresAt)}` : ""}. <button className="font-semibold text-black underline underline-offset-4" onClick={() => void resetPass()} type="button">Reset pass</button></>
                 : slug === "personal"
                   ? "Your username link always opens Personal Mode."
+                  : shortlinkCard
+                    ? "Still opens this Mode, and so do QR codes and Tap you’ve already shared."
                   : `Only people you send this link to can open ${modeMeta[slug].name} Mode. Your username link never shows it.`}
             </p>
             <div className="mt-3 flex min-h-[52px] items-center gap-2 rounded-2xl bg-[#F5F4EF] py-1.5 pl-4 pr-1.5">
               <span className="min-w-0 flex-1 truncate font-label text-[12.5px]" title={displayUrl}>{displayUrl || "Link unavailable"}</span>
               <Pill className="!min-h-10 shrink-0 !px-4" disabled={!linkUrl} onClick={() => void copy()} variant="ink">{copied ? "Copied ✓" : "Copy link"}</Pill>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-2 @min-[300px]/link:grid-cols-2">
+            {!shortlinkCard && <div className="mt-3 grid grid-cols-1 gap-2 @min-[300px]/link:grid-cols-2">
               <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={!linkUrl} onClick={() => void share()} variant="coral">Share…</Pill>
               <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={!qrUrl} onClick={() => { setFull(true); if (!inPerson && !offline) recordProfileShare(slug, "qr_open"); }}>Full-screen QR</Pill>
-            </div>
+            </div>}
             {!inPerson && slug !== "personal" && linkUrl && (
               confirmNewLink
                 ? <div className="mt-3 rounded-2xl bg-[#FF5A4F]/[0.1] px-4 py-3" data-share-new-link="confirm">
@@ -745,7 +761,7 @@ export function ShareSection({ api }: { api: EditorApi }) {
 
       </div>
 
-      {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void copy()} qrStyle={shownQrStyle} accent={resolveAppearance(mode, api.plan).accent} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={displayUrl} value={qrUrl} />}
+      {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void (shortlinkCard ? copyPublic() : copy())} qrStyle={shownQrStyle} accent={resolveAppearance(mode, api.plan).accent} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={shortlinkCard ? qrDisplayUrl : displayUrl} value={qrUrl} />}
     </div>
   );
 }
