@@ -7,14 +7,14 @@ const TABS = [
   { label: "Profile", href: "/app/identity?mode=creator" },
   { label: "Work", href: "/app/identity/creator/work" },
   { label: "Store", href: "/app/identity/creator/store" },
-  { label: "Collabs", href: "/app/identity/creator/collabs" },
+  { label: "Actions", href: "/app/identity/creator/actions" },
   { label: "Media kit", href: "/app/identity/creator/kit" },
   { label: "Insights", href: "/app/identity/creator/insights" },
   { label: "Settings", href: "/app/identity/creator/settings" },
 ] as const;
 
 /** The Creator studio row inside Identity. Profile opens the Identity editor on Creator Mode. */
-export function StudioNav({ shareUrl, newInquiries }: { shareUrl: string | null; newInquiries: number }) {
+export function StudioNav({ shareUrl, needsYou }: { shareUrl: string | null; needsYou: number }) {
   const pathname = usePathname();
   const display = shareUrl?.replace(/^https?:\/\//, "") ?? null;
   return (
@@ -26,7 +26,7 @@ export function StudioNav({ shareUrl, newInquiries }: { shareUrl: string | null;
           return (
             <Link aria-current={on ? "page" : undefined} className={`relative inline-flex min-h-10 shrink-0 items-center rounded-full px-4 text-[15px] font-semibold transition-colors focus-visible:outline-2 ${on ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-[#0D0D0D] hover:bg-black/[0.05]"}`} href={tab.href} key={tab.label}>
               {tab.label}
-              {tab.label === "Collabs" && newInquiries > 0 && <span className="ml-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FF5A4F] px-1 text-[10px] font-bold text-[#0D0D0D]" aria-label={`${newInquiries} new`}>{newInquiries}</span>}
+              {tab.label === "Actions" && needsYou > 0 && <span className="ml-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FF5A4F] px-1 text-[10px] font-bold text-[#0D0D0D]" aria-label={`${needsYou} new`}>{needsYou}</span>}
             </Link>
           );
         })}

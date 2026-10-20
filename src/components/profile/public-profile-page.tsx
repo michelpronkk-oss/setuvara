@@ -13,6 +13,7 @@ import { ProfileStage } from "@/components/profile/profile-stage";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
 import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { CreatorSections } from "@/components/creator/creator-sections";
+import { getPublicActions } from "@/lib/actions/public";
 import { isWorkBlock, readCreatorSettings, workItem, type StoreOffer } from "@/lib/creator/studio";
 import { getMessages } from "@/lib/i18n/messages";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
@@ -254,6 +255,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     const offers = (data as { offers?: unknown } | null)?.offers;
     return (Array.isArray(offers) ? offers : []) as Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">[];
   }, () => []) : [];
+  const creatorActions = creator ? await getPublicActions(username, "creator") : [];
   const mode: ProfileMode = {
     ...rawMode,
     slug: rawMode.slug as ModeSlug,
@@ -322,8 +324,8 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
             {creator && <CreatorSections
               accent={resolveModeAccent(mode)}
               accentInk={inkOnAccent(resolveModeAccent(mode))}
-              collabHref={owner ? undefined : shareToken ? `/s/${shareToken}/collab` : undefined}
-              firstName={profile.display_name.split(/\s+/)[0] || profile.display_name}
+              actionHref={owner || !shareToken ? undefined : (id) => `/s/${shareToken}/a/${id}`}
+              actions={creatorActions}
               offers={creatorOffers}
               settings={readCreatorSettings(rawMode.settings as Record<string, unknown>)}
               work={publicBlocks.filter(isWorkBlock).map(workItem)}

@@ -28,7 +28,7 @@ export default async function CreatorInsightsPage({ searchParams }: { searchPara
     try { report = await getProfileAnalyticsReport({ profileId: studio.userId, plan, query: resolved.data }); } catch { report = null; }
   }
   const since = rangeStart(range.days);
-  const inquiries = studio.inquiries.filter((item) => new Date(item.created_at).getTime() >= since).length;
+  const responses = studio.submissions.filter((item) => item.status !== "pending_verification" && item.status !== "spam" && new Date(item.created_at).getTime() >= since).length;
   const { data: orders } = await studio.supabase.from("creator_orders").select("status, created_at").eq("creator_user_id", studio.userId).eq("status", "paid").gte("created_at", new Date(since).toISOString());
 
   const opens = report?.summary.profileViews ?? null;
@@ -65,7 +65,7 @@ export default async function CreatorInsightsPage({ searchParams }: { searchPara
             <Kpi detail={delta === null ? undefined : `${delta >= 0 ? "+" : ""}${Math.round(delta)}% vs previous`} good={delta !== null && delta >= 0} label="Page opens" value={opens} />
             <Kpi label="QR and Tap" value={scans} />
             <Kpi detail="Paid on Setuvara" label="Store orders" value={orders?.length ?? 0} />
-            <Kpi label="Collab inquiries" value={inquiries} />
+            <Kpi detail="Requests, entries and questions" label="Action responses" value={responses} />
           </dl>
           {report ? (
             <div className="rounded-[22px] bg-white p-5 md:p-6">

@@ -9,7 +9,9 @@ import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
 import { getPublicOrigin } from "@/lib/app/viewer";
 import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { createClient } from "@/lib/supabase/server";
-import { EMPTY_KIT, isWorkBlock, readCreatorSettings, workItem, type Inquiry, type MediaKit, type StoreOffer, type WorkItem } from "./studio";
+import { DEFAULT_LIMITS, SUBMISSION_COLUMNS, type ActionLimits, type ProfileAction, type Submission } from "@/lib/actions/model";
+import { SOCIAL_ACCOUNT_COLUMNS, type SocialAccount } from "@/lib/social/model";
+import { EMPTY_KIT, isWorkBlock, readCreatorSettings, workItem, type MediaKit, type StoreOffer, type WorkItem } from "./studio";
 
 const MEDIA = "profile-media";
 
@@ -27,12 +29,16 @@ export const loadCreatorStudio = cache(async (next = "/app/identity/creator") =>
   if (!profile) redirect(`/login?next=${encodeURIComponent(next)}`);
   if (!mode) return { supabase, userId, profile, mode: null } as const;
 
-  const [links, blocks, offers, inquiries, kit, follows, monetization, requestHeaders, image] = await Promise.all([
+  const [links, blocks, offers, actions, submissions, limits, socials, kit, follows, monetization, requestHeaders, image] = await Promise.all([
     supabase.from("profile_links").select("id, title, url, link_type, is_visible, sort_order").eq("profile_id", userId).eq("mode_id", mode.id).order("sort_order"),
     selectBlocks("id, kind, data, is_visible, sort_order", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).eq("mode_id", mode.id).order("sort_order")),
     // Offer types arrive with the Creator studio migration; before it the Store reads as empty.
     supabase.from("creator_offers").select("id, kind, offer_type, external_url, title, description, currency, unit_amount_minor, status, sort_order").neq("status", "archived").order("sort_order").order("created_at", { ascending: false }),
-    supabase.from("creator_inquiries").select("id, sender_user_id, sender_mode_slug, sender_display_name, kind, budget, brand, message, status, created_at").eq("creator_user_id", userId).order("created_at", { ascending: false }).limit(100),
+    // Actions and platform accounts arrive with the Creator Actions migration; before it they read as empty.
+    supabase.from("profile_actions").select("id, mode_id, kind, status, title, intro, cta_label, cover_block_id, config, sort_order, starts_at, ends_at, published_at, closed_at, created_at, updated_at").eq("mode_id", mode.id).order("sort_order").order("created_at"),
+    supabase.from("action_submissions").select(SUBMISSION_COLUMNS).eq("profile_id", userId).order("created_at", { ascending: false }).limit(500),
+    supabase.rpc("my_action_limits"),
+    supabase.from("social_accounts").select(SOCIAL_ACCOUNT_COLUMNS).eq("profile_id", userId),
     supabase.from("creator_media_kits").select("languages, partners, rates, contact_email, show_platforms, show_partners, show_rates, show_contact, updated_at").maybeSingle(),
     supabase.rpc("creator_follower_count"),
     supabase.rpc("creator_monetization_enabled"),
@@ -64,10 +70,15 @@ export const loadCreatorStudio = cache(async (next = "/app/identity/creator") =>
     blocks: signed,
     work: signed.filter(isWorkBlock).map(workItem) as WorkItem[],
     offers: (offers.error ? [] : offers.data ?? []) as StoreOffer[],
-    inquiries: (inquiries.error ? [] : inquiries.data ?? []) as Inquiry[],
+    actions: (actions.error ? [] : actions.data ?? []) as unknown as ProfileAction[],
+    submissions: (submissions.error ? [] : submissions.data ?? []) as unknown as Submission[],
+    limits: (limits.data as ActionLimits | null) ?? DEFAULT_LIMITS.free,
+    socials: (socials.error ? [] : socials.data ?? []) as SocialAccount[],
     kit: { ...EMPTY_KIT, ...(kit.data ?? {}) } as MediaKit,
     /** False when the Creator studio migration has not reached this database yet. */
-    studioReady: !inquiries.error && !kit.error,
+    studioReady: !kit.error,
+    /** False when the Creator Actions migration has not reached this database yet. */
+    actionsReady: !actions.error && !submissions.error,
     followerCount: Number(follows.data ?? 0),
     canMonetize: monetization.data === true,
     shareUrl: shareUrls.creator ?? null,

@@ -1,18 +1,21 @@
 import type { ReactNode } from "react";
 
+import { ActionCard } from "@/components/actions/action-card";
+import type { PublicAction } from "@/lib/actions/model";
 import { formatMoney, OFFER_TYPE_LABEL, SECTION_NAMES, type CreatorSection, type CreatorSettings, type StoreOffer, type WorkItem } from "@/lib/creator/studio";
 
 /**
- * The Creator sections of a page: Featured, Work, Store and Collabs, in the creator's order.
+ * The Creator sections of a page: Featured, Work, Store and Actions, in the creator's order.
  * They sit inside any Appearance, so colour comes from currentColor and the page's accent.
  */
-export function CreatorSections({ settings, work, offers, collabHref, firstName, accent, accentInk }: {
+export function CreatorSections({ settings, work, offers, actions = [], actionHref, accent, accentInk }: {
   settings: CreatorSettings;
   work: WorkItem[];
   offers: Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">[];
-  /** Where Work with me goes. Absent in previews. */
-  collabHref?: string;
-  firstName: string;
+  /** Live Actions with their cover pictures. */
+  actions?: { action: PublicAction; coverUrl: string | null }[];
+  /** Where an Action's button goes. Absent in previews and for the owner. */
+  actionHref?: (id: string) => string;
   accent: string;
   accentInk: string;
 }) {
@@ -23,7 +26,11 @@ export function CreatorSections({ settings, work, offers, collabHref, firstName,
     featured: featured ? <FeaturedWork item={featured} key="featured" /> : null,
     work: rest.length ? <SelectedWork items={rest} key="work" /> : null,
     store: offers.length ? <Store accent={accent} accentInk={accentInk} key="store" offers={offers} /> : null,
-    collabs: settings.collabsOpen ? <CollabsCard accent={accent} accentInk={accentInk} firstName={firstName} href={collabHref} key="collabs" note={settings.collabsNote} pitch={settings.collabsPitch} /> : null,
+    actions: actions.length ? (
+      <div className="flex flex-col gap-4" data-creator-actions key="actions">
+        {actions.map(({ action, coverUrl }) => <ActionCard accent={accent} accentInk={accentInk} action={action} coverUrl={coverUrl} href={actionHref?.(action.id)} key={action.id} />)}
+      </div>
+    ) : null,
   };
   const shown = settings.sections.map((section) => parts[section]).filter(Boolean);
   if (!shown.length) return null;
@@ -123,18 +130,5 @@ function OneOffer({ offer, accent, accentInk }: { offer: Pick<StoreOffer, "title
         ? <a className="mt-1 inline-flex min-h-12 w-fit items-center rounded-full px-5 text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2" href={offer.external_url} rel="noreferrer nofollow" style={{ background: accent, color: accentInk }} target="_blank">Buy · {price} ↗</a>
         : <p className="text-[15px] font-semibold">{price}</p>}
     </div>
-  );
-}
-
-function CollabsCard({ note, pitch, firstName, href, accent, accentInk }: { note: string; pitch: string; firstName: string; href?: string; accent: string; accentInk: string }) {
-  const cta = `Work with ${firstName}`;
-  return (
-    <section aria-label="Collaborations" className="flex flex-col gap-3 rounded-[22px] bg-[#0D0D0D] p-5 text-[#F5F4EF] @min-[700px]/profile:p-7" data-creator-collabs>
-      <p className="font-label text-[10.5px] uppercase tracking-[0.18em] text-[#B79CFF]">{note || "Open for collaborations"}</p>
-      <p className="font-display text-[26px] font-bold leading-[1.05] tracking-[-0.04em] @min-[700px]/profile:text-[30px]">{pitch || "Brand films, commissions and partnerships."}</p>
-      {href
-        ? <a className="mt-1 inline-flex min-h-12 w-fit items-center rounded-full px-5 text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2" href={href} style={{ background: accent, color: accentInk }}>{cta}</a>
-        : <span className="mt-1 inline-flex min-h-12 w-fit items-center rounded-full px-5 text-[15px] font-semibold" style={{ background: accent, color: accentInk }}>{cta}</span>}
-    </section>
   );
 }

@@ -3,9 +3,9 @@ import { parseVideo } from "@/lib/blocks/media";
 import type { CreatorOffer } from "./types";
 
 /** Creator page sections, in their default order. A section left out of settings.sections is hidden. */
-export const CREATOR_SECTIONS = ["featured", "work", "store", "collabs"] as const;
+export const CREATOR_SECTIONS = ["featured", "work", "store", "actions"] as const;
 export type CreatorSection = (typeof CREATOR_SECTIONS)[number];
-export const SECTION_NAMES: Record<CreatorSection, string> = { featured: "Featured", work: "Work", store: "Store", collabs: "Collabs" };
+export const SECTION_NAMES: Record<CreatorSection, string> = { featured: "Featured", work: "Work", store: "Store", actions: "Actions" };
 
 export type CreatorSettings = {
   tagline: string;
@@ -13,35 +13,24 @@ export type CreatorSettings = {
   city: string;
   /** Visible sections, in order. */
   sections: CreatorSection[];
-  collabsOpen: boolean;
-  collabsNote: string;
-  collabsPitch: string;
 };
 
 /** Mirrors the profile_modes settings check for slug = 'creator'. */
-export const CREATOR_SETTING_LIMITS = { tagline: 280, category: 80, city: 80, collabsNote: 120, collabsPitch: 280 } as const;
+export const CREATOR_SETTING_LIMITS = { tagline: 280, category: 80, city: 80 } as const;
 
 export function readCreatorSettings(settings: Record<string, unknown> | null | undefined): CreatorSettings {
   const s = settings ?? {};
   const str = (key: string) => (typeof s[key] === "string" ? (s[key] as string) : "");
   const listed = typeof s.sections === "string"
-    ? s.sections.split(",").filter((item): item is CreatorSection => (CREATOR_SECTIONS as readonly string[]).includes(item))
+    ? s.sections.split(",").map((item) => (item === "collabs" ? "actions" : item)).filter((item): item is CreatorSection => (CREATOR_SECTIONS as readonly string[]).includes(item))
     : [...CREATOR_SECTIONS];
-  return {
-    tagline: str("tagline"),
-    category: str("category"),
-    city: str("city"),
-    sections: [...new Set(listed)],
-    collabsOpen: s.collabsOpen === true,
-    collabsNote: str("collabsNote"),
-    collabsPitch: str("collabsPitch"),
-  };
+  return { tagline: str("tagline"), category: str("category"), city: str("city"), sections: [...new Set(listed)] };
 }
 
 /** The settings object to store, keeping every Creator key the database accepts. */
 export function writeCreatorSettings(next: CreatorSettings): Record<string, string | boolean> {
-  const out: Record<string, string | boolean> = { sections: next.sections.join(","), collabsOpen: next.collabsOpen };
-  for (const key of ["tagline", "category", "city", "collabsNote", "collabsPitch"] as const) {
+  const out: Record<string, string | boolean> = { sections: next.sections.join(",") };
+  for (const key of ["tagline", "category", "city"] as const) {
     const value = next[key].trim().slice(0, CREATOR_SETTING_LIMITS[key]);
     if (value) out[key] = value;
   }
@@ -123,39 +112,6 @@ export function parseMoney(value: string): number | null {
 }
 
 // ------------------------------------------------------------------ Collabs
-
-export const INQUIRY_KINDS = ["campaign", "commission", "licensing", "speaking"] as const;
-export type InquiryKind = (typeof INQUIRY_KINDS)[number];
-export const INQUIRY_KIND_LABEL: Record<InquiryKind, string> = { campaign: "Campaign", commission: "Commission", licensing: "Licensing", speaking: "Speaking" };
-
-export const INQUIRY_BUDGETS = ["under_2k", "2k_5k", "5k_10k", "10k_plus", "unsure"] as const;
-export type InquiryBudget = (typeof INQUIRY_BUDGETS)[number];
-export const INQUIRY_BUDGET_LABEL: Record<InquiryBudget, string> = { under_2k: "< €2K", "2k_5k": "€2–5K", "5k_10k": "€5–10K", "10k_plus": "€10K+", unsure: "Not sure" };
-
-export const INQUIRY_STATUSES = ["new", "in_talks", "booked", "delivered", "declined"] as const;
-export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
-export const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = { new: "New", in_talks: "In talks", booked: "Booked", delivered: "Delivered", declined: "Declined" };
-/** Pill colours from the design: coral new, lilac in talks, ink booked. */
-export const INQUIRY_STATUS_TONE: Record<InquiryStatus, { bg: string; fg: string }> = {
-  new: { bg: "#FF5A4F", fg: "#0D0D0D" },
-  in_talks: { bg: "#B79CFF", fg: "#0D0D0D" },
-  booked: { bg: "#0D0D0D", fg: "#F5F4EF" },
-  delivered: { bg: "#C7FF4A", fg: "#0D0D0D" },
-  declined: { bg: "#E6E4DC", fg: "#0D0D0D" },
-};
-
-export type Inquiry = {
-  id: string;
-  sender_user_id: string;
-  sender_mode_slug: "personal" | "event" | "business" | "creator";
-  sender_display_name: string;
-  kind: InquiryKind;
-  budget: InquiryBudget;
-  brand: string;
-  message: string;
-  status: InquiryStatus;
-  created_at: string;
-};
 
 // ------------------------------------------------------------------ Platforms
 

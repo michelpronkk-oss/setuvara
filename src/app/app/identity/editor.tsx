@@ -264,7 +264,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const current = modesRef.current.find((item) => item.id === modeId);
     if (!current) return null;
     const limits = SETTING_KEYS[current.slug];
-    // Creator keeps the studio's own settings (sections, collabs) that this editor doesn't show.
+    // Creator keeps the studio's own settings (sections) that this editor doesn't show.
     const settings: Record<string, string | boolean> = current.slug === "creator"
       ? Object.fromEntries(Object.entries(current.settings).filter(([key]) => !(key in limits)))
       : {};
