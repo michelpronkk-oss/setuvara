@@ -14,7 +14,7 @@ export default async function CreatorKitPage() {
   if (!studio.mode) return null;
   const { settings, profile } = studio;
   return (
-    <StudioPage className="!pt-0">
+    <StudioPage>
       <KitStudio
         base={{
           displayName: profile.display_name,

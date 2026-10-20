@@ -66,7 +66,7 @@ export function KitStudio({ profileId, initial, base, kitUrl }: { profileId: str
   }
 
   return (
-    <div className="-mx-3.5 grid gap-8 bg-[#E6E4DC] px-3.5 py-6 md:-mx-8 md:px-8 md:py-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 print:m-0 print:block print:bg-white print:p-0">
+    <div className="grid gap-8 rounded-[28px] bg-[#E6E4DC] p-4 sm:p-6 md:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 print:m-0 print:block print:bg-white print:p-0">
       <div className="min-w-0"><MediaKitDocument doc={doc} /></div>
       <aside className="flex flex-col gap-5 print:hidden">
         <div>
@@ -111,7 +111,7 @@ export function KitStudio({ profileId, initial, base, kitUrl }: { profileId: str
           <Field hint={kit.show_contact ? "Shown on the kit" : "Turn on Contact email to show it"} htmlFor="kit-email" label="Contact email"><TextInput autoComplete="email" id="kit-email" inputMode="email" maxLength={254} onChange={(event) => setKit({ ...kit, contact_email: event.target.value })} placeholder="studio@example.com" value={kit.contact_email ?? ""} /></Field>
         </section>
 
-        <div className="flex items-center gap-3 rounded-full bg-[#E6E4DC] py-1 max-lg:sticky max-lg:bottom-[calc(84px+env(safe-area-inset-bottom))]">
+        <div className="flex items-center gap-3 rounded-full bg-[#E6E4DC] py-1 max-lg:sticky max-lg:bottom-[calc(80px+env(safe-area-inset-bottom))]">
           <button className={`${inkButton} flex-1`} disabled={!dirty || status === "saving"} onClick={() => void save()} type="button">{status === "saving" ? "Saving…" : "Save kit"}</button>
           <span aria-live="polite" className="text-[13px] text-black/60">{status === "error" ? "Not saved. Try again." : status === "saved" && !dirty ? "Saved" : kit.updated_at ? `Updated ${relativeTime(kit.updated_at)}` : ""}</span>
         </div>

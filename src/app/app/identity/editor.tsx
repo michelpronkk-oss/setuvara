@@ -876,6 +876,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   if (!mode) return <main className="grid min-h-dvh place-items-center p-8 text-sm">Your Modes are being prepared.</main>;
 
   const sectionTitle = SECTIONS.find((item) => item.id === section)?.short ?? "Profile";
+  const personalMode = modes.find((item) => item.slug === "personal");
   const publishButton = profile.is_published
     ? <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-black/[0.06] px-4 text-sm font-semibold text-black/70 transition hover:bg-black/10" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
     : <button className="inline-flex min-h-11 items-center rounded-full bg-[#FF5A4F] px-5 text-sm font-semibold text-[#0D0D0D] transition hover:brightness-95" onClick={() => void setPublished(true)} type="button">Publish</button>;
@@ -901,7 +902,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
 
   return (
     <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pl-[268px]`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
-      <EditorSidebar modes={modes} onGo={go} plan={plan} profile={profile} publicUrl={publicUrl} section={section} signOut={signOut} slug={slug} />
+      <EditorSidebar avatarFocus={personalMode ? modeFocus(personalMode) : undefined} avatarUrl={personalMode?.image_url ?? null} liveUrl={publicUrl(slug)} modes={modes} onGo={go} personalUrl={profile.username ? publicUrl("personal") : null} plan={plan} profile={profile} section={section} signOut={signOut} slug={slug} />
 
       {/* Desktop top bar: where you are, save state, preview and publish. The Mode lives in the sidebar. */}
       <header className="hidden h-[76px] shrink-0 items-center justify-between gap-5 border-b border-black/[0.08] pl-8 pr-6 lg:flex xl:pl-11">
