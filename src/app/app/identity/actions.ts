@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { normalizeLinkPayload } from "@/lib/links/providers";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const modes = ["personal", "event", "business"] as const;
+const modes = ["personal", "event", "business", "creator"] as const;
 
 async function getAuthenticatedClient() {
   const supabase = await createClient();

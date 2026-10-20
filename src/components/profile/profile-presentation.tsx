@@ -6,7 +6,7 @@ import type { ResolvedAppearance, SocialStyle, ScrollCue as CueId } from "@/comp
 import { INK, NAME_SCALE, PAPER, filmSubtitle, type AppearanceTheme } from "@/components/profile/appearance-theme";
 import { nameTypeStyle, type NameType } from "@/components/profile/name-type";
 import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "@/components/profile/face-safe";
-import type { PublicLiveContext, ProfileMode } from "@/components/profile/types";
+import type { ModeSlug, PublicLiveContext, ProfileMode } from "@/components/profile/types";
 import type { ResolvedLink } from "@/components/profile/appearance-parts";
 
 export type Identity = { name: string; initials: string; username: string; roleLine: string };
@@ -23,8 +23,11 @@ function inkOn(hex: string) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.42 ? INK : PAPER;
 }
 
+/** The Mode's own line of text, shown above the personal line. */
+export const MODE_TEXT: Record<ModeSlug, string> = { personal: "note", event: "hereToMeet", business: "description", creator: "tagline" };
+
 function aboutParagraphs(scene: Scene, bio = "") {
-  const modeText = scene.mode.settings[scene.mode.slug === "event" ? "hereToMeet" : scene.mode.slug === "business" ? "description" : "note"];
+  const modeText = scene.mode.settings[MODE_TEXT[scene.mode.slug]];
   return [typeof modeText === "string" ? modeText.trim() : "", bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 

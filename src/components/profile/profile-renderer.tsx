@@ -24,7 +24,7 @@ import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./fa
 import { ScrollCue } from "./scroll-cue";
 import { ConnectRow, FeaturedSoundLine, FloatingConnect, LiveContextPresentation, SocialPresentation, SoundControl, SoundGate, useFrame, type ResolvedLink } from "./appearance-parts";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext, SlideImage, ViewerState } from "./types";
-import { AppearanceEnvironment, AppearanceHero, CUE_ROOM, NameBadge, WideHero, wideIdentityLines, type Scene, type Identity, type PhotoPresentationProps } from "./profile-presentation";
+import { AppearanceEnvironment, AppearanceHero, CUE_ROOM, MODE_TEXT, NameBadge, WideHero, wideIdentityLines, type Scene, type Identity, type PhotoPresentationProps } from "./profile-presentation";
 
 export { BOOKING_PROVIDERS } from "./appearance-theme";
 
@@ -109,7 +109,8 @@ function identityFor(profile: ProfileIdentity, mode: ProfileMode): Identity {
   const join = (...parts: string[]) => parts.filter(Boolean).join(" · ");
   const roleLine = mode.slug === "event" ? join(setting(mode, "role"), setting(mode, "city"))
     : mode.slug === "business" ? join(setting(mode, "role"), setting(mode, "company"), setting(mode, "city"))
-      : join(setting(mode, "location"), setting(mode, "pronouns"));
+      : mode.slug === "creator" ? join(setting(mode, "category"), setting(mode, "city"))
+        : join(setting(mode, "location"), setting(mode, "pronouns"));
   return { name, initials, username: profile.username, roleLine };
 }
 
@@ -377,7 +378,7 @@ function Actions({ mode, owner, connected, theme, copy, visitorAction, connectio
 
 function aboutParagraphs(scene: Scene, bio = "") {
   const mode = scene.mode;
-  const modeText = setting(mode, mode.slug === "event" ? "hereToMeet" : mode.slug === "business" ? "description" : "note");
+  const modeText = setting(mode, MODE_TEXT[mode.slug]);
   return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 

@@ -47,10 +47,12 @@ function rememberedMode(): ModeSlug | null {
 }
 const noSubscription = () => () => {};
 
-export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode, launch = false }: {
+export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode, launch = false, creatorHref = null }: {
   displayName: string; username: string; plan: PlanCode; isPublished: boolean; publicOrigin: string; modeShareUrls: Partial<Record<ModeSlug, string | null>>; modes: StageMode[]; initialMode: ModeSlug; hasRequestedMode: boolean;
   /** Opened from the Home Screen: the Share sheet is already open on the launch Mode. */
   launch?: boolean;
+  /** Creator Mode has its own dashboard; the picker links there when Creator is on. */
+  creatorHref?: string | null;
 }) {
   const saved = useSyncExternalStore(subscribeMode, rememberedMode, () => null);
   const [selected, setSelected] = useState<ModeSlug | null>(null);
@@ -125,7 +127,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <p className="hidden truncate font-label text-[13px] text-[#f5f4ef]/70 lg:block">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
           </div>
           <div className="hidden flex-wrap items-end justify-between gap-5 pr-7 lg:flex">
-            <ModePicker modes={modes} onPick={pick} slug={slug} variant="stage" />
+            <ModePicker creatorHref={creatorHref} modes={modes} onPick={pick} slug={slug} variant="stage" />
             <div className="flex gap-2.5">
               <MeetActions variant="stage" />
               <Link className="inline-flex min-h-[54px] items-center rounded-full px-[22px] text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.45)] hover:bg-white/10 focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>Edit</Link>
@@ -138,7 +140,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       </section>
 
       <div className="mt-3 flex flex-col gap-3 lg:hidden">
-        <ModePicker modes={modes} onPick={pick} slug={slug} variant="bar" />
+        <ModePicker creatorHref={creatorHref} modes={modes} onPick={pick} slug={slug} variant="bar" />
         <div className="flex gap-2">
           <button className="min-h-14 flex-1 rounded-full bg-[#ff5a4f] text-base font-semibold text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={openShare} type="button">Share {NAMES[slug]} Mode</button>
           <Link aria-label={`Edit ${NAMES[slug]} Mode`} className="grid size-14 place-items-center rounded-full shadow-[inset_0_0_0_1.5px_#0d0d0d] focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>
@@ -155,7 +157,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   );
 }
 
-function ModePicker({ modes, slug, onPick, variant }: { modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; variant: "stage" | "bar" | "sheet" }) {
+function ModePicker({ modes, slug, onPick, variant, creatorHref = null }: { modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; variant: "stage" | "bar" | "sheet"; creatorHref?: string | null }) {
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
@@ -177,11 +179,17 @@ function ModePicker({ modes, slug, onPick, variant }: { modes: StageMode[]; slug
             </button>
           );
         })}
+        {creatorHref && (
+          <Link className="flex min-h-[58px] min-w-[132px] flex-col items-start justify-center gap-[3px] rounded-[15px] px-4 text-left text-[#f5f4ef] hover:bg-white/10 focus-visible:outline-2" href={creatorHref}>
+            <span className="flex items-center gap-[7px] text-[15px] font-semibold"><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT.creator }} />{NAMES.creator}</span>
+            <span className="text-xs opacity-75">Dashboard ↗</span>
+          </Link>
+        )}
       </div>
     );
   }
   return (
-    <div aria-label={variant === "sheet" ? "Mode to share" : "Choose a Mode"} className="grid grid-cols-3 gap-1 rounded-[18px] bg-black/[0.06] p-1" onKeyDown={onKeyDown} role="radiogroup">
+    <div aria-label={variant === "sheet" ? "Mode to share" : "Choose a Mode"} className={`grid ${creatorHref ? "grid-cols-4" : "grid-cols-3"} gap-1 rounded-[18px] bg-black/[0.06] p-1`} onKeyDown={onKeyDown} role="radiogroup">
       {modes.map((item) => {
         const on = item.slug === slug;
         return (
@@ -190,6 +198,11 @@ function ModePicker({ modes, slug, onPick, variant }: { modes: StageMode[]; slug
           </button>
         );
       })}
+      {creatorHref && (
+        <Link className="flex min-h-12 items-center justify-center gap-1.5 rounded-[14px] text-sm font-semibold text-[#0d0d0d] focus-visible:outline-2" href={creatorHref}>
+          <span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT.creator }} />{NAMES.creator}
+        </Link>
+      )}
     </div>
   );
 }

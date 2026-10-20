@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 
+import { CreatorDashboard } from "@/components/creator/creator-dashboard";
 import { IdentityStage, type StageMode } from "@/components/app/home/identity-stage";
 import { PassportSection, PassportSkeleton } from "@/components/app/home/passport-section";
 import { PeopleSection, PeopleSkeleton } from "@/components/app/home/people-section";
@@ -12,6 +13,7 @@ import { photoSource, readFocus } from "@/components/profile/photo-focus";
 import { parseConnectPolicy } from "@/lib/connections/access";
 import { LAUNCH_MODE_COOKIE, LAUNCH_VALUE, parseLaunchMode } from "@/lib/pwa/launch";
 import { ownerModeShareUrls } from "@/lib/share/mode-share";
+import { loadCreatorStudio } from "@/lib/creator/studio-server";
 import { createClient } from "@/lib/supabase/server";
 
 const ORDER: ModeSlug[] = ["personal", "event", "business"];
@@ -34,6 +36,11 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
     getViewerPlan(userId),
   ]);
   if (!profile) redirect("/login?next=/app");
+  const creatorRow = modeRows?.find((row) => row.slug === "creator");
+  if (query.mode === "creator" && creatorRow?.is_enabled) {
+    const studio = await loadCreatorStudio("/app?mode=creator");
+    if (studio.mode) return <CreatorDashboard plan={billing.plan} studio={studio} />;
+  }
   const publicOrigin = await getPublicOrigin(requestHeaders);
   // Share links and photo signing are independent, so they run side by side.
   const [modeShareUrls, modes] = await Promise.all([
@@ -63,6 +70,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
         plan={billing.plan}
         publicOrigin={publicOrigin}
         modeShareUrls={modeShareUrls}
+        creatorHref={creatorRow?.is_enabled ? "/app?mode=creator" : null}
         username={profile.username}
       />
       <div className="mt-5 flex min-h-0 flex-col gap-6 lg:mt-0 min-[1800px]:gap-8">

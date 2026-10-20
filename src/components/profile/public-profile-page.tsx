@@ -11,7 +11,9 @@ import { ConnectFlow } from "@/components/connections/connect-flow";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { ProfileStage } from "@/components/profile/profile-stage";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
-import { extraSlideLimit, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
+import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
+import { CreatorSections } from "@/components/creator/creator-sections";
+import { isWorkBlock, readCreatorSettings, workItem, type StoreOffer } from "@/lib/creator/studio";
 import { getMessages } from "@/lib/i18n/messages";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
@@ -200,7 +202,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
       supabase.from("profile_modes").select("slug,label").eq("profile_id", userId).eq("is_enabled", true).order("sort_order"),
     ]);
     connectedState = connection as unknown as ConnectionState | null;
-    shareBackModes = (availableModes ?? []).filter((item) => ["personal", "event", "business"].includes(item.slug)).map((item) => ({ slug: item.slug as ModeSlug, label: item.label }));
+    shareBackModes = (availableModes ?? []).filter((item) => ["personal", "event", "business", "creator"].includes(item.slug)).map((item) => ({ slug: item.slug as ModeSlug, label: item.label }));
   } else if (!owner) {
     const cookieStore = await cookies();
     const guestToken = cookieStore.get("sv-guest-session")?.value;
@@ -246,6 +248,12 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
       },
     };
   }));
+  // Creator pages lead with the work: image and video blocks become Featured and Selected work.
+  const creator = slug === "creator";
+  const creatorOffers = creator ? await supabase.rpc("get_creator_public_summary", { p_username: username }).then(({ data }) => {
+    const offers = (data as { offers?: unknown } | null)?.offers;
+    return (Array.isArray(offers) ? offers : []) as Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">[];
+  }, () => []) : [];
   const mode: ProfileMode = {
     ...rawMode,
     slug: rawMode.slug as ModeSlug,
@@ -257,7 +265,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     slide_photos: undefined,
     slide_urls: slideUrls,
     links: (links ?? []) as ProfileLink[],
-    blocks: publicBlocks,
+    blocks: creator ? publicBlocks.filter((block) => !isWorkBlock(block)) : publicBlocks,
   };
   const { pageUrl: canonicalUrl, image: previewImageUrl } = publicPageUrls(target);
   const publicSettings = { settings: rawMode.settings as Record<string, unknown> };
@@ -310,12 +318,23 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           attribution
           className="min-h-dvh"
           edgeToEdge
-          footer={sharedPassportStamp ? (
+          footer={creator || sharedPassportStamp ? (<>
+            {creator && <CreatorSections
+              accent={resolveModeAccent(mode)}
+              accentInk={inkOnAccent(resolveModeAccent(mode))}
+              collabHref={owner ? undefined : shareToken ? `/s/${shareToken}/collab` : undefined}
+              firstName={profile.display_name.split(/\s+/)[0] || profile.display_name}
+              offers={creatorOffers}
+              settings={readCreatorSettings(rawMode.settings as Record<string, unknown>)}
+              work={publicBlocks.filter(isWorkBlock).map(workItem)}
+            />}
+            {sharedPassportStamp && (
             <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
               <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
               <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{sharedPassportStamp.subtitle}</p>}</div>
             </aside>
-          ) : undefined}
+            )}
+          </>) : undefined}
           profile={identity}
           mode={mode}
           viewerState={viewerState}

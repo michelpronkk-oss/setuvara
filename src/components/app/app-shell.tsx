@@ -114,8 +114,9 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
   }, [pendingPath]);
   const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
   const messagesSurface = pathname.startsWith("/app/connections/messages");
-  // The identity editor is a full-screen workspace with its own navigation.
-  if (pathname === "/app/identity" || pathname.startsWith("/app/identity/")) return <div lang="en"><HomeScreenRuntime />{children}</div>;
+  // The identity editor is a full-screen workspace with its own navigation. The Creator studio
+  // lives inside Identity but keeps the app chrome, like the rest of /app.
+  if (pathname === "/app/identity" || (pathname.startsWith("/app/identity/") && !pathname.startsWith("/app/identity/creator"))) return <div lang="en"><HomeScreenRuntime />{children}</div>;
 
   return (
     <div className="min-h-dvh bg-[#f5f4ef] font-brand text-[#0d0d0d]" lang="en">
