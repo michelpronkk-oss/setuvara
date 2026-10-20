@@ -12,6 +12,7 @@ import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { ProfileStage } from "@/components/profile/profile-stage";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
 import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
+import { ActionCards } from "@/components/actions/action-card";
 import { CreatorSections } from "@/components/creator/creator-sections";
 import { getPublicActions } from "@/lib/actions/public";
 import { getPublicStore } from "@/lib/commerce/public";
@@ -266,7 +267,11 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   // Creator pages lead with the work: image and video blocks become Featured and Selected work.
   const creator = slug === "creator";
   const creatorOffers = creator ? await getPublicStore(username).catch(() => []) : [];
-  const creatorActions = creator ? await getPublicActions(username, "creator") : [];
+  // Every Mode can carry Actions; Creator places them among its own sections.
+  const modeActions = await getPublicActions(username, slug);
+  const actionHref = owner ? undefined
+    : shareToken ? (id: string) => `/s/${shareToken}/a/${id}`
+      : slug === "personal" ? (id: string) => `/${username}/a/${id}` : undefined;
   const mode: ProfileMode = {
     ...rawMode,
     slug: rawMode.slug as ModeSlug,
@@ -331,17 +336,18 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           attribution
           className="min-h-dvh"
           edgeToEdge
-          footer={creator || sharedPassportStamp ? (<>
+          footer={creator || modeActions.length || sharedPassportStamp ? (<>
             {creator && <CreatorSections
               accent={resolveModeAccent(mode)}
               accentInk={inkOnAccent(resolveModeAccent(mode))}
-              actionHref={owner || !shareToken ? undefined : (id) => `/s/${shareToken}/a/${id}`}
+              actionHref={actionHref}
               productHref={owner || !shareToken ? undefined : (id) => `/s/${shareToken}/p/${id}`}
-              actions={creatorActions}
+              actions={modeActions}
               offers={creatorOffers}
               settings={readCreatorSettings(rawMode.settings as Record<string, unknown>)}
               work={publicBlocks.filter(isWorkBlock).map(workItem)}
             />}
+            {!creator && <ActionCards accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions} />}
             {sharedPassportStamp && (
             <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
               <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
