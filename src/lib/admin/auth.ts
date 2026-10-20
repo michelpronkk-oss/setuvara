@@ -19,6 +19,7 @@ export type AdminRole = (typeof ADMIN_ROLES)[number];
 export const ADMIN_AREAS = {
   overview: ["owner", "admin", "analyst"],
   billing: ["owner", "admin", "analyst"],
+  commerce: ["owner", "admin", "analyst"],
   health: ["owner", "admin", "analyst"],
   members: ["owner", "admin"],
   feedback: ["owner", "admin"],

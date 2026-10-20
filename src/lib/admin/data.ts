@@ -283,3 +283,40 @@ export type AdminMemberRow = {
 export async function listAdmins() {
   return rpc<AdminMemberRow[]>("admin_list_admins");
 }
+
+/* Commerce */
+
+export type CommerceCurrencyRow = {
+  currency: string;
+  livemode: boolean;
+  orders: number;
+  gmv_minor: number;
+  refunds_minor: number;
+  platform_fees_minor: number;
+  platform_fees_refunded_minor: number;
+  processing_fees_minor: number;
+  chargebacks_minor: number;
+};
+
+export type CommerceOverview = {
+  by_currency: CommerceCurrencyRow[];
+  free_claims: number;
+  sellers: { total: number; can_sell: number; payouts_enabled: number; action_required: number; test_mode: number };
+  open_disputes: number;
+  failed_deliveries: number;
+  failed_events_7d: number;
+  test_orders: number;
+};
+
+/**
+ * Creator sales and Setuvara's own revenue kept apart: GMV is the creators' money (direct charges,
+ * the creator is the seller); Setuvara earns only its application fee, net of fees returned on refunds.
+ */
+export async function getCommerceOverview(days: AdminRange) {
+  const { from, to } = rangeDates(days);
+  const [commerce, billing] = await Promise.all([
+    rpc<CommerceOverview>("admin_commerce_overview", { p_from: from, p_to: to }),
+    getBillingOverview(),
+  ]);
+  return { from, to, commerce, subscriptionRunRateMinor: billing.plans.listRunRateMinor };
+}

@@ -14,7 +14,8 @@ import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/app
 import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { CreatorSections } from "@/components/creator/creator-sections";
 import { getPublicActions } from "@/lib/actions/public";
-import { isWorkBlock, readCreatorSettings, workItem, type StoreOffer } from "@/lib/creator/studio";
+import { getPublicStore } from "@/lib/commerce/public";
+import { isWorkBlock, readCreatorSettings, workItem } from "@/lib/creator/studio";
 import { getMessages } from "@/lib/i18n/messages";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
 import { readableBlocks, selectBlocks } from "@/lib/blocks/registry";
@@ -251,10 +252,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   }));
   // Creator pages lead with the work: image and video blocks become Featured and Selected work.
   const creator = slug === "creator";
-  const creatorOffers = creator ? await supabase.rpc("get_creator_public_summary", { p_username: username }).then(({ data }) => {
-    const offers = (data as { offers?: unknown } | null)?.offers;
-    return (Array.isArray(offers) ? offers : []) as Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">[];
-  }, () => []) : [];
+  const creatorOffers = creator ? await getPublicStore(username).catch(() => []) : [];
   const creatorActions = creator ? await getPublicActions(username, "creator") : [];
   const mode: ProfileMode = {
     ...rawMode,
@@ -325,6 +323,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
               accent={resolveModeAccent(mode)}
               accentInk={inkOnAccent(resolveModeAccent(mode))}
               actionHref={owner || !shareToken ? undefined : (id) => `/s/${shareToken}/a/${id}`}
+              productHref={owner || !shareToken ? undefined : (id) => `/s/${shareToken}/p/${id}`}
               actions={creatorActions}
               offers={creatorOffers}
               settings={readCreatorSettings(rawMode.settings as Record<string, unknown>)}
