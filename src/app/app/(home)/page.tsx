@@ -13,6 +13,8 @@ import { photoSource, readFocus } from "@/components/profile/photo-focus";
 import { parseConnectPolicy } from "@/lib/connections/access";
 import { LAUNCH_MODE_COOKIE, LAUNCH_VALUE, parseLaunchMode } from "@/lib/pwa/launch";
 import { ownerModeShareUrls } from "@/lib/share/mode-share";
+import { withLiveHandles } from "@/lib/handles/mode-handle";
+import { ownerModeHandles } from "@/lib/handles/mode-server";
 import { loadCreatorStudio } from "@/lib/creator/studio-server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -43,7 +45,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   }
   const publicOrigin = await getPublicOrigin(requestHeaders);
   // Share links and photo signing are independent, so they run side by side.
-  const [modeShareUrls, modes] = await Promise.all([
+  const [shortUrls, modes, modeHandles] = await Promise.all([
     ownerModeShareUrls(userId, profile.username, ORDER.filter((slug) => modeRows?.some((row) => row.slug === slug)), publicOrigin),
     Promise.all(ORDER.map(async (slug): Promise<StageMode> => {
       const row = modeRows?.find((item) => item.slug === slug);
@@ -52,7 +54,9 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
       const imageSource = photoSource({ image_url: imageUrl, image_original_url: imageOriginalUrl, image_crop: row?.image_crop, image_focus_x: row?.image_focus_x, image_focus_y: row?.image_focus_y });
       return { slug, enabled: row?.is_enabled ?? false, appearance: (row?.appearance ?? { qrStyle: "standard", accent: "#FF5A4F" }) as StageMode["appearance"], imageUrl, imageSource, imageFocus: readFocus(row?.image_focus_x, row?.image_focus_y), connectPolicy: parseConnectPolicy(row?.connect_policy), ...describeMode(slug, settings, profile.bio) };
     })),
+    ownerModeHandles(userId),
   ]);
+  const modeShareUrls = withLiveHandles(shortUrls, modeHandles, publicOrigin);
   // Opened from the Home Screen: Share opens at once, on the Mode chosen for this device.
   const launch = query.launch === LAUNCH_VALUE;
   const initialMode = launch ? parseLaunchMode(cookieStore.get(LAUNCH_MODE_COOKIE)?.value) : ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";

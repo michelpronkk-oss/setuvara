@@ -1,3 +1,4 @@
+import type { ModeHandleSlug, ModeHandleState } from "@/lib/handles/mode-handle";
 import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
@@ -93,4 +94,8 @@ export type EditorApi = {
   publicUrl: (slug: ModeSlug, source?: string) => string;
   /** Rotates an Event or Business share link. Resolves false if it could not. */
   regenerateShareLink: (slug: ModeSlug) => Promise<boolean>;
+  /** The Mode's own link (`/s/<short id>`), which keeps working when a handle is live. */
+  shortUrl: (slug: ModeSlug) => string | null;
+  modeHandles: Partial<Record<ModeHandleSlug, ModeHandleState>>;
+  setModeHandle: (slug: ModeHandleSlug, state: ModeHandleState | null) => void;
 };

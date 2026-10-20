@@ -13,6 +13,7 @@ import { focusPosition, modeFocus, readCrop, type PhotoFocus } from "@/component
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
+import { isModeHandleSlug, type ModeHandleSlug, type ModeHandleState } from "@/lib/handles/mode-handle";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { resolveStoredLink, providerForLink, type LinkProvider } from "@/lib/links/providers";
 import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
@@ -42,6 +43,8 @@ type EditorProps = {
   publicOrigin: string;
   /** Opaque share URLs for non-default Modes (`/s/<token>`); null when unavailable. */
   modeShareUrls: Partial<Record<ModeSlug, string | null>>;
+  /** Business and Creator handles the owner claimed (live or not). */
+  modeHandles: Partial<Record<ModeHandleSlug, ModeHandleState>>;
   error?: string;
   saved?: string;
   signOut: () => Promise<void>;
@@ -76,7 +79,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls: initialModeShareUrls, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
+export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls: initialModeShareUrls, modeHandles: initialModeHandles, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -837,7 +840,20 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       return false;
     }
   }, [modeShareUrls, publicOrigin]);
-  const publicUrl = useCallback((target: ModeSlug, source?: string) => publicModeUrl({ origin: publicOrigin, username: savedUsername, shareUrls: modeShareUrls, mode: target, source }), [publicOrigin, savedUsername, modeShareUrls]);
+  const [modeHandles, setModeHandles] = useState(initialModeHandles);
+  const setModeHandle = useCallback((target: ModeHandleSlug, state: ModeHandleState | null) => {
+    setModeHandles((current) => {
+      const next = { ...current };
+      if (state) next[target] = state; else delete next[target];
+      return next;
+    });
+  }, []);
+  // A live handle is the Mode's public link; the /s/ link keeps working behind it.
+  const publicUrl = useCallback((target: ModeSlug, source?: string) => {
+    const live = isModeHandleSlug(target) && modeHandles[target]?.is_live ? `${publicOrigin}/${modeHandles[target].handle}` : null;
+    return publicModeUrl({ origin: publicOrigin, username: savedUsername, shareUrls: live ? { [target]: live } : modeShareUrls, mode: target, source });
+  }, [publicOrigin, savedUsername, modeShareUrls, modeHandles]);
+  const shortUrl = useCallback((target: ModeSlug) => modeShareUrls[target] ?? null, [modeShareUrls]);
 
   const requestCapability = useCallback((capability: CapabilityKey) => {
     setPaywallCapability(capability);
@@ -850,7 +866,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
     addBlock, updateBlock, toggleBlock, deleteBlock, reorderBlocks, setSoundtrack,
-    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, pickSlide, removeSlide, equipReward, go, toast, publicUrl, regenerateShareLink,
+    pickPhoto, recropPhoto, removePhoto, usePhotoFrom, pickSlide, removeSlide, equipReward, go, toast, publicUrl, regenerateShareLink, shortUrl, modeHandles, setModeHandle,
   };
 
   if (!mode) return <main className="grid min-h-dvh place-items-center p-8 text-sm">Your Modes are being prepared.</main>;

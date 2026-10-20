@@ -69,6 +69,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (rows.length < profileBatchSize) break;
     }
 
+    // Business and Creator handles whose owners turned search listing on.
+    const room = profileUrlLimit - profiles.length;
+    if (room > 0) {
+      const { data: handles } = await supabase.rpc("list_indexed_mode_handles", { p_limit: room });
+      for (const row of (handles ?? []) as { handle: string; updated_at: string | null }[]) {
+        if (!isAllowedUsername(row.handle)) continue;
+        profiles.push({
+          url: `${SETUVARA_ORIGIN}/${row.handle}`,
+          lastModified: parseLastModified(row.updated_at, null),
+          changeFrequency: "weekly",
+          priority: 0.6,
+        });
+      }
+    }
+
     return [...marketingUrls, ...profiles];
   } catch {
     // If public data is temporarily unavailable, keep the marketing sitemap valid.
