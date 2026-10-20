@@ -221,7 +221,14 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
       if (usernameError) includeUsername = false;
     }
     const values = { display_name: draft.display_name.trim(), bio: draft.bio, ...(includeUsername ? { username } : {}) };
-    const { error: updateError } = await supabase.from("profiles").update(values).eq("id", initialProfile.id);
+    let { error: updateError } = await supabase.from("profiles").update(values).eq("id", initialProfile.id);
+    const limit = updateError?.message?.includes("username_change_limit") ? "You can change your username 3 times in 30 days." : updateError?.message?.includes("username_history_limit") ? "You've used 20 usernames. Take back an old one, or write to us." : null;
+    if (updateError && includeUsername && limit) {
+      // The rest of the profile still saves; only the new username waits.
+      usernameError = limit;
+      includeUsername = false;
+      ({ error: updateError } = await supabase.from("profiles").update({ display_name: values.display_name, bio: values.bio }).eq("id", initialProfile.id));
+    }
     if (updateError) {
       if (updateError.code === "23505") { setFieldErrors((current) => ({ ...current, username: "That username is taken." })); return "That username is taken."; }
       return "Your profile couldn’t be saved. Try again.";

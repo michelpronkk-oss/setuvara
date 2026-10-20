@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_ROUTE_PREFIX, isAdminHost } from "@/lib/admin/host";
 import { updateSession } from "@/lib/supabase/proxy";
+import { isReservedUsername } from "@/lib/usernames";
 
 const ADMIN_RESPONSE_HEADERS: Record<string, string> = {
   "X-Robots-Tag": "noindex, nofollow, noarchive",
@@ -50,6 +51,14 @@ export async function proxy(request: NextRequest) {
 
   if (isAdminHost(request.headers.get("host"))) return adminProxy(request);
   if (isAdminPath(pathname)) return notFound();
+
+  // setuvara.com/@aanya is an alias of the canonical setuvara.com/aanya.
+  const handleAlias = /^\/(?:@|%40)([A-Za-z0-9_]{3,24})\/?$/.exec(pathname);
+  if (handleAlias && !isReservedUsername(handleAlias[1])) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = `/${handleAlias[1].toLowerCase()}`;
+    return NextResponse.redirect(destination, 308);
+  }
 
   if (pathname === "/nl" || pathname.startsWith("/nl/")) {
     const destination = request.nextUrl.clone();
