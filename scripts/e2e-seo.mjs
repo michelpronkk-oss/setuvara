@@ -22,6 +22,7 @@ const indexable = [
   { path: "/terms", title: "Terms | Setuvara" },
   { path: "/cookies", title: "Cookies | Setuvara" },
   { path: "/refunds", title: "Refunds | Setuvara" },
+  { path: "/data-deletion", title: "Data deletion | Setuvara" },
 ];
 
 const noindex = [

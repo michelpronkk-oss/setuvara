@@ -11,6 +11,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   const who = await socialRequest(params);
   if (!who) return Response.json({ error: "Sign in again." }, { status: 401 });
   const account = await ownAccount(who.userId, who.provider);
-  if (account) await disconnectAccount(account);
+  if (account) {
+    try {
+      await disconnectAccount(account);
+    } catch {
+      console.error("social_disconnect_failed", who.provider);
+      return Response.json({ error: "We couldn't remove it just now. Nothing was deleted. Try again." }, { status: 500 });
+    }
+  }
   return Response.json({ ok: true });
 }
