@@ -8,10 +8,12 @@ import { formatMoney, OFFER_TYPE_LABEL, SECTION_NAMES, type CreatorSection, type
  * The Creator sections of a page: Featured, Work, Store and Actions, in the creator's order.
  * They sit inside any Appearance, so colour comes from currentColor and the page's accent.
  */
-export function CreatorSections({ settings, work, offers, actions = [], actionHref, accent, accentInk }: {
+export function CreatorSections({ settings, work, offers, productHref, actions = [], actionHref, accent, accentInk }: {
   settings: CreatorSettings;
   work: WorkItem[];
-  offers: Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">[];
+  offers: ShopOffer[];
+  /** Where a product sold on Setuvara opens. Absent in previews and for the owner. */
+  productHref?: (id: string) => string;
   /** Live Actions with their cover pictures. */
   actions?: { action: PublicAction; coverUrl: string | null }[];
   /** Where an Action's button goes. Absent in previews and for the owner. */
@@ -25,7 +27,7 @@ export function CreatorSections({ settings, work, offers, actions = [], actionHr
   const parts: Record<CreatorSection, ReactNode> = {
     featured: featured ? <FeaturedWork item={featured} key="featured" /> : null,
     work: rest.length ? <SelectedWork items={rest} key="work" /> : null,
-    store: offers.length ? <Store accent={accent} accentInk={accentInk} key="store" offers={offers} /> : null,
+    store: offers.length ? <Store accent={accent} accentInk={accentInk} key="store" offers={offers} productHref={productHref} /> : null,
     actions: actions.length ? (
       <div className="flex flex-col gap-4" data-creator-actions key="actions">
         {actions.map(({ action, coverUrl }) => <ActionCard accent={accent} accentInk={accentInk} action={action} coverUrl={coverUrl} href={actionHref?.(action.id)} key={action.id} />)}
@@ -91,24 +93,38 @@ function SelectedWork({ items }: { items: WorkItem[] }) {
   );
 }
 
+type ShopOffer = Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url"> & { coverUrl?: string | null; sellsHere?: boolean; soldOut?: boolean };
+
+const priceLabel = (offer: ShopOffer) => (offer.unit_amount_minor === 0 ? "Free" : formatMoney(offer.unit_amount_minor, offer.currency));
+/** Where an offer goes: the product page for things sold here, the creator's own shop for links out, nowhere in previews. */
+function target(offer: ShopOffer, productHref?: (id: string) => string) {
+  if (offer.offer_type === "external" && offer.external_url) return { href: offer.external_url, external: true };
+  if (offer.sellsHere && productHref) return { href: productHref(offer.id), external: false };
+  return null;
+}
+
 /** One offering reads as a story; several read as editorial rows. Every row says what it is. */
-function Store({ offers, accent, accentInk }: { offers: Pick<StoreOffer, "id" | "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">[]; accent: string; accentInk: string }) {
+function Store({ offers, accent, accentInk, productHref }: { offers: ShopOffer[]; accent: string; accentInk: string; productHref?: (id: string) => string }) {
   return (
     <section aria-labelledby="creator-store" className="flex flex-col gap-3.5" data-creator-store>
       <h2 className="font-display text-[26px] font-bold tracking-[-0.04em]" id="creator-store">From the shop</h2>
-      {offers.length === 1 ? <OneOffer accent={accent} accentInk={accentInk} offer={offers[0]} /> : (
+      {offers.length === 1 ? <OneOffer accent={accent} accentInk={accentInk} offer={offers[0]} productHref={productHref} /> : (
         <ul className="flex flex-col">
           {offers.map((offer) => {
-            const external = offer.offer_type === "external" && offer.external_url;
+            const link = target(offer, productHref);
             const row = (
               <>
+                {offer.coverUrl && <>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- signed product cover */}
+                  <img alt="" className="size-14 shrink-0 rounded-[12px] object-cover" loading="lazy" src={offer.coverUrl} />
+                </>}
                 <span className="min-w-0 flex-1"><span className="block truncate text-[16px] font-semibold">{offer.title}</span><span className="block truncate text-[13px] opacity-65">{OFFER_TYPE_LABEL[offer.offer_type]}{offer.description ? ` · ${offer.description}` : ""}</span></span>
-                <span className="shrink-0 text-[15px] font-semibold tabular-nums">{formatMoney(offer.unit_amount_minor, offer.currency)}</span>
+                <span className="shrink-0 text-[15px] font-semibold tabular-nums">{offer.soldOut ? "Sold out" : priceLabel(offer)}</span>
               </>
             );
             return (
-              <li className="border-b py-3 first:pt-0" key={offer.id} style={{ borderColor: line }}>
-                {external ? <a className="flex items-center gap-4 rounded-lg focus-visible:outline-2" href={offer.external_url!} rel="noreferrer nofollow" target="_blank">{row}</a> : <div className="flex items-center gap-4">{row}</div>}
+              <li className="border-b py-3 first:pt-0" data-offer={offer.id} key={offer.id} style={{ borderColor: line }}>
+                {link ? <a className="flex items-center gap-4 rounded-lg focus-visible:outline-2" href={link.href} {...(link.external ? { rel: "noreferrer nofollow", target: "_blank" } : {})}>{row}</a> : <div className="flex items-center gap-4">{row}</div>}
               </li>
             );
           })}
@@ -119,16 +135,21 @@ function Store({ offers, accent, accentInk }: { offers: Pick<StoreOffer, "id" | 
   );
 }
 
-function OneOffer({ offer, accent, accentInk }: { offer: Pick<StoreOffer, "title" | "description" | "currency" | "unit_amount_minor" | "offer_type" | "external_url">; accent: string; accentInk: string }) {
-  const price = formatMoney(offer.unit_amount_minor, offer.currency);
+function OneOffer({ offer, accent, accentInk, productHref }: { offer: ShopOffer; accent: string; accentInk: string; productHref?: (id: string) => string }) {
+  const link = target(offer, productHref);
+  const price = priceLabel(offer);
   return (
-    <div className="flex flex-col gap-3 rounded-[22px] p-5" style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
+    <div className="flex flex-col gap-3 overflow-hidden rounded-[22px] p-5" data-offer={offer.id} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
+      {offer.coverUrl && <>
+        {/* eslint-disable-next-line @next/next/no-img-element -- signed product cover */}
+        <img alt="" className="-mx-5 -mt-5 mb-1 aspect-[16/10] w-[calc(100%+2.5rem)] max-w-none object-cover" loading="lazy" src={offer.coverUrl} />
+      </>}
       <p className={label}>{OFFER_TYPE_LABEL[offer.offer_type]}</p>
       <p className="font-display text-[30px] font-bold leading-none tracking-[-0.04em]">{offer.title}</p>
-      {offer.description && <p className="whitespace-pre-line text-[15px] leading-[1.5] opacity-80">{offer.description}</p>}
-      {offer.offer_type === "external" && offer.external_url
-        ? <a className="mt-1 inline-flex min-h-12 w-fit items-center rounded-full px-5 text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2" href={offer.external_url} rel="noreferrer nofollow" style={{ background: accent, color: accentInk }} target="_blank">Buy · {price} ↗</a>
-        : <p className="text-[15px] font-semibold">{price}</p>}
+      {offer.description && <p className="line-clamp-4 whitespace-pre-line text-[15px] leading-[1.5] opacity-80">{offer.description}</p>}
+      {link && !offer.soldOut
+        ? <a className="mt-1 inline-flex min-h-12 w-fit items-center rounded-full px-5 text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2" href={link.href} style={{ background: accent, color: accentInk }} {...(link.external ? { rel: "noreferrer nofollow", target: "_blank" } : {})}>{offer.unit_amount_minor === 0 ? "Get it free" : `Buy · ${price}`}{link.external ? " ↗" : ""}</a>
+        : <p className="text-[15px] font-semibold">{offer.soldOut ? "Sold out" : price}</p>}
     </div>
   );
 }

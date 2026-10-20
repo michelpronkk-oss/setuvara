@@ -13,6 +13,7 @@ const NAV: { area: AdminArea; href: string; label: string; icon: ReactNode }[] =
   { area: "overview", href: "/", label: "Overview", icon: <path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /> },
   { area: "members", href: "/members", label: "Members", icon: <><circle cx="9" cy="8.4" r="3.2" /><path d="M3.4 19.4c.7-3.1 2.9-4.9 5.6-4.9s4.9 1.8 5.6 4.9" /><path d="M15.4 5.4a3 3 0 0 1 0 5.9M17.2 14.6c1.8.5 3 2 3.4 4.4" /></> },
   { area: "billing", href: "/billing", label: "Billing", icon: <><rect height="14" rx="2.5" width="18" x="3" y="5" /><path d="M3 9.5h18M7 15h4" /></> },
+  { area: "commerce", href: "/commerce", label: "Commerce", icon: <><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8Z" /><path d="M9 10V7a3 3 0 0 1 6 0v3" /></> },
   { area: "feedback", href: "/feedback", label: "Support", icon: <path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4.5 3.2V17H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" /> },
   { area: "chatReports", href: "/chat-reports", label: "Chat reports", icon: <><path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6Z" /><path d="M12 8v4M12 15h.01" /></> },
   { area: "health", href: "/health", label: "Health", icon: <path d="M3 12h4l2.5-6 5 12 2.5-6h4" /> },

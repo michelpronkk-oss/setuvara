@@ -39,7 +39,7 @@ export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
-  const { data: orderRows } = await studio.supabase.from("creator_orders").select("gross_amount_minor, currency, created_at").eq("creator_user_id", studio.userId).eq("status", "paid").gte("created_at", monthStart.toISOString()).order("created_at", { ascending: false });
+  const { data: orderRows } = await studio.supabase.from("creator_orders").select("gross_amount_minor, currency, created_at").eq("creator_user_id", studio.userId).eq("order_kind", "purchase").in("status", ["paid", "partially_refunded", "disputed"]).gte("created_at", monthStart.toISOString()).order("created_at", { ascending: false });
   const orders = orderRows ?? [];
   const revenueCurrency = orders[0]?.currency ?? "EUR";
   const revenue = orders.filter((row) => row.currency === revenueCurrency).reduce((sum, row) => sum + Number(row.gross_amount_minor), 0);
@@ -65,7 +65,7 @@ export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio
   const steps: Step[] = [
     { title: "Add a platform", sub: accounts.length ? accounts.map((item) => PLATFORM_NAME[item.platform]).join(", ") : "Instagram, TikTok, YouTube, Twitch or X", done: accounts.length > 0, href: "/app/identity?mode=creator&section=links", optional: false },
     { title: "Add 3 pieces of work", sub: work.length ? `${work.length} of 3 added` : "Films, photos or a link", done: work.length >= 3, href: "/app/identity/creator/work", optional: true },
-    { title: "Add an offer", sub: "A product, booking or link", done: offers.length > 0, href: "/app/identity/creator/store", optional: true },
+    { title: "Add an offer", sub: "A product, booking or link", done: offers.length > 0, href: "/app/identity/creator/commerce/products", optional: true },
     { title: "Publish an Action", sub: "Collabs, a giveaway, bookings or questions", done: liveActions.length > 0, href: "/app/identity/creator/actions", optional: true },
   ];
   const stepsDone = steps.filter((step) => step.done).length;
@@ -217,8 +217,8 @@ export function CreatorDashboardView({ data }: { data: CreatorDashboardData }) {
         )}
 
         <div className="grid grid-cols-2 gap-6 border-t border-black/10 pt-5 md:gap-8">
-          <Link className="group min-w-0 focus-visible:outline-2" href="/app/identity/creator/store">
-            <Mono className="text-black/55">STORE · {monthLabel}</Mono>
+          <Link className="group min-w-0 focus-visible:outline-2" href="/app/identity/creator/commerce">
+            <Mono className="text-black/55">COMMERCE · {monthLabel}</Mono>
             <p className="mt-2 font-display text-[34px] font-bold leading-none tracking-[-0.05em] md:text-[44px]">{revenue}</p>
             <div aria-hidden="true" className="mt-3 flex h-10 items-end gap-[3px]">
               {perDay.map((count, index) => <span className="w-full max-w-[12px] rounded-[2px]" key={index} style={{ height: `${Math.max(8, (count / Math.max(...perDay, 1)) * 100)}%`, background: index === perDay.length - 1 ? "#FF5A4F" : count ? "#0D0D0D" : "rgba(13,13,13,.12)" }} />)}
