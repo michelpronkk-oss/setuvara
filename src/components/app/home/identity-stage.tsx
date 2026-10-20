@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, 
 
 import { claimLaunch, HomeScreenSheet, launchModeOnDevice, useStandalone } from "@/components/app/home-screen";
 import { MeetActions } from "@/components/app/home/meet-sheet";
+import { rememberedHomeMode, rememberHomeMode, subscribeHomeMode, type HomeMode } from "@/components/app/home/home-mode";
 import { StatusBadge } from "@/components/app/status-badge";
 import { meetMarkBottom, meetMarkTop } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
@@ -33,18 +34,6 @@ const NOTES: Record<ModeSlug, string> = {
 };
 // Stage corner is cut at 60°, the same crop as profile photos (see clip-path classes on the section).
 const markDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#FF5A4F"/><g transform="translate(17 17) scale(.66)" fill="#0D0D0D"><path d="${meetMarkTop}"/><path d="${meetMarkBottom}"/></g></svg>`)}`;
-const STORAGE_KEY = "sv-home-mode";
-function subscribeMode(listener: () => void) {
-  window.addEventListener("storage", listener);
-  window.addEventListener(STORAGE_KEY, listener);
-  return () => { window.removeEventListener("storage", listener); window.removeEventListener(STORAGE_KEY, listener); };
-}
-function rememberedMode(): ModeSlug | null {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    return saved === "personal" || saved === "event" || saved === "business" ? saved : null;
-  } catch { return null; }
-}
 const noSubscription = () => () => {};
 
 export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode, launch = false, creatorHref = null }: {
@@ -54,7 +43,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   /** Creator Mode has its own dashboard; the picker links there when Creator is on. */
   creatorHref?: string | null;
 }) {
-  const saved = useSyncExternalStore(subscribeMode, rememberedMode, () => null);
+  const saved = useSyncExternalStore(subscribeHomeMode, rememberedHomeMode, () => null);
   const [selected, setSelected] = useState<ModeSlug | null>(null);
   const slug = selected ?? (hasRequestedMode ? initialMode : saved ?? initialMode);
   const [sharing, setSharing] = useState(launch);
@@ -70,12 +59,15 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
 
   const pick = useCallback((next: ModeSlug) => {
     setSelected(next);
-    try { window.localStorage.setItem(STORAGE_KEY, next); window.dispatchEvent(new Event(STORAGE_KEY)); } catch { /* Selection still works without storage. */ }
+    if (next !== "creator") rememberHomeMode(next as HomeMode);
   }, []);
   const openShare = (event: MouseEvent<HTMLButtonElement>) => { shareButton.current = event.currentTarget; setSharing(true); };
   const closeShare = useCallback(() => { setSharing(false); shareButton.current?.focus(); }, []);
   const openHomeScreen = useCallback(() => { setSharing(false); setHomeScreen(true); }, []);
   const closeHomeScreen = useCallback(() => { setHomeScreen(false); shareButton.current?.focus(); }, []);
+
+  // A Mode named in the address becomes the remembered one, so the sidebar agrees with the stage.
+  useEffect(() => { if (hasRequestedMode && initialMode !== "creator") rememberHomeMode(initialMode as HomeMode); }, [hasRequestedMode, initialMode]);
 
   useEffect(() => {
     if (launch) {
@@ -140,7 +132,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       </section>
 
       <div className="mt-3 flex flex-col gap-3 lg:hidden">
-        <ModePicker creatorHref={creatorHref} modes={modes} onPick={pick} slug={slug} variant="bar" />
+        <ModePicker creatorHref={creatorHref} isPublished={isPublished} modes={modes} onPick={pick} slug={slug} variant="bar" />
         <div className="flex gap-2">
           <button className="min-h-14 flex-1 rounded-full bg-[#ff5a4f] text-base font-semibold text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={openShare} type="button">Share {NAMES[slug]} Mode</button>
           <Link aria-label={`Edit ${NAMES[slug]} Mode`} className="grid size-14 place-items-center rounded-full shadow-[inset_0_0_0_1.5px_#0d0d0d] focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>
@@ -157,7 +149,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   );
 }
 
-function ModePicker({ modes, slug, onPick, variant, creatorHref = null }: { modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; variant: "stage" | "bar" | "sheet"; creatorHref?: string | null }) {
+function ModePicker({ modes, slug, onPick, variant, creatorHref = null, isPublished = true }: { modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; variant: "stage" | "bar" | "sheet"; creatorHref?: string | null; isPublished?: boolean }) {
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
@@ -193,14 +185,17 @@ function ModePicker({ modes, slug, onPick, variant, creatorHref = null }: { mode
       {modes.map((item) => {
         const on = item.slug === slug;
         return (
-          <button aria-checked={on} className={`flex min-h-12 items-center justify-center gap-1.5 rounded-[14px] text-sm font-semibold focus-visible:outline-2 ${on ? "bg-[#0d0d0d] text-[#f5f4ef]" : "text-[#0d0d0d]"}`} data-mode={item.slug} key={item.slug} onClick={() => onPick(item.slug)} role="radio" tabIndex={on ? 0 : -1} type="button">
-            <span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT[item.slug] }} />{NAMES[item.slug]}
+          <button aria-checked={on} className={`flex min-h-12 flex-col items-center justify-center gap-[3px] rounded-[14px] text-sm font-semibold focus-visible:outline-2 ${variant === "bar" ? "min-h-[54px]" : ""} ${on ? "bg-[#0d0d0d] text-[#f5f4ef]" : "text-[#0d0d0d]"}`} data-mode={item.slug} key={item.slug} onClick={() => onPick(item.slug)} role="radio" tabIndex={on ? 0 : -1} type="button">
+            <span className="flex items-center gap-1.5"><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT[item.slug], opacity: item.enabled ? 1 : 0.4 }} />{NAMES[item.slug]}</span>
+            {/* At a glance on phones: whether each Mode opens publicly right now. */}
+            {variant === "bar" && <span className={`font-label text-[9.5px] uppercase leading-none tracking-[0.12em] ${on ? "text-[#f5f4ef]/60" : "text-black/45"}`}>{item.enabled ? (isPublished ? "Live" : "Private") : "Off"}</span>}
           </button>
         );
       })}
       {creatorHref && (
-        <Link className="flex min-h-12 items-center justify-center gap-1.5 rounded-[14px] text-sm font-semibold text-[#0d0d0d] focus-visible:outline-2" href={creatorHref}>
-          <span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT.creator }} />{NAMES.creator}
+        <Link className={`flex min-h-12 flex-col items-center justify-center gap-[3px] rounded-[14px] text-sm font-semibold text-[#0d0d0d] focus-visible:outline-2 ${variant === "bar" ? "min-h-[54px]" : ""}`} href={creatorHref}>
+          <span className="flex items-center gap-1.5"><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT.creator }} />{NAMES.creator}</span>
+          {variant === "bar" && <span className="font-label text-[9.5px] uppercase leading-none tracking-[0.12em] text-black/45">Studio</span>}
         </Link>
       )}
     </div>
