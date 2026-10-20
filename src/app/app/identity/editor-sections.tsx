@@ -61,7 +61,6 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
 export function HomeSection({ api }: { api: EditorApi }) {
   const { mode, slug } = api;
   const info = summaries(api);
-  const others = MODE_SLUGS.filter((item) => item !== slug);
   return (
     <div>
       <h1 className="font-display text-[2.5rem] font-extrabold leading-[0.95] tracking-[-0.05em]">{modeMeta[slug].name} Mode</h1>
@@ -89,26 +88,9 @@ export function HomeSection({ api }: { api: EditorApi }) {
         })}
       </div>
 
-      <p className="mb-3 mt-10 font-label text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">Also in your identity</p>
-      <div className="grid grid-cols-2 gap-4">
-        {others.map((item) => {
-          const other = api.modes.find((entry) => entry.slug === item);
-          const meta = modeMeta[item];
-          const sub = !other?.is_enabled ? "Mode is off" : item === "event" ? (text(other, "eventName") ? `${text(other, "eventName")}${text(other, "city") ? ` · ${text(other, "city")}` : ""}` : "Set up your next event") : item === "business" ? (text(other, "company") || text(other, "role") || "Add your role and company") : (text(other, "location") || "Your everyday self");
-          return (
-            <button className="group flex min-h-[76px] items-center gap-4 rounded-[20px] bg-white px-5 text-left shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" key={item} onClick={() => api.go("home", item)} type="button">
-              <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#0D0D0D]"><span className="size-2.5 rounded-full" style={{ background: OTHER_DOT[item], opacity: other?.is_enabled ? 1 : 0.4 }} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-[16px] font-bold tracking-[-0.01em]">{meta.name}{item === "event" && other && text(other, "eventName") ? ` · ${text(other, "eventName")}` : ""}</span><span className="block truncate text-[13px] text-black/55">{sub}</span></span>
-              <span aria-hidden="true" className="shrink-0 text-black/35 transition group-hover:translate-x-0.5 group-hover:text-black">→</span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
-
-const OTHER_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 
 function CardHead({ index, light = false }: { index: number; light?: boolean }) {
   return <div className="relative flex w-full items-center justify-between"><span className="font-label text-xs text-[#FF5A4F]">0{index}</span><span className={`text-sm font-semibold ${light ? "text-white" : ""}`}>Edit <span aria-hidden="true">→</span></span></div>;
@@ -463,6 +445,30 @@ export function AddLinkPanel({ api, initial, initialValue = "", onClose, bare = 
 
 // ---------------------------------------------------------------- Mode Settings
 
+/**
+ * Where this Mode lives, and where to change it. Personal is your username; Business and Creator can
+ * claim their own name; Event links stay private on purpose.
+ */
+function YourLink({ api }: { api: EditorApi }) {
+  const { slug } = api;
+  const url = api.publicUrl(slug).replace(/^https?:\/\//, "");
+  const copy = async () => { try { await navigator.clipboard.writeText(api.publicUrl(slug)); api.toast("Link copied"); } catch { api.toast("Copy is unavailable here. Select the link to copy it."); } };
+  const share = async () => { try { await navigator.share({ url: api.publicUrl(slug) }); } catch { /* dismissed */ } };
+  if (isModeHandleSlug(slug)) return <PublicLinkCard api={api} key={slug} onCopy={() => void copy()} onQr={() => api.go("share")} onShare={() => void share()} slug={slug} />;
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <MonoLabel className="text-black/55">Your link</MonoLabel>
+        <button className="shrink-0 text-[12.5px] font-semibold underline underline-offset-4" onClick={() => api.go("share")} type="button">QR &amp; sharing</button>
+      </div>
+      <p className="mt-2.5 truncate font-display text-[1.6rem] font-bold leading-tight tracking-[-0.04em]" title={url}>{url || "Link unavailable"}</p>
+      {slug === "personal"
+        ? <div className="mt-4"><UsernameField api={api} /></div>
+        : <p className="mt-2 text-[13px] leading-5 text-black/60">{modeMeta[slug].name} links stay private: only people you send this link to can open it. Make a new one any time in Share.</p>}
+    </Card>
+  );
+}
+
 export function SettingsSection({ api }: { api: EditorApi }) {
   const { mode, slug, profile } = api;
   const contacts = mode.links.filter((link) => CONTACT_PROVIDERS.includes(providerForLink(link.link_type).id));
@@ -471,7 +477,9 @@ export function SettingsSection({ api }: { api: EditorApi }) {
     <div>
       <SectionHeader description={description} slug={slug} title="Mode Settings" />
 
-      <Card className="divide-y divide-black/[0.07] px-5 sm:px-6">
+      <YourLink api={api} />
+
+      <Card className="mt-4 divide-y divide-black/[0.07] px-5 sm:px-6">
         <SettingRow description={slug === "personal" ? "Personal is always on. It’s where people land by default." : mode.is_enabled ? "Its link and QR code open for anyone you share them with." : "Its link and QR code don’t open. Nothing is deleted."} title={`${modeMeta[slug].name} Mode is ${mode.is_enabled ? "on" : "off"}`}>
           <Toggle disabled={slug === "personal"} label={`${modeMeta[slug].name} Mode on`} on={mode.is_enabled} onChange={(next) => void api.setModeEnabled(next)} />
         </SettingRow>
