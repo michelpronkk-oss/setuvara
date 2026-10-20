@@ -4,7 +4,10 @@ import { analyticsCapabilities } from "@/lib/analytics/capabilities";
 import { resolveAnalyticsQuery } from "@/lib/analytics/range";
 import { getProfileAnalyticsReport, type ProfileAnalyticsReport } from "@/lib/analytics/server";
 import type { PlanCode } from "@/lib/billing/catalog";
-import { formatMoney, INQUIRY_BUDGET_LABEL, INQUIRY_KIND_LABEL, platformAccounts, PLATFORM_NAME, relativeTime, type CreatorPlatform, type WorkItem } from "@/lib/creator/studio";
+import { ACTION_KIND_SHORT, BUDGET_LABEL, type Budget } from "@/lib/actions/model";
+import { formatMoney, platformAccounts, PLATFORM_NAME, relativeTime, type CreatorPlatform, type WorkItem } from "@/lib/creator/studio";
+import { combinedAudience, formatAudience, SOCIAL_NAME, SOCIAL_PROVIDERS, type SocialProvider } from "@/lib/social/model";
+import { socialProviderReady } from "@/lib/social/server";
 import type { CreatorStudio } from "@/lib/creator/studio-server";
 import { CreatorGreeting } from "./creator-greeting";
 import { coralButton, inkButton, lineButton, Mono, PlatformTile } from "./studio-ui";
@@ -22,7 +25,7 @@ export type Step = { title: string; sub: string; done: boolean; href: string; op
 
 /** Home on Creator Mode: what happened, and what is worth doing next. */
 export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio; plan: PlanCode }) {
-  const { profile, settings, work, offers, inquiries, links } = studio;
+  const { profile, work, offers, submissions, links } = studio;
   const firstName = profile.display_name.split(/\s+/)[0] || profile.display_name;
   const live = studio.mode.is_enabled && profile.is_published;
 
@@ -45,26 +48,36 @@ export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio
 
   const accounts = platformAccounts(links).filter((item) => item.link);
   const liveOffers = offers.filter((offer) => offer.status === "active");
-  const fresh = inquiries.filter((item) => item.status === "new");
-  const pipeline = { new: fresh.length, in_talks: inquiries.filter((item) => item.status === "in_talks").length, booked: inquiries.filter((item) => item.status === "booked").length };
-  const open = pipeline.new + pipeline.in_talks + pipeline.booked;
+  const fresh = submissions.filter((item) => item.status === "new");
+  const liveActions = studio.actions.filter((item) => item.status === "published");
+  const pipeline = {
+    new: fresh.length,
+    working: submissions.filter((item) => item.status === "reviewing" || item.status === "interested" || item.status === "accepted").length,
+    entries: submissions.filter((item) => item.kind === "giveaway" && item.status === "entered").length,
+  };
+  const platforms = SOCIAL_PROVIDERS.map((provider) => {
+    const account = studio.socials.find((item) => item.provider === provider);
+    return { provider, count: account && account.status === "connected" && !account.audience_hidden ? account.audience_count : null, connected: Boolean(account), canConnect: !account && socialProviderReady(provider) };
+  });
+  const combined = combinedAudience(studio.socials);
   const featured = work.find((item) => item.featured) ?? work[0] ?? null;
 
   const steps: Step[] = [
     { title: "Add a platform", sub: accounts.length ? accounts.map((item) => PLATFORM_NAME[item.platform]).join(", ") : "Instagram, TikTok, YouTube, Twitch or X", done: accounts.length > 0, href: "/app/identity?mode=creator&section=links", optional: false },
     { title: "Add 3 pieces of work", sub: work.length ? `${work.length} of 3 added` : "Films, photos or a link", done: work.length >= 3, href: "/app/identity/creator/work", optional: true },
     { title: "Add an offer", sub: "A product, booking or link", done: offers.length > 0, href: "/app/identity/creator/store", optional: true },
-    { title: "Open for collabs", sub: "Adds a Work with me button", done: settings.collabsOpen, href: "/app/identity/creator/settings", optional: true },
+    { title: "Publish an Action", sub: "Collabs, a giveaway, bookings or questions", done: liveActions.length > 0, href: "/app/identity/creator/actions", optional: true },
   ];
   const stepsDone = steps.filter((step) => step.done).length;
-  const firstRun = stepsDone < 2 && inquiries.length === 0;
+  const firstRun = stepsDone < 2 && submissions.length === 0;
 
   const actions: Action[] = [];
   if (!live) actions.push({ title: studio.mode.is_enabled ? "Publish your profile" : "Turn Creator on", sub: "Your page stays private until then", href: studio.mode.is_enabled ? "/app/settings" : "/app/identity/creator/settings?tab=visibility", cta: "Open", urgent: true });
   for (const item of fresh.slice(0, 2)) {
-    actions.push({ title: `Reply to ${item.brand || item.sender_display_name}`, sub: [INQUIRY_KIND_LABEL[item.kind], INQUIRY_BUDGET_LABEL[item.budget], relativeTime(item.created_at)].join(" · "), href: `/app/identity/creator/collabs?inquiry=${item.id}`, cta: "Open", urgent: true });
+    const budget = item.answers.budget as Budget | undefined;
+    actions.push({ title: `Reply to ${item.answers.company || item.name || "a visitor"}`, sub: [ACTION_KIND_SHORT[item.kind], budget ? BUDGET_LABEL[budget] : null, relativeTime(item.created_at)].filter(Boolean).join(" · "), href: `/app/identity/creator/actions/${item.action_id}?response=${item.id}`, cta: "Open", urgent: true });
   }
-  for (const step of steps) if (!step.done) actions.push({ title: step.title, sub: step.sub, href: step.href, cta: step.title.startsWith("Open") ? "Open" : "Add" });
+  for (const step of steps) if (!step.done) actions.push({ title: step.title, sub: step.sub, href: step.href, cta: step.title.startsWith("Publish") ? "Open" : "Add" });
   if (work.length && !work.some((item) => item.featured)) actions.push({ title: "Feature one piece", sub: "It leads your page and your kit", href: "/app/identity/creator/work", cta: "Pick" });
   if (!studio.kit.updated_at) actions.push({ title: "Finish your media kit", sub: "Partners, rates and languages", href: "/app/identity/creator/kit", cta: "Open" });
   const today = actions.slice(0, 3);
@@ -77,14 +90,14 @@ export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio
       ? `Your page was opened ${opens.toLocaleString("en")} times this week${delta !== null && Math.round(delta) !== 0 ? `, ${Math.abs(Math.round(delta))}% ${delta > 0 ? "more" : "less"} than last` : ""}.${topSource ? ` Most visits came from ${SOURCE_SAY[topSource as string] ?? topSource}.` : ""}`
       : "No one opened your page this week yet. Share it where your audience already is."
     : fresh.length
-      ? `${fresh.length === 1 ? "A new collab inquiry is" : `${fresh.length} new collab inquiries are`} waiting for you.`
+      ? `${fresh.length === 1 ? "A new response is" : `${fresh.length} new responses are`} waiting for you.`
       : live ? "Your Creator page is live. Share it where your audience already is." : "Your Creator page is ready when you are.";
 
   const stats = [
     { label: "Page opens", value: opens === null ? "—" : opens.toLocaleString("en"), note: opens === null ? "Plus" : "7 days" },
     { label: "Work", value: String(work.length), note: "pieces" },
     { label: "Offers", value: String(liveOffers.length), note: "live" },
-    { label: "Collabs", value: String(open), note: "open", hot: pipeline.new > 0 },
+    { label: "Actions", value: String(liveActions.length), note: pipeline.new ? `${pipeline.new} new` : "live", hot: pipeline.new > 0 },
   ];
 
   return (
@@ -106,9 +119,10 @@ export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio
         revenue: formatMoney(revenue, revenueCurrency, { compact: true }),
         perDay,
         storeLine: orders.length ? `${orders.length} order${orders.length === 1 ? "" : "s"} · last ${relativeTime(orders[0].created_at)}` : liveOffers.length ? `${liveOffers.length} offer${liveOffers.length === 1 ? "" : "s"} live` : "No offers live yet",
-        open,
+        liveActions: liveActions.length,
         pipeline,
-        collabsOpen: settings.collabsOpen,
+        platforms,
+        combined,
         featured,
         accounts: accounts.map((item) => ({ platform: item.platform, handle: item.handle })),
       }}
@@ -133,16 +147,18 @@ export type CreatorDashboardData = {
   revenue: string;
   perDay: number[];
   storeLine: string;
-  open: number;
-  pipeline: { new: number; in_talks: number; booked: number };
-  collabsOpen: boolean;
+  liveActions: number;
+  pipeline: { new: number; working: number; entries: number };
+  /** Officially connected platforms. Counts are null when not connected, hidden or not synced. */
+  platforms: { provider: SocialProvider; count: number | null; connected: boolean; canConnect: boolean }[];
+  combined: { total: number; platforms: number } | null;
   featured: WorkItem | null;
   accounts: { platform: CreatorPlatform; handle: string }[];
 };
 
 /** The dashboard itself, from plain data, so it renders the same in previews. */
 export function CreatorDashboardView({ data }: { data: CreatorDashboardData }) {
-  const { firstName, imageUrl, focus, shareUrl, enabled, story, stats, firstRun, steps, stepsDone, today, actionCount, monthLabel, revenue, perDay, storeLine, open, pipeline, collabsOpen, featured, accounts } = data;
+  const { firstName, imageUrl, focus, shareUrl, enabled, story, stats, firstRun, steps, stepsDone, today, actionCount, monthLabel, revenue, perDay, storeLine, liveActions, pipeline, platforms, combined, featured, accounts } = data;
   return (
     <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-8 lg:grid lg:min-h-[calc(100dvh-76px)] lg:grid-cols-[minmax(0,1.25fr)_minmax(400px,1fr)] lg:gap-6 lg:pt-1 min-[1800px]:gap-8">
       <h1 className="sr-only">Your Setuvara · Creator</h1>
@@ -172,6 +188,7 @@ export function CreatorDashboardView({ data }: { data: CreatorDashboardData }) {
               </div>
             ))}
           </dl>
+          {platforms.some((item) => item.connected || item.canConnect) && <PlatformRow combined={combined} platforms={platforms} />}
         </div>
       </section>
 
@@ -208,15 +225,15 @@ export function CreatorDashboardView({ data }: { data: CreatorDashboardData }) {
             </div>
             <p className="mt-2 text-[13px] text-black/60">{storeLine}</p>
           </Link>
-          <Link className="min-w-0 border-l border-black/10 pl-6 focus-visible:outline-2 md:pl-8" href="/app/identity/creator/collabs">
-            <Mono className="text-black/55">COLLABS</Mono>
-            <p className="mt-2 font-display text-[34px] font-bold leading-none tracking-[-0.05em] md:text-[44px]">{open}<span className="ml-2 font-sans text-[16px] font-semibold tracking-normal">open</span></p>
+          <Link className="min-w-0 border-l border-black/10 pl-6 focus-visible:outline-2 md:pl-8" href="/app/identity/creator/actions">
+            <Mono className="text-black/55">ACTIONS</Mono>
+            <p className="mt-2 font-display text-[34px] font-bold leading-none tracking-[-0.05em] md:text-[44px]">{liveActions}<span className="ml-2 font-sans text-[16px] font-semibold tracking-normal">live</span></p>
             <ul className="mt-3 grid gap-1.5 text-[14px]">
-              {([["New", pipeline.new, "#FF5A4F"], ["In talks", pipeline.in_talks, "#B79CFF"], ["Booked", pipeline.booked, "#0D0D0D"]] as const).map(([label, count, dot]) => (
+              {([["New", pipeline.new, "#FF5A4F"], ["In progress", pipeline.working, "#B79CFF"], ["Giveaway entries", pipeline.entries, "#0D0D0D"]] as const).map(([label, count, dot]) => (
                 <li className="flex items-center gap-2" key={label}><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: dot }} /><span className="flex-1">{label}</span><span className="tabular-nums">{count}</span></li>
               ))}
             </ul>
-            {!collabsOpen && <p className="mt-2 text-[13px] text-black/60">Collabs are closed</p>}
+            {!liveActions && <p className="mt-2 text-[13px] text-black/60">Nothing live yet</p>}
           </Link>
         </div>
 
@@ -245,6 +262,32 @@ export function CreatorDashboardView({ data }: { data: CreatorDashboardData }) {
         )}
       </div>
     </main>
+  );
+}
+
+const SHORT: Record<SocialProvider, string> = { instagram: "IG", tiktok: "TIKTOK", youtube: "YOUTUBE", twitch: "TWITCH" };
+
+/** Verified platform audiences, straight from each platform. The total is labelled as a sum. */
+function PlatformRow({ platforms, combined }: { platforms: CreatorDashboardData["platforms"]; combined: CreatorDashboardData["combined"] }) {
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3 border-t border-white/20 pt-4" data-platform-row>
+      {platforms.map((item) => (
+        <div className="min-w-0" key={item.provider}>
+          <p className="font-label text-[10px] uppercase tracking-[0.14em] text-white/65">{SHORT[item.provider]}</p>
+          {item.connected
+            ? <p className="mt-1 font-display text-[20px] font-bold leading-none tracking-[-0.04em] md:text-[24px]" title={`${SOCIAL_NAME[item.provider]}, from ${SOCIAL_NAME[item.provider]}`}>{item.count === null ? "—" : formatAudience(item.count)}</p>
+            : item.canConnect
+              ? <Link className="mt-1 inline-block text-[14px] font-semibold underline underline-offset-4 hover:text-[#FF5A4F]" href="/app/identity/creator/settings?tab=accounts">Connect</Link>
+              : <p className="mt-1 text-[14px] text-white/45">—</p>}
+        </div>
+      ))}
+      {combined && (
+        <div className="ml-auto text-right" title="A sum of each platform's audience. One person can follow on several platforms.">
+          <p className="font-label text-[10px] uppercase tracking-[0.14em] text-white/65">Combined · sum of {combined.platforms}</p>
+          <p className="mt-1 font-display text-[20px] font-bold leading-none tracking-[-0.04em] text-[#C7FF4A] md:text-[24px]">{formatAudience(combined.total)}</p>
+        </div>
+      )}
+    </div>
   );
 }
 

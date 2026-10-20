@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
-import { MediaKitDocument, type KitDocument } from "@/components/creator/media-kit-document";
+import { MediaKitDocument, withVerified, type KitDocument } from "@/components/creator/media-kit-document";
+import type { PublicPlatform } from "@/lib/social/model";
 import type { KitRate } from "@/lib/creator/studio";
 import { getPublishedPublicMode } from "@/lib/seo/public-profile";
 import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
@@ -26,9 +27,11 @@ export default async function MediaKitPage({ params }: Props) {
   const record = await getPublishedPublicMode(target.username, "creator");
   if (!record) notFound();
   const supabase = await createClient();
-  const [{ data, error }, imageUrl] = await Promise.all([
+  const [{ data, error }, imageUrl, verified] = await Promise.all([
     supabase.rpc("get_creator_media_kit", { p_username: target.username }),
     record.mode.image_path ? createPublicProfileImageUrl(supabase, record.mode.image_path) : Promise.resolve(null),
+    // Absent before the Creator Actions migration; then the kit shows links only.
+    supabase.rpc("get_creator_platforms", { p_username: target.username }).then(({ data: rows }) => (Array.isArray(rows) ? rows as PublicPlatform[] : []), () => []),
   ]);
   if (error || !data || typeof data !== "object") notFound();
   const kit = data as Record<string, unknown>;
@@ -40,7 +43,7 @@ export default async function MediaKitPage({ params }: Props) {
     city: text("city"),
     languages: text("languages"),
     imageUrl,
-    platforms: Array.isArray(kit.platforms) ? (kit.platforms as { type: string; url: string }[]) : [],
+    platforms: kit.show_platforms !== true ? (Array.isArray(kit.platforms) ? kit.platforms as { type: string; url: string }[] : []) : withVerified(Array.isArray(kit.platforms) ? (kit.platforms as { type: string; url: string }[]) : [], verified),
     partners: Array.isArray(kit.partners) ? (kit.partners as string[]) : [],
     rates: Array.isArray(kit.rates) ? (kit.rates as KitRate[]) : [],
     contactEmail: text("contact_email") || null,

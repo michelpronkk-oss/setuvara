@@ -1,6 +1,19 @@
 import { formatMoney, handleFromUrl, type KitRate } from "@/lib/creator/studio";
+import { AUDIENCE_NOUN, formatAudience, isSocialProvider, type PublicPlatform } from "@/lib/social/model";
 import { linkProviderById } from "@/lib/links/providers";
 import { Mono, PlatformTile } from "./studio-ui";
+
+export type KitPlatform = { type: string; url: string; audience?: number | null; verified?: boolean };
+
+/** Adds platform-verified counts to the link list; a verified account with no link still appears. */
+export function withVerified(links: KitPlatform[], verified: Pick<PublicPlatform, "provider" | "profile_url" | "audience_count">[]): KitPlatform[] {
+  const out = links.map((link) => {
+    const match = verified.find((item) => item.provider === link.type);
+    return match ? { ...link, audience: match.audience_count, verified: true } : link;
+  });
+  for (const item of verified) if (item.profile_url && !out.some((link) => link.type === item.provider)) out.push({ type: item.provider, url: item.profile_url, audience: item.audience_count, verified: true });
+  return out;
+}
 
 export type KitDocument = {
   displayName: string;
@@ -9,7 +22,8 @@ export type KitDocument = {
   city: string;
   languages: string;
   imageUrl: string | null;
-  platforms: { type: string; url: string }[];
+  /** Links, with a verified count only when the platform itself supplied it. */
+  platforms: KitPlatform[];
   partners: string[];
   rates: KitRate[];
   contactEmail: string | null;
@@ -19,7 +33,7 @@ export type KitDocument = {
 
 /**
  * A real document, read top to bottom the way partners read it. Every value is the creator's own
- * entry or comes from their Creator page; audience numbers arrive with platform sign-in.
+ * entry or comes from their Creator page; audience numbers appear only when the platform supplied them.
  */
 export function MediaKitDocument({ doc }: { doc: KitDocument }) {
   const subline = [doc.category, doc.city, doc.languages].filter(Boolean).join(" · ");
@@ -58,6 +72,7 @@ export function MediaKitDocument({ doc }: { doc: KitDocument }) {
                   <a className="flex items-center gap-3 rounded-[16px] p-2 pr-4 hover:bg-black/[0.03] focus-visible:outline-2" href={platform.url} rel="noreferrer" target="_blank">
                     <PlatformTile size={40} type={platform.type} />
                     <span className="min-w-0"><span className="block text-[15px] font-semibold">{name}</span><span className="block truncate text-[13px] text-black/60">{handleFromUrl(platform.url) || platform.url.replace(/^https?:\/\//, "")}</span></span>
+                    {platform.verified && typeof platform.audience === "number" && <span className="ml-auto shrink-0 text-right"><span className="block font-display text-[22px] font-bold leading-none tracking-[-0.04em]">{formatAudience(platform.audience)}</span><span className="block text-[11px] text-black/55">{isSocialProvider(platform.type) ? AUDIENCE_NOUN[platform.type] : "followers"} · verified</span></span>}
                   </a>
                 </li>
               );

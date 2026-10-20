@@ -19,7 +19,7 @@ export type StoreOrder = { id: string; offer_id: string; gross_amount_minor: num
  * The Store. External offers link to the creator's own shop and work today. Paid offers that sell
  * on Setuvara are saved as drafts until monetization is approved; the database enforces the same.
  */
-export function StoreStudio({ profileId, offers, canMonetize, orders, firstName }: { profileId: string; offers: StoreOffer[]; canMonetize: boolean; orders: StoreOrder[]; firstName: string }) {
+export function StoreStudio({ profileId, offers, canMonetize, orders }: { profileId: string; offers: StoreOffer[]; canMonetize: boolean; orders: StoreOrder[]; firstName: string }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,7 +82,7 @@ export function StoreStudio({ profileId, offers, canMonetize, orders, firstName 
           <div className="grid gap-6">
             {live.length > 0 && (
               <div className="rounded-[26px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:p-8" data-store-preview>
-                <CreatorSections accent="#FF5A4F" accentInk="#0D0D0D" firstName={firstName} offers={live} settings={{ tagline: "", category: "", city: "", sections: ["store"], collabsOpen: false, collabsNote: "", collabsPitch: "" }} work={[]} />
+                <CreatorSections accent="#FF5A4F" accentInk="#0D0D0D" offers={live} settings={{ tagline: "", category: "", city: "", sections: ["store"] }} work={[]} />
               </div>
             )}
             <section aria-label="All offers">
