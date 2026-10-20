@@ -21,7 +21,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageDictionary } from "@/lib/i18n/messages";
 import { PASSPORT_REWARDS } from "@/lib/passport/rewards";
 import { MODE_SLUGS, type EditorApi, type PlusTrigger } from "./editor-types";
-import { GroupHead, Pill, PlusTag, SectionHeader, Sheet, modeMeta, previewVisitorAction } from "./editor-ui";
+import { Pill, PlusTag, SectionHeader, Sheet, modeMeta, previewVisitorAction } from "./editor-ui";
 
 /**
  * Appearance editor from the approved Equip design. One identity, ten Appearances, equipped per
@@ -157,10 +157,10 @@ function firstName(api: EditorApi) {
 function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State; onMore: (key: MoreKey) => void }) {
   const { copy, previewing, locked, look } = state;
   return (
-    <div className="flex flex-col gap-7 pb-24">
+    <div className="flex flex-col gap-9 pb-24">
       <div>
         <SectionHeader description={copy.pickIntro} title={copy.title} />
-        <EquippedChips api={api} />
+        <WearingCard api={api} state={state} />
       </div>
       {locked.length > 0 && !previewing && <DowngradeCard api={api} state={state} />}
 
@@ -171,21 +171,24 @@ function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State;
       </div>
 
       <section aria-label={copy.equipDirection}>
-        <GroupHead meta={APPEARANCE_NAMES[look.id]} title={copy.equipDirection} />
-        <ul className="grid gap-x-2.5 gap-y-3.5 [grid-template-columns:repeat(auto-fill,minmax(104px,1fr))]" data-appearance-picker>
+        <StepHead index={1} meta={`${APPEARANCES.length} looks`} title="Choose a look" />
+        <ul className="grid gap-x-3 gap-y-4 [grid-template-columns:repeat(auto-fill,minmax(108px,1fr))]" data-appearance-picker>
           {APPEARANCES.map((id) => <li key={id}><DirectionTile api={api} id={id} state={state} /></li>)}
         </ul>
       </section>
 
       <section aria-label={copy.personalize.replace("{name}", APPEARANCE_NAMES[look.id])}>
-        <GroupHead title={copy.personalize.replace("{name}", APPEARANCE_NAMES[look.id])} />
-        <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[20px] bg-white px-4 py-1.5 shadow-[inset_0_0_0_1px_#0D0D0D12,0_18px_40px_-34px_#0D0D0D66]" data-personalize-panel>
+        <StepHead index={2} meta={APPEARANCE_NAMES[look.id]} title="Make it yours" />
+        <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[22px] bg-white px-5 py-2 shadow-[inset_0_0_0_1px_#0D0D0D12,0_18px_40px_-34px_#0D0D0D66]" data-personalize-panel>
           {controlsFor(look.id).map((key) => <Control api={api} control={key} key={key} state={state} />)}
         </div>
       </section>
 
-      <MoreRows api={api} onMore={onMore} state={state} />
-      <ResetAppearance api={api} state={state} />
+      <section aria-label="Extras">
+        <StepHead index={3} title="Extras" />
+        <MoreRows api={api} onMore={onMore} state={state} />
+        <div className="mt-5"><ResetAppearance api={api} state={state} /></div>
+      </section>
       <p aria-live="polite" className="sr-only">{previewing ? copy.previewing.replace("{name}", APPEARANCE_NAMES[look.id]) : ""}</p>
       {previewing && <div className="sticky bottom-4 z-10 xl:hidden"><PreviewingBar api={api} state={state} /></div>}
     </div>
@@ -205,26 +208,29 @@ function ModeSwitch({ api, dark = false }: { api: EditorApi; dark?: boolean }) {
   );
 }
 
-/** "Personal · Immersive": what each Mode wears right now. Tapping one edits that Mode's look. */
-function EquippedChips({ api }: { api: EditorApi }) {
-  const { messages } = useI18n();
+/** What this Mode wears right now, at a glance. The Mode itself is picked in the editor sidebar. */
+function WearingCard({ api, state }: { api: EditorApi; state: State }) {
+  const { look, effective, previewing } = state;
+  const needsPlus = !isFreeAppearance(look.id) && !hasCapability(api.plan, "appearance.premium");
   return (
-    <ul className="-mt-1 flex flex-wrap gap-2" data-equipped-chips>
-      {MODE_SLUGS.map((slug) => {
-        const item = api.modes.find((entry) => entry.slug === slug);
-        if (!item) return null;
-        const look = resolveAppearance(item, api.plan);
-        const on = slug === api.slug;
-        return (
-          <li key={item.id}>
-            <button aria-pressed={on} className={`flex h-9 items-center gap-2 rounded-full px-3.5 text-[12.5px] font-semibold transition ${on ? "bg-white shadow-[inset_0_0_0_1.5px_#0D0D0D]" : "text-black/60 shadow-[inset_0_0_0_1px_#0D0D0D1F] hover:text-black"} ${focusRing}`} onClick={() => { if (!on) api.go("appearance", slug); }} type="button">
-              <span aria-hidden="true" className="size-2 rounded-full" style={{ background: look.accent }} />
-              {messages.appearance.modeEquipped.replace("{mode}", modeMeta[slug].name).replace("{name}", APPEARANCE_NAMES[look.id])}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="mt-1 flex items-center gap-5 rounded-[24px] bg-[#0D0D0D] p-3 pr-6 text-[#F5F4EF] shadow-[0_24px_50px_-36px_#0D0D0D]" data-wearing>
+      <LookThumb api={api} height={124} look={look} radius={14} width={58} zoom={58 / PHONE_CANVAS.width} />
+      <div className="min-w-0 flex-1">
+        <p className="font-label text-[10px] uppercase tracking-[0.16em] text-[#F5F4EF]/50">{previewing ? "Previewing on" : "Wearing on"} {modeMeta[api.slug].name} Mode</p>
+        <p className="mt-1.5 font-display text-[30px] font-bold leading-none tracking-[-0.045em]">{APPEARANCE_NAMES[look.id]}</p>
+        <p className="mt-2 line-clamp-1 text-[13px] text-[#F5F4EF]/65">{APPEARANCE_LINES[look.id]}</p>
+      </div>
+      <span className={`shrink-0 rounded-full px-3 py-1.5 font-label text-[10px] uppercase tracking-[0.14em] ${previewing ? "bg-[#FF5A4F] text-[#0D0D0D]" : "bg-[#C7FF4A] text-[#0D0D0D]"}`}>{previewing ? (needsPlus ? "Plus preview" : "Preview") : effective.id === look.id ? "Equipped" : "Saved"}</span>
+    </div>
+  );
+}
+
+function StepHead({ index, title, meta }: { index: number; title: string; meta?: string }) {
+  return (
+    <div className="mb-3.5 flex items-end justify-between gap-3 px-0.5">
+      <h2 className="flex items-baseline gap-2.5"><span className="font-label text-[11px] text-[#FF5A4F]">0{index}</span><span className="font-display text-[19px] font-bold tracking-[-0.035em]">{title}</span></h2>
+      {meta && <span className="shrink-0 font-label text-[10px] uppercase tracking-[0.14em] text-black/45">{meta}</span>}
+    </div>
   );
 }
 
@@ -239,7 +245,8 @@ function DirectionTile({ api, state, id, width, height = 168, zoom, compact = fa
   const thumb = previewAppearance({ slug: api.slug, appearance: { ...state.working, theme: id, layout: undefined, imageTreatment: undefined } as ModeAppearance });
   const tileZoom = zoom ?? 0.3;
   return (
-    <div className="relative flex min-w-0 flex-col gap-1.5" data-direction={id} style={width ? { width, flex: "none" } : undefined}>
+    <div className="group relative flex min-w-0 flex-col gap-1.5" data-direction={id} style={width ? { width, flex: "none" } : undefined}>
+      {equipped && <span aria-hidden="true" className="pointer-events-none absolute left-2 top-2 z-[1] rounded-full bg-[#C7FF4A] px-2 py-[3px] font-label text-[9px] uppercase tracking-[0.12em] text-[#0D0D0D]">On</span>}
       <LookThumb api={api} height={height} look={thumb} style={{ boxShadow: on ? "0 0 0 2px #F5F4EF, 0 0 0 4px #FF5A4F" : savedInactive ? "inset 0 0 0 1.5px #0D0D0D, inset 0 0 0 3px #F5F4EF" : "inset 0 0 0 1px #0D0D0D1F" }} width="100%" zoom={tileZoom} />
       <span className="flex min-h-5 items-center justify-between gap-1.5">
         <span className="truncate text-[13px] font-bold leading-[1.1]">{APPEARANCE_NAMES[id]}</span>
@@ -436,18 +443,18 @@ function MoreRows({ api, state, onMore }: { api: EditorApi; state: State; onMore
   ];
   const share = { title: copy.qr, value: copy.qrStyles[look.qrStyle] };
   return (
-    <ul className="flex flex-col border-t border-black/10">
+    <ul className="flex flex-col divide-y divide-black/[0.07] overflow-hidden rounded-[22px] bg-white px-5 shadow-[inset_0_0_0_1px_#0D0D0D12]">
       {rows.map((row) => (
-        <li className="border-b border-black/10" key={row.key}>
-          <button className={`flex min-h-[50px] w-full items-center justify-between gap-3 text-left ${focusRing}`} onClick={() => onMore(row.key)} type="button">
+        <li key={row.key}>
+          <button className={`flex min-h-[58px] w-full items-center justify-between gap-3 text-left ${focusRing}`} onClick={() => onMore(row.key)} type="button">
             <span className="text-[14.5px] font-semibold">{row.title}</span>
             <span className="flex min-w-0 items-center gap-2 text-[13px] text-black/70"><span className="truncate">{row.value}</span><span aria-hidden="true">›</span></span>
           </button>
         </li>
       ))}
       {/* QR styles live with the code itself, in Share. */}
-      <li className="border-b border-black/10">
-        <button className={`flex min-h-[50px] w-full items-center justify-between gap-3 text-left ${focusRing}`} data-appearance-qr-row onClick={() => api.go("share")} type="button">
+      <li>
+        <button className={`flex min-h-[58px] w-full items-center justify-between gap-3 text-left ${focusRing}`} data-appearance-qr-row onClick={() => api.go("share")} type="button">
           <span className="text-[14.5px] font-semibold">{share.title}</span>
           <span className="flex min-w-0 items-center gap-2 text-[13px] text-black/70"><span className="truncate">{share.value} · Share</span><span aria-hidden="true">›</span></span>
         </button>

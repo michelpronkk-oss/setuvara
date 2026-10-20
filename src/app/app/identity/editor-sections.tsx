@@ -61,7 +61,6 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
 export function HomeSection({ api }: { api: EditorApi }) {
   const { mode, slug } = api;
   const info = summaries(api);
-  const others = MODE_SLUGS.filter((item) => item !== slug);
   return (
     <div>
       <h1 className="font-display text-[2.5rem] font-extrabold leading-[0.95] tracking-[-0.05em]">{modeMeta[slug].name} Mode</h1>
@@ -89,20 +88,6 @@ export function HomeSection({ api }: { api: EditorApi }) {
         })}
       </div>
 
-      <p className="mb-3 mt-9 text-[15px] font-semibold">Also in your identity</p>
-      <div className="grid grid-cols-2 gap-4">
-        {others.map((item) => {
-          const other = api.modes.find((entry) => entry.slug === item);
-          const meta = modeMeta[item];
-          const sub = !other?.is_enabled ? "Mode is off" : item === "event" ? (text(other, "eventName") ? `${text(other, "eventName")}${text(other, "city") ? ` · ${text(other, "city")}` : ""}` : "Set up your next event") : item === "business" ? (text(other, "company") || text(other, "role") || "Add your role and company") : (text(other, "location") || "Your everyday self");
-          return (
-            <button className="flex min-h-[72px] items-center justify-between gap-3 rounded-[18px] px-5 text-left transition hover:brightness-[.97]" key={item} onClick={() => api.go("home", item)} style={{ background: meta.bg, color: meta.fg, boxShadow: meta.ring }} type="button">
-              <span className="min-w-0"><span className="block text-[17px] font-bold">{meta.name}{item === "event" && other && text(other, "eventName") ? ` · ${text(other, "eventName")}` : ""}</span><span className="block truncate text-[13px] opacity-75">{sub}</span></span>
-              <span className="shrink-0 text-sm font-semibold">Open →</span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -460,6 +445,30 @@ export function AddLinkPanel({ api, initial, initialValue = "", onClose, bare = 
 
 // ---------------------------------------------------------------- Mode Settings
 
+/**
+ * Where this Mode lives, and where to change it. Personal is your username; Business and Creator can
+ * claim their own name; Event links stay private on purpose.
+ */
+function YourLink({ api }: { api: EditorApi }) {
+  const { slug } = api;
+  const url = api.publicUrl(slug).replace(/^https?:\/\//, "");
+  const copy = async () => { try { await navigator.clipboard.writeText(api.publicUrl(slug)); api.toast("Link copied"); } catch { api.toast("Copy is unavailable here. Select the link to copy it."); } };
+  const share = async () => { try { await navigator.share({ url: api.publicUrl(slug) }); } catch { /* dismissed */ } };
+  if (isModeHandleSlug(slug)) return <PublicLinkCard api={api} key={slug} onCopy={() => void copy()} onQr={() => api.go("share")} onShare={() => void share()} slug={slug} />;
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <MonoLabel className="text-black/55">Your link</MonoLabel>
+        <button className="shrink-0 text-[12.5px] font-semibold underline underline-offset-4" onClick={() => api.go("share")} type="button">QR &amp; sharing</button>
+      </div>
+      <p className="mt-2.5 truncate font-display text-[1.6rem] font-bold leading-tight tracking-[-0.04em]" title={url}>{url || "Link unavailable"}</p>
+      {slug === "personal"
+        ? <div className="mt-4"><UsernameField api={api} /></div>
+        : <p className="mt-2 text-[13px] leading-5 text-black/60">{modeMeta[slug].name} links stay private: only people you send this link to can open it. Make a new one any time in Share.</p>}
+    </Card>
+  );
+}
+
 export function SettingsSection({ api }: { api: EditorApi }) {
   const { mode, slug, profile } = api;
   const contacts = mode.links.filter((link) => CONTACT_PROVIDERS.includes(providerForLink(link.link_type).id));
@@ -468,7 +477,9 @@ export function SettingsSection({ api }: { api: EditorApi }) {
     <div>
       <SectionHeader description={description} slug={slug} title="Mode Settings" />
 
-      <Card className="divide-y divide-black/[0.07] px-5 sm:px-6">
+      <YourLink api={api} />
+
+      <Card className="mt-4 divide-y divide-black/[0.07] px-5 sm:px-6">
         <SettingRow description={slug === "personal" ? "Personal is always on. It’s where people land by default." : mode.is_enabled ? "Its link and QR code open for anyone you share them with." : "Its link and QR code don’t open. Nothing is deleted."} title={`${modeMeta[slug].name} Mode is ${mode.is_enabled ? "on" : "off"}`}>
           <Toggle disabled={slug === "personal"} label={`${modeMeta[slug].name} Mode on`} on={mode.is_enabled} onChange={(next) => void api.setModeEnabled(next)} />
         </SettingRow>

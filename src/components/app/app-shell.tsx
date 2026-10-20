@@ -242,10 +242,11 @@ function SideModes({ modes, isPublished, pathname }: { modes: ShellMode[]; isPub
   );
 }
 
-function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut, placement }: {
+export function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut, placement }: {
   displayName: string; username: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; plan: PlanCode; publicProfileUrl: string | null; signOut: () => Promise<void>;
-  /** header: phone top bar, opens down. sidebar: foot of the sidebar, opens up (beside the rail on tablets). */
-  placement: "header" | "sidebar";
+  /** header: phone top bar, opens down. sidebar: foot of the sidebar, opens up (beside the rail on tablets).
+   * panel: foot of a sidebar that is always full width (the identity editor), opens up. */
+  placement: "header" | "sidebar" | "panel";
 }) {
   const [open, setOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -283,14 +284,14 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
   const item = "flex min-h-[46px] w-full items-center justify-between rounded-xl px-3.5 text-left text-[15px] font-medium hover:bg-[#f5f4ef] focus-visible:bg-[#f5f4ef] focus-visible:outline-none";
   return (
     <div className="relative" ref={root}>
-      {placement === "sidebar" ? (
-        <button aria-controls={open ? menuId : undefined} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu" className={`flex min-h-[58px] w-full items-center justify-center gap-3 rounded-[16px] p-1.5 text-left text-[#f5f4ef] transition-colors focus-visible:outline-2 xl:justify-start xl:p-2 ${open ? "bg-white/[0.1]" : "hover:bg-white/[0.05]"}`} onClick={() => setOpen((value) => !value)} ref={trigger} type="button">
+      {placement !== "header" ? (
+        <button aria-controls={open ? menuId : undefined} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu" className={`flex min-h-[58px] w-full items-center gap-3 rounded-[16px] text-left text-[#f5f4ef] transition-colors focus-visible:outline-2 ${placement === "panel" ? "justify-start p-2" : "justify-center p-1.5 xl:justify-start xl:p-2"} ${open ? "bg-white/[0.1]" : "hover:bg-white/[0.05]"}`} onClick={() => setOpen((value) => !value)} ref={trigger} type="button">
           <Avatar focus={avatarFocus} name={displayName} ring size="size-10" url={avatarUrl} />
-          <span className="hidden min-w-0 flex-1 flex-col xl:flex">
+          <span className={`min-w-0 flex-1 flex-col ${placement === "panel" ? "flex" : "hidden xl:flex"}`}>
             <span className="truncate text-sm font-semibold">{displayName}</span>
             <span className="mt-0.5 flex items-center gap-1.5 text-xs text-[#f5f4ef]/55">{plan !== "free" && <StatusBadge plan={plan} size={13} />}{planName}</span>
           </span>
-          <svg aria-hidden="true" className="hidden shrink-0 text-[#f5f4ef]/50 xl:block" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" viewBox="0 0 14 14" width="14"><path d="M4 5.5 7 2.5l3 3M4 8.5l3 3 3-3" /></svg>
+          <svg aria-hidden="true" className={`shrink-0 text-[#f5f4ef]/50 ${placement === "panel" ? "block" : "hidden xl:block"}`} fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" viewBox="0 0 14 14" width="14"><path d="M4 5.5 7 2.5l3 3M4 8.5l3 3 3-3" /></svg>
         </button>
       ) : (
         <button aria-controls={open ? menuId : undefined} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu" className={`flex min-h-11 items-center rounded-full p-1 focus-visible:outline-2 ${open ? "bg-black/[0.06]" : "hover:bg-black/[0.04]"}`} onClick={() => setOpen((value) => !value)} ref={trigger} type="button">
@@ -298,7 +299,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
         </button>
       )}
       {open && (
-        <div aria-label="Account" className={`absolute z-50 flex ${placement === "sidebar" ? "bottom-0 left-[calc(100%+14px)] max-h-[calc(100dvh-48px)] xl:bottom-[calc(100%+8px)] xl:left-0" : "right-0 top-[calc(100%+8px)] max-h-[calc(100dvh-96px)]"} w-[min(316px,calc(100vw-32px))] flex-col overflow-y-auto rounded-[22px] bg-white p-2 text-[#0d0d0d] shadow-[0_24px_60px_-20px_rgba(13,13,13,.35),0_0_0_1px_rgba(13,13,13,.08)] [animation:fade-in_120ms_ease-out]`} id={menuId} onClick={(event) => { if ((event.target as Element).closest("a")) setOpen(false); }} role="menu">
+        <div aria-label="Account" className={`absolute z-50 flex ${placement === "panel" ? "bottom-[calc(100%+8px)] left-0 max-h-[calc(100dvh-48px)]" : placement === "sidebar" ? "bottom-0 left-[calc(100%+14px)] max-h-[calc(100dvh-48px)] xl:bottom-[calc(100%+8px)] xl:left-0" : "right-0 top-[calc(100%+8px)] max-h-[calc(100dvh-96px)]"} w-[min(316px,calc(100vw-32px))] flex-col overflow-y-auto rounded-[22px] bg-white p-2 text-[#0d0d0d] shadow-[0_24px_60px_-20px_rgba(13,13,13,.35),0_0_0_1px_rgba(13,13,13,.08)] [animation:fade-in_120ms_ease-out]`} id={menuId} onClick={(event) => { if ((event.target as Element).closest("a")) setOpen(false); }} role="menu">
           <div className="flex items-center gap-3 px-3 pb-4 pt-3.5">
             <Avatar focus={avatarFocus} name={displayName} size="size-12" url={avatarUrl} />
             <div className="min-w-0"><p className="truncate text-base font-semibold">{displayName}</p>{username && <p className="truncate font-label text-xs text-black/65">setuvara.com/{username}</p>}</div>

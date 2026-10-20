@@ -9,7 +9,7 @@ import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, PhotoCropValue, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { NAME_FONT_NAMES } from "@/components/profile/name-type";
 import { APPEARANCE_NAMES, extraSlideLimit, introducedLockedFields, isModeLayout, isValidAppearance, lockedFields, resetAppearance as resetVisualAppearance, resolveAppearance, storedAppearance } from "@/components/profile/appearance";
-import { focusPosition, modeFocus, readCrop, type PhotoFocus } from "@/components/profile/photo-focus";
+import { modeFocus, readCrop, type PhotoFocus } from "@/components/profile/photo-focus";
 import { BLOCK_LIMIT, BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removeContentImageIfUnused, removeContentMediaIfUnused } from "@/lib/blocks/storage";
 import { createClient } from "@/lib/supabase/client";
@@ -33,6 +33,10 @@ import { HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection 
 import { AppearancePlusSheet, AppearanceSection, pendingAppearanceKey, PhotoPreviews } from "./editor-appearance";
 import { MODE_SLUGS, SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PlusTrigger, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
 import { modeMeta } from "./editor-ui";
+import { EditorSidebar, SectionIcon } from "./editor-sidebar";
+
+// Same Mode colours as the app sidebar.
+const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 
 type EditorProps = {
   initialProfile: ProfileIdentity;
@@ -896,15 +900,17 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   );
 
   return (
-    <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
-      {/* Desktop top bar */}
-      <header className="hidden h-[72px] shrink-0 items-center justify-between gap-5 border-b border-black/10 pl-7 pr-6 lg:flex">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link aria-label="Back to Setuvara home" className="flex items-center gap-2.5" href="/app"><MeetMark className="size-7" /><span className="font-display text-[21px] font-bold tracking-[-0.05em]">setuvara</span></Link>
-          <span aria-hidden="true" className="mx-1.5 h-[22px] w-px bg-black/15" />
-          <span className="hidden text-[15px] text-black/60 xl:inline">Editing</span>
-        </div>
-        <ModeTabs modes={modes} onPick={(next) => go(section, next)} slug={slug} />
+    <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pl-[268px]`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
+      <EditorSidebar modes={modes} onGo={go} plan={plan} profile={profile} publicUrl={publicUrl} section={section} signOut={signOut} slug={slug} />
+
+      {/* Desktop top bar: where you are, save state, preview and publish. The Mode lives in the sidebar. */}
+      <header className="hidden h-[76px] shrink-0 items-center justify-between gap-5 border-b border-black/[0.08] pl-8 pr-6 lg:flex xl:pl-11">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2.5 text-[15px]">
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: MODE_DOT[slug], opacity: mode.is_enabled ? 1 : 0.4 }} />
+          <button className="shrink-0 font-semibold hover:underline hover:underline-offset-4" onClick={() => go("home")} type="button">{modeMeta[slug].name} Mode</button>
+          {!mode.is_enabled && <span className="shrink-0 rounded-full bg-black/[0.06] px-2 py-0.5 font-label text-[10px] uppercase tracking-[0.12em] text-black/55">Off</span>}
+          {section !== "home" && <><span aria-hidden="true" className="text-black/25">/</span><span aria-current="page" className="truncate text-black/55">{SECTIONS.find((item) => item.id === section)?.title}</span></>}
+        </nav>
         <div className="flex items-center gap-3">
           <SaveChip justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
           <button className="inline-flex min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:hidden" onClick={() => setFullPreview(true)} type="button">Preview</button>
@@ -918,7 +924,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         <div className="flex h-14 items-center gap-2 px-3">
           <Link aria-label="Back to Setuvara home" className="grid size-10 shrink-0 place-items-center rounded-full" href="/app"><MeetMark className="size-6" /></Link>
           <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{section === "home" ? "Home" : section === "settings" ? "Settings" : sectionTitle}</p>
+            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{section === "home" ? "Overview" : section === "settings" ? "Settings" : sectionTitle}</p>
             <p aria-live="polite" className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50">{modeMeta[slug].name} Mode<span aria-hidden="true">·</span>{status === "error" ? <span className="text-[#B42318]">Not saved</span> : status === "saved" ? "Saved" : "Saving…"}</p>
           </div>
           <button aria-label="Full-screen preview" className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition active:scale-[.97] max-[374px]:px-0" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg><span className="max-[374px]:hidden">Preview</span></button>
@@ -930,37 +936,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         <MobileSaveLine justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
       </header>
 
-      <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[232px_minmax(0,1fr)] xl:grid-cols-[256px_minmax(0,1fr)_minmax(420px,34%)] 2xl:grid-cols-[256px_minmax(0,1fr)_minmax(460px,36%)]">
-        {/* Rail */}
-        <aside className="hidden min-h-0 flex-col border-r border-black/10 px-4 py-6 lg:flex">
-          <button className="flex items-center gap-3 rounded-2xl px-2 py-1.5 text-left transition hover:bg-black/[0.04]" onClick={() => go("home")} type="button">
-            <Avatar mode={modes.find((item) => item.slug === "personal") ?? mode} name={profile.display_name} />
-            <span className="min-w-0"><span className="block truncate text-[15px] font-semibold">{profile.display_name || "Your name"}</span><span className="block truncate text-[13px] text-black/55">One identity · 3 Modes</span></span>
-          </button>
-          <nav aria-label="Editor sections" className="mt-7 grid gap-1">
-            {SECTIONS.map((item, index) => {
-              const active = section === item.id;
-              return (
-                <button aria-current={active ? "page" : undefined} className={`group flex min-h-[52px] items-center gap-3.5 rounded-2xl px-3.5 text-left transition ${active ? "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" : "hover:bg-black/[0.035]"}`} key={item.id} onClick={() => go(item.id)} type="button">
-                  <span className={`font-label text-[11px] ${active ? "text-[#FF5A4F]" : "text-black/40"}`}>0{index + 1}</span>
-                  <span className={`flex-1 font-display text-[19px] font-bold tracking-[-0.035em] ${active ? "text-black" : "text-black/50 group-hover:text-black/75"}`}>{item.title}</span>
-                  {active && <span aria-hidden="true" className="font-display text-base font-bold text-[#FF5A4F]">/</span>}
-                </button>
-              );
-            })}
-          </nav>
-          <div className="mt-auto px-2 pt-8">
-            <p className="text-[13px] text-black/55">{profile.is_published ? "Live at" : "Will live at"}</p>
-            <p className="mt-1 truncate font-label text-[12px]" title={publicUrl(slug)}>{publicUrl(slug).replace(/^https?:\/\//, "") || "Link unavailable"}</p>
-            <a className="mt-2 inline-flex min-h-9 items-center text-sm font-semibold underline underline-offset-4" href={publicUrl(slug)} rel="noreferrer" target="_blank">View live profile ↗</a>
-            <div className="mt-5 flex items-center gap-x-3.5 whitespace-nowrap border-t border-black/10 pt-4 text-[13px] text-black/55 xl:gap-x-4">
-              <Link className="min-h-9 py-2 hover:text-black" href="/app">Home</Link>
-              <Link className="min-h-9 py-2 hover:text-black" href="/app/connections">Connections</Link>
-              <form action={signOut}><button className="min-h-9 py-2 hover:text-black" type="submit">Sign out</button></form>
-            </div>
-          </div>
-        </aside>
-
+      <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(400px,38%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,38%)]">
         {/* Content */}
         <main className="min-w-0 lg:min-h-0 lg:overflow-y-auto" id="editor-scroll">
           <div className={`mx-auto w-full max-w-[720px] px-4 pb-36 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10 xl:px-11 ${section === "home" ? "max-lg:hidden" : ""}`}>{content}</div>
@@ -970,19 +946,19 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
         </main>
 
         {/* Live preview */}
-        <aside aria-label="Live preview" className="hidden min-h-0 overflow-y-auto border-l border-black/10 bg-[#E9E7E0] xl:block">
+        <aside aria-label="Live preview" className="hidden min-h-0 overflow-y-auto border-l border-black/[0.08] bg-[#ECEAE3] xl:block">
           <PreviewPane api={api} previewState={previewState} setPreviewState={setPreviewState} soundIntro={soundIntro} />
         </aside>
       </div>
 
       {/* Mobile tab bar: every section one thumb-tap away */}
-      <nav aria-label="Editor sections" className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#F5F4EF]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-        <div className="mx-auto grid h-16 max-w-md grid-cols-5">
+      <nav aria-label="Editor sections" className="fixed inset-x-0 bottom-0 z-40 rounded-t-[24px] bg-[#0D0D0D] pb-[env(safe-area-inset-bottom)] pt-1 text-[#F5F4EF] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] lg:hidden">
+        <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-1.5">
           {MOBILE_TABS.map((tab) => {
             const active = section === tab.id;
             return (
-              <button aria-current={active ? "page" : undefined} className={`flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition ${active ? "text-[#0D0D0D]" : "text-black/45"}`} key={tab.id} onClick={() => go(tab.id)} type="button">
-                <span className={`grid h-7 w-12 place-items-center rounded-full transition ${active ? "bg-[#0D0D0D] text-[#F5F4EF]" : ""}`}><svg aria-hidden="true" className="size-[18px]" fill="currentColor" viewBox="0 0 24 24"><path d={tab.icon} /></svg></span>
+              <button aria-current={active ? "page" : undefined} className={`flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition ${active ? "text-[#F5F4EF]" : "text-[#F5F4EF]/55"}`} key={tab.id} onClick={() => go(tab.id)} type="button">
+                <span className={`grid h-8 w-12 place-items-center rounded-full transition active:scale-90 ${active ? "bg-white/[0.1] text-[#FF5A4F]" : "text-[#F5F4EF]/65"}`}><SectionIcon name={tab.id} /></span>
                 {tab.label}
               </button>
             );
@@ -1051,44 +1027,25 @@ const peekStore = {
   },
 };
 
-function ModeTabs({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
-  return (
-    <div aria-label="Mode" className="flex gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" role="tablist">
-      {MODE_SLUGS.map((item) => {
-        const on = item === slug;
-        const meta = modeMeta[item];
-        const eventName = item === "event" ? String(modes.find((entry) => entry.slug === "event")?.settings.eventName ?? "").trim() : "";
-        const off = modes.find((entry) => entry.slug === item)?.is_enabled === false;
-        return (
-          <button aria-selected={on} className="flex h-10 items-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors 2xl:px-5" key={item} onClick={() => onPick(item)} role="tab" style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.55)", boxShadow: on ? meta.ring : undefined }} type="button">
-            {meta.name}
-            {eventName && <span className="hidden max-w-[110px] truncate text-xs font-medium opacity-80 2xl:inline">{eventName}</span>}
-            {off && <span className="text-[11px] font-medium opacity-70">Off</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const MOBILE_TABS: { id: Section; label: string; icon: string }[] = [
-  { id: "home", label: "Home", icon: "M4 10.6 12 4l8 6.6V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1v-8.4Z" },
-  { id: "profile", label: "Profile", icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7.5 8c.4-3.6 3.6-6 7.5-6s7.1 2.4 7.5 6a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1Z" },
-  { id: "links", label: "Content", icon: "M4 5.5A1.5 1.5 0 0 1 5.5 4h5A1.5 1.5 0 0 1 12 5.5v5A1.5 1.5 0 0 1 10.5 12h-5A1.5 1.5 0 0 1 4 10.5v-5Zm10 0A1.5 1.5 0 0 1 15.5 4h3A1.5 1.5 0 0 1 20 5.5v3A1.5 1.5 0 0 1 18.5 10h-3A1.5 1.5 0 0 1 14 8.5v-3ZM4 15.5A1.5 1.5 0 0 1 5.5 14h3a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3Zm8 0a1.5 1.5 0 0 1 1.5-1.5h5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-3Z" },
-  { id: "appearance", label: "Appearance", icon: "M12 3a9 9 0 0 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2A4.6 4.6 0 0 0 21 10.6C21 6.4 17 3 12 3Zm-5 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" },
-  { id: "share", label: "Share", icon: "M4 4h6v6H4V4Zm2 2v2h2V6H6Zm8-2h6v6h-6V4Zm2 2v2h2V6h-2ZM4 14h6v6H4v-6Zm2 2v2h2v-2H6Zm8-2h2v2h-2v-2Zm2 2h2v2h-2v-2Zm2-2h2v2h-2v-2Zm-4 4h2v2h-2v-2Zm4 0h2v2h-2v-2Z" },
+const MOBILE_TABS: { id: Section; label: string }[] = [
+  { id: "home", label: "Overview" },
+  { id: "profile", label: "Profile" },
+  { id: "links", label: "Content" },
+  { id: "appearance", label: "Appearance" },
+  { id: "share", label: "Share" },
 ];
 
 function MobileModeSwitch({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
+  // Same picker as Home on phones: ink for the Mode you are editing, a dimmed dot for a Mode that is off.
   return (
-    <div aria-label="Mode" className="grid grid-cols-4 gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" role="tablist">
+    <div aria-label="Mode" className="grid grid-cols-4 gap-1 rounded-[16px] bg-black/[0.06] p-1" role="tablist">
       {MODE_SLUGS.map((item) => {
         const on = item === slug;
-        const meta = modeMeta[item];
         const off = modes.find((entry) => entry.slug === item)?.is_enabled === false;
         return (
-          <button aria-selected={on} className="flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-full px-1 text-[13px] font-semibold transition-colors" key={item} onClick={() => onPick(item)} role="tab" style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.55)", boxShadow: on ? meta.ring : undefined }} type="button">
-            {meta.name}{off && <span className="text-[10px] font-medium opacity-70">Off</span>}
+          <button aria-selected={on} className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-1 text-[13px] font-semibold transition-colors ${on ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-[#0D0D0D]/70"}`} key={item} onClick={() => onPick(item)} role="tab" type="button">
+            <span aria-hidden="true" className="size-[7px] shrink-0 rounded-full" style={{ background: MODE_DOT[item], opacity: off ? 0.35 : 1 }} />
+            <span className="truncate">{modeMeta[item].name}</span>{off && <span className="sr-only"> (off)</span>}
           </button>
         );
       })}
@@ -1112,15 +1069,6 @@ function MobileSaveLine({ status, message, justPublished, onRetry }: { status: S
         : status === "saved" ? "Published · every share surface is up to date"
           : <span className="text-black/60">Saving…</span>}
     </div>
-  );
-}
-
-function Avatar({ mode, name }: { mode: ProfileMode; name: string }) {
-  return (
-    <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#0D0D0D] font-display text-base font-bold text-[#F5F4EF]">
-      {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
-      {mode.image_url ? <img alt="" className="absolute inset-0 size-full object-cover" src={mode.image_url} style={{ objectPosition: focusPosition(modeFocus(mode), 1) }} /> : (name.trim()[0] ?? "S").toUpperCase()}
-    </span>
   );
 }
 
