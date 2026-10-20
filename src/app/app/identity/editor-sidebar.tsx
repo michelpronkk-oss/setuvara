@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { AccountMenu } from "@/components/app/app-shell";
 import { MeetMark } from "@/components/marketing/brand";
-import { modeFocus } from "@/components/profile/photo-focus";
-import type { ModeSlug, ProfileIdentity, ProfileMode } from "@/components/profile/types";
+import type { PhotoFocus } from "@/components/profile/photo-focus";
+import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
 import { MODE_SLUGS, SECTIONS, type Section } from "./editor-types";
 import { modeMeta } from "./editor-ui";
@@ -30,15 +30,50 @@ export function SectionIcon({ name }: { name: Section }) {
 
 const NAV: { id: Section; title: string }[] = [{ id: "home", title: "Overview" }, ...SECTIONS];
 
-/** The editor's desktop sidebar: the same dark panel as the app, holding the Mode and the section. */
-export function EditorSidebar({ profile, modes, slug, section, plan, publicUrl, onGo, signOut }: {
-  profile: ProfileIdentity; modes: ProfileMode[]; slug: ModeSlug; section: Section; plan: PlanCode;
-  publicUrl: (slug: ModeSlug) => string; onGo: (section: Section, mode?: ModeSlug) => void; signOut: () => Promise<void>;
+/** The Creator studio pages, listed under the editor sections whenever Creator Mode is open. */
+export const STUDIO_PAGES = [
+  { id: "work", title: "Work", href: "/app/identity/creator/work" },
+  { id: "commerce", title: "Commerce", href: "/app/identity/creator/commerce" },
+  { id: "actions", title: "Actions", href: "/app/identity/creator/actions" },
+  { id: "kit", title: "Media kit", href: "/app/identity/creator/kit" },
+  { id: "insights", title: "Insights", href: "/app/identity/creator/insights" },
+  { id: "settings", title: "Studio settings", href: "/app/identity/creator/settings" },
+] as const;
+export type StudioPageId = (typeof STUDIO_PAGES)[number]["id"];
+
+const STUDIO_ICONS: Record<StudioPageId, ReactNode> = {
+  work: <><rect height="15" rx="2.2" width="17" x="3.5" y="4.5" /><path d="m3.5 16 4.6-4.4a1.6 1.6 0 0 1 2.2 0L15 16M13.5 14.5l1.6-1.5a1.6 1.6 0 0 1 2.2 0l3.2 3" /><circle cx="15.5" cy="9" r="1.4" /></>,
+  commerce: <><path d="M5 8h14l-1.1 10.4a1.8 1.8 0 0 1-1.8 1.6H7.9a1.8 1.8 0 0 1-1.8-1.6L5 8Z" /><path d="M9 10V7a3 3 0 0 1 6 0v3" /></>,
+  actions: <path d="M13.2 3.5 5.5 13.4h6l-.7 7.1 7.7-9.9h-6l.7-7.1Z" />,
+  kit: <><path d="M7 3.5h7l4 4v11.2a1.8 1.8 0 0 1-1.8 1.8H7a1.8 1.8 0 0 1-1.8-1.8V5.3A1.8 1.8 0 0 1 7 3.5Z" /><path d="M13.5 3.5v4.3h4.3M8.5 12.5h7M8.5 16h4.5" /></>,
+  insights: <path d="M4.5 19.5h15M7 16v-4M11.5 16V7.5M16 16v-6.5" />,
+  settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6" /></>,
+};
+
+/** Creator studio's own mark: a four-point spark. */
+function StudioMark() {
+  return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 3.5c.6 4.4 2.7 6.6 7.5 8.5-4.8 1.9-6.9 4.1-7.5 8.5-.6-4.4-2.7-6.6-7.5-8.5 4.8-1.9 6.9-4.1 7.5-8.5Z" /></svg>;
+}
+
+export function StudioIcon({ name }: { name: StudioPageId }) {
+  return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">{STUDIO_ICONS[name]}</svg>;
+}
+
+/**
+ * The editor's desktop sidebar: the same dark panel as the app, holding the Mode and the section.
+ * The Creator studio pages share it; there `section` is null and `studio` names the open page.
+ */
+export function EditorSidebar({ profile, modes, slug, section, studio = null, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
+  profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; slug: ModeSlug; section: Section | null;
+  studio?: StudioPageId | null; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
+  avatarUrl: string | null; avatarFocus?: PhotoFocus; onGo: (section: Section, mode?: ModeSlug) => void; signOut: () => Promise<void>;
 }) {
-  const personal = modes.find((item) => item.slug === "personal");
-  const url = publicUrl(slug);
+  const url = liveUrl;
+  const scroller = useRef<HTMLDivElement>(null);
+  // A tall sidebar scrolls; keep the open page in view.
+  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio]);
   return (
-    <aside aria-label="Identity editor" className="fixed inset-y-3 left-3 z-40 hidden w-[256px] flex-col rounded-[26px] bg-[#0D0D0D] text-[#F5F4EF] shadow-[0_30px_60px_-34px_rgba(13,13,13,.8)] lg:flex">
+    <aside aria-label="Identity editor" className="print:hidden fixed inset-y-3 left-3 z-40 hidden w-[256px] flex-col rounded-[26px] bg-[#0D0D0D] text-[#F5F4EF] shadow-[0_30px_60px_-34px_rgba(13,13,13,.8)] lg:flex">
       <div className="mx-3 mt-3 flex h-[60px] items-center justify-between gap-2 px-3.5">
         <Link aria-label="Setuvara Home" className="flex items-center gap-2.5 rounded-[12px] focus-visible:outline-2" href="/app">
           <MeetMark className="size-[26px] shrink-0" />
@@ -49,7 +84,7 @@ export function EditorSidebar({ profile, modes, slug, section, plan, publicUrl, 
         </Link>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-4 pt-3 [scrollbar-width:none]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-4 pt-3 [scrollbar-width:none]" ref={scroller}>
         <section aria-labelledby="sv-editor-modes">
           <div className="mb-2 flex items-center justify-between px-3.5">
             <h2 className="font-label text-[10px] uppercase tracking-[0.16em] text-[#F5F4EF]/40" id="sv-editor-modes">Editing</h2>
@@ -62,7 +97,7 @@ export function EditorSidebar({ profile, modes, slug, section, plan, publicUrl, 
               const on = item === slug;
               const live = profile.is_published && entry.is_enabled;
               return (
-                <button aria-selected={on} className={`flex min-h-11 items-center gap-3 rounded-[14px] px-3.5 text-left text-[14px] transition-colors focus-visible:outline-2 ${on ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/65 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} key={item} onClick={() => onGo(section, item)} role="tab" type="button">
+                <button aria-selected={on} className={`flex min-h-11 items-center gap-3 rounded-[14px] px-3.5 text-left text-[14px] transition-colors focus-visible:outline-2 ${on ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/65 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} key={item} onClick={() => onGo(section ?? "home", item)} role="tab" type="button">
                   <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: MODE_DOT[item], opacity: entry.is_enabled ? 1 : 0.35 }} />
                   <span className="min-w-0 flex-1 truncate">{modeMeta[item].name}</span>
                   <span className={`font-label text-[10px] uppercase tracking-[0.12em] ${live ? "text-[#C7FF4A]" : "text-[#F5F4EF]/35"}`}>{live ? "Live" : entry.is_enabled ? "Private" : "Off"}</span>
@@ -77,15 +112,38 @@ export function EditorSidebar({ profile, modes, slug, section, plan, publicUrl, 
           {NAV.map((item) => {
             const active = section === item.id;
             return (
-              <button aria-current={active ? "page" : undefined} className={`flex min-h-12 items-center gap-3.5 rounded-[16px] px-3.5 text-left text-[15px] transition-colors focus-visible:outline-2 ${active ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} key={item.id} onClick={() => onGo(item.id)} type="button">
+              <button aria-current={active ? "page" : undefined} className={`flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-left text-[15px] transition-colors focus-visible:outline-2 ${active ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} key={item.id} onClick={() => onGo(item.id)} type="button">
                 <span className={active ? "text-[#FF5A4F]" : ""}><SectionIcon name={item.id} /></span>
                 {item.title}
               </button>
             );
           })}
+          {slug === "creator" && <>
+            <Link aria-current={studio ? "true" : undefined} className={`mt-1 flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${studio ? "font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href={studio ? STUDIO_PAGES.find((item) => item.id === studio)!.href : STUDIO_PAGES[0].href}>
+              <span className="text-[#E8A6FF]"><StudioMark /></span>
+              <span className="min-w-0 flex-1 truncate">Creator studio</span>
+              {needsYou > 0 && <span aria-label={`${needsYou} new`} className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#FF5A4F] px-1 text-[10px] font-bold text-[#0D0D0D]">{needsYou}</span>}
+              {!studio && <span aria-hidden="true" className="text-[#F5F4EF]/35">›</span>}
+            </Link>
+            {studio && (
+              <div aria-label="Creator studio" className="ml-[25px] flex flex-col gap-0.5 border-l border-white/[0.1] pl-2.5" role="group">
+                {STUDIO_PAGES.map((item) => {
+                  const active = studio === item.id;
+                  return (
+                    <Link aria-current={active ? "page" : undefined} className={`flex min-h-10 items-center gap-3 rounded-[13px] px-3 text-[14px] transition-colors focus-visible:outline-2 ${active ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/55 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href={item.href} key={item.id}>
+                      <span className={`[&_svg]:size-[18px] ${active ? "text-[#E8A6FF]" : ""}`}><StudioIcon name={item.id} /></span>
+                      <span className="min-w-0 flex-1 truncate">{item.id === "settings" ? "Settings" : item.title}</span>
+                      {item.id === "actions" && needsYou > 0 && <span aria-hidden="true" className="size-1.5 rounded-full bg-[#FF5A4F]" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </>}
         </nav>
 
-        <a aria-label={`View live profile, ${url.replace(/^https?:\/\//, "")}`} className="mt-auto flex flex-col gap-1 rounded-[16px] bg-white/[0.05] px-3.5 py-3 transition-colors hover:bg-white/[0.08] focus-visible:outline-2" href={url} rel="noreferrer" target="_blank">
+        <div aria-hidden="true" className="flex-1" />
+        <a aria-label={`View live profile, ${url.replace(/^https?:\/\//, "")}`} className="mt-6 flex shrink-0 flex-col gap-1 rounded-[16px] bg-white/[0.05] px-3.5 py-3 transition-colors hover:bg-white/[0.08] focus-visible:outline-2" href={url} rel="noreferrer" target="_blank">
           <span className="flex items-center justify-between font-label text-[10px] uppercase tracking-[0.14em] text-[#F5F4EF]/45">{profile.is_published ? "Live at" : "Will live at"}<span aria-hidden="true" className="text-[#F5F4EF]/60">↗</span></span>
           <span className="truncate font-label text-[12px] text-[#F5F4EF]/85" title={url}>{url.replace(/^https?:\/\//, "") || "Link unavailable"}</span>
         </a>
@@ -93,7 +151,7 @@ export function EditorSidebar({ profile, modes, slug, section, plan, publicUrl, 
 
       <div className="px-3 pb-3">
         <div aria-hidden="true" className="mx-2 mb-2 h-px bg-white/[0.08]" />
-        <AccountMenu avatarFocus={personal ? modeFocus(personal) : undefined} avatarUrl={personal?.image_url ?? null} displayName={profile.display_name || "Your identity"} placement="panel" plan={plan} publicProfileUrl={profile.username ? publicUrl("personal") : null} signOut={signOut} username={profile.username || null} />
+        <AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} displayName={profile.display_name || "Your identity"} placement="panel" plan={plan} publicProfileUrl={personalUrl} signOut={signOut} username={profile.username || null} />
       </div>
     </aside>
   );

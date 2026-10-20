@@ -128,6 +128,13 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
             <span aria-hidden="true" className="text-xl text-black/35">›</span>
           </button>
         ))}
+        {slug === "creator" && (
+          <Link className="mt-4 flex min-h-[74px] items-center gap-4 rounded-[22px] bg-[#0D0D0D] px-4 text-[#F5F4EF]" href="/app/identity/creator/work">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#E8A6FF]/15 text-[#E8A6FF]"><svg className="size-[19px]" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 3.5c.6 4.4 2.7 6.6 7.5 8.5-4.8 1.9-6.9 4.1-7.5 8.5-.6-4.4-2.7-6.6-7.5-8.5 4.8-1.9 6.9-4.1 7.5-8.5Z" /></svg></span>
+            <span className="min-w-0 flex-1"><span className="block font-display text-[1.3rem] font-bold leading-tight tracking-[-0.04em]">Creator studio</span><span className="block truncate text-[13px] text-white/55">Work, Commerce, Actions, Media kit, Insights</span></span>
+            <span aria-hidden="true" className="text-xl text-white/40">›</span>
+          </Link>
+        )}
       </nav>
 
       <Link className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-black/60 underline underline-offset-4" href="/app">Back to Setuvara home</Link>
@@ -284,7 +291,7 @@ export function ProfileSection({ api }: { api: EditorApi }) {
       {slug === "creator" && (
         <div className="space-y-5 sm:space-y-6">
           <Link className="flex items-center justify-between gap-4 rounded-[22px] bg-[#0D0D0D] p-4 text-[#F5F4EF] sm:p-5" href="/app/identity/creator/work">
-            <span><MonoLabel className="!text-[10px] text-[#B79CFF]">Creator studio</MonoLabel><span className="mt-1 block text-[16px] font-semibold">Work, Store, Collabs, Media kit and Insights</span></span>
+            <span><MonoLabel className="!text-[10px] text-[#E8A6FF]">Creator studio</MonoLabel><span className="mt-1 block text-[16px] font-semibold">Work, Commerce, Actions, Media kit and Insights</span></span>
             <span aria-hidden="true" className="text-xl">→</span>
           </Link>
           <PhotoBlock api={api} />

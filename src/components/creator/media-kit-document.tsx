@@ -47,6 +47,7 @@ export function MediaKitDocument({ doc }: { doc: KitDocument }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- signed Supabase image */}
               <img alt="" className="size-full object-cover" src={doc.imageUrl} />
             </>}
+            {!doc.imageUrl && <span aria-hidden="true" className="grid size-full place-items-center font-display text-[26px] font-bold tracking-[-0.05em] text-[#FF5A4F] md:text-[30px]">{doc.displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "S"}</span>}
           </span>
           <div className="min-w-0">
             <h1 className="font-display text-[34px] font-bold leading-none tracking-[-0.05em] md:text-[44px]">{doc.displayName}</h1>

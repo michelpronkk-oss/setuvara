@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { ContentImageControl } from "@/app/app/identity/content-image-control";
 import { Field, Segmented, Sheet, TextInput, Toggle } from "@/app/app/identity/editor-ui";
@@ -30,13 +30,15 @@ const blank = (kind: Draft["kind"]): Draft => ({ id: null, kind, title: "", cred
  * Work is a magazine spread of Creator Mode's image and video blocks. The first piece (or the
  * featured one) gets the weight; each card says its format and the credit line.
  */
-export function WorkStudio({ profileId, modeId, items, rawData, blockCount }: {
+export function WorkStudio({ profileId, modeId, items, rawData, blockCount, aside = null }: {
   profileId: string;
   modeId: string;
   items: WorkItem[];
   /** Stored block data by id, so edits keep fields the studio doesn't show. */
   rawData: Record<string, Record<string, unknown>>;
   blockCount: number;
+  /** Shown beside the empty state, such as the first-run steps. */
+  aside?: ReactNode;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState("All");
@@ -116,7 +118,9 @@ export function WorkStudio({ profileId, modeId, items, rawData, blockCount }: {
       />
 
       {items.length === 0 ? (
-        <EmptyState action={add} body="Add films, photos or series. Your page leads with the piece you feature, and every card says what it is." title="Show what you make." />
+        aside
+          ? <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-6"><div className="rounded-[26px] bg-white p-6 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:p-9">{aside}</div><EmptyState action={add} body="Add films, photos or series. Your page leads with the piece you feature, and every card says what it is." title="Show what you make." /></div>
+          : <EmptyState action={add} body="Add films, photos or series. Your page leads with the piece you feature, and every card says what it is." title="Show what you make." />
       ) : (
         <div className="grid gap-3.5 md:grid-cols-[1.7fr_1fr_1fr] md:auto-rows-[minmax(300px,1fr)]" data-work-grid>
           {shown.map((item, index) => <WorkCard index={index} item={item} key={item.id} onOpen={() => edit(item)} />)}

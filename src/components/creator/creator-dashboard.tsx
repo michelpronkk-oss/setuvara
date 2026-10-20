@@ -24,6 +24,17 @@ export type Action = { title: string; sub: string; href: string; cta: string; ur
 export type Step = { title: string; sub: string; done: boolean; href: string; optional: boolean };
 
 /** Home on Creator Mode: what happened, and what is worth doing next. */
+/** The four first-run steps, shared by the Creator dashboard and the studio. */
+export function creatorSteps(studio: Pick<CreatorStudio, "work" | "offers">, accounts: { platform: CreatorPlatform }[], liveActions: number): Step[] {
+  const { work, offers } = studio;
+  return [
+    { title: "Add a platform", sub: accounts.length ? accounts.map((item) => PLATFORM_NAME[item.platform]).join(", ") : "Instagram, TikTok, YouTube, Twitch or X", done: accounts.length > 0, href: "/app/identity?mode=creator&section=links", optional: false },
+    { title: "Add 3 pieces of work", sub: work.length ? `${work.length} of 3 added` : "Films, photos or a link", done: work.length >= 3, href: "/app/identity/creator/work", optional: true },
+    { title: "Add an offer", sub: "A product, booking or link", done: offers.length > 0, href: "/app/identity/creator/commerce/products", optional: true },
+    { title: "Publish an Action", sub: "Collabs, a giveaway, bookings or questions", done: liveActions > 0, href: "/app/identity/creator/actions", optional: true },
+  ];
+}
+
 export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio; plan: PlanCode }) {
   const { profile, work, offers, submissions, links } = studio;
   const firstName = profile.display_name.split(/\s+/)[0] || profile.display_name;
@@ -62,12 +73,7 @@ export async function CreatorDashboard({ studio, plan }: { studio: CreatorStudio
   const combined = combinedAudience(studio.socials);
   const featured = work.find((item) => item.featured) ?? work[0] ?? null;
 
-  const steps: Step[] = [
-    { title: "Add a platform", sub: accounts.length ? accounts.map((item) => PLATFORM_NAME[item.platform]).join(", ") : "Instagram, TikTok, YouTube, Twitch or X", done: accounts.length > 0, href: "/app/identity?mode=creator&section=links", optional: false },
-    { title: "Add 3 pieces of work", sub: work.length ? `${work.length} of 3 added` : "Films, photos or a link", done: work.length >= 3, href: "/app/identity/creator/work", optional: true },
-    { title: "Add an offer", sub: "A product, booking or link", done: offers.length > 0, href: "/app/identity/creator/commerce/products", optional: true },
-    { title: "Publish an Action", sub: "Collabs, a giveaway, bookings or questions", done: liveActions.length > 0, href: "/app/identity/creator/actions", optional: true },
-  ];
+  const steps = creatorSteps(studio, accounts, liveActions.length);
   const stepsDone = steps.filter((step) => step.done).length;
   const firstRun = stepsDone < 2 && submissions.length === 0;
 
@@ -307,7 +313,7 @@ function ModeSwitch() {
   );
 }
 
-function FirstRun({ steps, done }: { steps: Step[]; done: number }) {
+export function FirstRun({ steps, done, cta = true }: { steps: Step[]; done: number; cta?: boolean }) {
   const next = steps.find((step) => !step.done);
   return (
     <section aria-labelledby="first-run">
@@ -332,7 +338,7 @@ function FirstRun({ steps, done }: { steps: Step[]; done: number }) {
           );
         })}
       </ol>
-      {next && <Link className={`${coralButton} mt-5 w-full md:w-auto`} href={next.href}>{next.title}</Link>}
+      {cta && next && <Link className={`${coralButton} mt-5 w-full md:w-auto`} href={next.href}>{next.title}</Link>}
     </section>
   );
 }
