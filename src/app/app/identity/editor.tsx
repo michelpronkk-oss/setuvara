@@ -264,7 +264,10 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     const current = modesRef.current.find((item) => item.id === modeId);
     if (!current) return null;
     const limits = SETTING_KEYS[current.slug];
-    const settings: Record<string, string> = {};
+    // Creator keeps the studio's own settings (sections, collabs) that this editor doesn't show.
+    const settings: Record<string, string | boolean> = current.slug === "creator"
+      ? Object.fromEntries(Object.entries(current.settings).filter(([key]) => !(key in limits)))
+      : {};
     for (const [key, max] of Object.entries(limits)) {
       const value = current.settings[key];
       if (typeof value !== "string") continue;
@@ -1055,13 +1058,13 @@ const MOBILE_TABS: { id: Section; label: string; icon: string }[] = [
 
 function MobileModeSwitch({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
   return (
-    <div aria-label="Mode" className="grid grid-cols-3 gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" role="tablist">
+    <div aria-label="Mode" className="grid grid-cols-4 gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" role="tablist">
       {MODE_SLUGS.map((item) => {
         const on = item === slug;
         const meta = modeMeta[item];
         const off = modes.find((entry) => entry.slug === item)?.is_enabled === false;
         return (
-          <button aria-selected={on} className="flex min-h-10 items-center justify-center gap-1.5 rounded-full px-2 text-[14px] font-semibold transition-colors" key={item} onClick={() => onPick(item)} role="tab" style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.55)", boxShadow: on ? meta.ring : undefined }} type="button">
+          <button aria-selected={on} className="flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-full px-1 text-[13px] font-semibold transition-colors" key={item} onClick={() => onPick(item)} role="tab" style={{ background: on ? meta.bg : "transparent", color: on ? meta.fg : "rgba(13,13,13,.55)", boxShadow: on ? meta.ring : undefined }} type="button">
             {meta.name}{off && <span className="text-[10px] font-medium opacity-70">Off</span>}
           </button>
         );

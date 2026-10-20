@@ -113,6 +113,6 @@ export function parseResolvedModeShare(value: unknown): ResolvedModeShare | null
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   if (typeof row.username !== "string" || !/^[a-z0-9_]{3,24}$/.test(row.username)) return null;
-  if (row.mode !== "personal" && row.mode !== "event" && row.mode !== "business") return null;
+  if (row.mode !== "personal" && row.mode !== "event" && row.mode !== "business" && row.mode !== "creator") return null;
   return { username: row.username, mode: row.mode };
 }

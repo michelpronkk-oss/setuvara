@@ -20,14 +20,14 @@ export const SECTIONS: { id: Exclude<Section, "home">; title: string; short: str
   { id: "share", title: "Share", short: "Share" },
 ];
 
-export const MODE_SLUGS: ModeSlug[] = ["personal", "event", "business"];
+export const MODE_SLUGS: ModeSlug[] = ["personal", "event", "business", "creator"];
 
 /** Keys each Mode may store. Mirrors the profile_modes settings check constraint. */
 export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
   personal: { note: 280, location: 80, pronouns: 40 },
   event: { eventName: 100, city: 80, dateLabel: 80, role: 80, hereToMeet: 280 },
   business: { role: 80, company: 100, city: 80, description: 280 },
-  creator: { tagline: 280, category: 80 },
+  creator: { tagline: 280, category: 80, city: 80 },
 };
 
 /** Why the Plus sheet opened. "appearance" carries the Appearance being applied to this Mode. */

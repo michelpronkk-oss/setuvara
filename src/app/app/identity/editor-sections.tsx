@@ -44,7 +44,7 @@ const text = (mode: ProfileMode, key: string) => (typeof mode.settings[key] === 
 function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
   const { mode, profile } = api;
   const hidden = mode.links.filter((link) => !link.is_visible).length;
-  const contextLine = mode.slug === "personal" ? text(mode, "location") : mode.slug === "event" ? text(mode, "eventName") : text(mode, "company");
+  const contextLine = mode.slug === "personal" ? text(mode, "location") : mode.slug === "event" ? text(mode, "eventName") : mode.slug === "creator" ? text(mode, "category") : text(mode, "company");
   return {
     profile: [profile.display_name || "Add your name", contextLine, mode.image_path ? "photo set" : "no photo yet"].filter(Boolean).join(" · "),
     links: [mode.blocks?.length ? `${mode.blocks.length} block${mode.blocks.length === 1 ? "" : "s"}` : "", mode.links.length ? `${mode.links.length} link${mode.links.length === 1 ? "" : "s"}${hidden ? ` · ${hidden} hidden` : ""}` : ""].filter(Boolean).join(" · ") || "Nothing added yet",
@@ -292,6 +292,21 @@ export function ProfileSection({ api }: { api: EditorApi }) {
             <SettingInput api={api} field="city" label="City" max={80} placeholder="Lisbon" />
           </div>
           <SettingInput api={api} field="description" hint="Optional" label="Professional description" max={280} multiline placeholder="Add a one-line description" />
+        </div>
+      )}
+      {slug === "creator" && (
+        <div className="space-y-5 sm:space-y-6">
+          <Link className="flex items-center justify-between gap-4 rounded-[22px] bg-[#0D0D0D] p-4 text-[#F5F4EF] sm:p-5" href="/app/identity/creator/work">
+            <span><MonoLabel className="!text-[10px] text-[#B79CFF]">Creator studio</MonoLabel><span className="mt-1 block text-[16px] font-semibold">Work, Store, Collabs, Media kit and Insights</span></span>
+            <span aria-hidden="true" className="text-xl">→</span>
+          </Link>
+          <PhotoBlock api={api} />
+          <NameField api={api} label="Name" />
+          <SettingInput api={api} field="tagline" hint="Shown under your name" label="What you make" max={280} multiline placeholder="Photographer and director. Quiet films about the sea." />
+          <div className="grid grid-cols-2 gap-3 sm:gap-5">
+            <SettingInput api={api} field="category" label="Craft" max={80} placeholder="Photographer and director" />
+            <SettingInput api={api} field="city" label="City" max={80} placeholder="Lisbon" />
+          </div>
         </div>
       )}
     </div>

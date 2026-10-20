@@ -13,6 +13,12 @@ export type { BlockKind, ProfileBlock };
 const text = (max: number) => z.string().trim().max(max);
 const httpsImage = z.string().trim().max(1000).regex(/^https:\/\//i).nullable().optional();
 const contentMediaPath = z.string().trim().max(100);
+/** Creator Work fields. Stored on Creator Mode image and video blocks; other Modes never set them. */
+const workFields = {
+  credit: text(80).optional(),
+  collection: text(40).optional(),
+  featured: z.boolean().optional(),
+};
 
 const providerVideoSchema = z.object({
   source: z.literal("provider").optional(),
@@ -20,6 +26,7 @@ const providerVideoSchema = z.object({
   title: text(120).optional(),
   caption: text(160).optional(),
   thumbnail: httpsImage,
+  ...workFields,
 });
 
 const uploadedVideoSchema = z.object({
@@ -28,6 +35,7 @@ const uploadedVideoSchema = z.object({
   video_mime_type: z.enum(["video/mp4", "video/webm"]),
   title: text(120).optional(),
   caption: text(160).optional(),
+  ...workFields,
 }).superRefine((data, context) => {
   const matches = (data.video_mime_type === "video/mp4" && data.video_path.endsWith(".mp4"))
     || (data.video_mime_type === "video/webm" && data.video_path.endsWith(".webm"));
@@ -54,6 +62,8 @@ export const blockSchemas = {
     image_path: z.string().trim().max(100).regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i, "Upload a JPEG, PNG or WebP image."),
     alt: text(180).optional(),
     caption: text(240).optional(),
+    title: text(120).optional(),
+    ...workFields,
   }),
   services: z.object({
     heading: text(60).optional(),
