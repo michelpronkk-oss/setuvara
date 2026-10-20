@@ -233,6 +233,7 @@ function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publ
           {publicProfileUrl && <a className={item} href={publicProfileUrl} rel="noreferrer" role="menuitem" target="_blank">{messages.common.viewProfile}<span aria-hidden="true" className="text-black/50">↗</span></a>}
           <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">{messages.common.modeSettings}</Link>
           <Link className={item} href="/app/settings/notifications" role="menuitem">{messages.common.emailPreferences}</Link>
+          <Link className={item} href="/app/settings/privacy" role="menuitem">Privacy &amp; data</Link>
           <button className={item} onClick={() => { setOpen(false); setHomeScreenOpen(true); }} role="menuitem" type="button">{standalone ? "Home Screen app" : "Add to Home Screen"}</button>
           <button className={item} onClick={() => { setOpen(false); setFeedbackOpen(true); }} role="menuitem" type="button">Send feedback</button>
           <div className="mx-2.5 my-1.5 h-px bg-black/[0.08]" />

@@ -50,6 +50,7 @@ function sealTokens(accountId: string, provider: SocialProvider, tokens: Tokens)
 function snapshotRow(snapshot: Snapshot) {
   return {
     provider_account_id: snapshot.accountId.slice(0, 200),
+    provider_scoped_id: snapshot.scopedId ?? null,
     username: snapshot.username.slice(0, 120),
     display_name: snapshot.displayName.slice(0, 120),
     profile_url: snapshot.profileUrl && snapshot.profileUrl.length <= 500 ? snapshot.profileUrl : null,
@@ -147,7 +148,11 @@ export function refreshAllowed(account: Pick<Stored, "last_synced_at" | "status"
   return now - new Date(account.last_synced_at).getTime() >= MANUAL_REFRESH_MINUTES * 60 * 1000;
 }
 
-/** Revokes at the platform where it offers that, then deletes the account and its tokens. */
+/**
+ * Revokes at the platform where it offers that, then deletes the account, its synced details and its
+ * tokens (social_account_secrets cascades). Throws if the delete did not happen, so nobody is told
+ * an account is gone while it is still stored.
+ */
 export async function disconnectAccount(account: Stored) {
   const db = createActionsServiceClient();
   const creds = providerCredentials(account.provider);
@@ -160,7 +165,8 @@ export async function disconnectAccount(account: Stored) {
       // The platform may already have dropped the token. Deleting ours is what matters.
     }
   }
-  await db.from("social_accounts").delete().eq("id", account.id);
+  const { error } = await db.from("social_accounts").delete().eq("id", account.id).eq("profile_id", account.profile_id);
+  if (error) throw new Error("social_delete_failed");
 }
 
 /** Accounts the scheduled job should refresh: Twitch hourly (its validation rule), others every 6 hours. */

@@ -27,6 +27,7 @@ const sections: LegalSection[] = [
         {connectChatEnabled() && <p><b>Messages.</b> If you use Connect Chat, we store your message requests, conversations, unread state and messaging preferences. You can block another member. If you report a message, we keep that message and limited surrounding context for a restricted safety review.</p>}
         <p><b>Guests.</b> When someone without an account connects with you, we store the name and email they give us so they can keep the connection and claim it later. Once claimed, we remove that email from the guest record. We never send notification emails to guests.</p>
         <p><b>Live Context, Passport and Wallet.</b> Live Context you set (type, label, venue, city, start and end time), your Passport milestones and stamps, and, if you add a pass to Apple or Google Wallet, the identifiers needed to update it.</p>
+        <p><b>Connected platforms.</b> If you connect Instagram, TikTok, YouTube or Twitch through that platform’s own sign-in, we store the account’s id, handle, display name, profile link, picture link and audience count as the platform reports it, plus the sign-in tokens, encrypted. We use them only to show and refresh those details on your page. We can’t post, read messages or see anything private, and we don’t store your platform password.</p>
         <p><b>Billing.</b> Your plan, billing interval and subscription status. Card details are handled by our payment provider; we never see your full card number.</p>
         <p><b>Feedback.</b> If you send in-app feedback: your message, an optional screenshot, the page and Mode you were on, your plan, screen size, language and browser user agent.</p>
       </>
@@ -119,6 +120,7 @@ const sections: LegalSection[] = [
       <>
         <p>We keep your account data for as long as you have an account. Guest sessions expire after 30 days; unsubscribe links after one year; Connection Passes within 24 hours.</p>
         <p>If you delete your account, we delete your identity, Modes, media, links, notes and preferences. This also removes the shared Connection and encounter history from the other person&apos;s account. We keep billing records as long as tax law requires.</p>
+        <p>Platform details and tokens are kept while the platform stays connected. Disconnecting, removing Setuvara in the platform’s own settings, or asking the platform to have its data deleted removes them. We keep a short record of each deletion request (its code, type, status and dates, never the platform account id) so you can check its status.</p>
         {connectChatEnabled() && <p>Deleting your account also removes Connect Chat conversations, including messages visible to the other participant. Hiding a chat removes it only from your inbox. A report may retain the selected message and limited context while a safety case is open, and for 90 days after closure unless an applicable legal obligation requires a different period.</p>}
       </>
     ),
@@ -128,7 +130,7 @@ const sections: LegalSection[] = [
     title: "Your choices and rights",
     body: (
       <>
-        <p>You can edit or remove anything on your identity at any time, unpublish it, turn off connecting per Mode, and manage email in Settings.</p>
+        <p>You can edit or remove anything on your identity at any time, unpublish it, turn off connecting per Mode, and manage email in Settings. You can disconnect a platform at any time; that deletes its sign-in, tokens and the details we read from it. How each kind of deletion works is on <Link href="/data-deletion">Data deletion</Link>.</p>
         <p>You can also ask us for a copy of your data, to correct it, to delete your account, or to object to or restrict how we use it. Email <a href="mailto:hello@setuvara.com">hello@setuvara.com</a> from your account’s address and we’ll respond within 30 days. If you’re in the EU or UK, you can also complain to your data protection authority.</p>
       </>
     ),
@@ -152,7 +154,7 @@ export default function PrivacyRoute() {
       other={{ href: "/terms", label: "Read the Terms" }}
       sections={sections}
       title="Privacy, in plain words."
-      updated="19 October 2026"
+      updated="20 October 2026"
     />
   );
 }

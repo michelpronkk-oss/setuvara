@@ -38,12 +38,14 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: localServiceRoleKey,
   NEXT_PUBLIC_APP_URL: appUrl,
   QUICK_SHARE_TOKEN_KEY: randomBytes(32).toString("base64url"),
+  SOCIAL_TOKEN_KEY: randomBytes(32).toString("base64"),
+  INSTAGRAM_APP_SECRET: randomBytes(16).toString("hex"),
   PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH ?? resolve(root, ".playwright-browsers"),
   E2E_APP_URL: appUrl,
   E2E_MAILPIT_URL: "http://127.0.0.1:54324",
 };
 const e2eEnv = { ...env, E2E_LOCAL_SERVICE_KEY: localServiceRoleKey };
-const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs", "scripts/e2e-tap.mjs", "scripts/e2e-tap-experience.mjs", "scripts/e2e-wallet.mjs", "scripts/e2e-analytics.mjs", "scripts/e2e-appearance.mjs", "scripts/e2e-mode-share.mjs", "scripts/e2e-feedback.mjs", "scripts/e2e-handles.mjs"];
+const e2eScripts = ["scripts/e2e-marketing.mjs", "scripts/e2e-local-auth.mjs", "scripts/e2e-soundtrack.mjs", "scripts/e2e-connection-access.mjs", "scripts/e2e-connection-detail.mjs", "scripts/e2e-tap.mjs", "scripts/e2e-tap-experience.mjs", "scripts/e2e-wallet.mjs", "scripts/e2e-analytics.mjs", "scripts/e2e-appearance.mjs", "scripts/e2e-mode-share.mjs", "scripts/e2e-feedback.mjs", "scripts/e2e-privacy.mjs", "scripts/e2e-handles.mjs"];
 const requestedScript = process.env.E2E_LOCAL_SCRIPT;
 assert(!requestedScript || [...e2eScripts, "scripts/e2e-full-portrait.mjs"].includes(requestedScript), "E2E_LOCAL_SCRIPT must name a Setuvara local E2E script");
 

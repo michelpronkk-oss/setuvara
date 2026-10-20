@@ -43,7 +43,10 @@
     "test:commerce:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/creator_commerce_security.sql",
     "test:handles": "node --test tests/handles/handles.test.mjs",
     "test:handles:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/handle_foundation_security.sql",
-    "e2e:handles": "node scripts/e2e-handles.mjs"
+    "e2e:handles": "node scripts/e2e-handles.mjs",
+    "test:privacy": "node --test tests/privacy/privacy.test.mjs",
+    "test:privacy:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/privacy_requests_security.sql",
+    "e2e:privacy": "node scripts/e2e-privacy.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
