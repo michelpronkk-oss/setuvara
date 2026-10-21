@@ -23,8 +23,8 @@ export async function BuilderView({ slug, project }: { slug: "creator" | "busine
     supabase.from("builder_suggestions").select("id, project_id, title, body, status, created_at, roadmap_item_id").in("project_id", ids).order("created_at", { ascending: false }).limit(200),
   ]) : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
   const [{ data: revenueConnections }, { data: revenueSnapshots }, { data: revenueLimits }] = await Promise.all([
-    supabase.from("revenue_connections").select("id, project_id, provider, environment, account_ref, key_hint, status, last_sync_at, last_sync_ok, last_error").in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).neq("status", "revoked"),
-    supabase.from("revenue_snapshots").select("connection_id, day, currency, mrr_minor, paying_customers, active_subscriptions").in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("day").limit(5000),
+    supabase.from("revenue_connections").select("id, project_id, provider, environment, account_ref, key_hint, status, last_sync_at, last_sync_ok, last_error, history_mode").in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).neq("status", "revoked"),
+    supabase.from("revenue_snapshots").select("connection_id, day, currency, mrr_minor, paying_customers, active_subscriptions, reconstructed").in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("day").limit(5000),
     supabase.rpc("my_revenue_limits"),
   ]);
   const insights = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, (await supabase.rpc("builder_project_insights", { p_project_id: id })).data] as const)));

@@ -18,7 +18,7 @@ export type BuilderProject = {
 export type PublicProject = BuilderProject & { roadmap: RoadmapItem[]; updates: ProjectUpdate[]; action_ids: string[]; voting?: boolean; suggestions?: boolean; revenue?: PublicRevenue[] };
 export type RevenueVisibility = "hidden" | "exact" | "range" | "growth";
 /** One provider's verified figure, already reduced to what the owner chose to show. */
-export type PublicRevenue = { provider: "stripe" | "revenuecat" | "dodo"; currency: string; synced_at: string; visibility: RevenueVisibility; mrr_minor: number | null; arr_minor: number | null; paying_customers: number | null; band: string | null; growth_pct: number | null; preview?: boolean; test?: boolean; stale?: boolean; trend?: number[] | null };
+export type PublicRevenue = { provider: "stripe" | "revenuecat" | "dodo"; currency: string; synced_at: string; visibility: RevenueVisibility; mrr_minor: number | null; arr_minor: number | null; paying_customers: number | null; band: string | null; growth_pct: number | null; preview?: boolean; test?: boolean; stale?: boolean; trend?: number[] | null; reconstructed?: boolean };
 export type BuilderActivity = { voted: string[]; suggestions: { id: string; title: string; status: string; stage: string | null; created_at: string }[] };
 export type BuilderViewer = { signedIn: boolean; loginHref: string; activity: Record<string, BuilderActivity> };
 export type BuilderLimits = { plan: "free" | "plus" | "pro"; public_projects: number; roadmap_items: number; suggestions?: boolean; export?: boolean };

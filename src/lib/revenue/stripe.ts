@@ -23,7 +23,46 @@ function couponOf(discount: unknown): Coupon | null {
 
 /** Normalised recurring lines for one subscription, or none when it doesn't count toward MRR. */
 export function stripeLines(sub: Stripe.Subscription): RevenueLine[] {
-  if (!COUNTED.has(sub.status)) return [];
+  return COUNTED.has(sub.status) ? recurringLines(sub) : [];
+}
+
+/** Whether a subscription was paying at a past moment (unix seconds): started, out of trial, not yet ended. */
+export function paidAt(sub: Stripe.Subscription, at: number) {
+  if (sub.status === "incomplete" || sub.status === "incomplete_expired") return false;
+  const start = sub.start_date ?? sub.created;
+  const ended = sub.ended_at ?? sub.canceled_at ?? null;
+  return start <= at && (sub.trial_end == null || sub.trial_end <= at) && (ended == null || ended > at);
+}
+
+/** Last day of each of the past `months` calendar months, oldest first, as UTC dates and end-of-day seconds. */
+export function monthEnds(months: number, now = new Date()) {
+  return Array.from({ length: months }, (_, i) => {
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1 - i), 0));
+    return { day: end.toISOString().slice(0, 10), at: Math.floor(end.getTime() / 1000) + 86_399 };
+  });
+}
+
+/**
+ * Month-end MRR rebuilt from subscription start, trial and end dates. Prices and discounts are the
+ * subscription's current ones, so plan changes and past coupons aren't reflected: these rows are
+ * labelled reconstructed and never mixed up with daily measurements.
+ */
+export function stripeHistory(subs: Stripe.Subscription[], ends: { day: string; at: number }[]) {
+  return ends.flatMap(({ day, at }) => {
+    const lines: RevenueLine[] = [];
+    const subscriptions: Record<string, number> = {};
+    for (const sub of subs) {
+      if (!paidAt(sub, at)) continue;
+      const subLines = recurringLines(sub);
+      if (!subLines.length) continue;
+      lines.push(...subLines);
+      subscriptions[sub.currency] = (subscriptions[sub.currency] ?? 0) + 1;
+    }
+    return snapshot(lines, subscriptions).map((row) => ({ day, ...row }));
+  });
+}
+
+function recurringLines(sub: Stripe.Subscription): RevenueLine[] {
   const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
   const ongoing = (sub.discounts ?? []).map(couponOf)
     .filter((c): c is Coupon => !!c && c.duration !== "once" && (!c.currency || c.currency === sub.currency));
@@ -69,5 +108,11 @@ export const stripeRevenue: RevenueAdapter = {
       subscriptions[sub.currency] = (subscriptions[sub.currency] ?? 0) + 1;
     }
     return { rows: snapshot(lines, subscriptions), method: "stripe_subscriptions_v1" };
+  },
+  async history(key, months) {
+    const stripe = client(key);
+    const subs: Stripe.Subscription[] = [];
+    for await (const sub of stripe.subscriptions.list({ status: "all", limit: 100, expand: ["data.discounts.source.coupon"] })) subs.push(sub);
+    return { rows: stripeHistory(subs, monthEnds(months)), method: "stripe_history_v1" };
   },
 };

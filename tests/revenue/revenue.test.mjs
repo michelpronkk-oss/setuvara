@@ -144,3 +144,27 @@ test("RevenueCat sync reads the USD overview and labels the method", async () =>
   const refused = stubFetch([["GET", "/metrics/overview", 403, {}]]);
   try { await assert.rejects(rc.revenuecatRevenue.sync(`proj1:${KEY}`), /permission/); } finally { refused.restore(); }
 });
+
+const T = (iso) => Date.parse(iso) / 1000;
+test("Stripe history: month ends are the last day of each past month, oldest first", () => {
+  assert.deepEqual(s.monthEnds(3, new Date("2026-10-21T12:00:00Z")).map((e) => e.day), ["2026-07-31", "2026-08-31", "2026-09-30"]);
+  assert.equal(s.monthEnds(1, new Date("2026-03-01T00:00:00Z"))[0].at, T("2026-02-28T23:59:59Z"));
+});
+
+test("Stripe history: a subscription counts from its start, after its trial, until it ended", () => {
+  const ends = s.monthEnds(4, new Date("2026-10-21T00:00:00Z"));
+  const subs = [
+    sub({ customer: "a", start_date: T("2026-05-10T00:00:00Z") }),
+    sub({ customer: "b", start_date: T("2026-07-15T00:00:00Z"), trial_end: T("2026-08-15T00:00:00Z") }),
+    sub({ customer: "c", status: "canceled", start_date: T("2026-06-01T00:00:00Z"), ended_at: T("2026-08-10T00:00:00Z") }),
+    sub({ customer: "d", status: "incomplete_expired", start_date: T("2026-06-01T00:00:00Z") }),
+  ];
+  assert.deepEqual(s.stripeHistory(subs, ends), [
+    { day: "2026-06-30", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+    { day: "2026-07-31", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+    { day: "2026-08-31", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+    { day: "2026-09-30", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+  ]);
+  assert.equal(s.paidAt(subs[1], T("2026-07-31T23:59:59Z")), false, "still in trial");
+  assert.equal(s.paidAt(subs[2], T("2026-08-31T23:59:59Z")), false, "ended");
+});

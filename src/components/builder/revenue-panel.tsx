@@ -6,13 +6,13 @@ import { useState, useTransition } from "react";
 
 import { coralButton, lineButton } from "@/components/creator/studio-ui";
 import type { RevenueVisibility } from "@/lib/builder/model";
-import { connectRevenue, disconnectRevenue, syncRevenueNow } from "@/lib/revenue/actions";
+import { connectRevenue, disconnectRevenue, setRevenueHistory, syncRevenueNow } from "@/lib/revenue/actions";
 import { createClient } from "@/lib/supabase/client";
 
 import { money, PROVIDER_LABEL } from "./verified-revenue";
 
-export type RevenueConnection = { id: string; project_id: string; provider: "stripe" | "revenuecat" | "dodo"; environment: "live" | "test"; account_ref: string | null; key_hint: string; status: "active" | "error" | "revoked"; last_sync_at: string | null; last_sync_ok: boolean | null; last_error: string | null };
-export type RevenueSnapshot = { connection_id: string; day: string; currency: string; mrr_minor: number; paying_customers: number; active_subscriptions: number };
+export type RevenueConnection = { id: string; project_id: string; provider: "stripe" | "revenuecat" | "dodo"; environment: "live" | "test"; account_ref: string | null; key_hint: string; status: "active" | "error" | "revoked"; last_sync_at: string | null; last_sync_ok: boolean | null; last_error: string | null; history_mode: "daily" | "reconstructed" };
+export type RevenueSnapshot = { connection_id: string; day: string; currency: string; mrr_minor: number; paying_customers: number; active_subscriptions: number; reconstructed: boolean };
 export type RevenueLimits = { plan: "free" | "plus" | "pro"; providers: number; history_days: number };
 
 const card = "rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
@@ -72,6 +72,19 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
               </div>
             </div>
             <p className="text-[13px] text-black/60">Last sync {ago(c.last_sync_at)}{c.last_error ? `: ${c.last_error}` : ""}</p>
+            {c.provider === "stripe" && (
+              <label className="grid gap-1.5 text-[13px] font-semibold">History
+                <select className={field} disabled={pending} onChange={(e) => { const mode = e.target.value as RevenueConnection["history_mode"]; start(async () => {
+                  const r = await setRevenueHistory(c.id, mode);
+                  setMessage(r.ok ? (mode === "reconstructed" ? "Past months rebuilt from Stripe history, labelled as reconstructed." : "Showing daily measurements only.") : r.error);
+                  router.refresh();
+                }); }} value={c.history_mode}>
+                  <option value="daily">Daily measurements only</option>
+                  <option value="reconstructed">Include past months, reconstructed from Stripe history</option>
+                </select>
+                <span className="font-normal text-black/55">Reconstructed months use today&apos;s prices and are labelled on your page. Daily measurements start the day you connect.</span>
+              </label>
+            )}
             {currencies.map((currency) => <Trend currency={currency} key={currency} rows={rows.filter((r) => r.currency === currency)} />)}
             <div className="flex flex-wrap gap-2">
             <button className={lineButton} disabled={pending} onClick={() => start(async () => { const r = await syncRevenueNow(c.id); setMessage(r.ok ? "Synced." : r.error); router.refresh(); })} type="button">{pending ? "Syncing…" : "Sync now"}</button>
@@ -135,6 +148,7 @@ function Trend({ rows, currency }: { rows: RevenueSnapshot[]; currency: string }
   const points = sorted.map((r, i) => `${sorted.length === 1 ? 50 : (i / (sorted.length - 1)) * 100},${30 - (r.mrr_minor / max) * 28}`).join(" ");
   return (
     <div className="grid gap-1">
+      {sorted.some((r) => r.reconstructed) && <p className="text-[12px] text-black/55">Includes months reconstructed from Stripe history.</p>}
       <p className="text-[14px] tabular-nums"><b>{money(last.mrr_minor, currency)}</b> MRR · {money(last.mrr_minor * 12, currency)} ARR · {last.paying_customers} paying</p>
       <svg aria-label={`MRR in ${currency.toUpperCase()} over ${sorted.length} days`} className="h-10 w-full" preserveAspectRatio="none" role="img" viewBox="0 0 100 32">
         <polyline fill="none" points={points} stroke="#0D0D0D" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
