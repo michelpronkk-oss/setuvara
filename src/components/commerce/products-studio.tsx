@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Field, Segmented, Sheet, TextArea, TextInput } from "@/app/app/identity/editor-ui";
 import { EmptyState, inkButton, lineButton, Mono, StudioHead } from "@/components/creator/studio-ui";
-import { formatAmount, MIN_PRICE_MINOR, type CommerceCurrency } from "@/lib/commerce/model";
+import { formatAmount, MIN_PRICE_MINOR, platformFeeMinor, type CommerceCurrency } from "@/lib/commerce/model";
 import type { CommerceProduct } from "@/lib/commerce/studio-server";
 import { parseMoney } from "@/lib/creator/studio";
 import { createClient } from "@/lib/supabase/client";
@@ -97,9 +97,11 @@ const safeName = (name: string) => name.normalize("NFKD").replace(/[^\w.\- ]+/g,
  * upload straight to private storage under the creator's own folder; the database
  * decides what can go live (a file for downloads, payments for paid products).
  */
-export function ProductsStudio({ userId, products, canSell, open, sales, views, startNew, defaultCurrency }: {
+export function ProductsStudio({ userId, products, canSell, open, sales, views, startNew, defaultCurrency, fees }: {
   userId: string;
   products: CommerceProduct[];
+  /** Setuvara's fee for this seller's plan, per currency. */
+  fees: { currency: string; fee_bps: number; fixed_fee_minor: number }[];
   canSell: boolean;
   /** Commerce is switched on for visitors. */
   open: boolean;
@@ -292,6 +294,7 @@ export function ProductsStudio({ userId, products, canSell, open, sales, views, 
               {!(draft.kind === "digital" && draft.free) && <Field htmlFor="product-price" label={draft.kind === "digital" ? "Amount" : "Price"}><TextInput id="product-price" inputMode="decimal" onChange={(event) => update({ price: event.target.value })} placeholder="24" value={draft.price} /></Field>}
               {!(draft.kind === "digital" && draft.free) && <Field label="Currency"><Segmented label="Currency" onChange={(currency) => update({ currency: currency as CommerceCurrency })} options={[{ value: "EUR", label: "€" }, { value: "USD", label: "$" }, { value: "GBP", label: "£" }]} value={draft.currency} /></Field>}
             </div>
+            {draft.kind !== "external" && !(draft.kind === "digital" && draft.free) && <FeeNote amount={parseMoney(draft.price)} currency={draft.currency} fee={fees.find((fee) => fee.currency === draft.currency)} />}
 
             {draft.kind !== "external" && (
               <div>
@@ -359,4 +362,13 @@ export function ProductsStudio({ userId, products, canSell, open, sales, views, 
       )}
     </div>
   );
+}
+
+/** What a sale at this price leaves the seller, before Stripe's own processing fee. */
+function FeeNote({ amount, currency, fee }: { amount: number | null; currency: CommerceCurrency; fee: { fee_bps: number; fixed_fee_minor: number } | undefined }) {
+  const rate = fee ? `${fee.fee_bps / 100}%` : "";
+  if (!fee || (fee.fee_bps === 0 && fee.fixed_fee_minor === 0)) return <p className="text-[13px] leading-[1.45] text-black/60">No Setuvara fee on your plan. Stripe&apos;s processing fee comes off each sale.</p>;
+  if (!amount || amount <= 0) return <p className="text-[13px] leading-[1.45] text-black/60">Setuvara&apos;s fee is {rate} per sale on the Free plan, plus Stripe&apos;s processing fee. Plus and Pro pay no Setuvara fee.</p>;
+  const cut = platformFeeMinor(amount, fee);
+  return <p className="text-[13px] leading-[1.45] text-black/60">Setuvara&apos;s fee: {formatAmount(cut, currency)} ({rate}). You receive {formatAmount(amount - cut, currency)} before Stripe&apos;s processing fee. Plus and Pro pay no Setuvara fee.</p>;
 }

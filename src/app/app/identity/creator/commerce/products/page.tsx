@@ -15,5 +15,5 @@ export default async function CommerceProductsPage({ searchParams }: { searchPar
   for (const stat of commerce.stats) views[stat.offer_id] = (views[stat.offer_id] ?? 0) + stat.views;
   const accountCurrency = commerce.seller.account?.default_currency;
   const defaultCurrency = (COMMERCE_CURRENCIES as readonly string[]).includes(accountCurrency ?? "") ? accountCurrency as CommerceCurrency : "EUR";
-  return <ProductsStudio canSell={commerce.seller.can_sell} defaultCurrency={defaultCurrency} open={commerce.enabled} products={commerce.products} sales={sales} startNew={query.new === "1"} userId={commerce.studio.userId} views={views} />;
+  return <ProductsStudio canSell={commerce.seller.can_sell} defaultCurrency={defaultCurrency} fees={commerce.seller.fees} open={commerce.enabled} products={commerce.products} sales={sales} startNew={query.new === "1"} userId={commerce.studio.userId} views={views} />;
 }
