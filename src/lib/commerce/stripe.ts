@@ -245,12 +245,13 @@ export class StripeCommerceProvider implements CommerceProvider {
     return fee.amount_refunded ?? 0;
   }
 
-  async refund({ sellerAccountId, paymentId, amountMinor, orderId, idempotencyKey }: { sellerAccountId: string; paymentId: string; amountMinor: number; orderId: string; idempotencyKey: string }) {
+  async refund({ sellerAccountId, paymentId, amountMinor, orderId, idempotencyKey, refundPlatformFee }: { sellerAccountId: string; paymentId: string; amountMinor: number; orderId: string; idempotencyKey: string; refundPlatformFee: boolean }) {
     // Setuvara returns its fee in proportion to the refund, so a refunded buyer never leaves the creator paying Setuvara.
+    // Stripe refuses refund_application_fee on a charge that carried no fee, so it is only sent when there was one.
     const refund = await this.stripe.refunds.create({
       payment_intent: paymentId,
       amount: amountMinor,
-      refund_application_fee: true,
+      ...(refundPlatformFee ? { refund_application_fee: true } : {}),
       reason: "requested_by_customer",
       metadata: { setuvara_order_id: orderId },
     }, { stripeAccount: sellerAccountId, idempotencyKey });

@@ -87,7 +87,7 @@ export interface CommerceProvider {
   paymentDetails(sellerAccountId: string, paymentId: string): Promise<{ applicationFeeMinor: number; processing: { feeMinor: number; currency: string } | null }>;
   /** Platform fee returned so far on a payment, from the platform's own fee record. */
   platformFeeRefundedTotal(sellerAccountId: string, paymentId: string): Promise<number>;
-  refund(input: { sellerAccountId: string; paymentId: string; amountMinor: number; orderId: string; idempotencyKey: string }): Promise<RefundFacts>;
+  refund(input: { sellerAccountId: string; paymentId: string; amountMinor: number; orderId: string; idempotencyKey: string; refundPlatformFee: boolean }): Promise<RefundFacts>;
   balance(sellerAccountId: string): Promise<Balance>;
   verifyWebhook(rawBody: string, signature: string | null): VerifiedEvent;
   /** Where the seller manages payouts, refunds and disputes with the provider. */
