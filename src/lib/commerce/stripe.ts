@@ -142,10 +142,22 @@ export class StripeCommerceProvider implements CommerceProvider {
   private readonly stripe: Stripe;
   private readonly webhookSecret: string | null;
 
-  constructor(secretKey: string, webhookSecret: string | null) {
+  private readonly context: string | null;
+
+  /**
+   * `context` is the platform account id, needed when the key is an organization API key: Stripe then
+   * wants a Stripe-Context header naming the platform, or platform/connected-account for seller calls.
+   */
+  constructor(secretKey: string, webhookSecret: string | null, context: string | null = null) {
     this.livemode = /^(sk|rk)_live_/.test(secretKey);
-    this.stripe = new Stripe(secretKey, { maxNetworkRetries: 2, timeout: 20_000, appInfo: { name: "Setuvara Creator Commerce" } });
+    this.context = context;
+    this.stripe = new Stripe(secretKey, { maxNetworkRetries: 2, timeout: 20_000, appInfo: { name: "Setuvara Creator Commerce" }, ...(context ? { stripeContext: context } : {}) });
     this.webhookSecret = webhookSecret;
+  }
+
+  /** Request options that act on a seller's connected account. */
+  private on(sellerAccountId: string) {
+    return this.context ? { stripeContext: `${this.context}/${sellerAccountId}` } : { stripeAccount: sellerAccountId };
   }
 
   /**
@@ -213,20 +225,20 @@ export class StripeCommerceProvider implements CommerceProvider {
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
       expires_at: input.expiresAt,
-    }, { stripeAccount: input.sellerAccountId, idempotencyKey: `checkout-${input.orderId}` });
+    }, { ...this.on(input.sellerAccountId), idempotencyKey: `checkout-${input.orderId}` });
     if (!session.url) throw new Error("checkout_without_url");
     return { checkoutId: session.id, url: session.url, expiresAt: new Date(session.expires_at * 1000).toISOString() };
   }
 
   async retrieveCheckout(sellerAccountId: string, checkoutId: string) {
-    const session = await this.stripe.checkout.sessions.retrieve(checkoutId, {}, { stripeAccount: sellerAccountId });
+    const session = await this.stripe.checkout.sessions.retrieve(checkoutId, {}, this.on(sellerAccountId));
     const details = session.payment_intent ? await this.paymentDetails(sellerAccountId, idOf(session.payment_intent)!) : null;
     return { status: (session.status ?? "open") as "open" | "complete" | "expired", payment: paymentFromSession(session, sellerAccountId, details?.applicationFeeMinor ?? 0) };
   }
 
   /** The application fee on the payment and Stripe's own processing fee, from the seller's balance transaction. */
   async paymentDetails(sellerAccountId: string, paymentId: string) {
-    const intent = await this.stripe.paymentIntents.retrieve(paymentId, { expand: ["latest_charge.balance_transaction"] }, { stripeAccount: sellerAccountId });
+    const intent = await this.stripe.paymentIntents.retrieve(paymentId, { expand: ["latest_charge.balance_transaction"] }, this.on(sellerAccountId));
     const charge = typeof intent.latest_charge === "object" ? intent.latest_charge : null;
     const transaction = charge && typeof charge.balance_transaction === "object" ? charge.balance_transaction : null;
     const stripeFee = transaction ? transaction.fee_details.filter((detail) => detail.type === "stripe_fee").reduce((sum, detail) => sum + detail.amount, 0) : null;
@@ -254,12 +266,12 @@ export class StripeCommerceProvider implements CommerceProvider {
       ...(refundPlatformFee ? { refund_application_fee: true } : {}),
       reason: "requested_by_customer",
       metadata: { setuvara_order_id: orderId },
-    }, { stripeAccount: sellerAccountId, idempotencyKey });
+    }, { ...this.on(sellerAccountId), idempotencyKey });
     return refundFromObject(refund);
   }
 
   async balance(sellerAccountId: string): Promise<Balance> {
-    const balance = await this.stripe.balance.retrieve({}, { stripeAccount: sellerAccountId });
+    const balance = await this.stripe.balance.retrieve({}, this.on(sellerAccountId));
     return {
       available: balance.available.map((entry) => ({ currency: entry.currency.toUpperCase(), amountMinor: entry.amount })),
       pending: balance.pending.map((entry) => ({ currency: entry.currency.toUpperCase(), amountMinor: entry.amount })),

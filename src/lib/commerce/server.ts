@@ -23,7 +23,8 @@ export function commerceProvider(): CommerceProvider | null {
   const key = process.env.STRIPE_SECRET_KEY?.trim();
   if (!key) return null;
   if (/^(sk|rk)_live_/.test(key) && process.env.COMMERCE_LIVE_ENABLED !== "true") return null;
-  return new StripeCommerceProvider(key, process.env.STRIPE_CONNECT_WEBHOOK_SECRET?.trim() || null);
+  const context = process.env.STRIPE_ACCOUNT_CONTEXT?.trim();
+  return new StripeCommerceProvider(key, process.env.STRIPE_CONNECT_WEBHOOK_SECRET?.trim() || null, context && /^acct_[A-Za-z0-9]+$/.test(context) ? context : null);
 }
 
 /** Commerce reads and writes that no browser may make. Server routes only. */
