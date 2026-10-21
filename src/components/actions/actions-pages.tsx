@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { coralButton, EmptyState, Mono, StudioPage } from "@/components/creator/studio-ui";
 import type { ModeSlug } from "@/components/profile/types";
-import { ACTION_KIND_NAME, ACTION_KINDS, ACTION_STATUS_LABEL, isConfirmedKind, NEEDS_ATTENTION, starterAction, type ActionKind, type ProfileAction, type PublicAction } from "@/lib/actions/model";
+import { ACTION_KIND_NAME, ACTION_KINDS, ACTION_STATUS_LABEL, isConfirmedKind, NEEDS_ATTENTION, starterAction, THANKS_COLUMNS, type ActionInsights, type ActionKind, type ActionThanksRow, type ProfileAction, type PublicAction } from "@/lib/actions/model";
 import { creatorActionsEnabled } from "@/lib/actions/server";
 import { actionsBase, actionsListHref, loadModeActions, newActionHref, type ModeActions } from "@/lib/actions/studio-server";
 import { audienceHref } from "@/lib/audience/studio-server";
@@ -12,6 +12,7 @@ import { loadCreatorStudio } from "@/lib/creator/studio-server";
 import { isWorkBlock } from "@/lib/creator/studio";
 import { ActionEditor } from "./action-editor";
 import { ActionInbox, GiveawayEntries } from "./action-inbox";
+import { ActionInsightsView } from "./action-insights";
 import type { PreviewSource } from "./action-phone";
 import { ActionsList } from "./actions-list";
 import { ActionsOffNote } from "./actions-off-note";
@@ -148,13 +149,13 @@ export async function NewAction({ slug, kind: rawKind }: { slug: ModeSlug; kind?
 }
 
 /** One Action: its responses (or entries, or subscribers) and its editor. */
-export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: string; query: { tab?: string; response?: string } }) {
+export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: string; query: { tab?: string; response?: string; days?: string } }) {
   const data = await loadModeActions(slug, `${actionsBase(slug)}/${id}`);
   if (!data.mode) notFound();
   const action = data.actions.find((item) => item.id === id);
   if (!action) notFound();
   const submissions = data.submissions.filter((item) => item.action_id === id);
-  const tab = query.tab === "edit" || (query.tab !== "responses" && !submissions.length) ? "edit" : "responses";
+  const tab = query.tab === "insights" ? "insights" : query.tab === "edit" || (query.tab !== "responses" && !submissions.length) ? "edit" : "responses";
   const firstName = firstNameOf(data.profile.display_name);
   const pageHref = data.pageUrl && action.status === "published" && creatorActionsEnabled() ? `${data.pageUrl}/a/${action.id}` : null;
 
@@ -169,6 +170,12 @@ export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: st
       if (connection) chatLinks[item.id] = `/app/connections/messages?connection=${connection.id}`;
     }
   }
+  const thanksRow = tab === "edit"
+    ? (await data.supabase.from("action_thanks").select(THANKS_COLUMNS).eq("action_id", id).maybeSingle()).data as ActionThanksRow | null
+    : null;
+  const insights = tab === "insights"
+    ? (await data.supabase.rpc("my_action_insights", { p_days: Number(query.days) || 30, p_action_id: id })).data as ActionInsights | null
+    : null;
   const creatorStudio = slug === "creator" ? await loadCreatorStudio(`${actionsBase(slug)}/${id}`) : null;
   const rates = creatorStudio?.mode ? creatorStudio.kit.rates : [];
 
@@ -187,9 +194,10 @@ export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: st
       {!creatorActionsEnabled() && <ActionsOffNote />}
       <nav aria-label="Action" className="mb-7 inline-flex gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]">
         <Link aria-current={tab === "responses" ? "page" : undefined} className={tabClass(tab === "responses")} href="?tab=responses" scroll={false}>{tabLabel}<span className="font-label text-[11px] opacity-70">{count}</span></Link>
+        <Link aria-current={tab === "insights" ? "page" : undefined} className={tabClass(tab === "insights")} href="?tab=insights" scroll={false}>Insights</Link>
         <Link aria-current={tab === "edit" ? "page" : undefined} className={tabClass(tab === "edit")} href="?tab=edit" scroll={false}>Edit</Link>
       </nav>
-      {tab === "edit" ? (
+      {tab === "insights" ? <ActionInsightsView insights={insights} kind={action.kind} /> : tab === "edit" ? (
         <ActionEditor
           base={actionsBase(slug)}
           coverHint={slug === "creator" ? "From your Work" : "From this Mode's pictures"}
@@ -206,6 +214,7 @@ export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: st
           preview={await previewFor(data)}
           profileId={data.userId}
           starter={{ title: action.title, intro: action.intro, cta_label: action.cta_label, config: action.config, cover_block_id: action.cover_block_id, starts_at: action.starts_at, ends_at: action.ends_at }}
+          thanks={thanksRow}
         />
       ) : isConfirmedKind(action.kind)
         ? <GiveawayEntries action={action} canExport={data.limits.can_export} submissions={submissions} />

@@ -3,7 +3,7 @@
 import { useState, type CSSProperties } from "react";
 
 import type { MotionLevel } from "@/components/profile/appearance";
-import type { ActionKind } from "@/lib/actions/model";
+import type { ActionKind, ActionThanks } from "@/lib/actions/model";
 import { ActionSuccess } from "./action-success";
 
 const REASONS: Record<string, string> = {
@@ -17,22 +17,22 @@ export type ConfirmView = { kind: ActionKind; title: string; name: string; backH
 export function ConfirmEntry({ token, target }: { token: string; target: ConfirmView | null }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<{ title: string | null; kind: ActionKind | null }>({ title: null, kind: null });
+  const [result, setResult] = useState<{ title: string | null; kind: ActionKind | null; thanks: ActionThanks | null }>({ title: null, kind: null, thanks: null });
   const newsletter = (target?.kind ?? result.kind) === "newsletter";
   const firstName = target?.name.split(/\s+/)[0] || target?.name || "";
 
   async function confirm() {
     setState("busy");
     const response = await fetch("/api/actions/confirm", { method: "POST", headers: { "Content-Type": "application/json", "x-setuvara-request": "same-origin" }, body: JSON.stringify({ token }) }).catch(() => null);
-    const body = await response?.json().catch(() => null) as { ok?: boolean; reason?: string; title?: string; kind?: ActionKind; error?: string } | null;
-    if (body?.ok) { setResult({ title: body.title ?? null, kind: body.kind ?? null }); setState("done"); return; }
+    const body = await response?.json().catch(() => null) as { ok?: boolean; reason?: string; title?: string; kind?: ActionKind; error?: string; thanks?: ActionThanks | null } | null;
+    if (body?.ok) { setResult({ title: body.title ?? null, kind: body.kind ?? null, thanks: body.thanks ?? null }); setState("done"); return; }
     setMessage(REASONS[body?.reason ?? ""] ?? body?.error ?? "That didn't work. Try again.");
     setState("error");
   }
 
   if (state === "done") {
     const kind = target?.kind ?? result.kind ?? "giveaway";
-    if (target) return <ActionSuccess backHref={target.backHref ?? undefined} firstName={firstName} heading={target.heading} kind={kind} motion={target.motion} stage="confirmed" />;
+    if (target) return <ActionSuccess backHref={target.backHref ?? undefined} firstName={firstName} heading={target.heading} kind={kind} motion={target.motion} reward={result.thanks?.reward ?? null} stage="confirmed" title={result.thanks?.heading} />;
     return (
       <div role="status">
         <span aria-hidden="true" className="grid size-14 place-items-center rounded-full bg-[#0D0D0D] text-[22px] text-[#F5F4EF]">✓</span>

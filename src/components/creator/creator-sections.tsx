@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ActionViewBeacon } from "@/components/actions/action-beacon";
 import { ActionCard } from "@/components/actions/action-card";
 import type { PublicAction } from "@/lib/actions/model";
 import { formatMoney, OFFER_TYPE_LABEL, SECTION_NAMES, type CreatorSection, type CreatorSettings, type StoreOffer, type WorkItem } from "@/lib/creator/studio";
@@ -29,9 +30,9 @@ export function CreatorSections({ settings, work, offers, productHref, actions =
     work: rest.length ? <SelectedWork items={rest} key="work" /> : null,
     store: offers.length ? <Store accent={accent} accentInk={accentInk} key="store" offers={offers} productHref={productHref} /> : null,
     actions: actions.length ? (
-      <div className="flex flex-col gap-4" data-creator-actions key="actions">
+      <ActionViewBeacon className="flex flex-col gap-4" data-creator-actions ids={actionHref ? actions.map(({ action }) => action.id) : []} key="actions">
         {actions.map(({ action, coverUrl }) => <ActionCard accent={accent} accentInk={accentInk} action={action} coverUrl={coverUrl} href={actionHref?.(action.id)} key={action.id} />)}
-      </div>
+      </ActionViewBeacon>
     ) : null,
   };
   const shown = settings.sections.map((section) => parts[section]).filter(Boolean);

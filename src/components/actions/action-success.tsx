@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { MotionLevel } from "@/components/profile/appearance";
-import type { ActionKind } from "@/lib/actions/model";
+import type { ActionKind, ActionReward } from "@/lib/actions/model";
+import { RewardCard } from "./action-reward";
 
 export type SuccessStage = "sent" | "confirmed";
 
@@ -64,13 +65,18 @@ function Mark({ kind, stage }: { kind: ActionKind; stage: SuccessStage }) {
  * rings and confetti leave the mark, and the words rise in the page's own name typeface. Motion
  * follows the Appearance (off, subtle, full) and the visitor's reduced-motion setting.
  */
-export function ActionSuccess({ kind, stage, firstName, email = null, thanks, backHref, heading, motion, contained = false, action }: {
+export function ActionSuccess({ kind, stage, firstName, email = null, thanks, title, reward = null, preview = false, backHref, heading, motion, contained = false, action }: {
   kind: ActionKind;
   stage: SuccessStage;
   firstName: string;
   email?: string | null;
   /** The owner's own line, shown as a quote under the headline. */
   thanks?: string;
+  /** The owner's own headline, in place of the standard one once the response counts. */
+  title?: string;
+  /** Revealed only after a real response (or confirmation, for kinds that confirm). */
+  reward?: ActionReward | null;
+  preview?: boolean;
   backHref?: string;
   heading: CSSProperties;
   motion: MotionLevel;
@@ -78,7 +84,10 @@ export function ActionSuccess({ kind, stage, firstName, email = null, thanks, ba
   contained?: boolean;
   action?: ReactNode;
 }) {
-  const copy = copyFor(kind, stage, firstName, email);
+  const standard = copyFor(kind, stage, firstName, email);
+  // Kinds that confirm by email keep "Check your inbox" until they're confirmed.
+  const counts = stage === "confirmed" || (kind !== "newsletter" && kind !== "giveaway");
+  const copy = counts && title?.trim() ? { ...standard, headline: title.trim() } : standard;
   const words = copy.headline.split(" ");
   const center = { left: "50%", top: "38%" };
   return (
@@ -126,6 +135,7 @@ export function ActionSuccess({ kind, stage, firstName, email = null, thanks, ba
         </h2>
         <p className="mt-4 max-w-[34ch] text-[16px] leading-[1.5]" data-av="rise" style={{ color: "var(--av-muted)", "--d": `${1.1 + words.length * 0.07}s` } as CSSProperties}>{copy.body}</p>
         {thanks && <p className="mt-5 max-w-[34ch] text-[17px] font-semibold leading-[1.4]" data-av="rise" style={{ "--d": `${1.2 + words.length * 0.07}s` } as CSSProperties}>“{thanks}”<span className="mt-1 block text-[13px] font-normal" style={{ color: "var(--av-muted)" }}>{firstName}</span></p>}
+        {counts && reward && <div className="flex w-full justify-center" data-av="rise" style={{ "--d": `${1.3 + words.length * 0.07}s` } as CSSProperties}><RewardCard preview={preview} reward={reward} /></div>}
       </div>
       <div className="relative w-full max-w-[420px] pb-[calc(24px+env(safe-area-inset-bottom))]" data-av="rise" style={{ "--d": "1.55s" } as CSSProperties}>
         {action ?? (backHref && <Link className="inline-flex min-h-14 w-full items-center justify-center rounded-full text-[16px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2" href={backHref} style={{ background: "var(--av-btn-bg)", color: "var(--av-btn-fg)", boxShadow: "var(--av-btn-ring)" }}>Back to {firstName}</Link>)}

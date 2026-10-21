@@ -54,7 +54,7 @@ export const loadModeActions = cache(async (slug: ModeSlug, next: string) => {
   const [links, blocks, actions, limits, image, original, slideUrls, handles] = await Promise.all([
     supabase.from("profile_links").select("id, mode_id, title, url, link_type, sort_order, is_visible").eq("profile_id", userId).eq("mode_id", row.id).order("sort_order"),
     selectBlocks("id, mode_id, kind, data, sort_order, is_visible", (columns) => supabase.from("profile_blocks").select(columns).eq("profile_id", userId).eq("mode_id", row.id).order("sort_order")),
-    supabase.from("profile_actions").select("id, mode_id, kind, status, title, intro, cta_label, cover_block_id, config, sort_order, starts_at, ends_at, published_at, closed_at, created_at, updated_at").eq("mode_id", row.id).order("sort_order").order("created_at"),
+    supabase.from("profile_actions").select("id, mode_id, kind, status, title, intro, cta_label, cover_block_id, config, sort_order, starts_at, ends_at, published_at, closed_at, show_before_start, show_after_end, created_at, updated_at").eq("mode_id", row.id).order("sort_order").order("created_at"),
     supabase.rpc("my_action_limits"),
     row.image_path ? supabase.storage.from(MEDIA).createSignedUrl(row.image_path, 3600) : Promise.resolve({ data: null }),
     row.image_path && row.image_original_path ? supabase.storage.from(MEDIA).createSignedUrl(row.image_original_path, 3600) : Promise.resolve({ data: null }),
