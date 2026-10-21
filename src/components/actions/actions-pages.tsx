@@ -6,6 +6,7 @@ import type { ModeSlug } from "@/components/profile/types";
 import { ACTION_KIND_NAME, ACTION_KINDS, ACTION_STATUS_LABEL, isConfirmedKind, NEEDS_ATTENTION, starterAction, type ActionKind, type ProfileAction, type PublicAction } from "@/lib/actions/model";
 import { creatorActionsEnabled } from "@/lib/actions/server";
 import { actionsBase, actionsListHref, loadModeActions, newActionHref, type ModeActions } from "@/lib/actions/studio-server";
+import { audienceHref } from "@/lib/audience/studio-server";
 import { connectChatEnabled } from "@/lib/chat/launch";
 import { loadCreatorStudio } from "@/lib/creator/studio-server";
 import { isWorkBlock } from "@/lib/creator/studio";
@@ -22,7 +23,7 @@ const counts = (action: Pick<ProfileAction, "kind">, status: string) => (action.
 const firstNameOf = (name: string) => name.split(/\s+/)[0] || name;
 
 /** The page head: kind or Mode, the title, a quiet line under it, and the main button. */
-function Head({ eyebrow, title, sub, action, back }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string } }) {
+export function Head({ eyebrow, title, sub, action, back }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string } }) {
   return (
     <header className="mb-6 md:mb-8">
       {back && <Link className="mb-4 inline-flex min-h-9 items-center gap-1.5 rounded-full text-[14px] font-semibold text-black/55 transition hover:text-black" href={back.href}><span aria-hidden="true">←</span>{back.label}</Link>}
@@ -86,13 +87,16 @@ export async function ActionsIndex({ slug }: { slug: ModeSlug }) {
       {actions.length ? (
         <>
           <dl className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {cards.map((card) => (
-              <div className="rounded-[24px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] md:p-5" key={card.label}>
-                <dt><Mono className="text-black/55">{card.label}</Mono></dt>
-                <dd className={`mt-2 font-display text-[36px] font-bold leading-none tracking-[-0.05em] md:text-[44px] ${card.hot ? "text-[#FF5A4F]" : ""}`}>{card.value}</dd>
-                <dd className="mt-1 text-[13px] text-black/60">{card.note}</dd>
-              </div>
-            ))}
+            {cards.map((card) => {
+              const audience = card.label === "Subscribers";
+              return (
+                <div className="relative rounded-[24px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] transition has-[a:hover]:shadow-[inset_0_0_0_1.5px_#0D0D0D] md:p-5" key={card.label}>
+                  <dt><Mono className="text-black/55">{card.label}</Mono></dt>
+                  <dd className={`mt-2 font-display text-[36px] font-bold leading-none tracking-[-0.05em] md:text-[44px] ${card.hot ? "text-[#FF5A4F]" : ""}`}>{card.value}</dd>
+                  <dd className="mt-1 text-[13px] text-black/60">{audience ? <Link className="font-semibold text-[#0D0D0D] after:absolute after:inset-0 after:rounded-[24px]" href={audienceHref(slug)}>Open Audience →</Link> : card.note}</dd>
+                </div>
+              );
+            })}
           </dl>
           <ActionsList base={base} profileId={data.userId} rows={rows} />
         </>

@@ -17,8 +17,8 @@ const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4
  * Actions for Personal, Event and Business: the identity editor's dark sidebar with Actions open, a
  * breadcrumb bar on desktop, and on phones a compact header and the editor's dark tab bar.
  */
-export function ActionsShell({ children, slug, profile, modes, plan, liveUrl, pageUrl, personalUrl, avatarUrl, avatarFocus, needsYou, signOut }: {
-  children: ReactNode; slug: ModeSlug; profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; plan: PlanCode;
+export function ActionsShell({ children, page = "actions", slug, profile, modes, plan, liveUrl, pageUrl, personalUrl, avatarUrl, avatarFocus, needsYou, signOut }: {
+  children: ReactNode; /** Actions, or the Audience page that sits beside it. */ page?: "actions" | "audience"; slug: ModeSlug; profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; plan: PlanCode;
   liveUrl: string; pageUrl: string | null; personalUrl: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; needsYou: number; signOut: () => Promise<void>;
 }) {
   const router = useRouter();
@@ -27,7 +27,8 @@ export function ActionsShell({ children, slug, profile, modes, plan, liveUrl, pa
   return (
     <div className="min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:pl-[268px]">
       <EditorSidebar
-        actions
+        actions={page === "actions"}
+        audience={page === "audience"}
         avatarFocus={avatarFocus}
         avatarUrl={avatarUrl}
         liveUrl={liveUrl}
@@ -47,7 +48,7 @@ export function ActionsShell({ children, slug, profile, modes, plan, liveUrl, pa
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: MODE_DOT[slug] }} />
           <Link className="shrink-0 font-semibold hover:underline hover:underline-offset-4" href={editor()}>{MODE_NAME[slug]} Mode</Link>
           <span aria-hidden="true" className="text-black/25">/</span>
-          <Link aria-current="page" className="truncate font-semibold" href={`/app/identity/actions?mode=${slug}`}>Actions</Link>
+          <Link aria-current="page" className="truncate font-semibold" href={`/app/identity/${page}?mode=${slug}`}>{page === "audience" ? "Audience" : "Actions"}</Link>
         </nav>
         <div className="flex shrink-0 items-center gap-3">
           {display
@@ -61,7 +62,7 @@ export function ActionsShell({ children, slug, profile, modes, plan, liveUrl, pa
         <div className="flex h-14 items-center gap-2 px-3">
           <Link aria-label={`Back to ${MODE_NAME[slug]} Mode`} className="flex h-10 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 transition hover:bg-black/[0.05]" href={editor()}><svg aria-hidden="true" className="size-4 text-black/45" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7" /></svg><MeetMark className="size-6" /></Link>
           <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">Actions</p>
+            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{page === "audience" ? "Audience" : "Actions"}</p>
             <p className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50"><span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: MODE_DOT[slug] }} />{MODE_NAME[slug]} Mode</p>
           </div>
         </div>
@@ -76,10 +77,10 @@ export function ActionsShell({ children, slug, profile, modes, plan, liveUrl, pa
               <span className="grid h-8 w-11 place-items-center rounded-full text-[#F5F4EF]/65 [&_svg]:size-[20px]"><SectionIcon name={section} /></span>{title}
             </Link>
           ))}
-          <span aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]">
+          <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href={`/app/identity/actions?mode=${slug}`}>
             <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#FF5A4F] [&_svg]:size-[20px]"><StudioIcon name="actions" /></span>Actions
             {needsYou > 0 && <span className="absolute right-[calc(50%-24px)] top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF5A4F] px-1 text-[9px] font-bold text-[#0D0D0D]">{needsYou}</span>}
-          </span>
+          </Link>
         </div>
       </nav>
     </div>
