@@ -50,3 +50,27 @@ describe("funnel", () => {
     assert.ok(!JSON.stringify(model.funnelSteps(base)).match(/€|\$|revenue/i));
   });
 });
+
+describe("lead export", () => {
+  const parse = (query) => model.parseLeadExport(new URLSearchParams(query));
+  test("filters come from the URL, unknown ones fall back to all", () => {
+    assert.deepEqual(parse("filter=won&days=30"), { filter: "won", query: "", days: 30 });
+    assert.deepEqual(parse("filter=drop&days=12"), { filter: "all", query: "", days: null });
+  });
+  test("search can't carry PostgREST filter syntax", () => {
+    assert.equal(parse("q=" + encodeURIComponent("a),email.eq.x,(b*%")).query, "aemail.eq.xb");
+    assert.equal(parse("q=" + encodeURIComponent("  mara@example.test ")).query, "mara@example.test");
+    assert.equal(parse("q=" + "x".repeat(200)).query.length, 80);
+  });
+  test("stage filters map to stages", () => {
+    assert.deepEqual(model.filterStages("open"), ["new", "contacted", "qualified"]);
+    assert.deepEqual(model.filterStages("lost"), ["lost"]);
+    assert.equal(model.filterStages("all"), null);
+  });
+  test("a row names the stage and the Action, never ids", () => {
+    const row = model.leadCsvRow({ ...leads[0], lost_reason: null, source_action_id: "act", created_at: "c", stage_changed_at: "s" }, (id) => (id === "act" ? "Book a call" : ""));
+    assert.deepEqual(row.slice(0, 6), ["Mara Vos", "mara@example.test", "New", "", 1, "Book a call"]);
+    assert.equal(row.length, model.LEAD_CSV_HEADER.length);
+  });
+  test("the export link carries what the inbox shows", () => assert.equal(model.leadExportHref("open", " jun "), "/api/business/leads/export?filter=open&q=jun"));
+});

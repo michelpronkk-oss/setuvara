@@ -61,3 +61,44 @@ export function funnelSteps(funnel: Funnel): FunnelStep[] {
     { key: "won", label: "Won", value: funnel.won, note: funnel.won + funnel.lost ? `${funnel.lost} lost` : null },
   ];
 }
+
+export const LEAD_FILTERS: LeadFilter[] = ["open", ...LEAD_STAGES, "all"];
+/** Leads the inbox shows at a time; Show more adds the next page. */
+export const LEAD_PAGE = 50;
+/** One read of leads, the most PostgREST returns per request. */
+export const LEAD_READ_BATCH = 1000;
+/** The most leads one export carries. */
+export const LEAD_EXPORT_MAX = 25000;
+
+export type LeadExportQuery = { filter: LeadFilter; query: string; days: number | null };
+
+/**
+ * An export's filters from its URL: the inbox's stage filter and search, and an optional window
+ * on last activity. Anything else falls back to all leads. The search drops characters PostgREST
+ * reads as filter syntax, so it can only ever match text.
+ */
+export function parseLeadExport(params: URLSearchParams): LeadExportQuery {
+  const filter = LEAD_FILTERS.find((item) => item === params.get("filter")) ?? "all";
+  const query = (params.get("q") ?? "").replace(/[^\p{L}\p{N}@._+\- ]/gu, "").trim().slice(0, 80);
+  const days = Number(params.get("days"));
+  return { filter, query, days: [7, 30, 90, 365].includes(days) ? days : null };
+}
+
+/** The stages a filter keeps, or null for every stage. */
+export function filterStages(filter: LeadFilter): LeadStage[] | null {
+  return filter === "all" ? null : filter === "open" ? OPEN_STAGES : [filter];
+}
+
+export const LEAD_CSV_HEADER = ["Name", "Email", "Stage", "Lost reason", "Inquiries", "First inquiry via", "First inquiry", "Stage changed", "Last activity"];
+
+/** One CSV row per lead, with its first inquiry's Action named rather than by id. */
+export function leadCsvRow(lead: Lead, actionTitle: (id: string | null) => string) {
+  return [lead.name, lead.email ?? "", STAGE_LABEL[lead.stage], lead.lost_reason ?? "", lead.inquiries, actionTitle(lead.source_action_id), lead.created_at, lead.stage_changed_at, lead.last_activity_at];
+}
+
+/** The export link for what the inbox shows now. */
+export function leadExportHref(filter: LeadFilter, query: string) {
+  const params = new URLSearchParams({ filter });
+  if (query.trim()) params.set("q", query.trim());
+  return `/api/business/leads/export?${params}`;
+}

@@ -69,7 +69,7 @@ export async function LeadsIndex({ days }: { days: number }) {
           title="No leads yet."
         />
       ) : (
-        <LeadsInbox canNote={limits.can_note} leads={leads} />
+        <LeadsInbox canExport={limits.can_export} canNote={limits.can_note} leads={leads} />
       )}
     </StudioPage>
   );
