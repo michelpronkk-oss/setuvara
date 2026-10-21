@@ -10,8 +10,8 @@ insert into auth.users(id,aud,role,email,raw_user_meta_data,email_confirmed_at,c
 select user_id,'authenticated','authenticated',username||'@example.test',jsonb_build_object('username',username,'display_name',initcap(kind)),now(),now(),now() from gd_accounts;
 update public.profiles set is_published=true where id in (select user_id from gd_accounts);
 update public.profile_modes set is_enabled=true where profile_id in (select user_id from gd_accounts);
-insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at)
-select 'sub_GdCreator', user_id, 'cus_GdCreator', 'pdt_GdPlus', 'plus', 'monthly', 'active', 'gd-fixture', now(), now() from gd_accounts where kind='creator';
+insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at, current_period_end)
+select 'sub_GdCreator', user_id, 'cus_GdCreator', 'pdt_GdPlus', 'plus', 'monthly', 'active', 'gd-fixture', now(), now(), now() + interval '30 days' from gd_accounts where kind='creator';
 create temporary table gd_ids(name text primary key, id uuid);
 grant select, insert on gd_ids to anon, authenticated, service_role;
 create function pg_temp.as_user(p_kind text) returns void language sql as $$

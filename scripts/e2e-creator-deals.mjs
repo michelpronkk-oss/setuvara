@@ -56,8 +56,8 @@ const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM
 try {
   const creator = await member("luna");
   const other = await member("sol");
-  psql(`insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at)
-    values ('sub_Cd${suffix}', '${creator.id}', 'cus_Cd${suffix}', 'pdt_CdPlus', 'plus', 'monthly', 'active', 'cd-${suffix}', now(), now())`);
+  psql(`insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at, current_period_end)
+    values ('sub_Cd${suffix}', '${creator.id}', 'cus_Cd${suffix}', 'pdt_CdPlus', 'plus', 'monthly', 'active', 'cd-${suffix}', now(), now(), now() + interval '30 days')`);
   const mode = psql(`select id from public.profile_modes where profile_id = '${creator.id}' and slug = 'creator'`);
   const collab = psql(`insert into public.profile_actions (profile_id, mode_id, kind, title, status) values ('${creator.id}', '${mode}', 'collab', 'Work with Luna', 'published') returning id`).split("\n")[0];
   await inquire(collab, "Lena Brand", `lena_${suffix}@oat.test`, { message: "Spring campaign, 3 reels?", collabType: "campaign", budget: "5k_10k", company: "Oat Co" }, "oat-1");

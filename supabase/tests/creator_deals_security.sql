@@ -11,8 +11,8 @@ insert into auth.users(id,aud,role,email,raw_user_meta_data,email_confirmed_at,c
 select user_id,'authenticated','authenticated',username||'@example.test',jsonb_build_object('username',username,'display_name',initcap(kind)),now(),now(),now() from cd_accounts;
 update public.profiles set is_published=true where id in (select user_id from cd_accounts);
 update public.profile_modes set is_enabled=true where profile_id in (select user_id from cd_accounts);
-insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at)
-select 'sub_CdCreator', user_id, 'cus_CdCreator', 'pdt_CdPlus', 'plus', 'monthly', 'active', 'cd-fixture', now(), now() from cd_accounts where kind='creator';
+insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at, current_period_end)
+select 'sub_CdCreator', user_id, 'cus_CdCreator', 'pdt_CdPlus', 'plus', 'monthly', 'active', 'cd-fixture', now(), now(), now() + interval '30 days' from cd_accounts where kind='creator';
 create temporary table cd_ids(name text primary key, id uuid);
 grant select, insert on cd_ids to anon, authenticated, service_role;
 

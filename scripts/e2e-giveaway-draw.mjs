@@ -56,8 +56,8 @@ async function inquire(actionId, name, email, answers, key) {
 const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM_PATH || undefined });
 try {
   const creator = await member("vega");
-  psql(`insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at)
-    values ('sub_Gd${suffix}', '${creator.id}', 'cus_Gd${suffix}', 'pdt_GdPlus', 'plus', 'monthly', 'active', 'gd-${suffix}', now(), now())`);
+  psql(`insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at, current_period_end)
+    values ('sub_Gd${suffix}', '${creator.id}', 'cus_Gd${suffix}', 'pdt_GdPlus', 'plus', 'monthly', 'active', 'gd-${suffix}', now(), now(), now() + interval '30 days')`);
   const mode = psql(`select id from public.profile_modes where profile_id = '${creator.id}' and slug = 'creator'`);
   const give = psql(`insert into public.profile_actions (profile_id, mode_id, kind, title, status, ends_at, config) values ('${creator.id}', '${mode}', 'giveaway', 'Win a print', 'published', now() + interval '1 day', '{"prize":"A signed print"}') returning id`).split("\n")[0];
   for (const [index, name] of ["Mara Vos", "Jun Park", "Ada Lovelace", "Noor Haddad"].entries()) {
