@@ -18,8 +18,9 @@ export const LEAD_COLUMNS = "id, mode_id, source_submission_id, source_action_id
 export type LeadActivity = {
   id: string; lead_id: string; kind: "created" | "inquiry" | "stage" | "note"; submission_id: string | null;
   from_stage: LeadStage | null; to_stage: LeadStage | null; body: string | null; created_at: string;
+  /** Who did it, on a team: "You" or their name. Null for what the visitor or the database did. */
+  actor?: string | null;
 };
-export const ACTIVITY_COLUMNS = "id, lead_id, kind, submission_id, from_stage, to_stage, body, created_at";
 
 export type BusinessLimits = { plan: "free" | "plus" | "pro"; can_note: boolean; can_export: boolean; funnel_days: number; booking_horizon_days: number; testimonials_shown: number };
 export const DEFAULT_BUSINESS_LIMITS: BusinessLimits = { plan: "free", can_note: false, can_export: false, funnel_days: 7, booking_horizon_days: 14, testimonials_shown: 3 };
@@ -97,8 +98,9 @@ export function leadCsvRow(lead: Lead, actionTitle: (id: string | null) => strin
 }
 
 /** The export link for what the inbox shows now. */
-export function leadExportHref(filter: LeadFilter, query: string) {
+export function leadExportHref(filter: LeadFilter, query: string, business?: string) {
   const params = new URLSearchParams({ filter });
   if (query.trim()) params.set("q", query.trim());
+  if (business) params.set("business", business);
   return `/api/business/leads/export?${params}`;
 }

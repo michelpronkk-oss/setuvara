@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { StatusBadge } from "@/components/app/status-badge";
 import type { ModeSlug } from "@/components/profile/types";
 import { getViewerPlan } from "@/lib/app/viewer";
+import { ROLE_LABEL, TEAMS_HREF, workspaceHref, type Membership } from "@/lib/business/team";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../identity/actions";
 import { Chevron, SettingsAppActions } from "./app-actions";
@@ -25,12 +26,14 @@ export default async function SettingsPage() {
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (error || !userId) redirect("/login?next=/app/settings");
-  const [{ data: profile }, { data: modeRows }, billing, { data: auth }] = await Promise.all([
+  const [{ data: profile }, { data: modeRows }, billing, { data: auth }, { data: teamRows }] = await Promise.all([
     supabase.from("profiles").select("username, display_name, is_published").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("slug, is_enabled").eq("profile_id", userId),
     getViewerPlan(userId),
     supabase.auth.getUser(),
+    supabase.rpc("my_business_teams"),
   ]);
+  const teams = (Array.isArray(teamRows) ? teamRows : []) as Membership[];
   const plan = billing.plan;
   const modes = MODES.filter((mode) => modeRows?.some((item) => item.slug === mode.slug)).map((mode) => ({ ...mode, enabled: Boolean(modeRows?.find((item) => item.slug === mode.slug)?.is_enabled) }));
 
@@ -61,6 +64,14 @@ export default async function SettingsPage() {
             </Link>
           ))}
         </Group>
+
+        {teams.length > 0 && (
+          <Group title="Teams">
+            {teams.map((team) => (
+              <Item description={`${ROLE_LABEL[team.role]}${team.open ? "" : " · paused"}`} href={team.open ? workspaceHref(team.business_id) : TEAMS_HREF} key={team.member_id} title={team.company || team.display_name} />
+            ))}
+          </Group>
+        )}
 
         <Group title="Meeting people">
           <Item description="Name the moment for everyone you meet." href="/app/context" title="Live Context" />

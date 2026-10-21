@@ -38,8 +38,12 @@ function StageTag({ stage }: { stage: LeadStage }) {
   return <span className={`shrink-0 rounded-full px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.12em] ${TONE[stage]}`}>{STAGE_LABEL[stage]}</span>;
 }
 
-/** The inbox: stage filters, search, a page of rows that each open their sheet, and export of what's shown. */
-export function LeadsInbox({ leads, canNote, canExport, owner }: { leads: Lead[]; canNote: boolean; canExport: boolean; owner: string }) {
+/**
+ * The inbox: stage filters, search, a page of rows that each open their sheet, and export of what's
+ * shown. With `business`, a teammate works another owner's leads: export names that business, and
+ * testimonial links stay with the owner.
+ */
+export function LeadsInbox({ leads, canNote, canExport, owner, business }: { leads: Lead[]; canNote: boolean; canExport: boolean; owner: string; business?: string }) {
   const [filter, setFilterState] = useState<LeadFilter>("open");
   const [query, setQueryState] = useState("");
   const [limit, setLimit] = useState(LEAD_PAGE);
@@ -65,8 +69,8 @@ export function LeadsInbox({ leads, canNote, canExport, owner }: { leads: Lead[]
           <input className="min-h-11 w-full rounded-full bg-white pl-11 pr-4 text-[15px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)] outline-none focus:shadow-[inset_0_0_0_2px_#0D0D0D]" onChange={(change) => setQuery(change.target.value)} placeholder="Name or email" type="search" value={query} />
         </label>
         {canExport
-          ? <a className={`${lineButton} shrink-0`} data-export="leads" download href={leadExportHref(filter, query)}>Export {shown.length === leads.length ? "CSV" : `${shown.length} as CSV`}</a>
-          : <span className="flex shrink-0 items-center gap-2 text-[14px] text-black/60"><PlusTag /> Export comes with Plus</span>}
+          ? <a className={`${lineButton} shrink-0`} data-export="leads" download href={leadExportHref(filter, query, business)}>Export {shown.length === leads.length ? "CSV" : `${shown.length} as CSV`}</a>
+          : business ? null : <span className="flex shrink-0 items-center gap-2 text-[14px] text-black/60"><PlusTag /> Export comes with Plus</span>}
         </div>
       </div>
       {shown.length === 0 ? (
@@ -92,13 +96,13 @@ export function LeadsInbox({ leads, canNote, canExport, owner }: { leads: Lead[]
           Show more <span className="text-black/45">{Math.min(limit, shown.length)} of {shown.length}</span>
         </button>
       )}
-      {open && <LeadSheet canNote={canNote} owner={owner} key={open.id} lead={open} onClose={() => setOpenId(null)} />}
+      {open && <LeadSheet canAsk={!business} canNote={canNote} owner={owner} key={open.id} lead={open} onClose={() => setOpenId(null)} />}
     </section>
   );
 }
 
 /** One lead: move its stage, read what they asked, write a note, see the history. */
-function LeadSheet({ lead, canNote, owner, onClose }: { lead: Lead; canNote: boolean; owner: string; onClose: () => void }) {
+function LeadSheet({ lead, canNote, canAsk, owner, onClose }: { lead: Lead; canNote: boolean; canAsk: boolean; owner: string; onClose: () => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [detail, setDetail] = useState<{ activity: LeadActivity[]; inquiries: LeadInquiry[] } | null>(null);
@@ -171,12 +175,12 @@ function LeadSheet({ lead, canNote, owner, onClose }: { lead: Lead; canNote: boo
             </div>
           )}
           {lead.stage === "lost" && lead.lost_reason && !losing && <p className="mt-2 text-[13px] text-black/55">Lost: {lead.lost_reason}</p>}
-          {OPEN_STAGES.includes(lead.stage) && <p className="mt-2 text-[12.5px] text-black/45">Mark Won or Lost when it&apos;s decided. Won counts in your funnel; nothing is added for you.</p>}
+          {OPEN_STAGES.includes(lead.stage) && <p className="mt-2 text-[12.5px] text-black/45">Mark Won or Lost when it&apos;s decided. Won counts in {canAsk ? "your" : "the"} funnel; nothing is added for you.</p>}
         </div>
 
         {error && <p className="text-[14px] font-semibold text-[#B42318]" role="alert">{error}</p>}
 
-        {lead.stage === "won" && (
+        {lead.stage === "won" && canAsk && (
           <div data-lead-testimonial>
             <Mono className="mb-2 text-black/50">Testimonial</Mono>
             {askUrl ? <FreshLink email={lead.email} name={lead.name} owner={owner} url={askUrl} /> : (
@@ -196,7 +200,7 @@ function LeadSheet({ lead, canNote, owner, onClose }: { lead: Lead; canNote: boo
               <button className={`${inkButton} self-end`} disabled={pending || !note.trim()} onClick={saveNote} type="button">{pending ? "Saving…" : "Add note"}</button>
             </div>
           ) : (
-            <p className="rounded-[18px] bg-white p-4 text-[14px] text-black/55 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">Private notes on each lead are part of Plus. Stages and history are always yours.</p>
+            <p className="rounded-[18px] bg-white p-4 text-[14px] text-black/55 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">{canAsk ? "Private notes on each lead are part of Plus. Stages and history are always yours." : "Notes come with the owner's Plus or Pro plan."}</p>
           )}
         </div>
 
@@ -209,7 +213,7 @@ function LeadSheet({ lead, canNote, owner, onClose }: { lead: Lead; canNote: boo
                 return (
                   <li className="relative" data-activity={item.kind} key={item.id}>
                     <span aria-hidden="true" className={`absolute -left-[25px] top-1.5 size-2.5 rounded-full ${item.kind === "note" ? "bg-[#0D0D0D]" : item.kind === "stage" ? "bg-[#AFCBFF]" : "bg-[#FF5A4F]"}`} />
-                    <p className="text-[13px] text-black/50">{relativeTime(item.created_at)}</p>
+                    <p className="text-[13px] text-black/50">{relativeTime(item.created_at)}{item.actor && (item.kind === "stage" || item.kind === "note") ? ` · ${item.actor}` : ""}</p>
                     {item.kind === "stage" && <p className="text-[15px]">Moved from <b>{STAGE_LABEL[item.from_stage!]}</b> to <b>{STAGE_LABEL[item.to_stage!]}</b></p>}
                     {item.kind === "note" && <p className="whitespace-pre-wrap text-[15px]">{item.body}</p>}
                     {(item.kind === "created" || item.kind === "inquiry") && (

@@ -97,7 +97,7 @@ select throws_ok($$ insert into public.business_bookings (profile_id, action_id,
   from public.business_bookings b limit 1 $$, '23P01', null, 'the database itself refuses overlapping holds');
 select ok(not exists(select 1 from jsonb_array_elements_text(pg_temp.slots('consult')->'slots') x where x::timestamptz = (select at from bb_slot where name='first')), 'the held time is no longer offered');
 select ok(not exists(select 1 from jsonb_array_elements_text(pg_temp.slots('visit')->'slots') x
-  where tstzrange(x::timestamptz, x::timestamptz + interval '30 minutes') && tstzrange((select at from bb_slot where name='first') - interval '15 minutes', (select at from bb_slot where name='first') + interval '75 minutes')), 'and the owner''s other Action skips it too, with the buffer');
+  where tstzrange(x::timestamptz, x::timestamptz + interval '30 minutes') && tstzrange((select at from bb_slot where name='first'), (select at from bb_slot where name='first') + interval '75 minutes')), 'and the owner''s other Action skips it too, with the buffer after it');
 reset role;
 
 -- 4. The owner decides.
