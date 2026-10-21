@@ -1,8 +1,10 @@
+import { after } from "next/server";
 import { z } from "zod";
 
 import { creatorActionsEnabled, createActionsServiceClient, hashIp } from "@/lib/actions/server";
 import { sendEntryConfirmation } from "@/lib/actions/mail";
 import { getPublicOrigin } from "@/lib/app/viewer";
+import { alertAssignee } from "@/lib/business/mail";
 import { clientIp, createRateLimit, sameOrigin } from "@/lib/marketing/inquiry-mail";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,6 +12,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MIN_FILL_MS = 2000;
+/** Action kinds whose responses on Business Mode become leads (private.lead_from_submission). */
+const LEAD_KINDS = ["collab", "booking", "submission", "form"];
 const limit = createRateLimit({ windowMs: 10 * 60 * 1000, perIp: 8, perWindow: 400 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -104,6 +108,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const result = data as { id: string | null; status: string; duplicate: boolean; verify_token?: string | null };
   if (result.status !== "pending_verification") {
+    // A Business inquiry routed to a teammate tells them, after the visitor has their answer.
+    if (result.id && !result.duplicate && kind?.kind && LEAD_KINDS.includes(kind.kind)) {
+      const origin = await getPublicOrigin(request.headers);
+      after(() => alertAssignee(origin, { submissionId: result.id! }));
+    }
     // The owner's thank-you heading and reward, only now that a real response exists.
     const { data: thanks } = await service.rpc("action_thanks_for", { p_action_id: id });
     return Response.json({ ok: true, status: result.status, thanks: thanks ?? null }, { status: 201 });

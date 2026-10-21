@@ -67,6 +67,7 @@
     "test:fan-drops": "node --test tests/creator/fan-drops.test.mjs",
     "test:fan-drops:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/fan_drops_security.sql",
     "test:business": "node --test tests/business/business.test.mjs tests/business/bookings.test.mjs tests/business/testimonials.test.mjs tests/business/team.test.mjs",
+    "test:business-routing:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_routing_security.sql",
     "test:business-teams:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_teams_security.sql",
     "test:business-testimonials:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_testimonials_security.sql",
     "test:business-bookings:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_bookings_security.sql",

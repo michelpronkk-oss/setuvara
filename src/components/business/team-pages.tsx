@@ -6,7 +6,11 @@ import { MemberBadge } from "@/components/app/status-badge";
 import { EmptyState, Mono, StudioPage, inkButton } from "@/components/creator/studio-ui";
 import { loadTeam } from "@/lib/business/studio-server";
 import { ROLE_LABEL, ROLE_NOTE, seatCount, TEAM_ROLES } from "@/lib/business/team";
+import { RoutingCard } from "./routing-card";
 import { TeamBoard } from "./team-client";
+
+/** Action kinds whose Business Mode responses become leads. */
+const LEAD_KINDS: string[] = ["collab", "booking", "submission", "form"];
 
 const eyebrow = <><span aria-hidden="true" className="size-2 rounded-full bg-[#C7FF4A] shadow-[inset_0_0_0_1px_rgba(13,13,13,.25)]" />Business Mode</>;
 
@@ -41,7 +45,8 @@ export async function TeamIndex() {
   return (
     <StudioPage className="max-w-[1180px]">
       <Head eyebrow={eyebrow} sub={`${used} of ${team.seats} seats · ${team.members.filter((member) => member.status === "active").length} joined`} title="Team" />
-      <TeamBoard business={data.profile.display_name} ownerEmail={data.email} owner={data.profile.display_name} team={team} />
+      <TeamBoard business={data.profile.display_name} ownerEmail={data.email} owner={data.profile.display_name} team={team}
+        routing={data.routing && <RoutingCard actions={data.actions.filter((action) => LEAD_KINDS.includes(action.kind)).map(({ id, title }) => ({ id, title }))} people={data.people} routing={data.routing} />} />
     </StudioPage>
   );
 }

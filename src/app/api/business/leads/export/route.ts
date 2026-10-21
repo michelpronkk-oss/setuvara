@@ -1,5 +1,5 @@
 import { toCsv } from "@/lib/actions/csv";
-import { filterStages, LEAD_COLUMNS, LEAD_CSV_HEADER, LEAD_EXPORT_MAX, LEAD_READ_BATCH, leadCsvRow, parseLeadExport, type BusinessLimits, type Lead } from "@/lib/business/model";
+import { filterStages, LEAD_COLUMNS, LEAD_CSV_HEADER, LEAD_EXPORT_MAX, LEAD_READ_BATCH, leadCsvRow, parseLeadExport, type BusinessLimits, type Lead, type LeadPerson } from "@/lib/business/model";
 import type { Workspace } from "@/lib/business/team";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,7 +47,9 @@ export async function GET(request: Request) {
   // A teammate has no row access to the owner's Actions; the workspace carries their titles.
   const { data: actions } = workspace ? { data: workspace.actions } : actionIds.length ? await supabase.from("profile_actions").select("id, title").in("id", actionIds) : { data: [] };
   const titles = new Map((actions ?? []).map((row) => [row.id as string, row.title as string]));
-  const body = toCsv(LEAD_CSV_HEADER, leads.map((lead) => leadCsvRow(lead, (id) => (id ? titles.get(id) ?? "" : ""))));
+  const { data: people } = await supabase.rpc("business_people", { p_business_id: business });
+  const names = new Map(((people ?? []) as LeadPerson[]).map((person) => [person.user_id, person.name]));
+  const body = toCsv(LEAD_CSV_HEADER, leads.map((lead) => leadCsvRow(lead, (id) => (id ? titles.get(id) ?? "" : ""), (id) => (id ? names.get(id) ?? "" : ""))));
   return new Response(body, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

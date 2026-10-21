@@ -12,14 +12,21 @@ export type Lead = {
   id: string; mode_id: string; source_submission_id: string | null; source_action_id: string | null;
   name: string; email: string | null; stage: LeadStage; lost_reason: string | null; inquiries: number;
   stage_changed_at: string; last_activity_at: string; created_at: string;
+  /** Who on the team owns it (Lead Routing), or null. */
+  assigned_to: string | null;
 };
-export const LEAD_COLUMNS = "id, mode_id, source_submission_id, source_action_id, name, email, stage, lost_reason, inquiries, stage_changed_at, last_activity_at, created_at";
+export const LEAD_COLUMNS = "id, mode_id, source_submission_id, source_action_id, name, email, stage, lost_reason, inquiries, stage_changed_at, last_activity_at, created_at, assigned_to";
+
+/** Someone a lead can be assigned to: the owner or an active teammate, from business_people(). */
+export type LeadPerson = { user_id: string; role: "owner" | "manager" | "member"; name: string; you: boolean };
 
 export type LeadActivity = {
-  id: string; lead_id: string; kind: "created" | "inquiry" | "stage" | "note"; submission_id: string | null;
+  id: string; lead_id: string; kind: "created" | "inquiry" | "stage" | "note" | "assigned"; submission_id: string | null;
   from_stage: LeadStage | null; to_stage: LeadStage | null; body: string | null; created_at: string;
   /** Who did it, on a team: "You" or their name. Null for what the visitor or the database did. */
   actor?: string | null;
+  /** For "assigned": "you", their name, or null when it was handed back to nobody. */
+  assignee?: string | null;
 };
 
 export type BusinessLimits = { plan: "free" | "plus" | "pro"; can_note: boolean; can_export: boolean; funnel_days: number; booking_horizon_days: number; testimonials_shown: number };
@@ -90,11 +97,11 @@ export function filterStages(filter: LeadFilter): LeadStage[] | null {
   return filter === "all" ? null : filter === "open" ? OPEN_STAGES : [filter];
 }
 
-export const LEAD_CSV_HEADER = ["Name", "Email", "Stage", "Lost reason", "Inquiries", "First inquiry via", "First inquiry", "Stage changed", "Last activity"];
+export const LEAD_CSV_HEADER = ["Name", "Email", "Stage", "Lost reason", "Inquiries", "First inquiry via", "First inquiry", "Stage changed", "Last activity", "Assigned to"];
 
-/** One CSV row per lead, with its first inquiry's Action named rather than by id. */
-export function leadCsvRow(lead: Lead, actionTitle: (id: string | null) => string) {
-  return [lead.name, lead.email ?? "", STAGE_LABEL[lead.stage], lead.lost_reason ?? "", lead.inquiries, actionTitle(lead.source_action_id), lead.created_at, lead.stage_changed_at, lead.last_activity_at];
+/** One CSV row per lead, with its first inquiry's Action and its assignee named rather than by id. */
+export function leadCsvRow(lead: Lead, actionTitle: (id: string | null) => string, assignee: (id: string | null) => string = () => "") {
+  return [lead.name, lead.email ?? "", STAGE_LABEL[lead.stage], lead.lost_reason ?? "", lead.inquiries, actionTitle(lead.source_action_id), lead.created_at, lead.stage_changed_at, lead.last_activity_at, assignee(lead.assigned_to ?? null)];
 }
 
 /** The export link for what the inbox shows now. */

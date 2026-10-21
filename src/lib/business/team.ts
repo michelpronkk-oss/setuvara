@@ -34,6 +34,14 @@ export type Workspace = {
   bookings: WorkspaceBooking[];
 };
 
+/** How new leads are routed: off or round robin, with Action id → user id rules that win first. */
+export type LeadRouting = { mode: "off" | "round_robin"; include_owner: boolean; rules: Record<string, string> };
+
+/** Rules kept only for Actions and people that still exist, so a stale one never blocks a save. */
+export function liveRules(rules: Record<string, string>, actionIds: string[], peopleIds: string[]) {
+  return Object.fromEntries(Object.entries(rules).filter(([action, person]) => actionIds.includes(action) && peopleIds.includes(person)));
+}
+
 export const TOKEN = /^[A-Za-z0-9_-]{32}$/;
 export const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const TEAM_HREF = "/app/identity/team";
