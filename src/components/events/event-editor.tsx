@@ -55,7 +55,7 @@ function fromEvent(event: EventRecord | null): Draft {
  * come after. Times are entered in the event's own time zone and stored in UTC. It saves straight to the
  * database as the organizer, which re-checks everything.
  */
-export function EventEditor({ event, profileId, modeId, modeLive }: { event: EventRecord | null; profileId: string; modeId: string; modeLive: boolean }) {
+export function EventEditor({ event, profileId, modeId, modeLive, ended = false }: { event: EventRecord | null; profileId: string; modeId: string; modeLive: boolean; ended?: boolean }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => fromEvent(event));
   const [busy, setBusy] = useState(false);
@@ -126,16 +126,24 @@ export function EventEditor({ event, profileId, modeId, modeLive }: { event: Eve
   }
 
   async function remove() {
-    if (!event || !window.confirm("Delete this draft? This can't be undone.")) return;
+    if (!event) return;
+    const what = event.status === "draft" ? "this draft" : "this event";
+    const note = guests || locked || ended ? " Its page, guest list and check-ins go with it. Connections made at the door stay." : "";
+    if (!window.confirm(`Delete ${what}?${note} This can't be undone.`)) return;
     setBusy(true);
-    const { error: deleteError } = await createClient().from("events").delete().eq("id", event.id).eq("profile_id", profileId);
+    const { data: gone, error: deleteError } = await createClient().from("events").delete().eq("id", event.id).eq("profile_id", profileId).select("id");
     setBusy(false);
     if (deleteError) { setError("That didn't delete. Try again."); return; }
+    // The database keeps a coming event that people joined; it has to be cancelled first.
+    if (!gone?.length) { setError("People have RSVPed to this event. Cancel it first, then you can delete it."); return; }
     router.replace("/app/identity/events");
     router.refresh();
   }
 
   const published = event?.status === "published";
+  // Over, cancelled, or nobody ever joined (the database has the final say).
+  const deletable = Boolean(event) && (locked || ended || guests === 0);
+  const deleteButton = <button className="min-h-11 rounded-full px-4 text-[15px] font-semibold text-black/55 transition hover:text-black" data-delete-event disabled={busy} onClick={() => void remove()} type="button">{event?.status === "draft" ? "Delete draft" : "Delete event"}</button>;
   return (
     <form className="flex min-w-0 flex-col gap-8" onSubmit={(submit) => { submit.preventDefault(); void save(published ? "published" : "draft"); }}>
       <fieldset className="flex min-w-0 flex-col gap-5" disabled={locked || busy}>
@@ -203,10 +211,13 @@ export function EventEditor({ event, profileId, modeId, modeLive }: { event: Eve
               <button className={coralButton} disabled={busy} onClick={() => void save("published")} type="button">{busy ? "Saving…" : "Publish event"}</button>
               <button className={lineButton} disabled={busy} type="submit">Save draft</button>
             </>}
-          {event && published && <button className="ml-auto min-h-11 rounded-full px-4 text-[15px] font-semibold text-[#B42318] transition hover:bg-[#B42318]/[0.06]" disabled={busy} onClick={() => void cancelEvent()} type="button">Cancel event</button>}
-          {event && !published && guests === 0 && <button className="ml-auto min-h-11 rounded-full px-4 text-[15px] font-semibold text-black/55 transition hover:text-black" disabled={busy} onClick={() => void remove()} type="button">Delete draft</button>}
+          <span className="ml-auto flex flex-wrap gap-1">
+            {deletable && deleteButton}
+            {event && published && !ended && <button className="min-h-11 rounded-full px-4 text-[15px] font-semibold text-[#B42318] transition hover:bg-[#B42318]/[0.06]" disabled={busy} onClick={() => void cancelEvent()} type="button">Cancel event</button>}
+          </span>
         </div>
       )}
+      {locked && <div className="flex justify-end">{deleteButton}</div>}
     </form>
   );
 }

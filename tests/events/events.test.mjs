@@ -85,6 +85,17 @@ describe("lifecycle", () => {
     assert.equal(model.checkInWindow({ ...base, status: "cancelled" }, at("2026-11-04T19:00:00Z")), "closed");
     assert.equal(model.checkInWindow({ ...base, status: "draft" }, at("2026-11-04T19:00:00Z")), "closed");
   });
+  test("the door scanner only takes door pass links, never a profile QR", () => {
+    const token = "0b7c2a52-8c35-4d6e-9f41-1d6f1c1e2a3b.1.AbCdEfGhIjKlMnOpQrStUvWxYz012345";
+    assert.equal(model.passTokenFromScan(`https://setuvara.com/app/identity/events/check-in/${token}`), token);
+    assert.equal(model.passTokenFromScan(` http://localhost:3000/app/identity/events/check-in/${token}/ `), token);
+    assert.equal(model.passTokenFromScan("https://setuvara.com/aanya"), null);
+    assert.equal(model.passTokenFromScan("https://setuvara.com/s/Ab12Cd34"), null);
+    assert.equal(model.passTokenFromScan(token), null);
+    assert.equal(model.passTokenFromScan(`https://setuvara.com/app/identity/events/check-in/${token}/extra`), null);
+    assert.equal(model.passTokenFromScan(`https://setuvara.com/app/identity/events/check-in/a<b>c${token}`), null);
+    assert.equal(model.passTokenFromScan(`https://x.test/app/identity/events/check-in/${"a".repeat(500)}`), null);
+  });
   test("RSVPs close at the start by default, or when the organizer chose, never after the end", () => {
     assert.equal(model.registrationWindow(base, at("2026-11-04T17:59:00Z")), "open");
     assert.equal(model.registrationWindow(base, at("2026-11-04T18:00:00Z")), "closed");

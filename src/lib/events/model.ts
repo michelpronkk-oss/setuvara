@@ -185,3 +185,18 @@ export function eventIcs(event: Pick<EventRecord, "id" | "title" | "summary" | "
   // Lines longer than 75 octets fold with a leading space (RFC 5545).
   return lines.map((line) => line.length <= 74 ? line : line.match(/.{1,73}/g)!.join("\r\n ")).join("\r\n") + "\r\n";
 }
+
+/** What the door scanner learned from one pass. */
+export type ScanResult = "checked_in" | "already_checked_in" | "not_going" | "other_event" | "invalid" | "not_open" | "closed";
+
+const PASS_PATH = /^\/app\/identity\/events\/check-in\/([A-Za-z0-9._-]{20,100})\/?$/;
+
+/**
+ * The door pass token inside a scanned QR, or null for anything else (a profile QR, a link, text).
+ * Only the pass path counts; the server still checks the signature.
+ */
+export function passTokenFromScan(text: string): string | null {
+  const value = text.trim();
+  if (!value || value.length > 400) return null;
+  try { return PASS_PATH.exec(new URL(value).pathname)?.[1] ?? null; } catch { return null; }
+}

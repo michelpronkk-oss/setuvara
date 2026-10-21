@@ -71,7 +71,9 @@
     "test:business-testimonials:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_testimonials_security.sql",
     "test:business-bookings:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_bookings_security.sql",
     "test:business-leads:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_leads_security.sql",
-    "test:events-check-in:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_check_in_security.sql"
+    "test:events-check-in:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_check_in_security.sql",
+    "test:events-scanner:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_scanner_security.sql",
+    "e2e:events-scanner": "node scripts/e2e-event-scanner.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
