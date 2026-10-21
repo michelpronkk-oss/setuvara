@@ -22,6 +22,8 @@ const body = z.object({
   acceptRules: z.boolean().default(false),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
   openedAt: z.number().int().positive(),
+  /** Smart Bookings: the open time the visitor picked. */
+  startsAt: z.iso.datetime({ offset: true }).optional(),
   /** The spam trap: hidden from people, filled by bots. */
   hp: z.string().max(200).default(""),
 });
@@ -36,6 +38,7 @@ const REFUSALS: Record<string, [number, string]> = {
   message_required: [400, "Add a few words."],
   answer_required: [400, "Answer the required questions."],
   own_action: [400, "This is your own page."],
+  slot_taken: [409, "That time was just taken. Pick another one."],
 };
 
 /**
@@ -69,16 +72,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try { service = createActionsServiceClient(); } catch { return Response.json({ error: "Submissions are offline right now." }, { status: 503 }); }
   const { data: kind } = await service.from("profile_actions").select("kind").eq("id", id).maybeSingle();
   if (kind?.kind === "giveaway" && !input.acceptRules) return Response.json({ error: "Confirm the age limit and the rules to enter." }, { status: 400 });
-  const { data, error } = await service.rpc("submit_profile_action", {
-    p_action_id: id,
-    p_submitter: submitter,
-    p_name: input.name,
-    p_email: input.email,
-    p_answers: input.answers,
-    p_feature_consent: input.featureConsent,
-    p_idempotency_key: input.idempotencyKey,
-    p_ip_hash: hashIp(ip),
-  });
+  // A picked time goes through request_booking, which checks it is still open and holds it with the request.
+  const { data, error } = kind?.kind === "booking" && input.startsAt
+    ? await service.rpc("request_booking", {
+      p_action_id: id,
+      p_submitter: submitter,
+      p_name: input.name,
+      p_email: input.email,
+      p_answers: input.answers,
+      p_idempotency_key: input.idempotencyKey,
+      p_ip_hash: hashIp(ip),
+      p_starts_at: input.startsAt,
+    })
+    : await service.rpc("submit_profile_action", {
+      p_action_id: id,
+      p_submitter: submitter,
+      p_name: input.name,
+      p_email: input.email,
+      p_answers: input.answers,
+      p_feature_consent: input.featureConsent,
+      p_idempotency_key: input.idempotencyKey,
+      p_ip_hash: hashIp(ip),
+    });
   if (error) {
     const refusal = Object.entries(REFUSALS).find(([key]) => error.message?.includes(key))?.[1];
     if (refusal) return Response.json({ error: refusal[1] }, { status: refusal[0] });

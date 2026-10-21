@@ -66,7 +66,8 @@
     "e2e:fan-drops": "node scripts/e2e-fan-drops.mjs",
     "test:fan-drops": "node --test tests/creator/fan-drops.test.mjs",
     "test:fan-drops:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/fan_drops_security.sql",
-    "test:business": "node --test tests/business/business.test.mjs",
+    "test:business": "node --test tests/business/business.test.mjs tests/business/bookings.test.mjs",
+    "test:business-bookings:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_bookings_security.sql",
     "test:business-leads:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_leads_security.sql",
     "test:events-check-in:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_check_in_security.sql"
   },
