@@ -17,10 +17,12 @@ export type RevenueLimits = { plan: "free" | "plus" | "pro"; providers: number; 
 
 const card = "rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
 const field = "min-h-12 w-full rounded-[16px] bg-white px-4 text-[16px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none focus:shadow-[inset_0_0_0_1.5px_#0D0D0D]";
-const AVAILABLE = ["stripe"] as const;
+const AVAILABLE = ["stripe", "revenuecat"] as const;
 const KEY_HELP: Record<string, string> = {
   stripe: "In Stripe, Developers → API keys → Create restricted key. Set Subscriptions, Customers and Prices to Read, everything else to None.",
+  revenuecat: "In RevenueCat, Project settings → API keys → New secret API key, version 2. Set Charts & metrics to Read only, everything else to No access. MRR and active subscriptions come from RevenueCat's own overview, in USD.",
 };
+const PLACEHOLDER: Record<string, string> = { stripe: "rk_live_…", revenuecat: "sk_…" };
 const VISIBILITY: { value: RevenueVisibility; label: string; note: string }[] = [
   { value: "hidden", label: "Hidden", note: "Only you see it." },
   { value: "exact", label: "Exact", note: "MRR, ARR and paying customers." },
@@ -32,13 +34,17 @@ const ago = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en", { 
 /** Connect a provider with a read-only key, choose what the public sees, and follow the daily snapshots. */
 export function RevenuePanel({ projectId, visibility, connections, snapshots, limits }: { projectId: string; visibility: RevenueVisibility; connections: RevenueConnection[]; snapshots: RevenueSnapshot[]; limits: RevenueLimits }) {
   const router = useRouter();
-  const [provider, setProvider] = useState<(typeof AVAILABLE)[number]>("stripe");
+  const [picked, setProvider] = useState<(typeof AVAILABLE)[number]>("stripe");
   const [key, setKey] = useState("");
+  const [projectRef, setProjectRef] = useState("");
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const [now] = useState(() => Date.now());
   const mine = connections.filter((c) => c.project_id === projectId && c.status !== "revoked");
   const used = connections.filter((c) => c.status !== "revoked").length;
+  const connected = (p: string) => mine.some((c) => c.provider === p);
+  // A provider already on this project can't be added twice; fall to the next free one.
+  const provider = connected(picked) ? (AVAILABLE.find((p) => !connected(p)) ?? picked) : picked;
   const canAdd = used < limits.providers && AVAILABLE.some((p) => !mine.some((c) => c.provider === p));
   const fresh = (c: RevenueConnection) => c.last_sync_ok && c.last_sync_at && now - new Date(c.last_sync_at).getTime() < 48 * 3600_000;
 
@@ -77,20 +83,25 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
 
       {canAdd && (
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); start(async () => {
-          const r = await connectRevenue(projectId, provider, key);
+          const r = await connectRevenue(projectId, provider, provider === "revenuecat" ? `${projectRef.trim()}:${key.trim()}` : key);
           setKey("");
           setMessage(r.ok ? (r.environment === "test" ? "Connected in test mode. Test data stays private." : "Connected. First numbers are in.") : r.error);
           router.refresh();
         }); }}>
           <label className="grid gap-1.5 text-[14px] font-semibold">Provider
-            <select className={field} onChange={(e) => setProvider(e.target.value as typeof provider)} value={provider}>
-              <option value="stripe">Stripe</option>
-              <option disabled value="revenuecat">RevenueCat (coming soon)</option>
+            <select className={field} onChange={(e) => { setProvider(e.target.value as typeof provider); setKey(""); }} value={provider}>
+              <option disabled={connected("stripe")} value="stripe">Stripe</option>
+              <option disabled={connected("revenuecat")} value="revenuecat">RevenueCat</option>
               <option disabled value="dodo">Dodo Payments (coming soon)</option>
             </select>
           </label>
+          {provider === "revenuecat" && (
+            <label className="grid gap-1.5 text-[14px] font-semibold">Project ID
+              <input autoComplete="off" className={field} onChange={(e) => setProjectRef(e.target.value)} placeholder="proj1a2b3c4d" required spellCheck={false} value={projectRef} />
+            </label>
+          )}
           <label className="grid gap-1.5 text-[14px] font-semibold">Read-only key
-            <input autoComplete="off" className={field} onChange={(e) => setKey(e.target.value)} placeholder="rk_live_…" required spellCheck={false} type="password" value={key} />
+            <input autoComplete="off" className={field} onChange={(e) => setKey(e.target.value)} placeholder={PLACEHOLDER[provider]} required spellCheck={false} type="password" value={key} />
           </label>
           <p className="text-[13px] text-black/60">{KEY_HELP[provider]} We check the key can&apos;t write before accepting it, and keep it encrypted, readable only by the sync.</p>
           <button className={`${coralButton} w-fit`} disabled={pending || key.trim().length < 20} type="submit">{pending ? "Checking…" : "Connect"}</button>
