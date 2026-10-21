@@ -10,7 +10,7 @@ import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
 
-export type ActionsPage = "actions" | "audience" | "events" | "leads" | "testimonials" | "team";
+export type ActionsPage = "actions" | "audience" | "events" | "leads" | "testimonials" | "team" | "builder";
 const MODE_NAME: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
 const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 
@@ -23,8 +23,8 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
   liveUrl: string; pageUrl: string | null; personalUrl: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; needsYou: number; signOut: () => Promise<void>;
 }) {
   const router = useRouter();
-  const title = page === "audience" ? "Audience" : page === "events" ? "Events" : page === "leads" ? "Leads" : page === "testimonials" ? "Testimonials" : page === "team" ? "Team" : "Actions";
-  const pageHref = page === "events" ? "/app/identity/events" : page === "leads" ? "/app/identity/leads" : page === "testimonials" ? "/app/identity/testimonials" : page === "team" ? "/app/identity/team" : `/app/identity/${page}?mode=${slug}`;
+  const title = page === "audience" ? "Audience" : page === "events" ? "Events" : page === "leads" ? "Leads" : page === "testimonials" ? "Testimonials" : page === "team" ? "Team" : page === "builder" ? "Builder" : "Actions";
+  const pageHref = page === "events" ? "/app/identity/events" : page === "leads" ? "/app/identity/leads" : page === "testimonials" ? "/app/identity/testimonials" : page === "team" ? "/app/identity/team" : page === "builder" ? `/app/identity/builder?mode=${slug}` : `/app/identity/${page}?mode=${slug}`;
   const editor = (section?: string) => `/app/identity?mode=${slug}${section && section !== "home" ? `&section=${section}` : ""}`;
   const display = pageUrl?.replace(/^https?:\/\//, "") ?? null;
   return (
@@ -36,6 +36,7 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
         leads={page === "leads"}
         testimonials={page === "testimonials"}
         team={page === "team"}
+        builder={page === "builder"}
         avatarFocus={avatarFocus}
         avatarUrl={avatarUrl}
         liveUrl={liveUrl}
