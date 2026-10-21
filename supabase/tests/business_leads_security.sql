@@ -26,8 +26,8 @@ create function pg_temp.lead(p_email text) returns uuid language sql as $$ selec
 grant execute on function pg_temp.as_user(text), pg_temp.uid(text), pg_temp.act(text), pg_temp.submit(text,text,text,jsonb,text), pg_temp.lead(text) to authenticated, service_role, anon;
 
 -- The owner has Plus; the rival business stays on Free.
-insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at)
-select 'sub_BlOwner', user_id, 'cus_BlOwner', 'pdt_BlPlus', 'plus', 'monthly', 'active', 'bl-fixture', now(), now() from bl_accounts where kind='owner';
+insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at, current_period_end)
+select 'sub_BlOwner', user_id, 'cus_BlOwner', 'pdt_BlPlus', 'plus', 'monthly', 'active', 'bl-fixture', now(), now(), now() + interval '30 days' from bl_accounts where kind='owner';
 
 set local role authenticated;
 select pg_temp.as_user('owner');

@@ -50,21 +50,21 @@ from passport_test_accounts;
 insert into public.billing_subscriptions (
   dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id,
   plan_code, billing_interval, provider_status, last_provider_event_id,
-  last_provider_event_at, last_sync_started_at
+  last_provider_event_at, last_sync_started_at, current_period_end
 )
 select 'sub_PassportOwner', user_id, 'cus_PassportOwner', 'pdt_PassportPlus',
        'plus', 'monthly', 'active', 'passport-fixture-active',
-       pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp()
+       pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp() + interval '30 days'
 from passport_test_accounts where name = 'owner';
 
 insert into public.billing_subscriptions (
   dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id,
   plan_code, billing_interval, provider_status, last_provider_event_id,
-  last_provider_event_at, last_sync_started_at
+  last_provider_event_at, last_sync_started_at, current_period_end
 )
 select 'sub_PassportPro', user_id, 'cus_PassportPro', 'pdt_PassportProMonthly',
        'pro', 'monthly', 'active', 'passport-fixture-pro-active',
-       pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp()
+       pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp() + interval '30 days'
 from passport_test_accounts where name = 'pro';
 
 insert into public.passport_entitlements(user_id, reward_id)
