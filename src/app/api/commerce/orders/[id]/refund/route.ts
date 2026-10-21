@@ -33,10 +33,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (max === 0 || amount > max) return json({ error: max === 0 ? "This order can't be refunded." : "That's more than what's left to refund." }, 409);
 
   const service = createCommerceServiceClient();
-  const { data: order } = await service.from("creator_orders").select("provider, provider_account_id, provider_payment_id").eq("id", id).maybeSingle();
+  const { data: order } = await service.from("creator_orders").select("provider, provider_account_id, provider_payment_id, platform_fee_amount_minor").eq("id", id).maybeSingle();
   if (!order?.provider_payment_id || order.provider !== provider.code || !order.provider_account_id) return json({ error: "This order can't be refunded here." }, 409);
   try {
-    const refund = await provider.refund({ sellerAccountId: order.provider_account_id, paymentId: order.provider_payment_id, amountMinor: amount, orderId: id, idempotencyKey: `refund-${id}-${parsed.data.idempotencyKey}` });
+    const refund = await provider.refund({ sellerAccountId: order.provider_account_id, paymentId: order.provider_payment_id, amountMinor: amount, orderId: id, idempotencyKey: `refund-${id}-${parsed.data.idempotencyKey}`, refundPlatformFee: Number(order.platform_fee_amount_minor) > 0 });
     let feeBack = 0;
     if (refund.status === "succeeded") {
       const total = await provider.platformFeeRefundedTotal(order.provider_account_id, order.provider_payment_id);
