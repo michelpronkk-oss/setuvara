@@ -48,3 +48,19 @@ export async function disconnectRevenue(connectionId: string) {
   refresh();
   return { ok: true as const };
 }
+
+/** Fetches fresh numbers now with the stored key. At most once every five minutes per connection. */
+export async function syncRevenueNow(connectionId: string) {
+  if (!UUID.test(connectionId)) return { ok: false as const, error: ERRORS.connection_not_found };
+  const supabase = await createClient();
+  const [{ data: connection }, { data: limits }] = await Promise.all([
+    supabase.from("revenue_connections").select("id, provider, last_sync_at").eq("id", connectionId).neq("status", "revoked").maybeSingle(),
+    supabase.rpc("my_revenue_limits"),
+  ]);
+  if (!connection) return { ok: false as const, error: ERRORS.connection_not_found };
+  if (!((limits as { providers?: number } | null)?.providers)) return { ok: false as const, error: ERRORS.plan_limit };
+  if (connection.last_sync_at && Date.now() - new Date(connection.last_sync_at).getTime() < 5 * 60_000) return { ok: false as const, error: "Synced a moment ago. Try again in a few minutes." };
+  const synced = await syncConnection(createCommerceServiceClient(), connection);
+  refresh();
+  return synced ? { ok: true as const } : { ok: false as const, error: "The sync didn't go through. The reason is shown on the connection." };
+}
