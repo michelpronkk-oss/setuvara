@@ -101,7 +101,12 @@ export async function publicProfileMetadata(target: PublicProfileTarget): Promis
 
   const title = publicProfileTitle(record.profile);
   const description = publicProfileDescription(record);
-  const { pageUrl, image } = publicPageUrls(target);
+  const { pageUrl, image: imageBase } = publicPageUrls(target);
+  // Platforms cache a card by its URL. The edit time in the query makes a changed photo or name
+  // show on the next share instead of the stale card.
+  const edited = Math.max(...[record.profile.updated_at, record.mode.updated_at].map((value) => (value ? Date.parse(value) : 0)).filter(Number.isFinite), 0);
+  const image = edited ? `${imageBase}?v=${Math.floor(edited / 1000).toString(36)}` : imageBase;
+  const imageAlt = `${title} on Setuvara`;
 
   return {
     title,
@@ -122,9 +127,9 @@ export async function publicProfileMetadata(target: PublicProfileTarget): Promis
       title: `${title} | Setuvara`,
       description,
       url: pageUrl,
-      images: [{ url: image, width: 1200, height: 630, alt: `${title} on Setuvara` }],
+      images: [{ url: image, width: 1200, height: 630, alt: imageAlt, type: "image/png" }],
     },
-    twitter: { card: "summary_large_image", title: `${title} | Setuvara`, description, images: [image] },
+    twitter: { card: "summary_large_image", title: `${title} | Setuvara`, description, images: [{ url: image, alt: imageAlt }] },
   };
 }
 

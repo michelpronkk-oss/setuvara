@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    images: [{ url: shareImageUrl, width: 1200, height: 630, alt: "Setuvara — One identity. Every version of you." }],
+    images: [{ url: shareImageUrl, width: 1200, height: 630, alt: "Setuvara: presence, not a link list. A Setuvara profile on a phone." }],
   },
   twitter: {
     card: "summary_large_image",
