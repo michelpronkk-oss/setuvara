@@ -18,7 +18,7 @@ import { getPublicActions } from "@/lib/actions/public";
 import { PublicBuilder } from "@/components/builder/public-builder";
 import { PublicTestimonials } from "@/components/business/public-testimonials";
 import { getPublicTestimonials } from "@/lib/business/public";
-import { getPublicBuilder } from "@/lib/builder/public";
+import { getBuilderActivity, getPublicBuilder } from "@/lib/builder/public";
 import { getPublicStore } from "@/lib/commerce/public";
 import { lockedPieces } from "@/lib/creator/fan-drops";
 import { isWorkBlock, readCreatorSettings, workItem } from "@/lib/creator/studio";
@@ -286,6 +286,12 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   const testimonials = slug === "business" ? await getPublicTestimonials(username) : [];
   // Builder Showcase: public projects on Creator and Business, their images taken from this Mode's own blocks.
   const projects = await getPublicBuilder(username, slug);
+  // Voting and ideas are for real visitor pages only; the owner's own view and previews stay read-only.
+  const builderViewer = projects.length && !owner ? {
+    signedIn: Boolean(userId),
+    loginHref: `/login?next=${encodeURIComponent(shareToken ? `/s/${shareToken}` : `/${handle ?? username}`)}`,
+    activity: userId ? await getBuilderActivity(projects.map((project) => project.id)) : {},
+  } : undefined;
   const blockImages: Record<string, string | null> = Object.fromEntries(publicBlocks.map((block) => [block.id, typeof (block.data as Record<string, unknown>).image_url === "string" ? (block.data as Record<string, unknown>).image_url as string : null]));
   const actionHref = owner ? undefined
     : shareToken ? (id: string) => `/s/${shareToken}/a/${id}`
@@ -367,7 +373,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
               locked={lockedWork}
             />}
             {!creator && <ActionCards accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions} />}
-            <PublicBuilder accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions.map((item) => item.action)} images={blockImages} projects={projects} />
+            <PublicBuilder accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions.map((item) => item.action)} images={blockImages} projects={projects} viewer={builderViewer} />
             <PublicTestimonials accent={resolveModeAccent(mode)} items={testimonials} />
             {sharedPassportStamp && (
             <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>

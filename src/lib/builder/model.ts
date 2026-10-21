@@ -8,18 +8,20 @@ export const ROADMAP_STAGES = ["planned", "in_progress", "shipped"] as const;
 export type RoadmapStage = (typeof ROADMAP_STAGES)[number];
 export const ROADMAP_STAGE_LABEL: Record<RoadmapStage, string> = { planned: "Planned", in_progress: "In progress", shipped: "Shipped" };
 
-export type RoadmapItem = { id: string; title: string; description: string; stage: RoadmapStage; progress: number; target_date: string | null; shipped_at: string | null; is_public?: boolean; sort_order?: number };
+export type RoadmapItem = { id: string; title: string; description: string; stage: RoadmapStage; progress: number; target_date: string | null; shipped_at: string | null; is_public?: boolean; sort_order?: number; votes?: number };
 export type ProjectUpdate = { id: string; title: string; body: string; published_at: string };
 export type BuilderProject = {
   id: string; slug: string; name: string; tagline: string; description: string; url: string | null; status: ProjectStatus;
   category: string; tech_stack: string[]; launched_on: string | null; logo_block_id: string | null; cover_block_id: string | null;
-  visibility?: "draft" | "public"; roadmap_public?: boolean; sort_order?: number;
+  visibility?: "draft" | "public"; roadmap_public?: boolean; sort_order?: number; voting_enabled?: boolean; suggestions_enabled?: boolean;
 };
-export type PublicProject = BuilderProject & { roadmap: RoadmapItem[]; updates: ProjectUpdate[]; action_ids: string[] };
-export type BuilderLimits = { plan: "free" | "plus" | "pro"; public_projects: number; roadmap_items: number };
-export const DEFAULT_BUILDER_LIMITS: BuilderLimits = { plan: "free", public_projects: 1, roadmap_items: 15 };
+export type PublicProject = BuilderProject & { roadmap: RoadmapItem[]; updates: ProjectUpdate[]; action_ids: string[]; voting?: boolean; suggestions?: boolean };
+export type BuilderActivity = { voted: string[]; suggestions: { id: string; title: string; status: string; stage: string | null; created_at: string }[] };
+export type BuilderViewer = { signedIn: boolean; loginHref: string; activity: Record<string, BuilderActivity> };
+export type BuilderLimits = { plan: "free" | "plus" | "pro"; public_projects: number; roadmap_items: number; suggestions?: boolean; export?: boolean };
+export const DEFAULT_BUILDER_LIMITS: BuilderLimits = { plan: "free", public_projects: 1, roadmap_items: 15, suggestions: false, export: false };
 
-export const PROJECT_COLUMNS = "id, slug, name, tagline, description, url, status, category, tech_stack, launched_on, logo_block_id, cover_block_id, visibility, roadmap_public, sort_order";
+export const PROJECT_COLUMNS = "id, slug, name, tagline, description, url, status, category, tech_stack, launched_on, logo_block_id, cover_block_id, visibility, roadmap_public, sort_order, voting_enabled, suggestions_enabled";
 export const ROADMAP_COLUMNS = "id, project_id, title, description, stage, progress, target_date, shipped_at, is_public, sort_order";
 export const UPDATE_COLUMNS = "id, project_id, title, body, published_at";
 
@@ -49,3 +51,13 @@ export function byStage(items: RoadmapItem[]) {
   return out;
 }
 export const safeHttps = (value: string | null) => (value && /^https:\/\/[^\s/]+\.[^\s]+$/i.test(value) ? value : null);
+
+export type BuilderSuggestion = { id: string; project_id: string; title: string; body: string; status: "pending" | "approved" | "declined"; created_at: string; roadmap_item_id: string | null };
+export type BuilderInsights = { items: { id: string; title: string; stage: RoadmapStage; votes: number; votes_30d: number }[]; voters: number; pending: number; approved: number; declined: number; can_export: boolean };
+
+/** Aggregate vote counts as CSV: no voter or author is ever in it. */
+export function insightsCsv(projectName: string, insights: BuilderInsights) {
+  const cell = (value: string | number) => { const text = String(value); return /^[=+\-@\t\r]/.test(text) ? `"'${text.replace(/"/g, '""')}"` : /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; };
+  const rows = [["project", "item", "stage", "votes", "votes_last_30_days"], ...insights.items.map((item) => [projectName, item.title, item.stage, item.votes, item.votes_30d])];
+  return rows.map((row) => row.map(cell).join(",")).join("\n") + "\n";
+}
