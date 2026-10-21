@@ -103,6 +103,9 @@ export type ProfileAction = {
   ends_at: string | null;
   published_at: string | null;
   closed_at: string | null;
+  /** Scheduling: whether the card shows before it opens and after it closes. */
+  show_before_start: boolean;
+  show_after_end: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -190,6 +193,30 @@ export function starterAction(kind: ActionKind, firstName: string, mode: ModeSlu
   }
 }
 
+/** The owner's thank-you screen: a heading in their words, and a reward revealed only after a real response. */
+export type ActionReward = { kind: "link" | "code"; label: string; url: string | null; code: string | null };
+export type ActionThanks = { heading: string; reward: ActionReward | null };
+export type ActionThanksRow = { action_id: string; heading: string; reward_kind: "none" | "link" | "code"; reward_label: string; reward_url: string | null; reward_code: string | null };
+export const THANKS_COLUMNS = "action_id, heading, reward_kind, reward_label, reward_url, reward_code";
+
+/** Insights for one Action over the plan's window: views of the card, opens of its page, responses and confirmed. */
+export type ActionInsight = { id: string; views: number; opens: number; responses: number; confirmed: number };
+export type ActionInsights = { days: number; plan_days: number; actions: ActionInsight[]; daily: { day: string; views: number; opens: number; responses: number }[] | null };
+/** A share as a whole percent, or null when there is nothing to divide by. */
+export function rate(part: number, whole: number) {
+  return whole > 0 ? Math.round((Math.min(part, whole) / whole) * 100) : null;
+}
+
+/** "in 3d 4h", "in 5h 20m", "in 12m": how long until a moment, for countdowns. */
+export function untilLabel(iso: string, now: number) {
+  const minutes = Math.max(0, Math.round((new Date(iso).getTime() - now) / 60000));
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `in ${days}d${hours ? ` ${hours}h` : ""}`;
+  if (hours > 0) return `in ${hours}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
+  return `in ${Math.max(1, minutes)}m`;
+}
+
 /** Open, upcoming or ended, from the dates alone. */
 export function actionWindow(action: Pick<PublicAction, "starts_at" | "ends_at">, now = Date.now()) {
   if (action.starts_at && new Date(action.starts_at).getTime() > now) return "upcoming" as const;
@@ -207,12 +234,12 @@ export function normalizeEmail(email: string) {
   return `${name}@${host}`;
 }
 
-export type ActionLimits = { plan: "free" | "plus" | "pro"; published_actions: number; open_giveaways: number; custom_questions: number; can_export: boolean };
+export type ActionLimits = { plan: "free" | "plus" | "pro"; published_actions: number; open_giveaways: number; custom_questions: number; can_export: boolean; insights_days: number; can_reward: boolean };
 /** Defaults the migration installs; the database row wins when it is read. */
 export const DEFAULT_LIMITS: Record<ActionLimits["plan"], ActionLimits> = {
-  free: { plan: "free", published_actions: 2, open_giveaways: 0, custom_questions: 3, can_export: false },
-  plus: { plan: "plus", published_actions: 8, open_giveaways: 1, custom_questions: 6, can_export: true },
-  pro: { plan: "pro", published_actions: 24, open_giveaways: 5, custom_questions: 12, can_export: true },
+  free: { plan: "free", published_actions: 2, open_giveaways: 0, custom_questions: 3, can_export: false, insights_days: 7, can_reward: false },
+  plus: { plan: "plus", published_actions: 8, open_giveaways: 1, custom_questions: 6, can_export: true, insights_days: 90, can_reward: true },
+  pro: { plan: "pro", published_actions: 24, open_giveaways: 5, custom_questions: 12, can_export: true, insights_days: 365, can_reward: true },
 };
 
 /** Friendly copy for database refusals. */
@@ -224,6 +251,7 @@ export const ACTION_ERRORS: Record<string, string> = {
   giveaway_terms_locked: "People have entered, so the giveaway's terms and dates can't change.",
   giveaway_already_ended: "Set an end date in the future before publishing.",
   action_cover_invalid: "Pick a picture from this Mode for the cover.",
+  plan_reward_unavailable: "Rewards on the thank-you screen come with Plus.",
 };
 export function actionErrorMessage(message: string | undefined) {
   for (const [key, copy] of Object.entries(ACTION_ERRORS)) if (message?.includes(key)) return copy;

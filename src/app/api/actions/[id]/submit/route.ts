@@ -88,7 +88,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const result = data as { id: string | null; status: string; duplicate: boolean; verify_token?: string | null };
-  if (result.status !== "pending_verification") return Response.json({ ok: true, status: result.status }, { status: 201 });
+  if (result.status !== "pending_verification") {
+    // The owner's thank-you heading and reward, only now that a real response exists.
+    const { data: thanks } = await service.rpc("action_thanks_for", { p_action_id: id });
+    return Response.json({ ok: true, status: result.status, thanks: thanks ?? null }, { status: 201 });
+  }
   // A repeat entry gets the same answer as a first one, so the form can't reveal who entered.
   if (!result.verify_token) return Response.json({ ok: true, status: "pending_verification" }, { status: 202 });
 

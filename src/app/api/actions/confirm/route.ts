@@ -20,6 +20,8 @@ export async function POST(request: Request) {
   try { service = createActionsServiceClient(); } catch { return Response.json({ error: "Confirmation is offline right now." }, { status: 503 }); }
   const { data, error } = await service.rpc("confirm_action_entry", { p_token: parsed.data.token });
   if (error) return Response.json({ error: "That didn't work. Try again." }, { status: 500 });
-  const result = data as { ok: boolean; reason?: string; title?: string; kind?: string };
-  return Response.json({ ok: result.ok, reason: result.reason ?? null, title: result.title ?? null, kind: result.kind ?? null }, { status: result.ok ? 200 : 410 });
+  const result = data as { ok: boolean; reason?: string; title?: string; kind?: string; action_id?: string };
+  // Confirmed entries and signups unlock the owner's thank-you and reward.
+  const { data: thanks } = result.ok && result.action_id ? await service.rpc("action_thanks_for", { p_action_id: result.action_id }) : { data: null };
+  return Response.json({ ok: result.ok, reason: result.reason ?? null, title: result.title ?? null, kind: result.kind ?? null, thanks: thanks ?? null }, { status: result.ok ? 200 : 410 });
 }

@@ -5,12 +5,15 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Field, PlusTag, Segmented, TextArea, TextInput, Toggle } from "@/app/app/identity/editor-ui";
 import { coralButton, inkButton, lineButton } from "@/components/creator/studio-ui";
-import { actionErrorMessage, ACTION_KIND_NAME, COLLAB_TYPE_LABEL, COLLAB_TYPES, DEFAULT_CTA, type ActionConfig, type ActionKind, type ActionLimits, type ActionStatus, type CollabType, type ProfileAction, type PublicAction, type Question } from "@/lib/actions/model";
+import { actionErrorMessage, ACTION_KIND_NAME, COLLAB_TYPE_LABEL, COLLAB_TYPES, DEFAULT_CTA, type ActionConfig, type ActionKind, type ActionLimits, type ActionStatus, type ActionThanks, type ActionThanksRow, type CollabType, type ProfileAction, type PublicAction, type Question } from "@/lib/actions/model";
 import { createClient } from "@/lib/supabase/client";
 import { ActionPhone, type PhoneView, type PreviewSource } from "./action-phone";
 
 export type CoverOption = { id: string; imageUrl: string | null; title: string };
-type Draft = Pick<ProfileAction, "title" | "intro" | "cta_label" | "cover_block_id" | "config" | "starts_at" | "ends_at">;
+type Draft = Pick<ProfileAction, "title" | "intro" | "cta_label" | "cover_block_id" | "config" | "starts_at" | "ends_at"> & Partial<Pick<ProfileAction, "show_before_start" | "show_after_end">>;
+type Thanks = Omit<ActionThanksRow, "action_id">;
+const NO_THANKS: Thanks = { heading: "", reward_kind: "none", reward_label: "", reward_url: null, reward_code: null };
+const HTTPS = /^https:\/\/\S+$/;
 
 const chip = (on: boolean) => `inline-flex min-h-10 items-center rounded-full px-4 text-[14px] font-semibold transition-colors focus-visible:outline-2 ${on ? "bg-[#0D0D0D] text-[#F5F4EF]" : "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)] hover:bg-black/[0.03]"}`;
 const FREQUENCIES = ["Weekly", "Every two weeks", "Monthly", "Now and then"];
@@ -24,7 +27,7 @@ function toLocalInput(iso: string | null) {
 }
 const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null);
 
-function problemsOf(kind: ActionKind, draft: Draft) {
+function problemsOf(kind: ActionKind, draft: Draft, thanks: Thanks) {
   const problems: string[] = [];
   if (!draft.title.trim()) problems.push("Add a title.");
   for (const question of draft.config.questions ?? []) {
@@ -35,6 +38,8 @@ function problemsOf(kind: ActionKind, draft: Draft) {
   if (kind === "giveaway" && !draft.ends_at) problems.push("A giveaway needs an end date.");
   if (kind === "collab" && draft.config.types && draft.config.types.length === 0) problems.push("Pick at least one kind of work.");
   if (kind === "form" && !(draft.config.questions ?? []).length) problems.push("Add at least one question.");
+  if (thanks.reward_kind === "link" && !HTTPS.test(thanks.reward_url?.trim() ?? "")) problems.push("The reward link has to start with https://.");
+  if (thanks.reward_kind === "code" && !thanks.reward_code?.trim()) problems.push("Add the reward code.");
   return [...new Set(problems)];
 }
 
@@ -94,9 +99,11 @@ const VIEWS: { value: PhoneView; label: string }[] = [{ value: "page", label: "O
  * draft card in place, the Action's own page, and the moment after sending. Saving goes through RLS
  * as the owner; the database re-checks every field and the plan limits.
  */
-export function ActionEditor({ kind, initial, starter, profileId, modeId, covers, limits, locked, nextSortOrder, firstName, preview, base, listHref, coverHint }: {
+export function ActionEditor({ kind, initial, thanks: thanks0 = null, starter, profileId, modeId, covers, limits, locked, nextSortOrder, firstName, preview, base, listHref, coverHint }: {
   kind: ActionKind;
   initial: ProfileAction | null;
+  /** The saved thank-you heading and reward, if any. */
+  thanks?: ActionThanksRow | null;
   starter: Draft;
   profileId: string;
   modeId: string;
@@ -114,8 +121,10 @@ export function ActionEditor({ kind, initial, starter, profileId, modeId, covers
   coverHint: string;
 }) {
   const router = useRouter();
-  const saved0 = initial ? { title: initial.title, intro: initial.intro, cta_label: initial.cta_label, cover_block_id: initial.cover_block_id, config: initial.config, starts_at: initial.starts_at, ends_at: initial.ends_at } : starter;
+  const saved0 = initial ? { title: initial.title, intro: initial.intro, cta_label: initial.cta_label, cover_block_id: initial.cover_block_id, config: initial.config, starts_at: initial.starts_at, ends_at: initial.ends_at, show_before_start: initial.show_before_start, show_after_end: initial.show_after_end } : starter;
+  const savedThanks: Thanks = thanks0 ? { heading: thanks0.heading, reward_kind: thanks0.reward_kind, reward_label: thanks0.reward_label, reward_url: thanks0.reward_url, reward_code: thanks0.reward_code } : NO_THANKS;
   const [draft, setDraft] = useState<Draft>(saved0);
+  const [thanks, setThanksDraft] = useState<Thanks>(savedThanks);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -125,14 +134,21 @@ export function ActionEditor({ kind, initial, starter, profileId, modeId, covers
   const status: ActionStatus = initial?.status ?? "draft";
   const config = draft.config;
   const questions = config.questions ?? [];
-  const problems = problemsOf(kind, draft);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(saved0);
+  const problems = problemsOf(kind, draft, thanks);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved0) || JSON.stringify(thanks) !== JSON.stringify(savedThanks);
+  // A reward the plan doesn't include can be kept but not changed, so Free shows it as a Plus feature.
+  const rewardLocked = !limits.can_reward;
   const giveawayBlocked = kind === "giveaway" && limits.open_giveaways === 0;
   const asksQuestions = kind !== "newsletter";
 
   const setConfig = (next: Partial<ActionConfig>) => { setSaved(false); setDraft((current) => ({ ...current, config: { ...current.config, ...next } })); };
   const setField = <K extends keyof Draft>(key: K, value: Draft[K]) => { setSaved(false); setDraft((current) => ({ ...current, [key]: value })); };
   const action: PublicAction = useMemo(() => ({ id: initial?.id ?? "draft-preview", kind, title: draft.title || "Untitled", intro: draft.intro, cta_label: draft.cta_label, cover_block_id: draft.cover_block_id, config: cleanConfig(draft.config), starts_at: draft.starts_at, ends_at: draft.ends_at }), [draft, initial?.id, kind]);
+  const setThanks = (next: Partial<Thanks>) => { setSaved(false); setThanksDraft((current) => ({ ...current, ...next })); if (view !== "done") showView("done"); };
+  const previewThanks: ActionThanks = useMemo(() => ({
+    heading: thanks.heading,
+    reward: thanks.reward_kind === "none" || rewardLocked ? null : { kind: thanks.reward_kind, label: thanks.reward_label, url: thanks.reward_url, code: thanks.reward_code || "YOURCODE" },
+  }), [thanks, rewardLocked]);
   const coverUrl = covers.find((item) => item.id === draft.cover_block_id)?.imageUrl ?? null;
 
   // Leaving with unsaved changes asks first.
@@ -154,12 +170,28 @@ export function ActionEditor({ kind, initial, starter, profileId, modeId, covers
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    const row = { title: draft.title.trim(), intro: draft.intro.trim(), cta_label: draft.cta_label.trim(), cover_block_id: draft.cover_block_id, config: cleanConfig(draft.config), starts_at: draft.starts_at, ends_at: draft.ends_at, status: nextStatus };
+    const row = { title: draft.title.trim(), intro: draft.intro.trim(), cta_label: draft.cta_label.trim(), cover_block_id: draft.cover_block_id, config: cleanConfig(draft.config), starts_at: draft.starts_at, ends_at: draft.ends_at, show_before_start: draft.show_before_start ?? true, show_after_end: draft.show_after_end ?? true, status: nextStatus };
     const result = initial
       ? await supabase.from("profile_actions").update(locked ? { status: nextStatus, intro: row.intro, cta_label: row.cta_label, cover_block_id: row.cover_block_id } : row).eq("id", initial.id).eq("profile_id", profileId).select("id").single()
       : await supabase.from("profile_actions").insert({ ...row, profile_id: profileId, mode_id: modeId, kind, sort_order: nextSortOrder }).select("id").single();
+    if (result.error || !result.data) { setBusy(false); setError(actionErrorMessage(result.error?.message)); return; }
+    // The thank-you heading and reward live beside the Action, so they never reach its public config.
+    if (JSON.stringify(thanks) !== JSON.stringify(savedThanks) || !initial) {
+      const empty = !thanks.heading.trim() && thanks.reward_kind === "none";
+      const kept = thanks.reward_kind;
+      const thanksRow = { action_id: result.data.id, profile_id: profileId, heading: thanks.heading.trim(), reward_kind: kept, reward_label: kept === "none" ? "" : thanks.reward_label.trim(),
+        reward_url: kept === "link" ? thanks.reward_url?.trim() || null : null, reward_code: kept === "code" ? thanks.reward_code?.trim() || null : null };
+      const thanksResult = empty
+        ? await supabase.from("action_thanks").delete().eq("action_id", result.data.id)
+        : await supabase.from("action_thanks").upsert(thanksRow, { onConflict: "action_id" });
+      if (thanksResult.error) {
+        setBusy(false);
+        setError(actionErrorMessage(thanksResult.error.message));
+        if (!initial) router.replace(`${base}/${result.data.id}?tab=edit`);
+        return;
+      }
+    }
     setBusy(false);
-    if (result.error || !result.data) { setError(actionErrorMessage(result.error?.message)); return; }
     setSaved(true);
     if (nextStatus === "published" && status !== "published") { setView("page"); }
     if (!initial) router.replace(`${base}/${result.data.id}?tab=edit`);
@@ -203,7 +235,7 @@ export function ActionEditor({ kind, initial, starter, profileId, modeId, covers
       })}
     </div>
   );
-  const phone = (width?: number) => <ActionPhone action={action} coverUrl={coverUrl} firstName={firstName} replay={replay} source={preview} view={view} width={width} />;
+  const phone = (width?: number) => <ActionPhone action={action} coverUrl={coverUrl} firstName={firstName} replay={replay} source={preview} thanks={previewThanks} view={view} width={width} />;
   const caption = view === "page" ? (status === "published" ? "Your page, with this Action where visitors find it." : "Your page once this is live. Only you see the draft.")
     : view === "form" ? "The Action's own page, in your Appearance." : kind === "newsletter" || kind === "giveaway" ? "What people see after they send. Then they confirm by email." : "What people see after they send.";
 
@@ -335,18 +367,36 @@ export function ActionEditor({ kind, initial, starter, profileId, modeId, covers
         )}
 
         <Panel note="When it takes responses, and what people see after." step={asksQuestions ? "04" : "03"} title="Timing and thanks">
-          {kind === "giveaway" ? (
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field htmlFor="give-start" hint="Optional" label="Opens"><TextInput disabled={locked} id="give-start" onChange={(event) => setField("starts_at", fromLocalInput(event.target.value))} type="datetime-local" value={toLocalInput(draft.starts_at)} /></Field>
-              <Field htmlFor="give-end" label="Ends"><TextInput disabled={locked} id="give-end" onChange={(event) => setField("ends_at", fromLocalInput(event.target.value))} type="datetime-local" value={toLocalInput(draft.ends_at)} /></Field>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field htmlFor="action-start" hint="Optional" label="Opens"><TextInput disabled={locked} id="action-start" onChange={(event) => setField("starts_at", fromLocalInput(event.target.value))} type="datetime-local" value={toLocalInput(draft.starts_at)} /></Field>
+            <Field htmlFor="action-end" hint={kind === "giveaway" ? undefined : "Optional"} label={kind === "giveaway" ? "Ends" : "Closes"}><TextInput disabled={locked} id="action-end" onChange={(event) => setField("ends_at", fromLocalInput(event.target.value))} type="datetime-local" value={toLocalInput(draft.ends_at)} /></Field>
+          </div>
+          {(draft.starts_at || draft.ends_at) && (
+            <div className="-mt-1 grid gap-2">
+              {draft.starts_at && <ToggleRow label="Show before it opens" note="With a countdown. Off keeps it hidden until then." on={draft.show_before_start !== false} onChange={(next) => setField("show_before_start", next)} />}
+              {draft.ends_at && <ToggleRow label="Show after it closes" note="Marked closed. Off takes it off your page." on={draft.show_after_end !== false} onChange={(next) => setField("show_after_end", next)} />}
             </div>
-          ) : (
-            <Field htmlFor="action-until" hint="Optional" label="Open until"><TextInput id="action-until" onChange={(event) => setField("ends_at", fromLocalInput(event.target.value))} type="datetime-local" value={toLocalInput(draft.ends_at)} /></Field>
           )}
+          <Field hint={`${thanks.heading.length}/60`} htmlFor="action-heading" label="Thank-you heading"><TextInput id="action-heading" maxLength={60} onChange={(event) => setThanks({ heading: event.target.value })} placeholder={kind === "newsletter" ? "You're on the list." : "Sent."} value={thanks.heading} /></Field>
           <Field hint={`${(config.thanks ?? "").length}/200`} htmlFor="action-thanks" label="Thank-you line">
             <TextInput disabled={locked && kind === "giveaway"} id="action-thanks" maxLength={200} onChange={(event) => { setConfig({ thanks: event.target.value }); if (view !== "done") showView("done"); }} placeholder={kind === "newsletter" ? "See you in your inbox." : "Thank you, I read every one."} value={config.thanks ?? ""} />
           </Field>
-          <p className="-mt-2 text-[13px] text-black/50">Shown in your words on the success screen, in your Appearance&apos;s colours.</p>
+          <div>
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold">Reward</p>
+              {rewardLocked && <span className="flex items-center gap-2 text-[13px] text-black/60"><PlusTag />Give a link or code</span>}
+            </div>
+            <Segmented label="Reward" onChange={(reward_kind) => !rewardLocked && setThanks({ reward_kind })} options={[{ value: "none", label: "None" }, { value: "link", label: "Link", disabled: rewardLocked }, { value: "code", label: "Code", disabled: rewardLocked }]} value={thanks.reward_kind} />
+            {thanks.reward_kind !== "none" && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field hint="Optional" htmlFor="reward-label" label="Label"><TextInput disabled={rewardLocked} id="reward-label" maxLength={60} onChange={(event) => setThanks({ reward_label: event.target.value })} placeholder={thanks.reward_kind === "code" ? "10% off your first order" : "Download the preset pack"} value={thanks.reward_label} /></Field>
+                {thanks.reward_kind === "link"
+                  ? <Field htmlFor="reward-url" label="Link"><TextInput disabled={rewardLocked} id="reward-url" inputMode="url" maxLength={2048} onChange={(event) => setThanks({ reward_url: event.target.value })} placeholder="https://" value={thanks.reward_url ?? ""} /></Field>
+                  : <Field htmlFor="reward-code" label="Code"><TextInput disabled={rewardLocked} id="reward-code" maxLength={80} onChange={(event) => setThanks({ reward_code: event.target.value })} placeholder="WELCOME10" value={thanks.reward_code ?? ""} /></Field>}
+              </div>
+            )}
+          </div>
+          <p className="-mt-2 text-[13px] leading-[1.5] text-black/50">{kind === "newsletter" || kind === "giveaway" ? "The reward shows once they confirm by email." : "The reward shows only after someone sends."} It never appears on your page itself.</p>
         </Panel>
 
         <div className="sticky bottom-[calc(76px+env(safe-area-inset-bottom))] z-20 mt-2 flex flex-wrap items-center gap-1.5 rounded-[24px] bg-[#0D0D0D]/[0.92] p-2 pl-4 sm:gap-2.5 sm:p-2.5 text-[#F5F4EF] shadow-[0_24px_50px_-24px_rgba(13,13,13,.7)] backdrop-blur-md lg:bottom-5">

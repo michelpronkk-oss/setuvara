@@ -9,7 +9,7 @@ import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import type { MemberTier } from "@/lib/billing/member-badge";
 import type { ProfileIdentity, ProfileMode } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
-import type { PublicAction } from "@/lib/actions/model";
+import type { ActionThanks, PublicAction } from "@/lib/actions/model";
 import { actionTheme, actionThemeVars } from "@/lib/actions/theme";
 import type { CreatorSettings, StoreOffer, WorkItem } from "@/lib/creator/studio";
 import { ActionCards } from "./action-card";
@@ -62,7 +62,7 @@ export function PhoneFrame({ children, width = 340, dark = true, screenRef, heig
 }
 
 /** The Action's phone preview: the real page with the draft card in place, its own page, and the moment after sending. */
-export function ActionPhone({ source, action, coverUrl, view, replay, firstName, width }: { source: PreviewSource; action: PublicAction; coverUrl: string | null; view: PhoneView; replay: number; firstName: string; width?: number }) {
+export function ActionPhone({ source, action, coverUrl, view, replay, firstName, width, thanks = null }: { source: PreviewSource; action: PublicAction; coverUrl: string | null; view: PhoneView; replay: number; firstName: string; width?: number; thanks?: ActionThanks | null }) {
   const screen = useRef<HTMLDivElement>(null);
   const { mode, profile, plan } = source;
   const theme = actionTheme(mode, plan, Boolean(mode.image_url));
@@ -117,7 +117,7 @@ export function ActionPhone({ source, action, coverUrl, view, replay, firstName,
               <ActionForm action={action} firstName={firstName} heading={theme.heading} motion={theme.motion} preview />
             </ActionPageView>
           ) : (
-            <ActionForm action={action} contained firstName={firstName} heading={theme.heading} key={replay} motion={theme.motion === "off" ? "off" : "full"} preview previewSent />
+            <ActionForm action={action} contained firstName={firstName} heading={theme.heading} key={replay} motion={theme.motion === "off" ? "off" : "full"} preview previewSent previewThanks={thanks} />
           )}
         </div>
       )}

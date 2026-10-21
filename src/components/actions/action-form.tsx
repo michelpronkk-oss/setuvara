@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useId, useState, type CSSProperties } from "react";
 
 import type { MotionLevel } from "@/components/profile/appearance";
-import { BUDGET_LABEL, BUDGETS, COLLAB_TYPE_LABEL, COLLAB_TYPES, ctaFor, type Budget, type CollabType, type PublicAction, type Question } from "@/lib/actions/model";
+import { BUDGET_LABEL, BUDGETS, COLLAB_TYPE_LABEL, COLLAB_TYPES, ctaFor, type ActionThanks, type Budget, type CollabType, type PublicAction, type Question } from "@/lib/actions/model";
+import { ActionBeacon } from "./action-beacon";
 import { ActionSuccess } from "./action-success";
 
 // Colours come from the page's Appearance (--av-*, see lib/actions/theme.ts).
@@ -24,12 +25,14 @@ function newKey() {
  * re-checks everything; nothing here opens a chat or a Connection. In previews it renders the same,
  * but never sends; `previewSent` shows the success moment instead.
  */
-export function ActionForm({ action, firstName, backHref, preview = false, previewSent = false, signedInName = "", heading = {}, motion = "full", contained = false }: {
+export function ActionForm({ action, firstName, backHref, preview = false, previewSent = false, previewThanks = null, signedInName = "", heading = {}, motion = "full", contained = false }: {
   action: PublicAction;
   firstName: string;
   backHref?: string;
   preview?: boolean;
   previewSent?: boolean;
+  /** The editor's draft thank-you heading and reward, for the "After sending" preview. */
+  previewThanks?: ActionThanks | null;
   signedInName?: string;
   heading?: CSSProperties;
   motion?: MotionLevel;
@@ -52,6 +55,7 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
   const [accept, setAccept] = useState(false);
   const [hp, setHp] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [thanks, setThanks] = useState<ActionThanks | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [meta] = useState(() => ({ key: newKey(), openedAt: Date.now() }));
@@ -82,12 +86,13 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
       headers: { "Content-Type": "application/json", "x-setuvara-request": "same-origin" },
       body: JSON.stringify({ name: name.trim(), email: email.trim(), answers: Object.fromEntries(Object.entries(answers).filter(([, item]) => item.trim())), featureConsent: consent, acceptRules: accept, idempotencyKey: meta.key, openedAt: meta.openedAt, hp }),
     }).catch(() => null);
-    const result = await response?.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+    const result = await response?.json().catch(() => null) as { ok?: boolean; error?: string; thanks?: ActionThanks | null } | null;
     if (!response?.ok || !result?.ok) {
       setState("idle");
       setError(result?.error ?? "That didn't send. Check your connection and try again.");
       return;
     }
+    setThanks(result.thanks ?? null);
     setState("sent");
   }
 
@@ -102,8 +107,11 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
         heading={heading}
         kind={kind}
         motion={motion}
+        preview={previewSent}
+        reward={(previewSent ? previewThanks : thanks)?.reward ?? null}
         stage="sent"
         thanks={config.thanks}
+        title={(previewSent ? previewThanks : thanks)?.heading}
       />
     );
   }
@@ -123,6 +131,7 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
 
   return (
     <form className="mt-7 flex flex-1 flex-col gap-6" noValidate onSubmit={(event) => void send(event)}>
+      {!preview && <ActionBeacon ids={[action.id]} kind="open" />}
       {kind === "collab" && (
         <fieldset aria-describedby={described("collabType")}>
           <legend className="mb-2.5 text-[16px] font-semibold">What&apos;s it for?</legend>

@@ -168,3 +168,19 @@ describe("platform responses", () => {
     assert.equal(providers.parseTwitchUser({ data: [{ id: "1", login: "x", profile_image_url: "javascript:alert(1)" }] }).avatarUrl, null);
   });
 });
+
+describe("Insights and countdowns", () => {
+  test("rates are whole percents and never pass 100", () => {
+    assert.equal(model.rate(1, 3), 33);
+    assert.equal(model.rate(5, 4), 100);
+    assert.equal(model.rate(3, 0), null);
+  });
+  test("countdown labels read naturally", () => {
+    const now = Date.parse("2026-10-21T10:00:00Z");
+    assert.equal(model.untilLabel("2026-10-24T14:00:00Z", now), "in 3d 4h");
+    assert.equal(model.untilLabel("2026-10-23T10:00:00Z", now), "in 2d");
+    assert.equal(model.untilLabel("2026-10-21T15:20:00Z", now), "in 5h 20m");
+    assert.equal(model.untilLabel("2026-10-21T10:12:00Z", now), "in 12m");
+    assert.equal(model.untilLabel("2026-10-21T09:00:00Z", now), "in 1m");
+  });
+});
