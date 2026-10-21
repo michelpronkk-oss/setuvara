@@ -52,7 +52,7 @@ export function PublicBuilder({ projects, images, actions, actionHref, accent, a
                   <p className={`${label} mt-2 opacity-55`}>{[project.category, project.launched_on ? `Since ${month(project.launched_on)}` : null].filter(Boolean).join(" · ")}</p>
                 </div>
               </header>
-              {project.revenue && project.revenue.length > 0 && <VerifiedRevenue sources={project.revenue} />}
+              {project.revenue && project.revenue.length > 0 && <VerifiedRevenue accent={accent} accentInk={accentInk} idBase={project.id} sources={project.revenue} />}
               {project.description && <p className="whitespace-pre-line text-[15px] leading-[1.55] opacity-80">{project.description}</p>}
               {project.tech_stack.length > 0 && <ul aria-label="Built with" className="flex flex-wrap gap-1.5">{project.tech_stack.map((tech) => <li className="rounded-full px-2.5 py-1 text-[12.5px]" key={tech} style={{ background: soft }}>{tech}</li>)}</ul>}
 
