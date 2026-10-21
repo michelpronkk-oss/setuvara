@@ -61,6 +61,7 @@
     "e2e:creator-deals": "node scripts/e2e-creator-deals.mjs",
     "test:creator-deals": "node --test tests/creator/deals.test.mjs",
     "test:creator-deals:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/creator_deals_security.sql",
+    "test:creator-insights": "node --test tests/creator/insights.test.mjs",
     "e2e:giveaway-draw": "node scripts/e2e-giveaway-draw.mjs",
     "test:giveaway-draws:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/giveaway_draws_security.sql",
     "e2e:fan-drops": "node scripts/e2e-fan-drops.mjs",
