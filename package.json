@@ -81,7 +81,9 @@
     "test:goals:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/goal_templates_security.sql",
     "test:builder": "node --test tests/builder/builder.test.mjs",
     "test:builder:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/builder_projects_security.sql",
-    "test:builder-voting:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/builder_voting_security.sql"
+    "test:builder-voting:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/builder_voting_security.sql",
+    "test:revenue": "node --test tests/revenue/revenue.test.mjs",
+    "test:revenue:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/verified_revenue_security.sql"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

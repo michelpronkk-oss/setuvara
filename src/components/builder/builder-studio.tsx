@@ -8,6 +8,8 @@ import { reviewBuilderSuggestion } from "@/lib/builder/actions";
 import { builderError, insightsCsv, parseStack, projectSlug, PROJECT_STATUS_LABEL, PROJECT_STATUSES, ROADMAP_STAGE_LABEL, ROADMAP_STAGES, type BuilderInsights, type BuilderLimits, type BuilderProject, type BuilderSuggestion, type ProjectStatus, type ProjectUpdate, type RoadmapItem, type RoadmapStage } from "@/lib/builder/model";
 import { createClient } from "@/lib/supabase/client";
 
+import { RevenuePanel, type RevenueConnection, type RevenueLimits, type RevenueSnapshot } from "./revenue-panel";
+
 const field = "min-h-12 w-full rounded-[16px] bg-white px-4 text-[16px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none focus:shadow-[inset_0_0_0_1.5px_#0D0D0D]";
 const area = `${field} min-h-28 py-3`;
 const card = "rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
@@ -26,6 +28,7 @@ type Props = {
   selected: string | null;
   suggestions: BuilderSuggestion[];
   insights: Record<string, BuilderInsights | null>;
+  revenue: { connections: RevenueConnection[]; snapshots: RevenueSnapshot[]; limits: RevenueLimits };
 };
 
 type Draft = { name: string; slug: string; tagline: string; description: string; url: string; status: ProjectStatus; category: string; stack: string; launched_on: string; logo_block_id: string; cover_block_id: string; visibility: "draft" | "public"; roadmap_public: boolean; voting_enabled: boolean; suggestions_enabled: boolean };
@@ -130,6 +133,7 @@ export function BuilderStudio(props: Props) {
         {project && <Roadmap items={items} limit={props.limits.roadmap_items} onRun={run} ownerId={props.ownerId} pending={pending} projectId={project.id} supabase={supabase} />}
         {project && <Inbox onRun={run} pending={pending} suggestions={props.suggestions.filter((item) => item.project_id === project.id)} />}
         {project && props.insights[project.id] && <Insights data={props.insights[project.id]!} projectName={project.name} />}
+        {project && <RevenuePanel connections={props.revenue.connections} limits={props.revenue.limits} projectId={project.id} snapshots={props.revenue.snapshots} visibility={project.revenue_visibility ?? "hidden"} />}
         {project && <Updates onRun={run} ownerId={props.ownerId} pending={pending} posts={posts} projectId={project.id} supabase={supabase} />}
         {project && props.actions.length > 0 && (
           <section aria-label="Actions on this project" className={`${card} grid gap-3`}>

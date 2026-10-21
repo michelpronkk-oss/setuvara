@@ -13,15 +13,18 @@ export type ProjectUpdate = { id: string; title: string; body: string; published
 export type BuilderProject = {
   id: string; slug: string; name: string; tagline: string; description: string; url: string | null; status: ProjectStatus;
   category: string; tech_stack: string[]; launched_on: string | null; logo_block_id: string | null; cover_block_id: string | null;
-  visibility?: "draft" | "public"; roadmap_public?: boolean; sort_order?: number; voting_enabled?: boolean; suggestions_enabled?: boolean;
+  visibility?: "draft" | "public"; roadmap_public?: boolean; sort_order?: number; voting_enabled?: boolean; suggestions_enabled?: boolean; revenue_visibility?: RevenueVisibility;
 };
-export type PublicProject = BuilderProject & { roadmap: RoadmapItem[]; updates: ProjectUpdate[]; action_ids: string[]; voting?: boolean; suggestions?: boolean };
+export type PublicProject = BuilderProject & { roadmap: RoadmapItem[]; updates: ProjectUpdate[]; action_ids: string[]; voting?: boolean; suggestions?: boolean; revenue?: PublicRevenue[] };
+export type RevenueVisibility = "hidden" | "exact" | "range" | "growth";
+/** One provider's verified figure, already reduced to what the owner chose to show. */
+export type PublicRevenue = { provider: "stripe" | "revenuecat" | "dodo"; currency: string; synced_at: string; visibility: RevenueVisibility; mrr_minor: number | null; arr_minor: number | null; paying_customers: number | null; band: string | null; growth_pct: number | null };
 export type BuilderActivity = { voted: string[]; suggestions: { id: string; title: string; status: string; stage: string | null; created_at: string }[] };
 export type BuilderViewer = { signedIn: boolean; loginHref: string; activity: Record<string, BuilderActivity> };
 export type BuilderLimits = { plan: "free" | "plus" | "pro"; public_projects: number; roadmap_items: number; suggestions?: boolean; export?: boolean };
 export const DEFAULT_BUILDER_LIMITS: BuilderLimits = { plan: "free", public_projects: 1, roadmap_items: 15, suggestions: false, export: false };
 
-export const PROJECT_COLUMNS = "id, slug, name, tagline, description, url, status, category, tech_stack, launched_on, logo_block_id, cover_block_id, visibility, roadmap_public, sort_order, voting_enabled, suggestions_enabled";
+export const PROJECT_COLUMNS = "id, slug, name, tagline, description, url, status, category, tech_stack, launched_on, logo_block_id, cover_block_id, visibility, roadmap_public, sort_order, voting_enabled, suggestions_enabled, revenue_visibility";
 export const ROADMAP_COLUMNS = "id, project_id, title, description, stage, progress, target_date, shipped_at, is_public, sort_order";
 export const UPDATE_COLUMNS = "id, project_id, title, body, published_at";
 
