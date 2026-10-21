@@ -12,7 +12,7 @@ import { signHomeImage } from "@/lib/app/media";
 import { ActionsShell } from "./actions-shell";
 
 /** The chrome around a non-Creator Mode's Actions pages. Creator's live inside the Creator studio. */
-export async function ActionsFrame({ slug, page = "actions", children }: { slug: ModeSlug; page?: "actions" | "audience" | "events"; children: ReactNode }) {
+export async function ActionsFrame({ slug, page = "actions", children }: { slug: ModeSlug; page?: "actions" | "audience" | "events" | "leads"; children: ReactNode }) {
   const data = await loadModeActions(slug, actionsListHref(slug));
   if (!data.mode) notFound();
   const { data: personal } = await data.supabase.from("profile_modes").select("image_path, image_focus_x, image_focus_y").eq("profile_id", data.userId).eq("slug", "personal").maybeSingle();

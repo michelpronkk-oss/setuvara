@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { EditorSidebar, EventsIcon, SectionIcon, StudioIcon } from "@/app/app/identity/editor-sidebar";
+import { EditorSidebar, EventsIcon, LeadsIcon, SectionIcon, StudioIcon } from "@/app/app/identity/editor-sidebar";
 import { MeetMark } from "@/components/marketing/brand";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
@@ -18,12 +18,12 @@ const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4
  * breadcrumb bar on desktop, and on phones a compact header and the editor's dark tab bar.
  */
 export function ActionsShell({ children, page = "actions", slug, profile, modes, plan, liveUrl, pageUrl, personalUrl, avatarUrl, avatarFocus, needsYou, signOut }: {
-  children: ReactNode; /** Actions, or the Audience or Events page that sits beside it. */ page?: "actions" | "audience" | "events"; slug: ModeSlug; profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; plan: PlanCode;
+  children: ReactNode; /** Actions, or the Audience, Events or Leads page that sits beside it. */ page?: "actions" | "audience" | "events" | "leads"; slug: ModeSlug; profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; plan: PlanCode;
   liveUrl: string; pageUrl: string | null; personalUrl: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; needsYou: number; signOut: () => Promise<void>;
 }) {
   const router = useRouter();
-  const title = page === "audience" ? "Audience" : page === "events" ? "Events" : "Actions";
-  const pageHref = page === "events" ? "/app/identity/events" : `/app/identity/${page}?mode=${slug}`;
+  const title = page === "audience" ? "Audience" : page === "events" ? "Events" : page === "leads" ? "Leads" : "Actions";
+  const pageHref = page === "events" ? "/app/identity/events" : page === "leads" ? "/app/identity/leads" : `/app/identity/${page}?mode=${slug}`;
   const editor = (section?: string) => `/app/identity?mode=${slug}${section && section !== "home" ? `&section=${section}` : ""}`;
   const display = pageUrl?.replace(/^https?:\/\//, "") ?? null;
   return (
@@ -32,6 +32,7 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
         actions={page === "actions"}
         audience={page === "audience"}
         events={page === "events"}
+        leads={page === "leads"}
         avatarFocus={avatarFocus}
         avatarUrl={avatarUrl}
         liveUrl={liveUrl}
@@ -83,6 +84,10 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
           {slug === "event" && page === "events" ? (
             <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/events">
               <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><EventsIcon /></span>Events
+            </Link>
+          ) : slug === "business" && page === "leads" ? (
+            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/leads">
+              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#AFCBFF] [&_svg]:size-[20px]"><LeadsIcon /></span>Leads
             </Link>
           ) : (
             <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href={`/app/identity/actions?mode=${slug}`}>

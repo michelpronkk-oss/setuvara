@@ -56,6 +56,9 @@
     "test:events": "node --test tests/events/events.test.mjs",
     "test:events:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_foundation_security.sql",
     "test:events:concurrency": "node --test tests/events/concurrency.integration.mjs",
+    "e2e:business-leads": "node scripts/e2e-business-leads.mjs",
+    "test:business": "node --test tests/business/business.test.mjs",
+    "test:business-leads:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_leads_security.sql",
     "test:events-check-in:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_check_in_security.sql"
   },
   "dependencies": {
