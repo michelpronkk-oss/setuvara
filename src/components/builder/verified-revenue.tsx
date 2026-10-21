@@ -24,6 +24,7 @@ export function VerifiedRevenue({ sources }: { sources: PublicRevenue[] }) {
               <svg aria-hidden="true" className="size-3" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10" /></svg>
               Verified by {PROVIDER_LABEL[s.provider]}
             </span>
+            {s.preview && <span className="text-[11.5px] font-semibold opacity-80">{s.test ? "Test data · only you see this" : s.stale ? "Not current · only you see this" : "Preview · only you see this"}</span>}
             {figure && <span className="text-[15px] font-semibold tabular-nums">{figure}</span>}
             {growth && <span className="text-[13px] tabular-nums opacity-75">{growth}</span>}
             {s.paying_customers != null && <span className="text-[12.5px] tabular-nums opacity-65">{s.paying_customers} paying customers</span>}

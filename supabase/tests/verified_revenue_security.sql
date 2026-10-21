@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(23);
 
 create temporary table rv(kind text primary key, id uuid);
 grant select, insert on rv to anon, authenticated, service_role;
@@ -51,6 +51,13 @@ update public.revenue_connections set last_sync_at = now() - interval '3 days' w
 select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')), '{}'::jsonb, 'a stale sync drops the figure');
 update public.revenue_connections set last_sync_at = now(), environment='test' where id=pg_temp.v('conn');
 select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')), '{}'::jsonb, 'test mode never shows publicly');
+set local role authenticated;
+select pg_temp.as_user('owner');
+select is((public.get_builder_revenue_preview(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->>'test'), 'true', 'the owner previews test data, flagged as test');
+select pg_temp.as_user('other');
+select is(public.get_builder_revenue_preview(pg_temp.uname('owner'), 'creator'), '{}'::jsonb, 'nobody else gets the preview');
+reset role;
+select ok(not has_function_privilege('anon','public.get_builder_revenue_preview(text,text)','execute'), 'visitors cannot call the preview');
 update public.revenue_connections set environment='live' where id=pg_temp.v('conn');
 
 -- Isolation and disconnect.
