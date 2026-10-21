@@ -8,6 +8,7 @@ import { coralButton, EmptyState, FilterPill, lineButton, Mono } from "@/compone
 import { actionWindow, BUDGET_FLOOR, BUDGET_LABEL, COLLAB_TYPE_LABEL, STATUS_FLOW, SUBMISSION_STATUS_LABEL, SUBMISSION_STATUS_TONE, type Budget, type CollabType, type ProfileAction, type Submission, type SubmissionStatus } from "@/lib/actions/model";
 import { formatMoney, initials, relativeTime, type KitRate } from "@/lib/creator/studio";
 import { createClient } from "@/lib/supabase/client";
+import { GiveawayDraw } from "./giveaway-draw";
 
 const TINTS = ["#AFCBFF", "#C7FF4A", "#FFE7B8", "#E6E4DC", "#E6DCFF"];
 const BUILT_IN: Record<string, string> = { company: "Company", collabType: "For", budget: "Budget", timeline: "Timeline", website: "Website", preferredDates: "Dates" };
@@ -153,7 +154,7 @@ export function ActionInbox({ action, submissions, chatLinks, rates, initialId =
 
 /**
  * Giveaway entries and newsletter subscribers: confirmed, unconfirmed and removed, with a CSV for the
- * draw or the mailing tool. Setuvara doesn't pick winners or send newsletters, so nothing here pretends to.
+ * mailing tool, and once a giveaway ends, the winner draw. Setuvara doesn't send newsletters.
  */
 export function GiveawayEntries({ action, submissions, canExport }: { action: ProfileAction; submissions: Submission[]; canExport: boolean }) {
   const router = useRouter();
@@ -180,6 +181,7 @@ export function GiveawayEntries({ action, submissions, canExport }: { action: Pr
 
   return (
     <div className="flex flex-col gap-6">
+      {!newsletter && ended && <GiveawayDraw actionId={action.id} submissions={submissions} />}
       <dl className="grid grid-cols-3 gap-3">
         {groups.map((group) => (
           <div className="rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] md:p-5" key={group.status}>
@@ -211,7 +213,7 @@ export function GiveawayEntries({ action, submissions, canExport }: { action: Pr
       <p className="max-w-[70ch] text-[13px] leading-[1.5] text-black/60">
         {newsletter
           ? <>Only people who confirmed by email count. Export them into the tool you send with, and honour unsubscribes there. Unconfirmed signups are deleted after 7 days.</>
-          : <>{ended ? "This giveaway has ended. " : ""}Only confirmed entries count. Setuvara doesn&apos;t draw winners yet: export the confirmed entries, pick fairly and keep a note of how. Unconfirmed entries are deleted after 7 days, and entrant details 180 days after the end.</>}
+          : <>Only confirmed entries count{ended ? ", and only they can be drawn" : ". The winner draw opens when the giveaway ends"}. Unconfirmed entries are deleted after 7 days, and entrant details 180 days after the end.</>}
       </p>
     </div>
   );

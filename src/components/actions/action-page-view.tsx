@@ -58,11 +58,19 @@ export function ActionPageView({ action, theme, name, photoUrl, coverUrl, backHr
 }
 
 /** Not open: closed, or opening later. */
-export function ActionClosed({ action, backHref, name }: { action: PublicAction; backHref?: string; name: string }) {
+export type GiveawayAnnouncement = { names: string[]; eligible_count: number; drawn_at: string };
+
+export function ActionClosed({ action, backHref, name, winners = null }: { action: PublicAction; backHref?: string; name: string; /** An announced giveaway draw. */ winners?: GiveawayAnnouncement | null }) {
   const when = actionWindow(action);
   return (
-    <div className="mt-8 rounded-[22px] bg-[var(--av-panel)] p-6 shadow-[inset_0_0_0_1px_var(--av-line)]">
-      <p className="text-[17px] font-semibold">{when === "ended" ? "This has closed." : `This opens ${action.starts_at ? shortDate(action.starts_at) : "soon"}.`}</p>
+    <div className="mt-8 rounded-[22px] bg-[var(--av-panel)] p-6 shadow-[inset_0_0_0_1px_var(--av-line)]" data-closed={winners ? "announced" : when}>
+      {winners ? (
+        <>
+          <p className="font-label text-[11px] uppercase tracking-[0.18em]" style={{ color: "var(--av-accent)" }}>{winners.names.length === 1 ? "The winner" : "The winners"}</p>
+          <ul className="mt-3 flex flex-col gap-1.5">{winners.names.map((winner, index) => <li className="text-[26px] font-bold leading-tight tracking-[-0.03em]" key={`${winner}-${index}`}>{winner}</li>)}</ul>
+          <p className="mt-3 text-[14px] text-[var(--av-muted)]">Drawn {shortDate(winners.drawn_at)} at random from {winners.eligible_count} confirmed {winners.eligible_count === 1 ? "entry" : "entries"}. Thanks to everyone who entered.</p>
+        </>
+      ) : <p className="text-[17px] font-semibold">{when === "ended" ? "This has closed." : `This opens ${action.starts_at ? shortDate(action.starts_at) : "soon"}.`}</p>}
       {backHref && <Link className="mt-4 inline-flex min-h-11 items-center rounded-full px-[18px] text-[15px] font-semibold" href={backHref} style={{ background: "var(--av-btn-bg)", color: "var(--av-btn-fg)", boxShadow: "var(--av-btn-ring)" }}>Back to {name}</Link>}
     </div>
   );
@@ -100,7 +108,7 @@ function Terms({ action }: { action: PublicAction }) {
       </dl>
       <details className="mt-3 rounded-[18px] bg-[var(--av-panel)] p-4 shadow-[inset_0_0_0_1px_var(--av-line)] open:pb-5">
         <summary className="cursor-pointer text-[15px] font-semibold">Official rules</summary>
-        <p className="mt-3 whitespace-pre-line text-[14px] leading-[1.6] text-[var(--av-muted)]">{config.rules || "No purchase necessary. One entry per person, confirmed by email. The winner is chosen after the end date and contacted by email."}</p>
+        <p className="mt-3 whitespace-pre-line text-[14px] leading-[1.6] text-[var(--av-muted)]">{config.rules || "No purchase necessary. One entry per person, confirmed by email. After the end date the winner is drawn at random from confirmed entries and contacted by email."}</p>
         <p className="mt-3 text-[13px] text-[var(--av-muted)]">Setuvara hosts this page and is not the sponsor of this giveaway.</p>
       </details>
     </div>

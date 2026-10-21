@@ -11,7 +11,7 @@ import { actionTheme } from "@/lib/actions/theme";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
 import { ActionForm } from "./action-form";
-import { ActionClosed, ActionPageView } from "./action-page-view";
+import { ActionClosed, ActionPageView, type GiveawayAnnouncement } from "./action-page-view";
 
 export type ActionPageTarget = { username: string; slug: ModeSlug; backHref: string };
 
@@ -40,6 +40,9 @@ export async function PublicActionPage({ target, actionId }: { target: ActionPag
     record.mode.image_path ? createPublicProfileImageUrl(supabase, record.mode.image_path) : Promise.resolve(null),
   ]);
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
+  const { data: announcement } = action.kind === "giveaway" && actionWindow(action) === "ended"
+    ? await supabase.rpc("get_giveaway_announcement", { p_action_id: action.id })
+    : { data: null };
   const { data: viewer } = userId ? await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle() : { data: null };
   const own = userId === record.profile.id;
   const theme = actionTheme({ slug: target.slug, appearance: record.mode.appearance as ProfileMode["appearance"] }, record.plan, Boolean(photoUrl));
@@ -48,7 +51,7 @@ export async function PublicActionPage({ target, actionId }: { target: ActionPag
   return (
     <main className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh`} style={{ background: theme.bg }}>
       <ActionPageView action={action} backHref={target.backHref} coverUrl={coverUrl} name={name} photoUrl={photoUrl} theme={theme}>
-        {actionWindow(action) !== "open" ? <ActionClosed action={action} backHref={target.backHref} name={firstName} />
+        {actionWindow(action) !== "open" ? <ActionClosed action={action} backHref={target.backHref} name={firstName} winners={announcement as GiveawayAnnouncement | null} />
           : own ? (
             <div className="mt-8 rounded-[22px] bg-[var(--av-panel)] p-6 shadow-[inset_0_0_0_1px_var(--av-line)]">
               <p className="text-[17px] font-semibold">This is your own Action.</p>
