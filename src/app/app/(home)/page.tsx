@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { CreatorDashboard } from "@/components/creator/creator-dashboard";
 import { IdentityStage, type StageMode } from "@/components/app/home/identity-stage";
+import { GoalsSection } from "@/components/app/home/goals-section";
 import { PassportSection, PassportSkeleton } from "@/components/app/home/passport-section";
 import { PeopleSection, PeopleSkeleton } from "@/components/app/home/people-section";
 import type { ModeSlug } from "@/components/profile/types";
@@ -80,6 +81,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
       />
       <div className="mt-5 flex min-h-0 flex-col gap-6 lg:mt-0 min-[1800px]:gap-8">
         <Suspense fallback={<PeopleSkeleton />}><PeopleSection userId={userId} /></Suspense>
+        <Suspense fallback={null}><GoalsSection /></Suspense>
         <Suspense fallback={<PassportSkeleton />}><PassportSection plan={billing.plan} /></Suspense>
       </div>
     </main>
