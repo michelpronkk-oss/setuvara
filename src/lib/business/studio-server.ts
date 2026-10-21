@@ -7,9 +7,9 @@ import { redirect } from "next/navigation";
 import { loadModeActions } from "@/lib/actions/studio-server";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKING_COLUMNS, type Booking } from "./bookings";
-import { TEAM_HREF, TEAMS_HREF, workspaceHref, type Membership, type Team, type Workspace } from "./team";
+import { TEAM_HREF, TEAMS_HREF, workspaceHref, type LeadRouting, type Membership, type Team, type Workspace } from "./team";
 import { REQUEST_COLUMNS, TESTIMONIAL_COLUMNS, type Testimonial, type TestimonialRequest } from "./testimonials";
-import { DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
+import { DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity, type LeadPerson } from "./model";
 
 export const LEADS_HREF = "/app/identity/leads";
 /** The most leads the inbox holds; older ones are still in an export. */
@@ -38,13 +38,14 @@ export const loadLeads = cache(async (days: number) => {
   if (!data.mode) return { ...data, ready: false as const };
   const { supabase } = data;
   const bookingActions = data.actions.filter((action) => action.kind === "booking").map((action) => action.id);
-  const [leads, funnel, limits, bookings] = await Promise.all([
+  const [leads, funnel, limits, bookings, people] = await Promise.all([
     readLeads(supabase, data.userId),
     supabase.rpc("my_business_funnel", { p_days: days }),
     supabase.rpc("my_business_limits"),
     bookingActions.length
       ? supabase.from("business_bookings").select(BOOKING_COLUMNS).eq("profile_id", data.userId).in("action_id", bookingActions).neq("status", "cancelled").gte("ends_at", new Date().toISOString()).order("starts_at").limit(50)
       : Promise.resolve({ data: [] }),
+    supabase.rpc("business_people", { p_business_id: data.userId }),
   ]);
   if (leads.error || funnel.error) return { ...data, ready: false as const };
   return {
@@ -53,6 +54,7 @@ export const loadLeads = cache(async (days: number) => {
     leads: leads.data ?? [],
     funnel: funnel.data as Funnel,
     limits: (limits.data as BusinessLimits | null) ?? DEFAULT_BUSINESS_LIMITS,
+    people: (people.error ? [] : people.data ?? []) as LeadPerson[],
     bookings: ((bookings.data ?? []) as Booking[]).map((booking) => {
       const request = data.submissions.find((item) => item.id === booking.submission_id);
       return { ...booking, name: request?.name || request?.email || "Someone", title: data.actions.find((action) => action.id === booking.action_id)?.title ?? "Booking" };
@@ -114,10 +116,19 @@ export async function loadTestimonials() {
 export async function loadTeam() {
   const data = await loadModeActions("business", TEAM_HREF);
   if (!data.mode) return { ...data, ready: false as const };
-  const [{ data: team, error }, { data: claims }] = await Promise.all([data.supabase.rpc("my_business_team"), data.supabase.auth.getClaims()]);
+  const [{ data: team, error }, { data: claims }, routing, people] = await Promise.all([
+    data.supabase.rpc("my_business_team"),
+    data.supabase.auth.getClaims(),
+    data.supabase.rpc("my_lead_routing"),
+    data.supabase.rpc("business_people", { p_business_id: data.userId }),
+  ]);
   if (error || !team) return { ...data, ready: false as const };
   const email = typeof claims?.claims?.email === "string" ? claims.claims.email : null;
-  return { ...data, ready: true as const, team: team as Team, email };
+  return {
+    ...data, ready: true as const, team: team as Team, email,
+    routing: (routing.error ? null : routing.data) as LeadRouting | null,
+    people: (people.error ? [] : people.data ?? []) as LeadPerson[],
+  };
 }
 
 async function signedIn(next: string) {
@@ -141,7 +152,7 @@ export async function loadWorkspace(businessId: string) {
   const { data } = await supabase.rpc("business_workspace", { p_business_id: businessId });
   const workspace = data as Workspace | null;
   if (!workspace) return null;
-  const leads = await readLeads(supabase, businessId);
+  const [leads, people, { data: claims }] = await Promise.all([readLeads(supabase, businessId), supabase.rpc("business_people", { p_business_id: businessId }), supabase.auth.getClaims()]);
   if (leads.error) return null;
-  return { workspace, leads: leads.data ?? [] };
+  return { workspace, leads: leads.data ?? [], people: (people.error ? [] : people.data ?? []) as LeadPerson[], me: String(claims?.claims?.sub ?? "") };
 }

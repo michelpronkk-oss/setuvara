@@ -59,3 +59,18 @@ describe("team export", () => {
     assert.equal(model.leadExportHref("all", ""), "/api/business/leads/export?filter=all");
   });
 });
+
+describe("routing", () => {
+  test("stale rules are dropped before a save", () => {
+    const rules = { a1: "u1", a2: "gone", gone: "u1" };
+    assert.deepEqual(team.liveRules(rules, ["a1", "a2"], ["u1"]), { a1: "u1" });
+  });
+
+  test("the export names who a lead is with", () => {
+    const lead = { name: "Mara", email: null, stage: "new", lost_reason: null, inquiries: 1, source_action_id: null, created_at: "c", stage_changed_at: "s", last_activity_at: "l", assigned_to: "u1" };
+    const row = model.leadCsvRow(lead, () => "", (id) => (id === "u1" ? "Aanya Rao" : ""));
+    assert.equal(row.at(-1), "Aanya Rao");
+    assert.equal(model.LEAD_CSV_HEADER.at(-1), "Assigned to");
+    assert.equal(row.length, model.LEAD_CSV_HEADER.length);
+  });
+});

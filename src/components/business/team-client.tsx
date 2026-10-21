@@ -60,7 +60,7 @@ function MemberRow({ member, busy, onRole, onRemove }: { member: TeamMember; bus
 }
 
 /** Invite, change roles, remove. Access is checked on every request, so a change applies at once. */
-export function TeamBoard({ team, owner, ownerEmail, business }: { team: Team; owner: string; ownerEmail: string | null; business: string }) {
+export function TeamBoard({ team, owner, ownerEmail, business, routing }: { team: Team; owner: string; ownerEmail: string | null; business: string; /** The Lead routing card, beside the invite. */ routing?: React.ReactNode }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [email, setEmail] = useState("");
@@ -119,6 +119,7 @@ export function TeamBoard({ team, owner, ownerEmail, business }: { team: Team; o
           <button className={inkButton} disabled={pending || left === 0 || !email.trim()} onClick={invite} type="button">{pending ? "Inviting…" : "Make an invite link"}</button>
           {fresh && <InviteLink business={business} email={fresh.email} owner={owner} role={fresh.role} url={fresh.url} />}
         </section>
+        {routing}
         <p className="px-1 text-[13px] leading-[1.5] text-black/50">Teammates use their own Setuvara account. They never see your billing, page editor or private links, and if Pro ends, their access pauses until it&apos;s back.</p>
       </aside>
     </div>

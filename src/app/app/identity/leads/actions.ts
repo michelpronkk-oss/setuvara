@@ -1,6 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { after } from "next/server";
+
+import { getPublicOrigin } from "@/lib/app/viewer";
+import { alertAssignee } from "@/lib/business/mail";
 
 import { LEAD_STAGES, type LeadStage } from "@/lib/business/model";
 import { LEADS_HREF, loadLeadDetail } from "@/lib/business/studio-server";
@@ -16,6 +21,8 @@ const ERRORS: Record<string, string> = {
   notes_require_plus: "Notes are part of Plus.",
   invalid_note: "Write something first, up to 2,000 characters.",
   invalid_reason: "Keep the reason under 200 characters.",
+  assign_not_allowed: "Only the owner or a manager can hand this lead to someone.",
+  not_on_team: "They're not on the team anymore.",
 };
 const say = (message?: string) => Object.entries(ERRORS).find(([key]) => message?.includes(key))?.[1] ?? "That didn't go through. Try again.";
 
@@ -36,6 +43,25 @@ export async function addLeadNote(leadId: string, body: string, key: string) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("add_business_lead_note", { p_lead_id: leadId, p_body: body, p_idempotency_key: key });
   if (error) return { ok: false as const, error: say(error.message) };
+  revalidatePath(LEADS_HREF);
+  revalidatePath(TEAMS_HREF, "layout");
+  return { ok: true as const };
+}
+
+/**
+ * Assigns a lead to someone on the team, or to nobody. The database decides who may; a teammate who
+ * gets it from someone else is emailed once.
+ */
+export async function assignLead(leadId: string, userId: string | null) {
+  if (!UUID.test(leadId) || (userId !== null && !UUID.test(userId))) return { ok: false as const, error: "Not found." };
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const { data, error } = await supabase.rpc("assign_business_lead", { p_lead_id: leadId, p_user_id: userId });
+  if (error) return { ok: false as const, error: say(error.message) };
+  if ((data as { changed?: boolean } | null)?.changed && userId && userId !== claims?.claims?.sub) {
+    const origin = await getPublicOrigin(await headers());
+    after(() => alertAssignee(origin, { leadId }));
+  }
   revalidatePath(LEADS_HREF);
   revalidatePath(TEAMS_HREF, "layout");
   return { ok: true as const };

@@ -76,3 +76,14 @@ export async function switchAccountForInvite(token: string) {
   await supabase.auth.signOut();
   redirect(TOKEN.test(token) ? `/login?next=${encodeURIComponent(invitePath(token))}` : "/login");
 }
+
+/** Saves how new leads are routed. The database checks every Action and person in the rules. */
+export async function saveLeadRouting(mode: "off" | "round_robin", includeOwner: boolean, rules: Record<string, string>) {
+  if (mode !== "off" && mode !== "round_robin") return { ok: false as const, error: "Choose how leads are routed." };
+  if (Object.entries(rules).length > 50 || Object.entries(rules).some(([action, person]) => !UUID.test(action) || !UUID.test(person))) return { ok: false as const, error: "Check the rules." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("save_lead_routing", { p_mode: mode, p_include_owner: includeOwner, p_rules: rules });
+  if (error) return { ok: false as const, error: error.message.includes("invalid_rules") ? "A rule names an Action or person that's gone. Check them and save again." : say(error.message) };
+  revalidatePath(TEAM_HREF);
+  return { ok: true as const };
+}

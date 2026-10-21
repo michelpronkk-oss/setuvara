@@ -43,7 +43,7 @@ export async function TeamsIndex() {
 export async function WorkspaceIndex({ businessId }: { businessId: string }) {
   const data = await loadWorkspace(businessId);
   if (!data) notFound();
-  const { workspace, leads } = data;
+  const { workspace, leads, people } = data;
   const name = workspace.company || workspace.display_name;
   const open = leads.filter((lead) => lead.stage === "new" || lead.stage === "contacted" || lead.stage === "qualified").length;
   const { memberships } = await loadMemberships();
@@ -64,7 +64,7 @@ export async function WorkspaceIndex({ businessId }: { businessId: string }) {
       {leads.length === 0 ? (
         <EmptyState body={`When someone books, asks or pitches ${name} through their page, the lead shows up here for the whole team.`} title="No leads yet." />
       ) : (
-        <LeadsInbox business={businessId} canExport={workspace.limits.can_export} canNote={workspace.limits.can_note} leads={leads} owner={workspace.display_name} />
+        <LeadsInbox business={businessId} canExport={workspace.limits.can_export} canNote={workspace.limits.can_note} leads={leads} owner={workspace.display_name} people={people} />
       )}
       <Mono className="mt-8 text-black/40">You work these leads with {workspace.display_name}. Changes show for everyone on the team.</Mono>
     </StudioPage>
