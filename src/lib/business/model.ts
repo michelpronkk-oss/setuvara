@@ -21,8 +21,8 @@ export type LeadActivity = {
 };
 export const ACTIVITY_COLUMNS = "id, lead_id, kind, submission_id, from_stage, to_stage, body, created_at";
 
-export type BusinessLimits = { plan: "free" | "plus" | "pro"; can_note: boolean; can_export: boolean; funnel_days: number; booking_horizon_days: number };
-export const DEFAULT_BUSINESS_LIMITS: BusinessLimits = { plan: "free", can_note: false, can_export: false, funnel_days: 7, booking_horizon_days: 14 };
+export type BusinessLimits = { plan: "free" | "plus" | "pro"; can_note: boolean; can_export: boolean; funnel_days: number; booking_horizon_days: number; testimonials_shown: number };
+export const DEFAULT_BUSINESS_LIMITS: BusinessLimits = { plan: "free", can_note: false, can_export: false, funnel_days: 7, booking_horizon_days: 14, testimonials_shown: 3 };
 
 export type Funnel = {
   days: number; plan_days: number; since: string;
