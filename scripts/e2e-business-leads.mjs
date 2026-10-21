@@ -57,8 +57,8 @@ const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM
 try {
   const owner = await member("north");
   const other = await member("south");
-  psql(`insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at)
-    values ('sub_Bz${suffix}', '${owner.id}', 'cus_Bz${suffix}', 'pdt_BzPlus', 'plus', 'monthly', 'active', 'bz-${suffix}', now(), now())`);
+  psql(`insert into public.billing_subscriptions (dodo_subscription_id, user_id, dodo_customer_id, dodo_product_id, plan_code, billing_interval, provider_status, last_provider_event_id, last_provider_event_at, last_sync_started_at, current_period_end)
+    values ('sub_Bz${suffix}', '${owner.id}', 'cus_Bz${suffix}', 'pdt_BzPlus', 'plus', 'monthly', 'active', 'bz-${suffix}', now(), now(), now() + interval '30 days')`);
   const mode = psql(`select id from public.profile_modes where profile_id = '${owner.id}' and slug = 'business'`);
   const booking = psql(`insert into public.profile_actions (profile_id, mode_id, kind, title, status) values ('${owner.id}', '${mode}', 'booking', 'Book a studio visit', 'published') returning id`).split("\n")[0];
   const collab = psql(`insert into public.profile_actions (profile_id, mode_id, kind, title, status) values ('${owner.id}', '${mode}', 'collab', 'Work with North', 'published') returning id`).split("\n")[0];
