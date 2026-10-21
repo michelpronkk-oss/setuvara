@@ -88,14 +88,14 @@ export function StudioShell({ children, profile, modes, plan, liveUrl, shareUrl,
       <nav aria-label="Creator studio" className="fixed inset-x-0 bottom-0 z-40 rounded-t-[24px] bg-[#0D0D0D] pb-[env(safe-area-inset-bottom)] pt-1 text-[#F5F4EF] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] lg:hidden print:hidden">
         <div className="mx-auto grid h-16 max-w-md grid-cols-6 px-1">
           {/* Audience and Deals open from Actions on phones; six tabs is the bar's limit. */}
-          {STUDIO_PAGES.filter((item) => item.id !== "audience" && item.id !== "collabs").map((item) => <PhoneTab active={item.id === page.id || (item.id === "actions" && (page.id === "audience" || page.id === "collabs"))} badge={item.id === "actions" ? needsYou : 0} href={item.href} id={item.id} key={item.id} title={PHONE_LABEL[item.id]} />)}
+          {STUDIO_PAGES.filter((item) => item.id !== "audience" && item.id !== "collabs" && item.id !== "builder").map((item) => <PhoneTab active={item.id === page.id || (item.id === "actions" && (page.id === "audience" || page.id === "collabs"))} badge={item.id === "actions" ? needsYou : 0} href={item.href} id={item.id} key={item.id} title={PHONE_LABEL[item.id]} />)}
         </div>
       </nav>
     </div>
   );
 }
 
-const PHONE_LABEL: Record<StudioPageId, string> = { work: "Work", commerce: "Shop", actions: "Actions", collabs: "Deals", audience: "Audience", kit: "Kit", insights: "Insights", settings: "Settings" };
+const PHONE_LABEL: Record<StudioPageId, string> = { work: "Work", commerce: "Shop", actions: "Actions", collabs: "Deals", builder: "Builder", audience: "Audience", kit: "Kit", insights: "Insights", settings: "Settings" };
 
 function PhoneTab({ id, title, href, active, badge }: { id: StudioPageId; title: string; href: string; active: boolean; badge: number }) {
   return (
