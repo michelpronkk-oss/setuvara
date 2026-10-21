@@ -52,8 +52,15 @@ function FunnelStrip({ funnel, days }: { funnel: Funnel; days: number }) {
   );
 }
 
-/** The next held and confirmed times across Business Mode's Booking Actions. */
-function ComingUp({ bookings }: { bookings: (Booking & { name: string; title: string })[] }) {
+function Card({ linked, href, className, children }: { linked: boolean; href: string; className: string; children: React.ReactNode }) {
+  return linked ? <Link className={className} href={href}>{children}</Link> : <div className={className.replace(/ transition hover:\S+/, "")}>{children}</div>;
+}
+
+/**
+ * The next held and confirmed times across Business Mode's Booking Actions. The owner's cards open
+ * the Action's times; a teammate's (`linked` false) are read-only.
+ */
+export function ComingUp({ bookings, linked = true }: { bookings: (Booking & { name: string; title: string })[]; linked?: boolean }) {
   if (!bookings.length) return null;
   return (
     <section aria-labelledby="coming-title" className="mb-10">
@@ -64,14 +71,14 @@ function ComingUp({ bookings }: { bookings: (Booking & { name: string; title: st
       <ol className="-mx-3.5 flex snap-x gap-2.5 overflow-x-auto px-3.5 pb-1 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-4">
         {bookings.slice(0, 8).map((booking) => (
           <li className="min-w-[232px] snap-start" data-coming={booking.status} key={booking.id}>
-            <Link className="flex h-full flex-col gap-1 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" href={`/app/identity/actions/${booking.action_id}?tab=times`}>
+            <Card className="flex h-full flex-col gap-1 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" href={`/app/identity/actions/${booking.action_id}?tab=times`} linked={linked}>
               <span className="flex items-center justify-between gap-2">
                 <span className="font-display text-[19px] font-bold tracking-[-0.03em]">{formatSlot(booking.starts_at, booking.timezone)}</span>
                 <span className={`size-2.5 shrink-0 rounded-full ${booking.status === "confirmed" ? "bg-[#C7FF4A] shadow-[inset_0_0_0_1px_rgba(13,13,13,.25)]" : "bg-[#FFE7B8] shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} title={booking.status === "confirmed" ? "Confirmed" : "Requested"} />
               </span>
               <span className="truncate text-[14px] font-semibold">{booking.name}</span>
               <span className="truncate text-[13px] text-black/50">{booking.title} · {zoneName(booking.timezone)}</span>
-            </Link>
+            </Card>
           </li>
         ))}
       </ol>

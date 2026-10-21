@@ -2,10 +2,14 @@ import "server-only";
 
 import { cache } from "react";
 
+import { redirect } from "next/navigation";
+
 import { loadModeActions } from "@/lib/actions/studio-server";
+import { createClient } from "@/lib/supabase/server";
 import { BOOKING_COLUMNS, type Booking } from "./bookings";
+import { TEAM_HREF, TEAMS_HREF, workspaceHref, type Membership, type Team, type Workspace } from "./team";
 import { REQUEST_COLUMNS, TESTIMONIAL_COLUMNS, type Testimonial, type TestimonialRequest } from "./testimonials";
-import { ACTIVITY_COLUMNS, DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
+import { DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
 
 export const LEADS_HREF = "/app/identity/leads";
 /** The most leads the inbox holds; older ones are still in an export. */
@@ -14,10 +18,10 @@ export const INBOX_MAX = 5000;
 type Reader = Awaited<ReturnType<typeof loadModeActions>>["supabase"];
 
 /** The inbox's leads, most recent activity first, read a page at a time up to INBOX_MAX. */
-async function readLeads(supabase: Reader) {
+async function readLeads(supabase: Reader, businessId: string) {
   const leads: Lead[] = [];
   for (let from = 0; from < INBOX_MAX; from += LEAD_READ_BATCH) {
-    const { data, error } = await supabase.from("business_leads").select(LEAD_COLUMNS).order("last_activity_at", { ascending: false }).order("id").range(from, from + LEAD_READ_BATCH - 1);
+    const { data, error } = await supabase.from("business_leads").select(LEAD_COLUMNS).eq("profile_id", businessId).order("last_activity_at", { ascending: false }).order("id").range(from, from + LEAD_READ_BATCH - 1);
     if (error) return { data: null, error };
     leads.push(...((data ?? []) as Lead[]));
     if ((data ?? []).length < LEAD_READ_BATCH) break;
@@ -25,18 +29,21 @@ async function readLeads(supabase: Reader) {
   return { data: leads, error: null };
 }
 
-/** Business Mode's leads, the funnel for the window asked and the plan's limits, read as the owner under RLS. */
+/**
+ * Business Mode's leads, the funnel for the window asked and the plan's limits, read as the owner
+ * under RLS. Reads name the business: an owner who is also on someone else's team sees that one apart.
+ */
 export const loadLeads = cache(async (days: number) => {
   const data = await loadModeActions("business", LEADS_HREF);
   if (!data.mode) return { ...data, ready: false as const };
   const { supabase } = data;
   const bookingActions = data.actions.filter((action) => action.kind === "booking").map((action) => action.id);
   const [leads, funnel, limits, bookings] = await Promise.all([
-    readLeads(supabase),
+    readLeads(supabase, data.userId),
     supabase.rpc("my_business_funnel", { p_days: days }),
     supabase.rpc("my_business_limits"),
     bookingActions.length
-      ? supabase.from("business_bookings").select(BOOKING_COLUMNS).in("action_id", bookingActions).neq("status", "cancelled").gte("ends_at", new Date().toISOString()).order("starts_at").limit(50)
+      ? supabase.from("business_bookings").select(BOOKING_COLUMNS).eq("profile_id", data.userId).in("action_id", bookingActions).neq("status", "cancelled").gte("ends_at", new Date().toISOString()).order("starts_at").limit(50)
       : Promise.resolve({ data: [] }),
   ]);
   if (leads.error || funnel.error) return { ...data, ready: false as const };
@@ -65,21 +72,20 @@ export function questionLabels(config: unknown): Record<string, string> {
 
 export type LeadInquiry = { id: string; action_id: string; kind: string; answers: Record<string, string>; status: string; created_at: string; labels: Record<string, string> };
 
-/** One lead's history and the inquiries behind it, for its detail sheet. */
+/**
+ * One lead's history and the inquiries behind it, for its detail sheet: the owner's or a teammate's.
+ * The database checks access and hands over only this lead's inquiries.
+ */
 export async function loadLeadDetail(leadId: string) {
-  const data = await loadModeActions("business", LEADS_HREF);
-  const { supabase } = data;
-  const { data: activity } = await supabase.from("business_lead_activities").select(ACTIVITY_COLUMNS).eq("lead_id", leadId).order("created_at", { ascending: false }).limit(200);
-  const rows = (activity ?? []) as LeadActivity[];
-  const ids = rows.map((row) => row.submission_id).filter((id): id is string => Boolean(id));
-  const { data: inquiries } = ids.length
-    ? await supabase.from("action_submissions").select("id, action_id, kind, answers, status, created_at").in("id", ids)
-    : { data: [] };
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("business_lead_detail", { p_lead_id: leadId });
+  const detail = data as { activity: LeadActivity[]; inquiries: (Omit<LeadInquiry, "labels"> & { questions: unknown })[] } | null;
+  if (!detail) return { activity: [], inquiries: [] };
   // Custom questions are stored by id (q1, q2…); their labels live on the Action.
-  const actionIds = [...new Set((inquiries ?? []).map((row) => row.action_id as string))];
-  const { data: actions } = actionIds.length ? await supabase.from("profile_actions").select("id, config").in("id", actionIds) : { data: [] };
-  const labels = new Map((actions ?? []).map((row) => [row.id as string, questionLabels(row.config)]));
-  return { activity: rows, inquiries: (inquiries ?? []).map((row) => ({ ...row, labels: labels.get(row.action_id as string) ?? {} })) as LeadInquiry[] };
+  return {
+    activity: detail.activity,
+    inquiries: detail.inquiries.map(({ questions, ...row }) => ({ ...row, labels: questionLabels({ questions }) })) as LeadInquiry[],
+  };
 }
 
 export const TESTIMONIALS_HREF = "/app/identity/testimonials";
@@ -90,8 +96,8 @@ export async function loadTestimonials() {
   if (!data.mode) return { ...data, ready: false as const };
   const { supabase } = data;
   const [testimonials, requests, limits] = await Promise.all([
-    supabase.from("business_testimonials").select(TESTIMONIAL_COLUMNS).order("created_at", { ascending: false }).limit(300),
-    supabase.from("business_testimonial_requests").select(REQUEST_COLUMNS).order("created_at", { ascending: false }).limit(60),
+    supabase.from("business_testimonials").select(TESTIMONIAL_COLUMNS).eq("profile_id", data.userId).order("created_at", { ascending: false }).limit(300),
+    supabase.from("business_testimonial_requests").select(REQUEST_COLUMNS).eq("profile_id", data.userId).order("created_at", { ascending: false }).limit(60),
     supabase.rpc("my_business_limits"),
   ]);
   if (testimonials.error || requests.error) return { ...data, ready: false as const };
@@ -102,4 +108,40 @@ export async function loadTestimonials() {
     requests: (requests.data ?? []) as TestimonialRequest[],
     limits: { ...DEFAULT_BUSINESS_LIMITS, ...((limits.data as Partial<BusinessLimits> | null) ?? {}) } as BusinessLimits,
   };
+}
+
+/** The owner's team: seats on their plan, members and live invites, and their own email for the form. */
+export async function loadTeam() {
+  const data = await loadModeActions("business", TEAM_HREF);
+  if (!data.mode) return { ...data, ready: false as const };
+  const [{ data: team, error }, { data: claims }] = await Promise.all([data.supabase.rpc("my_business_team"), data.supabase.auth.getClaims()]);
+  if (error || !team) return { ...data, ready: false as const };
+  const email = typeof claims?.claims?.email === "string" ? claims.claims.email : null;
+  return { ...data, ready: true as const, team: team as Team, email };
+}
+
+async function signedIn(next: string) {
+  const supabase = await createClient();
+  const { data: claims, error } = await supabase.auth.getClaims();
+  const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
+  if (error || !userId) redirect(`/login?next=${encodeURIComponent(next)}`);
+  return { supabase, userId };
+}
+
+/** The businesses the signed-in person works for. */
+export async function loadMemberships() {
+  const { supabase } = await signedIn(TEAMS_HREF);
+  const { data, error } = await supabase.rpc("my_business_teams");
+  return { ready: !error, memberships: (error ? [] : data ?? []) as Membership[] };
+}
+
+/** One business's leads and bookings coming up, for a teammate. Null when they have no access (now). */
+export async function loadWorkspace(businessId: string) {
+  const { supabase } = await signedIn(workspaceHref(businessId));
+  const { data } = await supabase.rpc("business_workspace", { p_business_id: businessId });
+  const workspace = data as Workspace | null;
+  if (!workspace) return null;
+  const leads = await readLeads(supabase, businessId);
+  if (leads.error) return null;
+  return { workspace, leads: leads.data ?? [] };
 }
