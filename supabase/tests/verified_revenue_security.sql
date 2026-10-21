@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(24);
 
 create temporary table rv(kind text primary key, id uuid);
 grant select, insert on rv to anon, authenticated, service_role;
@@ -45,6 +45,7 @@ select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')-
 select ok((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->>'mrr_minor') is null, 'and not the amount');
 update public.builder_projects set revenue_visibility='exact' where id=pg_temp.v('project');
 select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->>'mrr_minor'), '420000', 'exact shows the amount');
+select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->'trend'), '[1.000]'::jsonb, 'the trend is a shape relative to its peak, never amounts');
 
 -- Stale or test data is never current verified revenue.
 update public.revenue_connections set last_sync_at = now() - interval '3 days' where id=pg_temp.v('conn');
