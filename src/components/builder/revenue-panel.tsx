@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { coralButton, lineButton } from "@/components/creator/studio-ui";
 import type { RevenueVisibility } from "@/lib/builder/model";
-import { connectRevenue, disconnectRevenue } from "@/lib/revenue/actions";
+import { connectRevenue, disconnectRevenue, syncRevenueNow } from "@/lib/revenue/actions";
 import { createClient } from "@/lib/supabase/client";
 
 import { money, PROVIDER_LABEL } from "./verified-revenue";
@@ -67,7 +67,10 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
             </div>
             <p className="text-[13px] text-black/60">Last sync {ago(c.last_sync_at)}{c.last_error ? `: ${c.last_error}` : ""}</p>
             {currencies.map((currency) => <Trend currency={currency} key={currency} rows={rows.filter((r) => r.currency === currency)} />)}
-            <button className={`${lineButton} w-fit`} disabled={pending} onClick={() => { if (window.confirm(`Disconnect ${PROVIDER_LABEL[c.provider]}? The key is deleted; past snapshots stay visible to you only.`)) start(async () => { const r = await disconnectRevenue(c.id); setMessage(r.ok ? "Disconnected. Also delete the key in your provider's dashboard." : r.error); router.refresh(); }); }} type="button">Disconnect</button>
+            <div className="flex flex-wrap gap-2">
+            <button className={lineButton} disabled={pending} onClick={() => start(async () => { const r = await syncRevenueNow(c.id); setMessage(r.ok ? "Synced." : r.error); router.refresh(); })} type="button">{pending ? "Syncing…" : "Sync now"}</button>
+            <button className={lineButton} disabled={pending} onClick={() => { if (window.confirm(`Disconnect ${PROVIDER_LABEL[c.provider]}? The key is deleted; past snapshots stay visible to you only.`)) start(async () => { const r = await disconnectRevenue(c.id); setMessage(r.ok ? "Disconnected. Also delete the key in your provider's dashboard." : r.error); router.refresh(); }); }} type="button">Disconnect</button>
+            </div>
           </div>
         );
       })}
