@@ -47,3 +47,11 @@ test("database refusals read as plain sentences", () => {
   assert.match(m.builderError("new row violates: plan_project_limit"), /public projects/);
   assert.match(m.builderError("weird"), /didn't save/);
 });
+test("vote export: counts only, and spreadsheet formulas are neutralised", () => {
+  const csv = m.insightsCsv("My SaaS", { items: [{ id: "1", title: "=HYPERLINK(\"x\")", stage: "planned", votes: 3, votes_30d: 1 }, { id: "2", title: "Dark, mode", stage: "in_progress", votes: 1, votes_30d: 0 }], voters: 2, pending: 0, approved: 0, declined: 0, can_export: true });
+  const lines = csv.trim().split("\n");
+  assert.equal(lines[0], "project,item,stage,votes,votes_last_30_days");
+  assert.ok(lines[1].includes("\"'=HYPERLINK"), "formula prefixed");
+  assert.ok(lines[2].includes("\"Dark, mode\""), "commas quoted");
+  assert.ok(!/@|voter|author|email/i.test(lines[0]));
+});

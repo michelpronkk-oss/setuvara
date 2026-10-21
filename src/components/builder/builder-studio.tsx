@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { coralButton, inkButton, lineButton, Mono } from "@/components/creator/studio-ui";
-import { builderError, parseStack, projectSlug, PROJECT_STATUS_LABEL, PROJECT_STATUSES, ROADMAP_STAGE_LABEL, ROADMAP_STAGES, type BuilderLimits, type BuilderProject, type ProjectStatus, type ProjectUpdate, type RoadmapItem, type RoadmapStage } from "@/lib/builder/model";
+import { reviewBuilderSuggestion } from "@/lib/builder/actions";
+import { builderError, insightsCsv, parseStack, projectSlug, PROJECT_STATUS_LABEL, PROJECT_STATUSES, ROADMAP_STAGE_LABEL, ROADMAP_STAGES, type BuilderInsights, type BuilderLimits, type BuilderProject, type BuilderSuggestion, type ProjectStatus, type ProjectUpdate, type RoadmapItem, type RoadmapStage } from "@/lib/builder/model";
 import { createClient } from "@/lib/supabase/client";
 
 const field = "min-h-12 w-full rounded-[16px] bg-white px-4 text-[16px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none focus:shadow-[inset_0_0_0_1.5px_#0D0D0D]";
@@ -23,13 +24,16 @@ type Props = {
   images: { id: string; imageUrl: string; title: string }[];
   limits: BuilderLimits;
   selected: string | null;
+  suggestions: BuilderSuggestion[];
+  insights: Record<string, BuilderInsights | null>;
 };
 
-type Draft = { name: string; slug: string; tagline: string; description: string; url: string; status: ProjectStatus; category: string; stack: string; launched_on: string; logo_block_id: string; cover_block_id: string; visibility: "draft" | "public"; roadmap_public: boolean };
+type Draft = { name: string; slug: string; tagline: string; description: string; url: string; status: ProjectStatus; category: string; stack: string; launched_on: string; logo_block_id: string; cover_block_id: string; visibility: "draft" | "public"; roadmap_public: boolean; voting_enabled: boolean; suggestions_enabled: boolean };
 const toDraft = (project: BuilderProject | null): Draft => ({
   name: project?.name ?? "", slug: project?.slug ?? "", tagline: project?.tagline ?? "", description: project?.description ?? "", url: project?.url ?? "",
   status: project?.status ?? "building", category: project?.category ?? "", stack: (project?.tech_stack ?? []).join(", "), launched_on: project?.launched_on ?? "",
   logo_block_id: project?.logo_block_id ?? "", cover_block_id: project?.cover_block_id ?? "", visibility: project?.visibility ?? "draft", roadmap_public: project?.roadmap_public ?? true,
+  voting_enabled: project?.voting_enabled ?? true, suggestions_enabled: project?.suggestions_enabled ?? false,
 });
 
 /** Projects on one side, the chosen project's details, roadmap, updates and Actions on the other. */
@@ -60,6 +64,7 @@ export function BuilderStudio(props: Props) {
       url: draft.url.trim() ? (draft.url.trim().startsWith("https://") ? draft.url.trim() : `https://${draft.url.trim().replace(/^http:\/\//, "")}`) : null,
       status: draft.status, category: draft.category.trim(), tech_stack: parseStack(draft.stack), launched_on: draft.launched_on || null,
       logo_block_id: draft.logo_block_id || null, cover_block_id: draft.cover_block_id || null, visibility: draft.visibility, roadmap_public: draft.roadmap_public,
+      voting_enabled: draft.voting_enabled, suggestions_enabled: draft.suggestions_enabled && Boolean(props.limits.suggestions),
     };
     if (project) return supabase.from("builder_projects").update(row).eq("id", project.id);
     const created = await supabase.from("builder_projects").insert({ ...row, owner_user_id: props.ownerId, mode_id: props.modeId, sort_order: props.projects.length }).select("id").single();
@@ -111,6 +116,8 @@ export function BuilderStudio(props: Props) {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <label className="flex items-center gap-3 text-[15px]"><input checked={draft.visibility === "public"} className="size-5 accent-[#0D0D0D]" onChange={(e) => set("visibility", e.target.checked ? "public" : "draft")} type="checkbox" />Show on my page</label>
             <label className="flex items-center gap-3 text-[15px]"><input checked={draft.roadmap_public} className="size-5 accent-[#0D0D0D]" onChange={(e) => set("roadmap_public", e.target.checked)} type="checkbox" />Public roadmap</label>
+            <label className="flex items-center gap-3 text-[15px]"><input checked={draft.voting_enabled} className="size-5 accent-[#0D0D0D]" onChange={(e) => set("voting_enabled", e.target.checked)} type="checkbox" />Voting</label>
+            <label className={`flex items-center gap-3 text-[15px] ${props.limits.suggestions ? "" : "opacity-55"}`}><input checked={draft.suggestions_enabled && Boolean(props.limits.suggestions)} className="size-5 accent-[#0D0D0D]" disabled={!props.limits.suggestions} onChange={(e) => set("suggestions_enabled", e.target.checked)} type="checkbox" />Suggestions{!props.limits.suggestions && <span className="text-[13px]">· Plus</span>}</label>
           </div>
           {error && <p className="rounded-[14px] bg-[#FFE9E7] px-4 py-3 text-[14px] text-[#B4231A]" role="alert">{error === "That didn't save. Try again." && !draft.name.trim() ? "Give the project a name." : error}</p>}
           <div className="flex flex-wrap items-center gap-3">
@@ -121,6 +128,8 @@ export function BuilderStudio(props: Props) {
         </section>
 
         {project && <Roadmap items={items} limit={props.limits.roadmap_items} onRun={run} ownerId={props.ownerId} pending={pending} projectId={project.id} supabase={supabase} />}
+        {project && <Inbox onRun={run} pending={pending} suggestions={props.suggestions.filter((item) => item.project_id === project.id)} />}
+        {project && props.insights[project.id] && <Insights data={props.insights[project.id]!} projectName={project.name} />}
         {project && <Updates onRun={run} ownerId={props.ownerId} pending={pending} posts={posts} projectId={project.id} supabase={supabase} />}
         {project && props.actions.length > 0 && (
           <section aria-label="Actions on this project" className={`${card} grid gap-3`}>
@@ -193,6 +202,41 @@ function Updates({ posts, projectId, ownerId, supabase, onRun, pending }: { post
         <li className="flex items-start justify-between gap-3 rounded-[14px] bg-[#F5F4EF] p-3" key={p.id}><span><span className="block text-[14.5px] font-semibold">{p.title}</span><span className="text-[13px] text-black/55">{new Date(p.published_at).toLocaleDateString()}</span></span>
           <button className="text-[13px] text-black/45 hover:text-black" disabled={pending} onClick={() => onRun(async () => supabase.from("builder_project_updates").delete().eq("id", p.id), "Removed.")} type="button">Remove</button></li>
       ))}</ol>}
+    </section>
+  );
+}
+
+function Inbox({ suggestions, onRun, pending }: { suggestions: BuilderSuggestion[]; onRun: Run; pending: boolean }) {
+  const open = suggestions.filter((item) => item.status === "pending");
+  const done = suggestions.filter((item) => item.status !== "pending").slice(0, 10);
+  if (!suggestions.length) return null;
+  const decide = (id: string, approve: boolean, add: boolean) => onRun(async () => { const r = await reviewBuilderSuggestion(id, approve, add); return r.ok ? undefined : { error: { message: r.error } }; }, approve ? "Approved." : "Declined.");
+  return (
+    <section aria-label="Suggestions" className={`${card} grid gap-3`}>
+      <div className="flex items-baseline justify-between"><Mono className="text-black/55">Suggestions</Mono><span className="text-[13px] text-black/50">{open.length} waiting</span></div>
+      <p className="text-[14px] text-black/60">Private until you approve. Approving adds the idea to Planned; its author can follow it.</p>
+      <ul className="grid gap-2">{open.map((item) => (
+        <li className="grid gap-2 rounded-[16px] bg-[#F5F4EF] p-4" key={item.id}>
+          <p className="text-[15px] font-semibold">{item.title}</p>{item.body && <p className="whitespace-pre-line text-[14px] text-black/70">{item.body}</p>}
+          <div className="flex flex-wrap gap-2"><button className={inkButton} disabled={pending} onClick={() => decide(item.id, true, true)} type="button">Add to roadmap</button><button className={lineButton} disabled={pending} onClick={() => decide(item.id, true, false)} type="button">Approve only</button><button className={lineButton} disabled={pending} onClick={() => decide(item.id, false, false)} type="button">Decline</button></div>
+        </li>
+      ))}</ul>
+      {done.length > 0 && <ul className="grid gap-1 text-[13px] text-black/55">{done.map((item) => <li key={item.id}>{item.title} · {item.status === "approved" ? "Approved" : "Declined"}</li>)}</ul>}
+    </section>
+  );
+}
+
+function Insights({ data, projectName }: { data: BuilderInsights; projectName: string }) {
+  const top = data.items.filter((item) => item.votes > 0).slice(0, 8);
+  const download = () => { const blob = new Blob([insightsCsv(projectName, data)], { type: "text/csv" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${projectSlug(projectName)}-votes.csv`; a.click(); URL.revokeObjectURL(url); };
+  return (
+    <section aria-label="Voting insights" className={`${card} grid gap-3`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2"><Mono className="text-black/55">Voting</Mono><span className="text-[13px] text-black/55">{data.voters} {data.voters === 1 ? "person" : "people"} voted · {data.approved} ideas approved</span></div>
+      {top.length ? <ol className="grid gap-2">{top.map((item) => (
+        <li className="grid gap-1" key={item.id}><div className="flex justify-between gap-3 text-[14px]"><span className="truncate font-semibold">{item.title}</span><span className="shrink-0 tabular-nums text-black/60">{item.votes}{item.votes_30d ? ` · +${item.votes_30d} this month` : ""}</span></div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#F5F4EF]"><div className="h-full rounded-full bg-[#0D0D0D]" style={{ width: `${Math.max(4, Math.round((item.votes / top[0].votes) * 100))}%` }} /></div></li>
+      ))}</ol> : <p className="text-[14px] text-black/60">No votes yet. Votes show here as members vote on planned and in-progress items.</p>}
+      {data.can_export ? <div><button className={lineButton} onClick={download} type="button">Export CSV</button><p className="mt-1 text-[12.5px] text-black/50">Counts only. No voter or author is ever in the file.</p></div> : <p className="text-[13px] text-black/50">CSV export is part of Pro.</p>}
     </section>
   );
 }

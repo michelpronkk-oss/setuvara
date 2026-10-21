@@ -1,4 +1,5 @@
-import { byStage, PROJECT_STATUS_LABEL, ROADMAP_STAGE_LABEL, safeHttps, type PublicProject, type RoadmapStage } from "@/lib/builder/model";
+import { byStage, PROJECT_STATUS_LABEL, ROADMAP_STAGE_LABEL, safeHttps, type BuilderViewer, type PublicProject, type RoadmapStage } from "@/lib/builder/model";
+import { SuggestForm, VoteButton } from "./builder-participation";
 import { ctaFor, type PublicAction } from "@/lib/actions/model";
 
 const BOARD_ORDER: RoadmapStage[] = ["in_progress", "planned", "shipped"];
@@ -12,8 +13,10 @@ const dayMonth = (iso: string) => new Date(iso).toLocaleDateString("en", { day: 
  * What the owner is building, on their Creator or Business page. It sits inside any Appearance:
  * colour comes from currentColor and the page accent, never a fixed palette.
  */
-export function PublicBuilder({ projects, images, actions, actionHref, accent, accentInk }: {
+export function PublicBuilder({ projects, images, actions, actionHref, accent, accentInk, viewer }: {
   projects: PublicProject[];
+  /** Who is looking: their votes and ideas. Absent on previews, where nothing is interactive. */
+  viewer?: BuilderViewer;
   images: Record<string, string | null>;
   actions: PublicAction[];
   actionHref?: (id: string) => string;
@@ -74,7 +77,11 @@ export function PublicBuilder({ projects, images, actions, actionHref, accent, a
                         <ol className="flex flex-col gap-2">
                           {stages[stage].map((item) => (
                             <li className="rounded-[12px] p-3" data-roadmap-stage={stage} key={item.id} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
-                              <p className="text-[14.5px] font-semibold leading-[1.35]">{item.title}</p>
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-[14.5px] font-semibold leading-[1.35]">{item.title}</p>
+                                {viewer && project.voting && stage !== "shipped" && <VoteButton accent={accent} accentInk={accentInk} itemId={item.id} loginHref={viewer.loginHref} signedIn={viewer.signedIn} voted={viewer.activity[project.id]?.voted.includes(item.id) ?? false} votes={Number(item.votes ?? 0)} />}
+                                {(!viewer || !project.voting) && stage !== "shipped" && Number(item.votes ?? 0) > 0 && <span className={`${label} shrink-0 text-[9.5px] opacity-60`}>{item.votes} votes</span>}
+                              </div>
                               {item.description && <p className="mt-1 line-clamp-3 text-[13px] leading-[1.45] opacity-70">{item.description}</p>}
                               {stage === "in_progress" && item.progress > 0 && (
                                 <div aria-label={`${item.progress}% done`} className="mt-2 h-1 overflow-hidden rounded-full" role="img" style={{ background: line }}><div className="h-full rounded-full" style={{ width: `${item.progress}%`, background: accent }} /></div>
@@ -89,6 +96,8 @@ export function PublicBuilder({ projects, images, actions, actionHref, accent, a
                   </div>
                 </details>
               )}
+
+              {viewer && project.suggestions && <SuggestForm accent={accent} accentInk={accentInk} loginHref={viewer.loginHref} mine={viewer.activity[project.id]?.suggestions ?? []} projectId={project.id} signedIn={viewer.signedIn} />}
 
               {project.updates.length > 0 && (
                 <div className="flex flex-col gap-3">
