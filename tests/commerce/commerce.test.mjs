@@ -19,7 +19,7 @@ const root = resolve(import.meta.dirname, "../..");
 const cache = join(root, "node_modules/.cache");
 mkdirSync(cache, { recursive: true });
 const out = mkdtempSync(join(cache, "setuvara-commerce-"));
-let model, stripe, server;
+let model, stripe, server, events;
 
 before(async () => {
   const stub = join(out, "server-only.js");
@@ -28,10 +28,11 @@ before(async () => {
     await build({ entryPoints: [join(root, entry)], bundle: true, format: "cjs", platform: "node", alias: { "@": join(root, "src"), "server-only": stub }, outfile: join(out, `${name}.cjs`), logLevel: "silent" });
     return createRequire(import.meta.url)(join(out, `${name}.cjs`));
   };
-  [model, stripe, server] = await Promise.all([
+  [model, stripe, server, events] = await Promise.all([
     bundle("src/lib/commerce/model.ts", "model"),
     bundle("src/lib/commerce/stripe.ts", "stripe"),
     bundle("src/lib/commerce/server.ts", "server"),
+    bundle("src/lib/commerce/events.ts", "events"),
   ]);
 });
 after(() => rmSync(out, { recursive: true, force: true }));
@@ -241,5 +242,46 @@ describe("configuration and tokens", () => {
     assert.equal(server.hashToken(a.token), a.hash);
     assert.ok(!server.isDownloadToken("short"));
     assert.ok(!server.isDownloadToken(`${a.token.slice(0, 42)}/`));
+  });
+});
+
+describe("refund events", () => {
+  // A fake service: creator_orders holds one order paid on acct_A; every rpc call is recorded.
+  const fake = (orders = [{ id: "order-a", provider: "stripe", provider_account_id: "acct_A", provider_payment_id: "pi_A" }]) => {
+    const calls = [];
+    const query = (rows) => {
+      let found = rows;
+      const chain = {
+        select: () => chain,
+        eq: (key, value) => { found = found.filter((row) => row[key] === value); return chain; },
+        neq: () => chain,
+        maybeSingle: async () => ({ data: found[0] ?? null }),
+        then: (resolve) => resolve({ data: [] }),
+      };
+      return chain;
+    };
+    return { calls, service: { from: (table) => query(table === "creator_orders" ? orders : []), rpc: async (name, args) => { calls.push({ name, args }); return { data: null, error: null }; } } };
+  };
+  const provider = { code: "stripe", livemode: false, platformFeeRefundedTotal: async () => 0 };
+  const refundEvent = (accountId, refund) => ({ id: "evt_1", livemode: false, accountId, event: { kind: "refund.updated", refund: { refundId: "re_1", amountMinor: 500, currency: "EUR", status: "succeeded", reason: null, ...refund } } });
+
+  test("a refund resolves its order from the payment on the connected account", async () => {
+    const { calls, service } = fake();
+    assert.equal(await events.handleCommerceEvent(service, provider, refundEvent("acct_A", { paymentId: "pi_A", orderId: null }), "https://setuvara.com"), "processed");
+    assert.equal(calls[0].args.p_order_id, "order-a");
+  });
+  test("metadata pointing at another seller's order is ignored", async () => {
+    const { calls, service } = fake([
+      { id: "order-a", provider: "stripe", provider_account_id: "acct_A", provider_payment_id: "pi_A" },
+      { id: "order-b", provider: "stripe", provider_account_id: "acct_B", provider_payment_id: "pi_B" },
+    ]);
+    assert.equal(await events.handleCommerceEvent(service, provider, refundEvent("acct_A", { paymentId: "pi_A", orderId: "order-b" }), "https://setuvara.com"), "ignored");
+    assert.equal(await events.handleCommerceEvent(service, provider, refundEvent("acct_A", { paymentId: "pi_other", orderId: "order-b" }), "https://setuvara.com"), "ignored");
+    assert.equal(calls.length, 0);
+  });
+  test("matching metadata is accepted", async () => {
+    const { calls, service } = fake();
+    assert.equal(await events.handleCommerceEvent(service, provider, refundEvent("acct_A", { paymentId: "pi_A", orderId: "order-a" }), "https://setuvara.com"), "processed");
+    assert.equal(calls.length, 1);
   });
 });

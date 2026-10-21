@@ -74,8 +74,10 @@ export async function handleCommerceEvent(service: SupabaseClient, provider: Com
       const refund = event.refund;
       const account = verified.accountId;
       if (!account || !refund.paymentId) return "ignored";
-      const orderId = refund.orderId ?? await orderForPayment(service, provider.code, account, refund.paymentId);
-      if (!orderId) return "ignored";
+      // The order comes from the payment on this connected account, never from refund metadata alone:
+      // a seller with their own API keys could write any order id there. Metadata only has to agree.
+      const orderId = await orderForPayment(service, provider.code, account, refund.paymentId);
+      if (!orderId || (refund.orderId && refund.orderId !== orderId)) return "ignored";
       let feeBack = 0;
       if (refund.status === "succeeded") {
         // Exact fee returned for this refund: the platform's running total minus what earlier refunds already recorded.
