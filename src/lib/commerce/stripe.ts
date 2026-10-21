@@ -192,7 +192,9 @@ export class StripeCommerceProvider implements CommerceProvider {
 
   async retrieveSeller(accountId: string): Promise<SellerSnapshot> {
     try {
-      return sellerFromAccount(await this.stripe.accounts.retrieve(accountId), this.livemode);
+      // With a Stripe-Context, /v1/accounts/:id clashes with the context; read the account as itself instead.
+      const account = this.context ? await this.stripe.accounts.retrieveCurrent({}, this.on(accountId)) : await this.stripe.accounts.retrieve(accountId);
+      return sellerFromAccount(account, this.livemode);
     } catch (error) {
       // A seller who disconnected the platform: the account can no longer be read.
       if (error instanceof Stripe.errors.StripePermissionError || (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === "account_invalid")) {
