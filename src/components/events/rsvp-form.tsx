@@ -17,11 +17,12 @@ function newKey() {
  * The RSVP: name and email, one press. The route and the database decide seat or waitlist; this only
  * shows the answer. `waitlist` changes the words before anyone presses.
  */
-export function RsvpForm({ eventId, organizerFirstName, waitlist, spotsNote, signedInName = "" }: { eventId: string; organizerFirstName: string; waitlist: boolean; spotsNote: string | null; signedInName?: string }) {
+export function RsvpForm({ eventId, organizerFirstName, waitlist, spotsNote, signedInName = "", member = false }: { eventId: string; organizerFirstName: string; waitlist: boolean; spotsNote: string | null; signedInName?: string; /** Signed in: offer to connect with the organizer at check-in. */ member?: boolean }) {
   const uid = useId();
   const [name, setName] = useState(signedInName);
   const [email, setEmail] = useState("");
   const [hp, setHp] = useState("");
+  const [connect, setConnect] = useState(false);
   const [state, setState] = useState<"idle" | "sending">("idle");
   const [done, setDone] = useState<null | { status: "confirmed" | "waitlisted"; email: string }>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function RsvpForm({ eventId, organizerFirstName, waitlist, spotsNote, sig
     const response = await fetch(`/api/events/${eventId}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-setuvara-request": "same-origin" },
-      body: JSON.stringify({ name: name.trim(), email: email.trim(), idempotencyKey: meta.key, openedAt: meta.openedAt, hp }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), idempotencyKey: meta.key, openedAt: meta.openedAt, hp, connect: member && connect }),
     }).catch(() => null);
     const result = await response?.json().catch(() => null) as { ok?: boolean; status?: "confirmed" | "waitlisted"; error?: string } | null;
     setState("idle");
@@ -89,6 +90,12 @@ export function RsvpForm({ eventId, organizerFirstName, waitlist, spotsNote, sig
           {show("email") && <p className={errorText} id={`${uid}-email-error`}>{show("email")}</p>}
         </div>
       </div>
+      {member && (
+        <label className="flex cursor-pointer items-start gap-3 text-[15px] leading-[1.45]" htmlFor={`${uid}-connect`}>
+          <input checked={connect} className="mt-0.5 size-5 shrink-0 accent-[var(--av-accent)]" id={`${uid}-connect`} onChange={(change) => setConnect(change.target.checked)} type="checkbox" />
+          <span>Connect with {organizerFirstName} when I check in<span className="block text-[13px] text-[var(--av-muted)]">You&apos;re added to each other&apos;s Connections, with this event as where you met. You can change this later.</span></span>
+        </label>
+      )}
       {/* The spam trap: people never see it, bots fill it in. */}
       <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
         <label htmlFor={`${uid}-hp`}>Leave this empty</label>

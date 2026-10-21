@@ -53,7 +53,7 @@ export default async function EventPage({ params }: Props) {
   else if (event.registration === "soon") below = <EventPanel body={event.registration_opens_at ? `RSVPs open ${new Intl.DateTimeFormat("en-GB", { timeZone: event.timezone, weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(event.registration_opens_at))}.` : undefined} title="RSVPs aren't open yet." />;
   else if (event.registration === "closed") below = <EventPanel body={event.phase === "live" ? "It's happening now." : undefined} title="RSVPs have closed." />;
   else if (seats === "full") below = <EventPanel body="Every spot is taken." title="This event is full." />;
-  else below = <RsvpForm eventId={event.id} organizerFirstName={firstName} signedInName={viewer?.display_name ?? ""} spotsNote={spotsLeftNote(event)} waitlist={seats === "waitlist"} />;
+  else below = <RsvpForm eventId={event.id} organizerFirstName={firstName} member={Boolean(viewer)} signedInName={viewer?.display_name ?? ""} spotsNote={spotsLeftNote(event)} waitlist={seats === "waitlist"} />;
 
   return (
     <main className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh`} style={{ background: theme.bg }}>

@@ -62,7 +62,7 @@ export function formatDelta(current: number, previous: number) {
 
 const SOURCE_LABELS: Record<string, string> = {
   direct: "Direct link", qr: "QR code", quick_qr: "Quick QR", tap: "Setuvara Tap", share: "Share link",
-  native_share: "Phone share sheet", link: "Link", direct_share: "Direct share", profile: "From a profile", other: "Other", unknown: "Unknown",
+  native_share: "Phone share sheet", link: "Link", direct_share: "Direct share", event_check_in: "Event check-in", profile: "From a profile", other: "Other", unknown: "Unknown",
 };
 
 /** Readable names for the closed source enum used by analytics and encounters. */
