@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { addLeadNote, leadDetail, setLeadStage } from "@/app/app/identity/leads/actions";
 import { PlusTag, Sheet } from "@/app/app/identity/editor-ui";
-import { FilterPill, inkButton, Mono } from "@/components/creator/studio-ui";
+import { FilterPill, inkButton, lineButton, Mono } from "@/components/creator/studio-ui";
 import { ACTION_KIND_SHORT, BUDGET_LABEL, COLLAB_TYPE_LABEL, type ActionKind } from "@/lib/actions/model";
-import { filterLeads, LEAD_STAGES, OPEN_STAGES, STAGE_LABEL, type Lead, type LeadActivity, type LeadFilter, type LeadStage } from "@/lib/business/model";
+import { filterLeads, LEAD_PAGE, LEAD_STAGES, leadExportHref, OPEN_STAGES, STAGE_LABEL, type Lead, type LeadActivity, type LeadFilter, type LeadStage } from "@/lib/business/model";
 import type { LeadInquiry } from "@/lib/business/studio-server";
 import { relativeTime } from "@/lib/creator/studio";
 
@@ -36,12 +36,15 @@ function StageTag({ stage }: { stage: LeadStage }) {
   return <span className={`shrink-0 rounded-full px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.12em] ${TONE[stage]}`}>{STAGE_LABEL[stage]}</span>;
 }
 
-/** The inbox: stage filters, search, and a row per lead that opens its sheet. */
-export function LeadsInbox({ leads, canNote }: { leads: Lead[]; canNote: boolean }) {
-  const [filter, setFilter] = useState<LeadFilter>("open");
-  const [query, setQuery] = useState("");
+/** The inbox: stage filters, search, a page of rows that each open their sheet, and export of what's shown. */
+export function LeadsInbox({ leads, canNote, canExport }: { leads: Lead[]; canNote: boolean; canExport: boolean }) {
+  const [filter, setFilterState] = useState<LeadFilter>("open");
+  const [query, setQueryState] = useState("");
+  const [limit, setLimit] = useState(LEAD_PAGE);
   const [openId, setOpenId] = useState<string | null>(null);
   const shown = useMemo(() => filterLeads(leads, filter, query), [leads, filter, query]);
+  const setFilter = (next: LeadFilter) => { setFilterState(next); setLimit(LEAD_PAGE); };
+  const setQuery = (next: string) => { setQueryState(next); setLimit(LEAD_PAGE); };
   const count = (stage: LeadFilter) => filterLeads(leads, stage, "").length;
   const open = leads.find((lead) => lead.id === openId) ?? null;
 
@@ -53,17 +56,22 @@ export function LeadsInbox({ leads, canNote }: { leads: Lead[]; canNote: boolean
           {LEAD_STAGES.map((stage) => <FilterPill count={count(stage)} key={stage} label={STAGE_LABEL[stage]} on={filter === stage} onClick={() => setFilter(stage)} />)}
           <FilterPill count={leads.length} label="All" on={filter === "all"} onClick={() => setFilter("all")} />
         </div>
-        <label className="relative block">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <label className="relative block flex-1">
           <span className="sr-only">Search leads</span>
           <svg aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-black/40" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
           <input className="min-h-11 w-full rounded-full bg-white pl-11 pr-4 text-[15px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)] outline-none focus:shadow-[inset_0_0_0_2px_#0D0D0D]" onChange={(change) => setQuery(change.target.value)} placeholder="Name or email" type="search" value={query} />
         </label>
+        {canExport
+          ? <a className={`${lineButton} shrink-0`} data-export="leads" download href={leadExportHref(filter, query)}>Export {shown.length === leads.length ? "CSV" : `${shown.length} as CSV`}</a>
+          : <span className="flex shrink-0 items-center gap-2 text-[14px] text-black/60"><PlusTag /> Export comes with Plus</span>}
+        </div>
       </div>
       {shown.length === 0 ? (
         <p className="rounded-[22px] bg-white p-6 text-[15px] text-black/55 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">Nobody here{query ? " matches" : " yet"}.</p>
       ) : (
         <ul className="divide-y divide-black/[0.07] overflow-hidden rounded-[22px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
-          {shown.map((lead) => (
+          {shown.slice(0, limit).map((lead) => (
             <li key={lead.id}>
               <button className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:-outline-offset-2 md:px-5" data-lead={lead.stage} onClick={() => setOpenId(lead.id)} type="button">
                 <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-[#0D0D0D] text-[15px] font-semibold text-[#F5F4EF]">{(lead.name.trim() || lead.email || "?").charAt(0).toUpperCase()}</span>
@@ -76,6 +84,11 @@ export function LeadsInbox({ leads, canNote }: { leads: Lead[]; canNote: boolean
             </li>
           ))}
         </ul>
+      )}
+      {shown.length > limit && (
+        <button className={`${lineButton} self-center`} onClick={() => setLimit((current) => current + LEAD_PAGE)} type="button">
+          Show more <span className="text-black/45">{Math.min(limit, shown.length)} of {shown.length}</span>
+        </button>
       )}
       {open && <LeadSheet canNote={canNote} key={open.id} lead={open} onClose={() => setOpenId(null)} />}
     </section>

@@ -3,9 +3,25 @@ import "server-only";
 import { cache } from "react";
 
 import { loadModeActions } from "@/lib/actions/studio-server";
-import { ACTIVITY_COLUMNS, DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
+import { ACTIVITY_COLUMNS, DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
 
 export const LEADS_HREF = "/app/identity/leads";
+/** The most leads the inbox holds; older ones are still in an export. */
+export const INBOX_MAX = 5000;
+
+type Reader = Awaited<ReturnType<typeof loadModeActions>>["supabase"];
+
+/** The inbox's leads, most recent activity first, read a page at a time up to INBOX_MAX. */
+async function readLeads(supabase: Reader) {
+  const leads: Lead[] = [];
+  for (let from = 0; from < INBOX_MAX; from += LEAD_READ_BATCH) {
+    const { data, error } = await supabase.from("business_leads").select(LEAD_COLUMNS).order("last_activity_at", { ascending: false }).order("id").range(from, from + LEAD_READ_BATCH - 1);
+    if (error) return { data: null, error };
+    leads.push(...((data ?? []) as Lead[]));
+    if ((data ?? []).length < LEAD_READ_BATCH) break;
+  }
+  return { data: leads, error: null };
+}
 
 /** Business Mode's leads, the funnel for the window asked and the plan's limits, read as the owner under RLS. */
 export const loadLeads = cache(async (days: number) => {
@@ -13,7 +29,7 @@ export const loadLeads = cache(async (days: number) => {
   if (!data.mode) return { ...data, ready: false as const };
   const { supabase } = data;
   const [leads, funnel, limits] = await Promise.all([
-    supabase.from("business_leads").select(LEAD_COLUMNS).order("last_activity_at", { ascending: false }).limit(1000),
+    readLeads(supabase),
     supabase.rpc("my_business_funnel", { p_days: days }),
     supabase.rpc("my_business_limits"),
   ]);
@@ -21,7 +37,7 @@ export const loadLeads = cache(async (days: number) => {
   return {
     ...data,
     ready: true as const,
-    leads: (leads.data ?? []) as Lead[],
+    leads: leads.data ?? [],
     funnel: funnel.data as Funnel,
     limits: (limits.data as BusinessLimits | null) ?? DEFAULT_BUSINESS_LIMITS,
   };
