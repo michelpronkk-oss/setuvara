@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 
 import { getPublicOrigin } from "@/lib/app/viewer";
 import { sendEventNotices } from "@/lib/events/guests";
+import { passTokenFromScan, type ScanResult } from "@/lib/events/model";
 import { createEventsServiceClient } from "@/lib/events/server";
+import { readPassToken } from "@/lib/events/token";
 import { createClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,4 +57,29 @@ export async function checkInGuest(eventId: string, registrationId: string, chec
   revalidatePath(`/app/identity/events/${eventId}`);
   const result = data as { checked_in_at: string | null; connected: boolean };
   return { ok: true as const, checkedInAt: result.checked_in_at, connected: result.connected };
+}
+
+export type ScanOutcome =
+  | { ok: true; result: ScanResult; guest: { name: string; status: string; checked_in_at: string | null; connected: boolean } | null; otherEvent: string | null; checkedIn: number; going: number }
+  | { ok: false; error: string };
+
+/**
+ * One scan at the door. The pass signature is checked here; the database checks the version, the
+ * event, the guest and the time, and lets each pass in once.
+ */
+export async function scanPass(eventId: string, scanned: string): Promise<ScanOutcome> {
+  const supabase = await ownEvent(eventId);
+  if (!supabase) return { ok: false, error: "Not found." };
+  const token = typeof scanned === "string" ? passTokenFromScan(scanned) : null;
+  const pass = token ? readPassToken(token) : null;
+  if (!pass) return { ok: true, result: "invalid", guest: null, otherEvent: null, checkedIn: -1, going: -1 };
+  const { data, error } = await supabase.rpc("owner_scan_event_pass", { p_event_id: eventId, p_registration_id: pass.id, p_token_version: pass.version });
+  if (error) {
+    if (error.message?.includes("rate_limited")) return { ok: false, error: "Too many scans in a minute. Wait a moment." };
+    if (error.message?.includes("event_cancelled")) return { ok: false, error: "This event was cancelled." };
+    return { ok: false, error: "That scan didn't go through. Try again." };
+  }
+  const row = data as { result: ScanResult; guest: { name: string; status: string; checked_in_at: string | null; connected: boolean } | null; other_event: string | null; checked_in: number; going: number };
+  if (row.result === "checked_in") revalidatePath(`/app/identity/events/${eventId}`);
+  return { ok: true, result: row.result, guest: row.guest, otherEvent: row.other_event, checkedIn: row.checked_in, going: row.going };
 }

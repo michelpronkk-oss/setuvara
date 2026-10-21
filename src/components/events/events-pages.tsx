@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Head } from "@/components/actions/actions-pages";
-import { coralButton, EmptyState, lineButton, Mono, StudioPage } from "@/components/creator/studio-ui";
+import { coralButton, EmptyState, inkButton, lineButton, Mono, StudioPage } from "@/components/creator/studio-ui";
 import { checkInWindow, eventPath, eventPhase, eventWhen, PHASE_LABEL, registrationWindow, type EventPhase, type EventRecord } from "@/lib/events/model";
 import { eventsEnabled } from "@/lib/events/server";
 import { loadOrganizer, loadOrganizerEvent } from "@/lib/events/studio-server";
 import { CopyLink } from "./copy-link";
+import { DoorScanner } from "./door-scanner";
 import { GuestList } from "./guest-list";
 import { ClientEventEditor } from "./client-event-editor";
 
@@ -118,7 +119,13 @@ export async function EventDetail({ id }: { id: string }) {
   return (
     <StudioPage className="max-w-[1120px]">
       <Head
-        action={phase !== "draft" && phase !== "cancelled" ? <div className="flex flex-wrap gap-2"><CopyLink url={url} /><a className={lineButton} href={eventPath(event)} rel="noreferrer" target="_blank">View page ↗</a></div> : undefined}
+        action={phase !== "draft" && phase !== "cancelled" ? (
+          <div className="flex flex-wrap gap-2">
+            {checkIn === "open" && <Link className={inkButton} data-open-scanner href={`/app/identity/events/${event.id}/scan`}><ScanIcon />Scan passes</Link>}
+            <CopyLink url={url} />
+            <a className={lineButton} href={eventPath(event)} rel="noreferrer" target="_blank">View page ↗</a>
+          </div>
+        ) : undefined}
         back={{ href: "/app/identity/events", label: "Events" }}
         eyebrow={<>{eyebrow}<span aria-hidden="true" className="text-black/25">/</span><PhasePill phase={phase} /></>}
         sub={<>{when.date} {when.year} · {when.time}{phase === "upcoming" || phase === "live" ? ` · RSVPs ${rsvp === "open" ? "open" : rsvp === "soon" ? "open later" : "closed"}` : ""}</>}
@@ -145,9 +152,34 @@ export async function EventDetail({ id }: { id: string }) {
         )}
         <div className={`min-w-0 ${event.status === "draft" ? "lg:col-span-2 lg:max-w-[860px]" : ""}`}>
           {event.status !== "draft" && <h2 className="mb-4 font-display text-[28px] font-bold tracking-[-0.045em]">Details</h2>}
-          <ClientEventEditor event={event} modeId={data.mode.id} modeLive={data.modeLive} profileId={data.userId} />
+          <ClientEventEditor ended={phase === "ended"} event={event} modeId={data.mode.id} modeLive={data.modeLive} profileId={data.userId} />
         </div>
       </div>
+    </StudioPage>
+  );
+}
+
+function ScanIcon() {
+  return <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" viewBox="0 0 20 20" width="18"><path d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7M13 3h2.5A1.5 1.5 0 0 1 17 4.5V7M17 13v2.5a1.5 1.5 0 0 1-1.5 1.5H13M7 17H4.5A1.5 1.5 0 0 1 3 15.5V13M6 10h8" /></svg>;
+}
+
+/** The organizer's door for one event: the camera scanner while check-in is open, otherwise when it opens. */
+export async function DoorScan({ id }: { id: string }) {
+  const data = await loadOrganizerEvent(id);
+  if (!data.mode || !data.event) notFound();
+  const { event, guests } = data;
+  const door = event.status === "cancelled" ? "cancelled" : checkInWindow(event, clock());
+  const when = eventWhen(event);
+  const checkedIn = guests.filter((guest) => guest.status === "confirmed" && guest.checked_in_at).length;
+  const back = { href: `/app/identity/events/${event.id}`, label: "Guest list" };
+  const closed = { soon: "Check-in opens 12 hours before the start. Come back then, or check guests in from the list on the day.", closed: "Check-in has closed for this event.", cancelled: "This event was cancelled." } as const;
+  return (
+    <StudioPage className="max-w-[560px]">
+      <Head back={back} eyebrow={<>{eyebrow}<span aria-hidden="true" className="text-black/25">/</span>Door</>} sub={<>{when.date} · {when.time}</>} title={event.title} />
+      {door === "open"
+        ? <DoorScanner checkedIn={checkedIn} eventId={event.id} going={event.confirmed_count} />
+        : <EmptyState action={<Link className={lineButton} href={back.href}>Guest list</Link>} body={closed[door]} title="The door isn't open." />}
+      {door === "open" && <p className="mt-4 px-1 text-[13.5px] leading-[1.5] text-black/55">Guests find their door pass on their event page, linked in their RSVP email. No pass? Check them in from the guest list.</p>}
     </StudioPage>
   );
 }
