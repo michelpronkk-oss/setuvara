@@ -88,7 +88,9 @@ export function publicProfileDescription(record: SeoPublicProfileRecord): string
     ? profile.bio?.trim() || (location ? `Based in ${location} on Setuvara.` : null)
     : mode.slug === "event"
       ? [publicSetting(mode, "eventName", 100), publicSetting(mode, "city", 80), publicSetting(mode, "dateLabel", 80), publicSetting(mode, "role", 80), publicSetting(mode, "hereToMeet", 180)].filter(Boolean).join(" · ")
-      : [publicSetting(mode, "role", 80), publicSetting(mode, "company", 100), publicSetting(mode, "city", 80), publicSetting(mode, "description", 180)].filter(Boolean).join(" · ");
+      : mode.slug === "creator"
+        ? [publicSetting(mode, "tagline", 180), publicSetting(mode, "category", 80), publicSetting(mode, "city", 80)].filter(Boolean).join(" · ")
+        : [publicSetting(mode, "role", 80), publicSetting(mode, "company", 100), publicSetting(mode, "city", 80), publicSetting(mode, "description", 180)].filter(Boolean).join(" · ");
 
   const description = context || `Meet ${publicProfileTitle(profile)} on Setuvara.`;
   return Array.from(description.replace(/\s+/g, " ").trim()).slice(0, 180).join("");

@@ -775,12 +775,61 @@ export function ShareSection({ api }: { api: EditorApi }) {
             </div>
           </section>
 
+          {!offline && <LinkPreviewCard api={api} slug={slug} />}
+
       </div>
 
       </div>
 
       {full && qrUrl && <FullscreenQr caption={inPerson ? "Scan to connect with me" : undefined} dark={darkShare} name={profile.display_name} onClose={() => setFull(false)} onCopy={() => void (shortlinkCard ? copyPublic() : copy())} qrStyle={shownQrStyle} accent={resolveAppearance(mode, api.plan).accent} subtitle={`${modeMeta[slug].name}${eventName && slug === "event" ? ` · ${eventName}` : ""}`} url={shortlinkCard ? qrDisplayUrl : displayUrl} value={qrUrl} />}
     </div>
+  );
+}
+
+/** The card the link unfurls into, from the same route the page metadata names. */
+function cardImagePath(api: EditorApi, slug: ModeSlug) {
+  const path = new URL(api.publicUrl(slug)).pathname;
+  if (path.startsWith("/s/")) return `/og${path}`;
+  if (isModeHandleSlug(slug) && api.modeHandles[slug]?.is_live) return `/og/h/${api.modeHandles[slug].handle}`;
+  return slug === "personal" && api.profile.username ? `/og/profile/${api.profile.username}/personal` : null;
+}
+
+function LinkPreviewCard({ api, slug }: { api: EditorApi; slug: ModeSlug }) {
+  // A fresh query per visit, so a card edited a moment ago never shows from the browser cache.
+  const [version] = useState(() => Date.now().toString(36));
+  const [saving, setSaving] = useState<"link" | "feed" | null>(null);
+  const path = cardImagePath(api, slug);
+  if (!path) return null;
+
+  async function save(format: "link" | "feed") {
+    setSaving(format);
+    try {
+      const response = await fetch(`${path}?format=${format}&v=${version}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("card");
+      const href = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = `setuvara-${api.profile.username}-${slug}-${format === "feed" ? "post" : "preview"}.png`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    } catch {
+      api.toast("Couldn’t make the image. Try again.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <section aria-label="Link preview" className="order-4 min-w-0 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[560px]/share:order-none @min-[760px]/share:p-5" data-share-card-preview>
+      <p className="text-sm font-semibold">Link preview</p>
+      <p className="mt-1 text-[12.5px] leading-5 text-black/55">What your link shows in messages and social posts. Download it as a post for Instagram or Threads.</p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt="Your link preview card" className="mt-3 aspect-[1200/630] w-full rounded-2xl bg-[#0D0D0D] object-cover" decoding="async" height={630} loading="lazy" src={`${path}?v=${version}`} width={1200} />
+      <div className="mt-3 grid grid-cols-1 gap-2 @min-[300px]/share:grid-cols-2">
+        <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={saving !== null} onClick={() => void save("feed")} variant="ink">{saving === "feed" ? "Making post…" : "Download post"}</Pill>
+        <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={saving !== null} onClick={() => void save("link")}>{saving === "link" ? "Saving…" : "Download preview"}</Pill>
+      </div>
+    </section>
   );
 }
 

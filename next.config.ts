@@ -42,6 +42,8 @@ const nextConfig: NextConfig = {
     ];
   },
   outputFileTracingIncludes: {
+    // Social card fonts are read from disk at request time.
+    "/og/**": ["./assets/og/*.ttf"],
     "/api/wallet/apple": ["./public/email/setuvara-mark.png"],
     "/api/wallet/apple/v1/passes/*": ["./public/email/setuvara-mark.png"],
   },
