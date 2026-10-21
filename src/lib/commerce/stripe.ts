@@ -9,16 +9,10 @@ import type { Balance, CheckoutRequest, CommerceEvent, CommerceProvider, Payment
  * Stripe Connect with direct charges. The creator's own Stripe account is the
  * merchant of record: the charge, the receipt, the statement descriptor, the
  * Stripe fee, refunds and disputes all sit on that account. Setuvara takes an
- * application fee per charge. Accounts use the full Stripe Dashboard (the
+ * application fee per charge. Accounts (Accounts v2, merchant configuration) use the full Stripe Dashboard (the
  * pairing Stripe documents for direct charges), the account pays its own
  * Stripe fees, and Stripe is liable for negative balances.
  */
-const SELLER_CONTROLLER: Stripe.AccountCreateParams.Controller = {
-  fees: { payer: "account" },
-  losses: { payments: "stripe" },
-  requirement_collection: "stripe",
-  stripe_dashboard: { type: "full" },
-};
 
 const CAPABILITY = (value: string | undefined): SellerSnapshot["cardPayments"] =>
   value === "active" || value === "pending" || value === "inactive" ? value : "unrequested";
@@ -154,21 +148,33 @@ export class StripeCommerceProvider implements CommerceProvider {
     this.webhookSecret = webhookSecret;
   }
 
+  /**
+   * Stripe takes new connected accounts through Accounts v2 only. The merchant
+   * configuration makes the account the merchant of record for direct charges;
+   * the responsibilities match SELLER_CONTROLLER. The account id works with the
+   * v1 payment, refund and balance calls below.
+   */
   async createSeller({ userId, country, email, businessType, profileUrl }: { userId: string; country: SellerCountry; email: string | null; businessType: "individual" | "company" | null; profileUrl: string }) {
-    const account = await this.stripe.accounts.create({
-      country,
-      ...(email ? { email } : {}),
-      ...(businessType ? { business_type: businessType } : {}),
-      controller: SELLER_CONTROLLER,
-      business_profile: { url: profileUrl, product_description: "Digital products and creative services sold from a Setuvara creator page." },
+    const account = await this.stripe.v2.core.accounts.create({
+      ...(email ? { contact_email: email } : {}),
+      dashboard: "full",
+      identity: { country, ...(businessType ? { entity_type: businessType } : {}) },
+      configuration: { merchant: { capabilities: { card_payments: { requested: true } } } },
+      defaults: {
+        responsibilities: { fees_collector: "stripe", losses_collector: "stripe" },
+        profile: { business_url: profileUrl, product_description: "Digital products and creative services sold from a Setuvara creator page." },
+      },
       metadata: { setuvara_user_id: userId },
     // A double click within ten minutes gets the same account back.
-    }, { idempotencyKey: `seller-${userId}-${country}-${Math.floor(Date.now() / 600_000)}` });
+    }, { idempotencyKey: `seller-v2-${userId}-${country}-${Math.floor(Date.now() / 600_000)}` });
     return { accountId: account.id };
   }
 
   async onboardingLink({ accountId, refreshUrl, returnUrl }: { accountId: string; refreshUrl: string; returnUrl: string }) {
-    const link = await this.stripe.accountLinks.create({ account: accountId, refresh_url: refreshUrl, return_url: returnUrl, type: "account_onboarding", collection_options: { fields: "eventually_due" } });
+    const link = await this.stripe.v2.core.accountLinks.create({
+      account: accountId,
+      use_case: { type: "account_onboarding", account_onboarding: { refresh_url: refreshUrl, return_url: returnUrl, collection_options: { fields: "eventually_due" } } },
+    });
     return link.url;
   }
 
