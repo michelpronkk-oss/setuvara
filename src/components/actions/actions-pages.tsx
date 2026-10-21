@@ -96,7 +96,7 @@ export async function ActionsIndex({ slug }: { slug: ModeSlug }) {
   return (
     <StudioPage>
       <Head
-        action={actions.length ? <div className="flex flex-wrap gap-2">{slug === "creator" && <Link className={lineButton} href="/app/identity/creator/collabs">Deals</Link>}<Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link></div> : undefined}
+        action={actions.length ? <div className="flex flex-wrap gap-2">{slug === "creator" && <Link className={lineButton} href="/app/identity/creator/collabs">Deals</Link>}<Link className={lineButton} href={`/app/identity/goals?mode=${slug}`}>Start from a goal</Link><Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link></div> : <Link className={lineButton} href={`/app/identity/goals?mode=${slug}`}>Start from a goal</Link>}
         eyebrow={<><span aria-hidden="true" className="size-2 rounded-full" style={{ background: { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" }[slug] }} />{MODE_NAME[slug]} Mode</>}
         sub={actions.length ? `${live} live${needs ? ` · ${needs} new` : ""}` : "Forms, newsletters, giveaways and questions on your page."}
         title="Actions"

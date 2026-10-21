@@ -76,7 +76,9 @@
     "test:events-check-in:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_check_in_security.sql",
     "test:events-scanner:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_scanner_security.sql",
     "e2e:events-scanner": "node scripts/e2e-event-scanner.mjs",
-    "test:commerce-pricing:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/commerce_pricing_security.sql"
+    "test:commerce-pricing:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/commerce_pricing_security.sql",
+    "test:goals": "node --test tests/goals/goals.test.mjs",
+    "test:goals:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/goal_templates_security.sql"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
