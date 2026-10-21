@@ -9,7 +9,10 @@ import { formatMoney, OFFER_TYPE_LABEL, SECTION_NAMES, type CreatorSection, type
  * The Creator sections of a page: Featured, Work, Store and Actions, in the creator's order.
  * They sit inside any Appearance, so colour comes from currentColor and the page's accent.
  */
-export function CreatorSections({ settings, work, offers, productHref, actions = [], actionHref, accent, accentInk }: {
+/** A Work piece this visitor can't open yet: an exclusive or an early-access drop. Never the piece itself. */
+export type LockedPiece = { id: string; title: string; hint: string };
+
+export function CreatorSections({ settings, work, offers, productHref, actions = [], actionHref, accent, accentInk, locked = [] }: {
   settings: CreatorSettings;
   work: WorkItem[];
   offers: ShopOffer[];
@@ -21,13 +24,15 @@ export function CreatorSections({ settings, work, offers, productHref, actions =
   actionHref?: (id: string) => string;
   accent: string;
   accentInk: string;
+  /** Pieces for fans only, shown as locked cards beside the work. */
+  locked?: LockedPiece[];
 }) {
   const visible = work.filter((item) => item.visible);
   const featured = visible.find((item) => item.featured) ?? null;
   const rest = visible.filter((item) => item !== featured);
   const parts: Record<CreatorSection, ReactNode> = {
     featured: featured ? <FeaturedWork item={featured} key="featured" /> : null,
-    work: rest.length ? <SelectedWork items={rest} key="work" /> : null,
+    work: rest.length || locked.length ? <SelectedWork items={rest} key="work" locked={locked} /> : null,
     store: offers.length ? <Store accent={accent} accentInk={accentInk} key="store" offers={offers} productHref={productHref} /> : null,
     actions: actions.length ? (
       <ActionViewBeacon className="flex flex-col gap-4" data-creator-actions ids={actionHref ? actions.map(({ action }) => action.id) : []} key="actions">
@@ -67,7 +72,7 @@ function FeaturedWork({ item }: { item: WorkItem }) {
   );
 }
 
-function SelectedWork({ items }: { items: WorkItem[] }) {
+function SelectedWork({ items, locked = [] }: { items: WorkItem[]; locked?: LockedPiece[] }) {
   return (
     <section aria-labelledby="creator-work" className="flex flex-col gap-3.5" data-creator-work>
       <h2 className="font-display text-[26px] font-bold tracking-[-0.04em]" id="creator-work">Selected work</h2>
@@ -89,6 +94,12 @@ function SelectedWork({ items }: { items: WorkItem[] }) {
             ? <a className={cls} href={href} key={item.id} rel="noreferrer" style={{ background: line }} target="_blank">{tile}</a>
             : <div className={cls} key={item.id} style={{ background: line }}>{tile}</div>;
         })}
+        {locked.slice(0, 6).map((piece) => (
+          <div className="relative flex aspect-[4/5] flex-col justify-between overflow-hidden rounded-[16px] p-3" data-locked-piece key={piece.id} style={{ boxShadow: `inset 0 0 0 1px ${line}`, background: "color-mix(in srgb, currentColor 5%, transparent)" }}>
+            <svg aria-hidden="true" className="size-5 opacity-70" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><rect height="10" rx="2.2" width="14" x="5" y="10.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></svg>
+            <span className="flex flex-col gap-1"><span className="text-[13px] font-semibold leading-tight">{piece.title}</span><span className="text-[11.5px] leading-snug opacity-65">{piece.hint}</span></span>
+          </div>
+        ))}
       </div>
     </section>
   );

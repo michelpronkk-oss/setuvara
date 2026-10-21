@@ -16,6 +16,7 @@ import { ActionCards } from "@/components/actions/action-card";
 import { CreatorSections } from "@/components/creator/creator-sections";
 import { getPublicActions } from "@/lib/actions/public";
 import { getPublicStore } from "@/lib/commerce/public";
+import { lockedPieces } from "@/lib/creator/fan-drops";
 import { isWorkBlock, readCreatorSettings, workItem } from "@/lib/creator/studio";
 import { getMessages } from "@/lib/i18n/messages";
 import type { ConnectionContext, ModeSlug, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
@@ -272,6 +273,10 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   // Creator pages lead with the work: image and video blocks become Featured and Selected work.
   const creator = slug === "creator";
   const creatorOffers = creator ? await getPublicStore(username).catch(() => []) : [];
+  // Fan-only pieces this viewer can't open yet, decided in the database for this viewer.
+  const lockedWork = creator && !owner
+    ? lockedPieces((await supabase.rpc("get_creator_public_summary", { p_username: username })).data, (profile.display_name || username).split(/\s+/)[0])
+    : [];
   // Every Mode can carry Actions; Creator places them among its own sections.
   const modeActions = await getPublicActions(username, slug);
   const actionHref = owner ? undefined
@@ -351,6 +356,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
               offers={creatorOffers}
               settings={readCreatorSettings(rawMode.settings as Record<string, unknown>)}
               work={publicBlocks.filter(isWorkBlock).map(workItem)}
+              locked={lockedWork}
             />}
             {!creator && <ActionCards accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions} />}
             {sharedPassportStamp && (
