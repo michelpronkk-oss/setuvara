@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { loadModeActions } from "@/lib/actions/studio-server";
+import { BOOKING_COLUMNS, type Booking } from "./bookings";
 import { ACTIVITY_COLUMNS, DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
 
 export const LEADS_HREF = "/app/identity/leads";
@@ -28,10 +29,14 @@ export const loadLeads = cache(async (days: number) => {
   const data = await loadModeActions("business", LEADS_HREF);
   if (!data.mode) return { ...data, ready: false as const };
   const { supabase } = data;
-  const [leads, funnel, limits] = await Promise.all([
+  const bookingActions = data.actions.filter((action) => action.kind === "booking").map((action) => action.id);
+  const [leads, funnel, limits, bookings] = await Promise.all([
     readLeads(supabase),
     supabase.rpc("my_business_funnel", { p_days: days }),
     supabase.rpc("my_business_limits"),
+    bookingActions.length
+      ? supabase.from("business_bookings").select(BOOKING_COLUMNS).in("action_id", bookingActions).neq("status", "cancelled").gte("ends_at", new Date().toISOString()).order("starts_at").limit(50)
+      : Promise.resolve({ data: [] }),
   ]);
   if (leads.error || funnel.error) return { ...data, ready: false as const };
   return {
@@ -40,6 +45,10 @@ export const loadLeads = cache(async (days: number) => {
     leads: leads.data ?? [],
     funnel: funnel.data as Funnel,
     limits: (limits.data as BusinessLimits | null) ?? DEFAULT_BUSINESS_LIMITS,
+    bookings: ((bookings.data ?? []) as Booking[]).map((booking) => {
+      const request = data.submissions.find((item) => item.id === booking.submission_id);
+      return { ...booking, name: request?.name || request?.email || "Someone", title: data.actions.find((action) => action.id === booking.action_id)?.title ?? "Booking" };
+    }),
   };
 });
 

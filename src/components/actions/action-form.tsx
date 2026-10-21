@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useState, type CSSProperties } from "react";
 
 import type { MotionLevel } from "@/components/profile/appearance";
 import { BUDGET_LABEL, BUDGETS, COLLAB_TYPE_LABEL, COLLAB_TYPES, ctaFor, type ActionThanks, type Budget, type CollabType, type PublicAction, type Question } from "@/lib/actions/model";
+import { formatSlot, groupSlots, zoneName, type OpenSlots } from "@/lib/business/bookings";
 import { ActionBeacon } from "./action-beacon";
 import { ActionSuccess } from "./action-success";
 
@@ -59,6 +60,27 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [meta] = useState(() => ({ key: newKey(), openedAt: Date.now() }));
+  // Smart Bookings: open times from the owner's hours, shown in the visitor's own zone.
+  const schedulable = kind === "booking" && config.offering !== "application";
+  const [slots, setSlots] = useState<OpenSlots | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [day, setDay] = useState<string | null>(null);
+  const [zone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  const loadSlots = useCallback(async () => {
+    const response = await fetch(`/api/actions/${action.id}/slots`, { cache: "no-store" }).catch(() => null);
+    const next = (await response?.json().catch(() => null)) as OpenSlots | null;
+    setSlots(next?.enabled ? next : { enabled: false });
+  }, [action.id]);
+  useEffect(() => {
+    if (!schedulable || !/^[0-9a-f-]{36}$/i.test(action.id)) return;
+    let live = true;
+    void fetch(`/api/actions/${action.id}/slots`, { cache: "no-store" }).then((response) => response.json()).catch(() => null)
+      .then((next: OpenSlots | null) => { if (live) setSlots(next?.enabled ? next : { enabled: false }); });
+    return () => { live = false; };
+  }, [schedulable, action.id]);
+  const timed = slots?.enabled === true && slots.slots.length > 0;
+  const slotDays = timed ? groupSlots(slots.slots, zone) : [];
+  const shownDay = slotDays.find((item) => item.key === day) ?? slotDays[0] ?? null;
 
   const set = (key: string, value: string) => setAnswers((current) => ({ ...current, [key]: value }));
   const value = (key: string) => answers[key] ?? "";
@@ -72,6 +94,7 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
   if (hasMessage && !value("message").trim()) problems.message = "Add a few words.";
   for (const question of questions) if (question.required && !value(question.id).trim()) problems[question.id] = "Answer this one.";
   if (kind === "giveaway" && !accept) problems.accept = "Confirm to enter.";
+  if (timed && !picked) problems.slot = "Pick a time.";
   const show = (key: string) => (tried ? problems[key] : undefined);
   const invalid = (key: string) => (tried && problems[key] ? true : undefined);
 
@@ -84,11 +107,13 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
     const response = await fetch(`/api/actions/${action.id}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-setuvara-request": "same-origin" },
-      body: JSON.stringify({ name: name.trim(), email: email.trim(), answers: Object.fromEntries(Object.entries(answers).filter(([, item]) => item.trim())), featureConsent: consent, acceptRules: accept, idempotencyKey: meta.key, openedAt: meta.openedAt, hp }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), answers: Object.fromEntries(Object.entries(answers).filter(([key, item]) => item.trim() && !(timed && key === "preferredDates"))), featureConsent: consent, acceptRules: accept, idempotencyKey: meta.key, openedAt: meta.openedAt, hp, ...(timed && picked ? { startsAt: picked } : {}) }),
     }).catch(() => null);
     const result = await response?.json().catch(() => null) as { ok?: boolean; error?: string; thanks?: ActionThanks | null } | null;
     if (!response?.ok || !result?.ok) {
       setState("idle");
+      // Someone else took the time a moment ago: show what is still open.
+      if (response?.status === 409) { setPicked(null); void loadSlots(); }
       setError(result?.error ?? "That didn't send. Check your connection and try again.");
       return;
     }
@@ -132,6 +157,38 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
   return (
     <form className="mt-7 flex flex-1 flex-col gap-6" noValidate onSubmit={(event) => void send(event)}>
       {!preview && <ActionBeacon ids={[action.id]} kind="open" />}
+      {schedulable && slots === null && /^[0-9a-f-]{36}$/i.test(action.id) && (
+        <div aria-busy="true" aria-label="Loading open times" className="flex flex-col gap-3">
+          <span className="h-5 w-32 animate-pulse rounded-full bg-[var(--av-field)]" />
+          <span className="h-11 w-full animate-pulse rounded-full bg-[var(--av-field)]" />
+        </div>
+      )}
+      {timed && shownDay && (
+        <fieldset aria-describedby={described("slot")} className="min-w-0" data-slots={slots.slots.length}>
+          <legend className="mb-1 text-[16px] font-semibold">Pick a time</legend>
+          <p className="mb-3 text-[13px] text-[var(--av-muted)]">{slots.slot_minutes} minutes · times in your zone, {zoneName(zone)}</p>
+          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Day">
+            {slotDays.map((item) => {
+              const on = item.key === shownDay.key;
+              return (
+                <button aria-checked={on} className={`flex min-h-[64px] min-w-[58px] shrink-0 flex-col items-center justify-center rounded-[18px] px-2 transition-colors focus-visible:outline-2 ${on ? "bg-[var(--av-fg)] text-[var(--av-bg)]" : "bg-[var(--av-field)] text-[var(--av-fg)] shadow-[inset_0_0_0_1px_var(--av-field-edge)]"}`} key={item.key} onClick={() => setDay(item.key)} role="radio" type="button">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.08em] opacity-70">{item.weekday}</span>
+                  <span className="text-[16px] font-semibold">{item.date.split(" ")[0]}</span>
+                  <span className="text-[11px] opacity-60">{item.date.split(" ")[1]}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div aria-label={`Times on ${shownDay.label}`} className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup">
+            {shownDay.slots.map((slot) => <button aria-checked={picked === slot.at} className={`${chip(picked === slot.at)} justify-center px-2`} key={slot.at} onClick={() => setPicked(slot.at)} role="radio" type="button">{slot.time}</button>)}
+          </div>
+          {picked && <p className="mt-3 text-[14px] font-semibold" aria-live="polite">{formatSlot(picked, zone)}</p>}
+          {show("slot") && <p className={`mt-2 ${errorText}`} id={`${uid}-slot-error`}>{show("slot")}</p>}
+        </fieldset>
+      )}
+      {slots?.enabled === true && slots.slots.length === 0 && (
+        <p className="rounded-[18px] bg-[var(--av-field)] p-4 text-[15px] leading-[1.45] shadow-[inset_0_0_0_1px_var(--av-field-edge)]">No open times right now. Send a request and {firstName} will suggest one.</p>
+      )}
       {kind === "collab" && (
         <fieldset aria-describedby={described("collabType")}>
           <legend className="mb-2.5 text-[16px] font-semibold">What&apos;s it for?</legend>
@@ -159,7 +216,7 @@ export function ActionForm({ action, firstName, backHref, preview = false, previ
           <textarea aria-describedby={described("message")} aria-invalid={invalid("message")} className={area} id={`${uid}-message`} maxLength={2000} onChange={(event) => set("message", event.target.value)} placeholder={kind === "collab" ? "What you're making, when, and where it runs." : undefined} value={value("message")} />)}
 
       {kind === "collab" && config.askTimeline && text("timeline", <>Timeline{optional}</>, { placeholder: "Shoot in March, live in April" })}
-      {kind === "booking" && config.askDates && text("preferredDates", <>Preferred dates{optional}</>, { placeholder: "Weekdays in November" })}
+      {kind === "booking" && config.askDates && !timed && text("preferredDates", <>Preferred dates{optional}</>, { placeholder: "Weekdays in November" })}
       {(kind === "collab" || kind === "booking") && text("company", <>{kind === "collab" ? "Brand or company" : "Company or organisation"}{optional}</>, { autoComplete: "organization" })}
       {kind === "collab" && config.askWebsite && text("website", <>Website{optional}</>, { type: "url", inputMode: "url", placeholder: "https://", maxLength: 300 })}
 

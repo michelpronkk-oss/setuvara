@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Head } from "@/components/actions/actions-pages";
 import { EmptyState, Mono, StudioPage, coralButton } from "@/components/creator/studio-ui";
+import { formatSlot, zoneName, type Booking } from "@/lib/business/bookings";
 import { funnelSteps, type Funnel } from "@/lib/business/model";
 import { LEADS_HREF, loadLeads } from "@/lib/business/studio-server";
 import { LeadsInbox } from "./leads-client";
@@ -51,6 +52,33 @@ function FunnelStrip({ funnel, days }: { funnel: Funnel; days: number }) {
   );
 }
 
+/** The next held and confirmed times across Business Mode's Booking Actions. */
+function ComingUp({ bookings }: { bookings: (Booking & { name: string; title: string })[] }) {
+  if (!bookings.length) return null;
+  return (
+    <section aria-labelledby="coming-title" className="mb-10">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <h2 className="font-display text-[28px] font-bold tracking-[-0.045em]" id="coming-title">Coming up</h2>
+        <Mono className="text-black/45">{bookings.length} booked</Mono>
+      </div>
+      <ol className="-mx-3.5 flex snap-x gap-2.5 overflow-x-auto px-3.5 pb-1 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 xl:grid-cols-4">
+        {bookings.slice(0, 8).map((booking) => (
+          <li className="min-w-[232px] snap-start" data-coming={booking.status} key={booking.id}>
+            <Link className="flex h-full flex-col gap-1 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" href={`/app/identity/actions/${booking.action_id}?tab=times`}>
+              <span className="flex items-center justify-between gap-2">
+                <span className="font-display text-[19px] font-bold tracking-[-0.03em]">{formatSlot(booking.starts_at, booking.timezone)}</span>
+                <span className={`size-2.5 shrink-0 rounded-full ${booking.status === "confirmed" ? "bg-[#C7FF4A] shadow-[inset_0_0_0_1px_rgba(13,13,13,.25)]" : "bg-[#FFE7B8] shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} title={booking.status === "confirmed" ? "Confirmed" : "Requested"} />
+              </span>
+              <span className="truncate text-[14px] font-semibold">{booking.name}</span>
+              <span className="truncate text-[13px] text-black/50">{booking.title} · {zoneName(booking.timezone)}</span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 /** Business Mode's leads: how inquiries turn into work, and the inbox to move them along. */
 export async function LeadsIndex({ days }: { days: number }) {
   const data = await loadLeads(days);
@@ -61,6 +89,7 @@ export async function LeadsIndex({ days }: { days: number }) {
   return (
     <StudioPage className="max-w-[1180px]">
       <Head eyebrow={eyebrow} sub={leads.length ? `${open} open · ${funnel.open_by_stage.new} new` : "Every inquiry from your Business Mode lands here as a lead."} title="Leads" />
+      <ComingUp bookings={data.bookings} />
       <FunnelStrip days={days} funnel={funnel} />
       {leads.length === 0 ? (
         <EmptyState

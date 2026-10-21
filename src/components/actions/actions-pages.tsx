@@ -10,6 +10,9 @@ import { audienceHref } from "@/lib/audience/studio-server";
 import { connectChatEnabled } from "@/lib/chat/launch";
 import { loadCreatorStudio } from "@/lib/creator/studio-server";
 import { isWorkBlock } from "@/lib/creator/studio";
+import { BookingTimes } from "@/components/business/booking-times";
+import { AVAILABILITY_COLUMNS, BOOKING_COLUMNS, defaultAvailability, type Booking, type BookingAvailability } from "@/lib/business/bookings";
+import { DEFAULT_BUSINESS_LIMITS, type BusinessLimits } from "@/lib/business/model";
 import { ActionEditor } from "./action-editor";
 import { ActionInbox, GiveawayEntries } from "./action-inbox";
 import { ActionInsightsView } from "./action-insights";
@@ -22,6 +25,20 @@ const MODE_NAME: Record<ModeSlug, string> = { personal: "Personal", event: "Even
 const daysAgo = (days: number) => Date.now() - days * 24 * 60 * 60 * 1000;
 const counts = (action: Pick<ProfileAction, "kind">, status: string) => (action.kind === "giveaway" ? status === "entered" : action.kind === "newsletter" ? status === "subscribed" : status !== "spam" && status !== "pending_verification");
 const firstNameOf = (name: string) => name.split(/\s+/)[0] || name;
+
+/** A Booking Action's saved hours, its held and confirmed times, and the plan's booking horizon. */
+async function loadTimes(supabase: ModeActions["supabase"], id: string) {
+  const [saved, bookings, limits] = await Promise.all([
+    supabase.from("booking_availability").select(AVAILABILITY_COLUMNS).eq("action_id", id).maybeSingle(),
+    supabase.from("business_bookings").select(BOOKING_COLUMNS).eq("action_id", id).gte("ends_at", new Date().toISOString()).order("starts_at").limit(200),
+    supabase.rpc("my_business_limits"),
+  ]);
+  return {
+    saved: (saved.data as BookingAvailability | null) ?? null,
+    bookings: (bookings.data ?? []) as Booking[],
+    limits: ((limits.data as BusinessLimits | null) ?? DEFAULT_BUSINESS_LIMITS) as BusinessLimits & { booking_horizon_days?: number },
+  };
+}
 
 /** The page head: kind or Mode, the title, a quiet line under it, and the main button. */
 export function Head({ eyebrow, title, sub, action, back }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string } }) {
@@ -155,7 +172,8 @@ export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: st
   const action = data.actions.find((item) => item.id === id);
   if (!action) notFound();
   const submissions = data.submissions.filter((item) => item.action_id === id);
-  const tab = query.tab === "insights" ? "insights" : query.tab === "edit" || (query.tab !== "responses" && !submissions.length) ? "edit" : "responses";
+  const schedulable = action.kind === "booking" && action.config.offering !== "application";
+  const tab = query.tab === "insights" ? "insights" : query.tab === "times" && schedulable ? "times" : query.tab === "edit" || (query.tab !== "responses" && !submissions.length) ? "edit" : "responses";
   const firstName = firstNameOf(data.profile.display_name);
   const pageHref = data.pageUrl && action.status === "published" && creatorActionsEnabled() ? `${data.pageUrl}/a/${action.id}` : null;
 
@@ -176,6 +194,7 @@ export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: st
   const insights = tab === "insights"
     ? (await data.supabase.rpc("my_action_insights", { p_days: Number(query.days) || 30, p_action_id: id })).data as ActionInsights | null
     : null;
+  const times = tab === "times" ? await loadTimes(data.supabase, id) : null;
   const creatorStudio = slug === "creator" ? await loadCreatorStudio(`${actionsBase(slug)}/${id}`) : null;
   const rates = creatorStudio?.mode ? creatorStudio.kit.rates : [];
 
@@ -194,10 +213,13 @@ export async function ActionDetail({ slug, id, query }: { slug: ModeSlug; id: st
       {!creatorActionsEnabled() && <ActionsOffNote />}
       <nav aria-label="Action" className="mb-7 inline-flex gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)]">
         <Link aria-current={tab === "responses" ? "page" : undefined} className={tabClass(tab === "responses")} href="?tab=responses" scroll={false}>{tabLabel}<span className="font-label text-[11px] opacity-70">{count}</span></Link>
+        {schedulable && <Link aria-current={tab === "times" ? "page" : undefined} className={tabClass(tab === "times")} href="?tab=times" scroll={false}>Times</Link>}
         <Link aria-current={tab === "insights" ? "page" : undefined} className={tabClass(tab === "insights")} href="?tab=insights" scroll={false}>Insights</Link>
         <Link aria-current={tab === "edit" ? "page" : undefined} className={tabClass(tab === "edit")} href="?tab=edit" scroll={false}>Edit</Link>
       </nav>
-      {tab === "insights" ? <ActionInsightsView insights={insights} kind={action.kind} /> : tab === "edit" ? (
+      {tab === "times" && times ? (
+        <BookingTimes bookings={times.bookings} fresh={!times.saved} horizonCap={times.limits.booking_horizon_days ?? 14} initial={times.saved ?? defaultAvailability(id, "UTC")} live={action.status === "published"} names={Object.fromEntries(submissions.map((item) => [item.id, item.name || item.email || ""]))} path={`${actionsBase(slug)}/${id}`} plan={times.limits.plan} />
+      ) : tab === "insights" ? <ActionInsightsView insights={insights} kind={action.kind} /> : tab === "edit" ? (
         <ActionEditor
           base={actionsBase(slug)}
           coverHint={slug === "creator" ? "From your Work" : "From this Mode's pictures"}
