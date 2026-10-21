@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { loadModeActions } from "@/lib/actions/studio-server";
 import { BOOKING_COLUMNS, type Booking } from "./bookings";
+import { REQUEST_COLUMNS, TESTIMONIAL_COLUMNS, type Testimonial, type TestimonialRequest } from "./testimonials";
 import { ACTIVITY_COLUMNS, DEFAULT_BUSINESS_LIMITS, LEAD_COLUMNS, LEAD_READ_BATCH, type BusinessLimits, type Funnel, type Lead, type LeadActivity } from "./model";
 
 export const LEADS_HREF = "/app/identity/leads";
@@ -79,4 +80,26 @@ export async function loadLeadDetail(leadId: string) {
   const { data: actions } = actionIds.length ? await supabase.from("profile_actions").select("id, config").in("id", actionIds) : { data: [] };
   const labels = new Map((actions ?? []).map((row) => [row.id as string, questionLabels(row.config)]));
   return { activity: rows, inquiries: (inquiries ?? []).map((row) => ({ ...row, labels: labels.get(row.action_id as string) ?? {} })) as LeadInquiry[] };
+}
+
+export const TESTIMONIALS_HREF = "/app/identity/testimonials";
+
+/** Business Mode's testimonials, its recent request links, and how many the plan shows, read as the owner under RLS. */
+export async function loadTestimonials() {
+  const data = await loadModeActions("business", TESTIMONIALS_HREF);
+  if (!data.mode) return { ...data, ready: false as const };
+  const { supabase } = data;
+  const [testimonials, requests, limits] = await Promise.all([
+    supabase.from("business_testimonials").select(TESTIMONIAL_COLUMNS).order("created_at", { ascending: false }).limit(300),
+    supabase.from("business_testimonial_requests").select(REQUEST_COLUMNS).order("created_at", { ascending: false }).limit(60),
+    supabase.rpc("my_business_limits"),
+  ]);
+  if (testimonials.error || requests.error) return { ...data, ready: false as const };
+  return {
+    ...data,
+    ready: true as const,
+    testimonials: (testimonials.data ?? []) as Testimonial[],
+    requests: (requests.data ?? []) as TestimonialRequest[],
+    limits: { ...DEFAULT_BUSINESS_LIMITS, ...((limits.data as Partial<BusinessLimits> | null) ?? {}) } as BusinessLimits,
+  };
 }

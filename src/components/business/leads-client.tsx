@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { addLeadNote, leadDetail, setLeadStage } from "@/app/app/identity/leads/actions";
+import { createTestimonialLink } from "@/app/app/identity/testimonials/actions";
 import { PlusTag, Sheet } from "@/app/app/identity/editor-ui";
 import { FilterPill, inkButton, lineButton, Mono } from "@/components/creator/studio-ui";
 import { ACTION_KIND_SHORT, BUDGET_LABEL, COLLAB_TYPE_LABEL, type ActionKind } from "@/lib/actions/model";
 import { filterLeads, LEAD_PAGE, LEAD_STAGES, leadExportHref, OPEN_STAGES, STAGE_LABEL, type Lead, type LeadActivity, type LeadFilter, type LeadStage } from "@/lib/business/model";
 import type { LeadInquiry } from "@/lib/business/studio-server";
+import { FreshLink } from "./testimonials-client";
 import { relativeTime } from "@/lib/creator/studio";
 
 const TONE: Record<LeadStage, string> = {
@@ -37,7 +39,7 @@ function StageTag({ stage }: { stage: LeadStage }) {
 }
 
 /** The inbox: stage filters, search, a page of rows that each open their sheet, and export of what's shown. */
-export function LeadsInbox({ leads, canNote, canExport }: { leads: Lead[]; canNote: boolean; canExport: boolean }) {
+export function LeadsInbox({ leads, canNote, canExport, owner }: { leads: Lead[]; canNote: boolean; canExport: boolean; owner: string }) {
   const [filter, setFilterState] = useState<LeadFilter>("open");
   const [query, setQueryState] = useState("");
   const [limit, setLimit] = useState(LEAD_PAGE);
@@ -90,13 +92,13 @@ export function LeadsInbox({ leads, canNote, canExport }: { leads: Lead[]; canNo
           Show more <span className="text-black/45">{Math.min(limit, shown.length)} of {shown.length}</span>
         </button>
       )}
-      {open && <LeadSheet canNote={canNote} key={open.id} lead={open} onClose={() => setOpenId(null)} />}
+      {open && <LeadSheet canNote={canNote} owner={owner} key={open.id} lead={open} onClose={() => setOpenId(null)} />}
     </section>
   );
 }
 
 /** One lead: move its stage, read what they asked, write a note, see the history. */
-function LeadSheet({ lead, canNote, onClose }: { lead: Lead; canNote: boolean; onClose: () => void }) {
+function LeadSheet({ lead, canNote, owner, onClose }: { lead: Lead; canNote: boolean; owner: string; onClose: () => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [detail, setDetail] = useState<{ activity: LeadActivity[]; inquiries: LeadInquiry[] } | null>(null);
@@ -105,6 +107,7 @@ function LeadSheet({ lead, canNote, onClose }: { lead: Lead; canNote: boolean; o
   const [reason, setReason] = useState(lead.lost_reason ?? "");
   const [note, setNote] = useState("");
   const [noteKey, setNoteKey] = useState(newKey);
+  const [askUrl, setAskUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     void leadDetail(lead.id).then((next) => { if (live) setDetail(next); });
@@ -132,6 +135,15 @@ function LeadSheet({ lead, canNote, onClose }: { lead: Lead; canNote: boolean; o
       setNote("");
       setNoteKey(newKey());
       refresh();
+    });
+  }
+
+  function ask() {
+    setError(null);
+    start(async () => {
+      const result = await createTestimonialLink(lead.id, "");
+      if (!result.ok) { setError(result.error); return; }
+      setAskUrl(result.url);
     });
   }
 
@@ -163,6 +175,18 @@ function LeadSheet({ lead, canNote, onClose }: { lead: Lead; canNote: boolean; o
         </div>
 
         {error && <p className="text-[14px] font-semibold text-[#B42318]" role="alert">{error}</p>}
+
+        {lead.stage === "won" && (
+          <div data-lead-testimonial>
+            <Mono className="mb-2 text-black/50">Testimonial</Mono>
+            {askUrl ? <FreshLink email={lead.email} name={lead.name} owner={owner} url={askUrl} /> : (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
+                <p className="text-[14px] text-black/60">Won. Ask {lead.name.split(" ")[0] || "them"} for a few words; it shows as a verified client.</p>
+                <button className={inkButton} disabled={pending} onClick={ask} type="button">Ask for a testimonial</button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <Mono className="mb-2 flex items-center gap-2 text-black/50">Note {!canNote && <PlusTag />}</Mono>

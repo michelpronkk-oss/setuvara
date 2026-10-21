@@ -69,6 +69,11 @@ export function LeadsIcon() {
   return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 5.5h16l-6 7.2v5.8l-4 1.9v-7.7L4 5.5Z" /></svg>;
 }
 
+/** Business Mode's testimonials: a quote. */
+export function TestimonialsIcon() {
+  return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M5 18.5V12c0-3.6 1.8-5.9 5-6.5M14 18.5V12c0-3.6 1.8-5.9 5-6.5" /><path d="M5 12.5h4.5v6H5zM14 12.5h4.5v6H14z" /></svg>;
+}
+
 export function StudioIcon({ name }: { name: StudioPageId }) {
   return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">{STUDIO_ICONS[name]}</svg>;
 }
@@ -77,15 +82,15 @@ export function StudioIcon({ name }: { name: StudioPageId }) {
  * The editor's desktop sidebar: the same dark panel as the app, holding the Mode and the section.
  * The Creator studio pages share it; there `section` is null and `studio` names the open page.
  */
-export function EditorSidebar({ profile, modes, slug, section, studio = null, actions = false, audience = false, events = false, leads = false, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
+export function EditorSidebar({ profile, modes, slug, section, studio = null, actions = false, audience = false, events = false, leads = false, testimonials = false, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
   profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; slug: ModeSlug; section: Section | null;
-  studio?: StudioPageId | null; /** The Mode's Actions page is open (Personal, Event, Business). */ actions?: boolean; /** The Audience page is open (Personal, Event, Business). */ audience?: boolean; /** Event Mode's Events page is open. */ events?: boolean; /** Business Mode's Leads page is open. */ leads?: boolean; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
+  studio?: StudioPageId | null; /** The Mode's Actions page is open (Personal, Event, Business). */ actions?: boolean; /** The Audience page is open (Personal, Event, Business). */ audience?: boolean; /** Event Mode's Events page is open. */ events?: boolean; /** Business Mode's Leads page is open. */ leads?: boolean; /** Business Mode's Testimonials page is open. */ testimonials?: boolean; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
   avatarUrl: string | null; avatarFocus?: PhotoFocus; onGo: (section: Section, mode?: ModeSlug) => void; signOut: () => Promise<void>;
 }) {
   const url = liveUrl;
   const scroller = useRef<HTMLDivElement>(null);
   // A tall sidebar scrolls; keep the open page in view.
-  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio, actions, audience, events, leads]);
+  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio, actions, audience, events, leads, testimonials]);
   return (
     <aside aria-label="Identity editor" className="print:hidden fixed inset-y-3 left-3 z-40 hidden w-[256px] flex-col rounded-[26px] bg-[#0D0D0D] text-[#F5F4EF] shadow-[0_30px_60px_-34px_rgba(13,13,13,.8)] lg:flex">
       <div className="mx-3 mt-3 flex h-[60px] items-center justify-between gap-2 px-3.5">
@@ -142,6 +147,12 @@ export function EditorSidebar({ profile, modes, slug, section, studio = null, ac
             <Link aria-current={leads ? "page" : undefined} className={`flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${leads ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href="/app/identity/leads">
               <span className={leads ? "text-[#AFCBFF]" : ""}><LeadsIcon /></span>
               <span className="min-w-0 flex-1 truncate">Leads</span>
+            </Link>
+          )}
+          {slug === "business" && (
+            <Link aria-current={testimonials ? "page" : undefined} className={`flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${testimonials ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href="/app/identity/testimonials">
+              <span className={testimonials ? "text-[#FFE7B8]" : ""}><TestimonialsIcon /></span>
+              <span className="min-w-0 flex-1 truncate">Testimonials</span>
             </Link>
           )}
           {slug !== "creator" && (

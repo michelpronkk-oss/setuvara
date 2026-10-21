@@ -15,6 +15,8 @@ import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } fr
 import { ActionCards } from "@/components/actions/action-card";
 import { CreatorSections } from "@/components/creator/creator-sections";
 import { getPublicActions } from "@/lib/actions/public";
+import { PublicTestimonials } from "@/components/business/public-testimonials";
+import { getPublicTestimonials } from "@/lib/business/public";
 import { getPublicStore } from "@/lib/commerce/public";
 import { lockedPieces } from "@/lib/creator/fan-drops";
 import { isWorkBlock, readCreatorSettings, workItem } from "@/lib/creator/studio";
@@ -279,6 +281,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     : [];
   // Every Mode can carry Actions; Creator places them among its own sections.
   const modeActions = await getPublicActions(username, slug);
+  const testimonials = slug === "business" ? await getPublicTestimonials(username) : [];
   const actionHref = owner ? undefined
     : shareToken ? (id: string) => `/s/${shareToken}/a/${id}`
       : slug === "personal" ? (id: string) => `/${username}/a/${id}` : undefined;
@@ -346,7 +349,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           attribution
           className="min-h-dvh"
           edgeToEdge
-          footer={creator || modeActions.length || sharedPassportStamp ? (<>
+          footer={creator || modeActions.length || testimonials.length || sharedPassportStamp ? (<>
             {creator && <CreatorSections
               accent={resolveModeAccent(mode)}
               accentInk={inkOnAccent(resolveModeAccent(mode))}
@@ -359,6 +362,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
               locked={lockedWork}
             />}
             {!creator && <ActionCards accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions} />}
+            <PublicTestimonials accent={resolveModeAccent(mode)} items={testimonials} />
             {sharedPassportStamp && (
             <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
               <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
