@@ -58,6 +58,9 @@
     "test:events:concurrency": "node --test tests/events/concurrency.integration.mjs",
     "e2e:business-leads": "node scripts/e2e-business-leads.mjs",
     "test:billing-access:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/billing_access_rule.sql",
+    "e2e:creator-deals": "node scripts/e2e-creator-deals.mjs",
+    "test:creator-deals": "node --test tests/creator/deals.test.mjs",
+    "test:creator-deals:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/creator_deals_security.sql",
     "test:business": "node --test tests/business/business.test.mjs",
     "test:business-leads:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/business_leads_security.sql",
     "test:events-check-in:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/event_check_in_security.sql"

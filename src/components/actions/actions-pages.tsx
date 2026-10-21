@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { coralButton, EmptyState, Mono, StudioPage } from "@/components/creator/studio-ui";
+import { coralButton, EmptyState, lineButton, Mono, StudioPage } from "@/components/creator/studio-ui";
 import type { ModeSlug } from "@/components/profile/types";
 import { ACTION_KIND_NAME, ACTION_KINDS, ACTION_STATUS_LABEL, isConfirmedKind, NEEDS_ATTENTION, starterAction, THANKS_COLUMNS, type ActionInsights, type ActionKind, type ActionThanksRow, type ProfileAction, type PublicAction } from "@/lib/actions/model";
 import { creatorActionsEnabled } from "@/lib/actions/server";
@@ -79,7 +79,7 @@ export async function ActionsIndex({ slug }: { slug: ModeSlug }) {
   return (
     <StudioPage>
       <Head
-        action={actions.length ? <Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link> : undefined}
+        action={actions.length ? <div className="flex flex-wrap gap-2">{slug === "creator" && <Link className={lineButton} href="/app/identity/creator/collabs">Deals</Link>}<Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link></div> : undefined}
         eyebrow={<><span aria-hidden="true" className="size-2 rounded-full" style={{ background: { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" }[slug] }} />{MODE_NAME[slug]} Mode</>}
         sub={actions.length ? `${live} live${needs ? ` · ${needs} new` : ""}` : "Forms, newsletters, giveaways and questions on your page."}
         title="Actions"
