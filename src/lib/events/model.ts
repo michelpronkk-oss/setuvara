@@ -8,6 +8,7 @@ export const EVENT_STATUSES = ["draft", "published", "cancelled"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 export type EventPhase = "draft" | "cancelled" | "upcoming" | "live" | "ended";
 export type RegistrationWindow = "open" | "soon" | "closed";
+export type CheckInWindow = "open" | "soon" | "closed";
 export type RegistrationStatus = "confirmed" | "waitlisted" | "cancelled";
 
 export type EventRecord = {
@@ -47,8 +48,8 @@ export type PublicEvent = Pick<EventRecord, "id" | "short_id" | "slug" | "status
   display_name: string;
 };
 
-export type Guest = { id: string; event_id: string; attendee_user_id: string | null; name: string; email: string; status: RegistrationStatus; cancelled_by: "guest" | "organizer" | null; confirmed_at: string | null; promoted_at: string | null; cancelled_at: string | null; created_at: string };
-export const GUEST_COLUMNS = "id, event_id, attendee_user_id, name, email, status, cancelled_by, confirmed_at, promoted_at, cancelled_at, created_at";
+export type Guest = { id: string; event_id: string; attendee_user_id: string | null; name: string; email: string; status: RegistrationStatus; cancelled_by: "guest" | "organizer" | null; confirmed_at: string | null; promoted_at: string | null; cancelled_at: string | null; created_at: string; checked_in_at: string | null; connect_on_check_in: boolean; connection_id: string | null };
+export const GUEST_COLUMNS = "id, event_id, attendee_user_id, name, email, status, cancelled_by, confirmed_at, promoted_at, cancelled_at, created_at, checked_in_at, connect_on_check_in, connection_id";
 
 export const PHASE_LABEL: Record<EventPhase, string> = { draft: "Draft", cancelled: "Cancelled", upcoming: "Upcoming", live: "Happening now", ended: "Ended" };
 export const GUEST_STATUS_LABEL: Record<RegistrationStatus, string> = { confirmed: "Going", waitlisted: "Waitlist", cancelled: "Cancelled" };
@@ -70,6 +71,15 @@ export function registrationWindow(event: Pick<EventRecord, "status" | "starts_a
   if (event.registration_opens_at && now < at(event.registration_opens_at)) return "soon";
   const closes = Math.min(at(event.registration_closes_at ?? event.starts_at), at(event.ends_at));
   return now >= closes ? "closed" : "open";
+}
+
+const CHECK_IN_MARGIN_MS = 12 * 60 * 60 * 1000;
+
+/** Same rule as private.event_check_in_window: from 12 hours before the start to 12 hours after the end. */
+export function checkInWindow(event: Pick<EventRecord, "status" | "starts_at" | "ends_at">, now = Date.now()): CheckInWindow {
+  if (event.status !== "published") return "closed";
+  if (now < at(event.starts_at) - CHECK_IN_MARGIN_MS) return "soon";
+  return now > at(event.ends_at) + CHECK_IN_MARGIN_MS ? "closed" : "open";
 }
 
 /** What a new guest would get right now. */

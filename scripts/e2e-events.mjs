@@ -5,10 +5,12 @@ import { mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 
-// Event Mode slice 1 against local Setuvara Supabase and a running app (EVENTS_ENABLED=true):
+// Event Mode slices 1 and 2 against local Setuvara Supabase and a running app (EVENTS_ENABLED=true):
 // an organizer creates and publishes an event on a phone, visitors RSVP until it fills and the
 // waitlist takes over, a guest cancels from their private link and the waitlist is promoted, an
-// altered link is refused, another member sees nothing, and the desktop pages render.
+// altered link is refused, a member RSVPs asking to connect, shows their door pass and is checked
+// in and connected, another guest is checked in from the list, another member sees nothing, and
+// the desktop pages render.
 const appUrl = process.env.E2E_APP_URL ?? "http://127.0.0.1:3014";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -126,7 +128,9 @@ try {
   const cleoId = psql(`select id from public.event_registrations where email = 'cleo_${suffix}@example.test'`);
   const { createHmac } = await import("node:crypto");
   const secret = process.env.EVENT_TOKEN_SECRET ?? "local-event-secret";
-  const sign = (id, version) => `${id}.${version}.${createHmac("sha256", secret).update(`setuvara-event-guest-v1:${id}:${version}`).digest("base64url").slice(0, 32)}`;
+  const signAs = (purpose) => (id, version) => `${id}.${version}.${createHmac("sha256", secret).update(`setuvara-event-${purpose}-v1:${id}:${version}`).digest("base64url").slice(0, 32)}`;
+  const sign = signAs("guest");
+  const signPass = signAs("pass");
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await consent(guestContext);
   const guest = await guestContext.newPage();
@@ -161,6 +165,59 @@ try {
   await org.getByPlaceholder("Name or email").fill("");
   await noSideScroll(org, "the event screen with guests");
   await shot(org, "8-event-detail-guests-390");
+
+  // Slice 2: check-in opens 12 hours before the start, so the event moves to tonight.
+  psql(`update public.events set capacity = 3, starts_at = now() + interval '1 hour', ends_at = now() + interval '4 hours' where id = '${eventId}'`);
+  const benPhone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await consent(benPhone);
+  const benPage = await benPhone.newPage();
+  await signIn(benPage, other);
+  await benPage.goto(eventUrl);
+  await benPage.waitForTimeout(1600);
+  const connectBox = benPage.getByLabel(/Connect with Ada when I check in/);
+  assert.equal(await connectBox.isChecked(), false); check("a member is offered to connect, off until they choose");
+  await connectBox.check();
+  await benPage.getByLabel("Email").fill(other.email);
+  await benPage.getByRole("button", { name: "I'm going" }).click();
+  await benPage.locator('[data-rsvp-done="confirmed"]').waitFor();
+  const benReg = psql(`select id from public.event_registrations where event_id = '${eventId}' and attendee_user_id = '${other.id}'`);
+  assert.equal(psql(`select connect_on_check_in from public.event_registrations where id = '${benReg}'`), "t"); check("the member's choice to connect is saved with their RSVP");
+  await benPage.goto(`${appUrl}/e/r/${sign(benReg, 1)}`);
+  await benPage.locator('[data-door-pass="ready"]').waitFor(); check("a confirmed guest's private page shows their door pass");
+  assert.equal(await benPage.getByRole("switch", { name: /Connect with Ada at check-in/ }).getAttribute("aria-checked"), "true"); check("and their connect choice, which they can change");
+  await noSideScroll(benPage, "the guest page with a door pass");
+  await shot(benPage, "8a-door-pass-390");
+
+  // The organizer scans the pass: one press checks Ben in and connects them, the event as where they met.
+  await org.goto(`${appUrl}/app/identity/events/check-in/${signPass(benReg, 1)}`);
+  await org.getByRole("button", { name: "Check in Ben" }).click();
+  await org.locator('[data-check-in="in"]').getByText(/You're connected now/).waitFor(); check("checking in a member who asked connects them");
+  await shot(org, "8b-check-in-390");
+  assert.equal(psql(`select count(*) from public.connections where user_id = '${host.id}' and connected_user_id = '${other.id}'`), "1"); check("the organizer and the guest are connected");
+  assert.equal(psql(`select source || ':' || live_context_label_snapshot from public.connection_encounters where event_id = '${eventId}'`), "event_check_in:Founders Dinner"); check("the event is saved as where they met");
+  await org.goto(`${appUrl}/app/identity/events/check-in/${signPass(benReg, 1).replace(/.$/, "x")}`);
+  await org.getByText("Nothing to check in.").waitFor(); check("an altered pass checks nobody in");
+
+  // From the guest list: one tap checks Dan in.
+  await org.goto(`${appUrl}/app/identity/events/${eventId}`);
+  await org.getByRole("button", { name: "Check in Dan Guest" }).click();
+  await org.locator('[data-check-in="in"]').nth(1).waitFor();
+  assert.equal(psql(`select checked_in_at is not null from public.event_registrations where email = 'dan_${suffix}@example.test'`), "t"); check("the organizer checks a guest in from the list");
+  await org.getByRole("button", { name: /^Checked in/ }).click();
+  assert.equal(await org.locator("[data-guest]").count(), 2); check("the Checked in filter shows who is in");
+  await org.getByRole("button", { name: /^All/ }).click();
+  await noSideScroll(org, "the guest list at the door");
+  await shot(org, "8c-guest-list-check-in-390");
+
+  // Another member's pass is not theirs to use, and Ben's page now says they're connected.
+  const danReg = psql(`select id from public.event_registrations where email = 'dan_${suffix}@example.test'`);
+  await benPage.goto(`${appUrl}/app/identity/events/check-in/${signPass(danReg, 1)}`);
+  await benPage.getByText("Nothing to check in.").waitFor();
+  assert.equal(await benPage.getByText("Dan Guest").count(), 0); check("a pass opened by another member shows nothing about the guest");
+  await benPage.goto(`${appUrl}/e/r/${sign(benReg, 1)}`);
+  await benPage.getByText("You're connected with Ada").waitFor(); check("the guest's page says they're connected");
+  await benPage.locator('[data-door-pass="used"]').waitFor(); check("and the door pass shows it was used");
+  await benPhone.close();
 
   // Another member sees nothing.
   const intruder = await browser.newContext({ viewport: { width: 1440, height: 900 } });

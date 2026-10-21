@@ -88,7 +88,7 @@ export type RelationshipInput = {
   passport: { stamp_type: string; title: string }[];
 };
 
-export type SourceKind = "qr" | "quick_qr" | "link" | "pass" | "tap" | "profile";
+export type SourceKind = "qr" | "quick_qr" | "link" | "pass" | "tap" | "event" | "profile";
 export type Provenance = "viewer" | "confirmed" | "corrected" | "suggested";
 
 export type Suggestion = { value: string; reason: string; city?: string | null };
@@ -216,6 +216,7 @@ export function sourceKind(source: string): SourceKind {
   if (source === "link" || source === "share" || source === "native_share") return "link";
   if (source === "direct_share") return "pass";
   if (source === "tap") return "tap";
+  if (source === "event_check_in") return "event";
   return "profile";
 }
 
@@ -237,6 +238,8 @@ export function describeSource(source: string, viewerShared: boolean, name: stri
       return { kind, label: "Connection Pass", detail: viewerShared ? `You shared a Connection Pass directly with ${first}` : `${first} shared a Connection Pass directly with you` };
     case "tap":
       return { kind, label: "Setuvara Tap", detail: viewerShared ? `You shared Setuvara Tap with ${first}` : `You opened ${first}’s Setuvara Tap` };
+    case "event":
+      return { kind, label: "Event check-in", detail: viewerShared ? `You checked ${first} in at your event` : `${first} checked you in at their event` };
     default:
       return { kind, label: "Profile visit", detail: viewerShared ? `${first} connected from your profile` : `You connected from ${first}’s profile` };
   }

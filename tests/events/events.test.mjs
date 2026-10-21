@@ -59,6 +59,14 @@ describe("guest link token", () => {
   });
 });
 
+describe("door pass token", () => {
+  test("round-trips with its version", () => assert.deepEqual(token.readPassToken(token.signPassToken(id, 2)), { id, version: 2 }));
+  test("a guest link is never accepted as a door pass, or the other way round", () => {
+    assert.equal(token.readPassToken(token.signGuestToken(id, 1)), null);
+    assert.equal(token.readGuestToken(token.signPassToken(id, 1)), null);
+  });
+});
+
 describe("lifecycle", () => {
   const base = { status: "published", starts_at: "2026-11-04T18:00:00Z", ends_at: "2026-11-04T21:00:00Z", registration_opens_at: null, registration_closes_at: null };
   const at = (iso) => new Date(iso).getTime();
@@ -68,6 +76,14 @@ describe("lifecycle", () => {
     assert.equal(model.eventPhase(base, at("2026-11-04T21:00:00Z")), "ended");
     assert.equal(model.eventPhase({ ...base, status: "cancelled" }, at("2026-11-01T00:00:00Z")), "cancelled");
     assert.equal(model.eventPhase({ ...base, status: "draft" }, at("2026-11-01T00:00:00Z")), "draft");
+  });
+  test("check-in runs from 12 hours before the start to 12 hours after the end", () => {
+    assert.equal(model.checkInWindow(base, at("2026-11-04T05:59:00Z")), "soon");
+    assert.equal(model.checkInWindow(base, at("2026-11-04T06:00:00Z")), "open");
+    assert.equal(model.checkInWindow(base, at("2026-11-05T09:00:00Z")), "open");
+    assert.equal(model.checkInWindow(base, at("2026-11-05T09:01:00Z")), "closed");
+    assert.equal(model.checkInWindow({ ...base, status: "cancelled" }, at("2026-11-04T19:00:00Z")), "closed");
+    assert.equal(model.checkInWindow({ ...base, status: "draft" }, at("2026-11-04T19:00:00Z")), "closed");
   });
   test("RSVPs close at the start by default, or when the organizer chose, never after the end", () => {
     assert.equal(model.registrationWindow(base, at("2026-11-04T17:59:00Z")), "open");

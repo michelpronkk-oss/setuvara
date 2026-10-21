@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Head } from "@/components/actions/actions-pages";
 import { coralButton, EmptyState, lineButton, Mono, StudioPage } from "@/components/creator/studio-ui";
-import { eventPath, eventPhase, eventWhen, PHASE_LABEL, registrationWindow, type EventPhase, type EventRecord } from "@/lib/events/model";
+import { checkInWindow, eventPath, eventPhase, eventWhen, PHASE_LABEL, registrationWindow, type EventPhase, type EventRecord } from "@/lib/events/model";
 import { eventsEnabled } from "@/lib/events/server";
 import { loadOrganizer, loadOrganizerEvent } from "@/lib/events/studio-server";
 import { CopyLink } from "./copy-link";
@@ -106,12 +106,14 @@ export async function EventDetail({ id }: { id: string }) {
   const rsvp = registrationWindow(event, now);
   const when = eventWhen(event);
   const url = `${data.origin}${eventPath(event)}`;
-  const cancelled = guests.filter((guest) => guest.status === "cancelled").length;
+  const checkIn = checkInWindow(event, now);
+  const checkedIn = guests.filter((guest) => guest.status === "confirmed" && guest.checked_in_at).length;
+  const connected = guests.filter((guest) => guest.status === "confirmed" && guest.connection_id).length;
   const cards = [
     { label: "Going", value: `${event.confirmed_count}`, note: event.capacity ? `of ${event.capacity} spots` : "no limit" },
     { label: "Spots left", value: event.capacity ? `${Math.max(0, event.capacity - event.confirmed_count)}` : "∞", note: event.capacity && event.confirmed_count >= event.capacity ? (event.waitlist_enabled ? "full · waitlist on" : "full") : "open" },
     { label: "Waitlist", value: `${event.waitlist_count}`, note: event.waitlist_enabled ? "in join order" : "off" },
-    { label: "Cancelled", value: `${cancelled}`, note: "kept for the record" },
+    { label: "Checked in", value: `${checkedIn}`, note: checkIn === "soon" ? "opens 12h before" : connected ? `${connected} connected` : `of ${event.confirmed_count} going` },
   ];
   return (
     <StudioPage className="max-w-[1120px]">
@@ -138,7 +140,7 @@ export async function EventDetail({ id }: { id: string }) {
         {event.status !== "draft" && (
           <div className="min-w-0">
             <h2 className="mb-4 font-display text-[28px] font-bold tracking-[-0.045em]">Guests</h2>
-            <GuestList canEdit={phase === "upcoming" || phase === "live"} eventId={event.id} guests={guests} />
+            <GuestList canCheckIn={checkIn === "open"} canEdit={phase === "upcoming" || phase === "live"} eventId={event.id} guests={guests} />
           </div>
         )}
         <div className={`min-w-0 ${event.status === "draft" ? "lg:col-span-2 lg:max-w-[860px]" : ""}`}>

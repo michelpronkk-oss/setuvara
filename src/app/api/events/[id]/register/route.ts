@@ -21,6 +21,8 @@ const body = z.object({
   openedAt: z.number().int().positive(),
   /** The spam trap: hidden from people, filled by bots. */
   hp: z.string().max(200).default(""),
+  /** A signed-in member asks to connect with the organizer when they're checked in. */
+  connect: z.boolean().default(false),
 });
 
 const REFUSALS: Record<string, [number, string]> = {
@@ -79,6 +81,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const origin = await getPublicOrigin(request.headers);
   // A new guest gets their confirmation; someone already on the list gets their own link again,
   // sent to the address on file, so typing another person's email reveals and changes nothing.
+  // Only a new registration made by the signed-in member themselves takes their choice to connect.
+  if (input.connect && attendee && !result.duplicate && result.status !== "cancelled") {
+    const { error: connectError } = await service.rpc("set_event_connect_preference", { p_registration_id: result.id, p_token_version: result.token_version, p_connect: true });
+    if (connectError) console.error("Event connect preference failed", { code: connectError.code });
+  }
   const kind = result.duplicate && result.shown_status ? "reminder_link" : result.status === "waitlisted" ? "waitlisted" : "confirmed";
   const { data: guest } = await service.from("event_registrations").select("email").eq("id", result.id).maybeSingle();
   if (guest && result.status !== "cancelled") {
