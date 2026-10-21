@@ -301,6 +301,12 @@ export function refundable(order: Pick<CommerceOrder, "order_kind" | "status" | 
   return Math.max(order.gross_amount_minor - order.amount_refunded_minor, 0);
 }
 
+/** Setuvara's fee on one sale, the way the database computes it at checkout: rounded down to a whole minor unit. */
+export function platformFeeMinor(amountMinor: number, fee: { fee_bps: number; fixed_fee_minor: number } | undefined) {
+  if (!fee || amountMinor <= 0) return 0;
+  return Math.floor((amountMinor * fee.fee_bps) / 10000) + fee.fixed_fee_minor;
+}
+
 export const COMMERCE_ERROR: Record<string, string> = {
   offer_unavailable: "This isn't for sale right now.",
   offer_is_free: "This one is free.",
@@ -310,6 +316,7 @@ export const COMMERCE_ERROR: Record<string, string> = {
   rate_limited: "Too many tries. Try again in a while.",
   invalid_email: "Check your email address.",
   fee_exceeds_price: "This product can't be sold at this price.",
+  fee_policy_missing: "This product can't be sold in this currency yet.",
   payments_off: "Checkout isn't open yet.",
 };
 

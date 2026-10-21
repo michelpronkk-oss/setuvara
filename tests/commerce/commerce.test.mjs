@@ -285,3 +285,18 @@ describe("refund events", () => {
     assert.equal(calls.length, 1);
   });
 });
+
+describe("platform fee", () => {
+  test("Free plan: 5% rounded down to a whole minor unit, same as the database", () => {
+    const free = { fee_bps: 500, fixed_fee_minor: 0 };
+    assert.equal(model.platformFeeMinor(1500, free), 75);
+    assert.equal(model.platformFeeMinor(999, free), 49);
+    assert.equal(model.platformFeeMinor(50, free), 2);
+    assert.equal(model.platformFeeMinor(19, free), 0);
+  });
+  test("Plus and Pro, and no price, take nothing", () => {
+    assert.equal(model.platformFeeMinor(1500, { fee_bps: 0, fixed_fee_minor: 0 }), 0);
+    assert.equal(model.platformFeeMinor(0, { fee_bps: 500, fixed_fee_minor: 0 }), 0);
+    assert.equal(model.platformFeeMinor(1500, undefined), 0);
+  });
+});

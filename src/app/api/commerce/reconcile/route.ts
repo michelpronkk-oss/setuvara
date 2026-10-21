@@ -2,25 +2,44 @@ import { settlePayment } from "@/lib/commerce/events";
 import { deliverOrder } from "@/lib/commerce/fulfillment";
 import { commerceOrigin } from "@/lib/commerce/public";
 import { commerceProvider, createCommerceServiceClient, refreshSeller } from "@/lib/commerce/server";
-import { sameSecret } from "@/lib/social/crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Hourly safety net for missed webhooks (CRON_SECRET). Asks Stripe about
+ * Hourly safety net for missed webhooks, called by Supabase Cron (pg_cron +
+ * pg_net) with a bearer secret that lives in Supabase Vault. Asks Stripe about
  * checkouts still open past their expiry, fills in processing fees not yet
  * known, retries failed deliveries, re-reads sellers that need attention, and
- * applies retention. Every step is safe to repeat.
+ * applies retention. Every step is safe to repeat; a lease keeps two runs from
+ * overlapping and every run is logged in commerce_job_runs.
  */
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || !sameSecret(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) return Response.json({ error: "Not found." }, { status: 404 });
-  const provider = commerceProvider();
+  const token = /^Bearer ([A-Za-z0-9]{32,128})$/.exec(request.headers.get("authorization") ?? "")?.[1];
+  if (!token) return Response.json({ error: "Not found." }, { status: 404 });
   const service = createCommerceServiceClient();
+  const { data: valid } = await service.rpc("commerce_cron_token_valid", { p_token: token });
+  if (valid !== true) return Response.json({ error: "Not found." }, { status: 404 });
+  const { data: runId } = await service.rpc("commerce_job_begin", { p_job: "reconcile", p_lease_seconds: 300 });
+  if (!runId) return Response.json({ skipped: "another run is active" }, { status: 409 });
+  try {
+    const report = await reconcile(service, request);
+    await service.rpc("commerce_job_finish", { p_run_id: runId, p_ok: report.errors === 0, p_report: report, p_error: null });
+    if (report.errors) console.error("Commerce reconcile finished with errors", report);
+    return Response.json(report);
+  } catch (failure) {
+    const code = failure instanceof Error ? failure.message.slice(0, 120) : "unknown";
+    await service.rpc("commerce_job_finish", { p_run_id: runId, p_ok: false, p_report: null, p_error: code });
+    console.error("Commerce reconcile failed", { code });
+    return Response.json({ error: "Reconcile failed." }, { status: 500 });
+  }
+}
+
+async function reconcile(service: ReturnType<typeof createCommerceServiceClient>, request: Request) {
+  const provider = commerceProvider();
   const origin = commerceOrigin(request.headers);
-  const report = { checkouts: 0, settled: 0, fees: 0, deliveries: 0, sellers: 0, errors: 0 };
+  const report = { checkouts: 0, settled: 0, fees: 0, deliveries: 0, sellers: 0, errors: 0, purge: null as unknown };
 
   if (provider) {
     const stale = new Date(Date.now() - 5 * 60_000).toISOString();
@@ -53,5 +72,6 @@ export async function GET(request: Request) {
   for (const order of undelivered ?? []) if ((await deliverOrder(service, order.id, origin)) === "delivered") report.deliveries += 1;
 
   const { data: purge } = await service.rpc("commerce_purge");
-  return Response.json({ ...report, purge });
+  report.purge = purge;
+  return report;
 }
