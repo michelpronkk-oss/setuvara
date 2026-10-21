@@ -49,7 +49,9 @@
     "test:privacy:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/privacy_requests_security.sql",
     "e2e:privacy": "node scripts/e2e-privacy.mjs",
     "test:mode-handles:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/mode_handles_security.sql",
-    "e2e:mode-handles": "node scripts/e2e-mode-handles.mjs"
+    "e2e:mode-handles": "node scripts/e2e-mode-handles.mjs",
+    "test:audience": "node --test tests/audience/audience.test.mjs",
+    "test:audience:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/audience_core_security.sql"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
