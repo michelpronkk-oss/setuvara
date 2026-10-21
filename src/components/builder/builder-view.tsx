@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { BuilderStudio } from "@/components/builder/builder-studio";
+import type { RevenueConnection, RevenueLimits, RevenueSnapshot } from "@/components/builder/revenue-panel";
 import { StudioHead, StudioPage } from "@/components/creator/studio-ui";
 import { loadModeActions } from "@/lib/actions/studio-server";
 import { DEFAULT_BUILDER_LIMITS, PROJECT_COLUMNS, ROADMAP_COLUMNS, UPDATE_COLUMNS, type BuilderInsights, type BuilderLimits, type BuilderProject, type BuilderSuggestion, type ProjectUpdate, type RoadmapItem } from "@/lib/builder/model";
@@ -21,6 +22,11 @@ export async function BuilderView({ slug, project }: { slug: "creator" | "busine
     supabase.from("builder_project_actions").select("project_id, action_id").in("project_id", ids),
     supabase.from("builder_suggestions").select("id, project_id, title, body, status, created_at, roadmap_item_id").in("project_id", ids).order("created_at", { ascending: false }).limit(200),
   ]) : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+  const [{ data: revenueConnections }, { data: revenueSnapshots }, { data: revenueLimits }] = await Promise.all([
+    supabase.from("revenue_connections").select("id, project_id, provider, environment, account_ref, key_hint, status, last_sync_at, last_sync_ok, last_error").in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).neq("status", "revoked"),
+    supabase.from("revenue_snapshots").select("connection_id, day, currency, mrr_minor, paying_customers, active_subscriptions").in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("day").limit(5000),
+    supabase.rpc("my_revenue_limits"),
+  ]);
   const insights = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, (await supabase.rpc("builder_project_insights", { p_project_id: id })).data] as const)));
   return (
     <StudioPage>
@@ -34,6 +40,7 @@ export async function BuilderView({ slug, project }: { slug: "creator" | "busine
         ownerId={data.userId}
         projects={(projects ?? []) as BuilderProject[]}
         roadmap={(roadmap ?? []) as (RoadmapItem & { project_id: string })[]}
+        revenue={{ connections: (revenueConnections ?? []) as RevenueConnection[], snapshots: (revenueSnapshots ?? []) as RevenueSnapshot[], limits: (revenueLimits as RevenueLimits | null) ?? { plan: "free", providers: 0, history_days: 0 } }}
         insights={insights as Record<string, BuilderInsights | null>}
         selected={project}
         suggestions={(suggestions ?? []) as BuilderSuggestion[]}
