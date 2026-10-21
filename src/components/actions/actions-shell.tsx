@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { EditorSidebar, SectionIcon, StudioIcon } from "@/app/app/identity/editor-sidebar";
+import { EditorSidebar, EventsIcon, SectionIcon, StudioIcon } from "@/app/app/identity/editor-sidebar";
 import { MeetMark } from "@/components/marketing/brand";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
@@ -18,10 +18,12 @@ const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4
  * breadcrumb bar on desktop, and on phones a compact header and the editor's dark tab bar.
  */
 export function ActionsShell({ children, page = "actions", slug, profile, modes, plan, liveUrl, pageUrl, personalUrl, avatarUrl, avatarFocus, needsYou, signOut }: {
-  children: ReactNode; /** Actions, or the Audience page that sits beside it. */ page?: "actions" | "audience"; slug: ModeSlug; profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; plan: PlanCode;
+  children: ReactNode; /** Actions, or the Audience or Events page that sits beside it. */ page?: "actions" | "audience" | "events"; slug: ModeSlug; profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; plan: PlanCode;
   liveUrl: string; pageUrl: string | null; personalUrl: string | null; avatarUrl: string | null; avatarFocus?: PhotoFocus; needsYou: number; signOut: () => Promise<void>;
 }) {
   const router = useRouter();
+  const title = page === "audience" ? "Audience" : page === "events" ? "Events" : "Actions";
+  const pageHref = page === "events" ? "/app/identity/events" : `/app/identity/${page}?mode=${slug}`;
   const editor = (section?: string) => `/app/identity?mode=${slug}${section && section !== "home" ? `&section=${section}` : ""}`;
   const display = pageUrl?.replace(/^https?:\/\//, "") ?? null;
   return (
@@ -29,6 +31,7 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
       <EditorSidebar
         actions={page === "actions"}
         audience={page === "audience"}
+        events={page === "events"}
         avatarFocus={avatarFocus}
         avatarUrl={avatarUrl}
         liveUrl={liveUrl}
@@ -48,7 +51,7 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: MODE_DOT[slug] }} />
           <Link className="shrink-0 font-semibold hover:underline hover:underline-offset-4" href={editor()}>{MODE_NAME[slug]} Mode</Link>
           <span aria-hidden="true" className="text-black/25">/</span>
-          <Link aria-current="page" className="truncate font-semibold" href={`/app/identity/${page}?mode=${slug}`}>{page === "audience" ? "Audience" : "Actions"}</Link>
+          <Link aria-current="page" className="truncate font-semibold" href={pageHref}>{title}</Link>
         </nav>
         <div className="flex shrink-0 items-center gap-3">
           {display
@@ -62,7 +65,7 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
         <div className="flex h-14 items-center gap-2 px-3">
           <Link aria-label={`Back to ${MODE_NAME[slug]} Mode`} className="flex h-10 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 transition hover:bg-black/[0.05]" href={editor()}><svg aria-hidden="true" className="size-4 text-black/45" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7" /></svg><MeetMark className="size-6" /></Link>
           <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{page === "audience" ? "Audience" : "Actions"}</p>
+            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{title}</p>
             <p className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50"><span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: MODE_DOT[slug] }} />{MODE_NAME[slug]} Mode</p>
           </div>
         </div>
@@ -77,10 +80,16 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
               <span className="grid h-8 w-11 place-items-center rounded-full text-[#F5F4EF]/65 [&_svg]:size-[20px]"><SectionIcon name={section} /></span>{title}
             </Link>
           ))}
-          <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href={`/app/identity/actions?mode=${slug}`}>
-            <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#FF5A4F] [&_svg]:size-[20px]"><StudioIcon name="actions" /></span>Actions
-            {needsYou > 0 && <span className="absolute right-[calc(50%-24px)] top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF5A4F] px-1 text-[9px] font-bold text-[#0D0D0D]">{needsYou}</span>}
-          </Link>
+          {slug === "event" && page === "events" ? (
+            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/events">
+              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><EventsIcon /></span>Events
+            </Link>
+          ) : (
+            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href={`/app/identity/actions?mode=${slug}`}>
+              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#FF5A4F] [&_svg]:size-[20px]"><StudioIcon name="actions" /></span>Actions
+              {needsYou > 0 && <span className="absolute right-[calc(50%-24px)] top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF5A4F] px-1 text-[9px] font-bold text-[#0D0D0D]">{needsYou}</span>}
+            </Link>
+          )}
         </div>
       </nav>
     </div>

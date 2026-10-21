@@ -57,6 +57,11 @@ function StudioMark() {
   return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 3.5c.6 4.4 2.7 6.6 7.5 8.5-4.8 1.9-6.9 4.1-7.5 8.5-.6-4.4-2.7-6.6-7.5-8.5 4.8-1.9 6.9-4.1 7.5-8.5Z" /></svg>;
 }
 
+/** Event Mode's own page: its events. */
+export function EventsIcon() {
+  return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><rect height="15.5" rx="2.4" width="17" x="3.5" y="5" /><path d="M3.5 10h17M8 3.5v3M16 3.5v3M8 14h3" /></svg>;
+}
+
 export function StudioIcon({ name }: { name: StudioPageId }) {
   return <svg aria-hidden="true" className="size-[21px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">{STUDIO_ICONS[name]}</svg>;
 }
@@ -65,15 +70,15 @@ export function StudioIcon({ name }: { name: StudioPageId }) {
  * The editor's desktop sidebar: the same dark panel as the app, holding the Mode and the section.
  * The Creator studio pages share it; there `section` is null and `studio` names the open page.
  */
-export function EditorSidebar({ profile, modes, slug, section, studio = null, actions = false, audience = false, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
+export function EditorSidebar({ profile, modes, slug, section, studio = null, actions = false, audience = false, events = false, needsYou = 0, plan, liveUrl, personalUrl, avatarUrl, avatarFocus, onGo, signOut }: {
   profile: ProfileIdentity; modes: { slug: ModeSlug; is_enabled: boolean }[]; slug: ModeSlug; section: Section | null;
-  studio?: StudioPageId | null; /** The Mode's Actions page is open (Personal, Event, Business). */ actions?: boolean; /** The Audience page is open (Personal, Event, Business). */ audience?: boolean; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
+  studio?: StudioPageId | null; /** The Mode's Actions page is open (Personal, Event, Business). */ actions?: boolean; /** The Audience page is open (Personal, Event, Business). */ audience?: boolean; /** Event Mode's Events page is open. */ events?: boolean; needsYou?: number; plan: PlanCode; liveUrl: string; personalUrl: string | null;
   avatarUrl: string | null; avatarFocus?: PhotoFocus; onGo: (section: Section, mode?: ModeSlug) => void; signOut: () => Promise<void>;
 }) {
   const url = liveUrl;
   const scroller = useRef<HTMLDivElement>(null);
   // A tall sidebar scrolls; keep the open page in view.
-  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio, actions, audience]);
+  useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [section, studio, actions, audience, events]);
   return (
     <aside aria-label="Identity editor" className="print:hidden fixed inset-y-3 left-3 z-40 hidden w-[256px] flex-col rounded-[26px] bg-[#0D0D0D] text-[#F5F4EF] shadow-[0_30px_60px_-34px_rgba(13,13,13,.8)] lg:flex">
       <div className="mx-3 mt-3 flex h-[60px] items-center justify-between gap-2 px-3.5">
@@ -120,6 +125,12 @@ export function EditorSidebar({ profile, modes, slug, section, studio = null, ac
               </button>
             );
           })}
+          {slug === "event" && (
+            <Link aria-current={events ? "page" : undefined} className={`flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${events ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href="/app/identity/events">
+              <span className={events ? "text-[#C7FF4A]" : ""}><EventsIcon /></span>
+              <span className="min-w-0 flex-1 truncate">Events</span>
+            </Link>
+          )}
           {slug !== "creator" && (
             <Link aria-current={actions ? "page" : undefined} className={`flex min-h-11 items-center gap-3.5 rounded-[16px] px-3.5 text-[15px] transition-colors focus-visible:outline-2 ${actions ? "bg-white/[0.08] font-semibold text-[#F5F4EF]" : "font-medium text-[#F5F4EF]/60 hover:bg-white/[0.04] hover:text-[#F5F4EF]"}`} href={`/app/identity/actions?mode=${slug}`}>
               <span className={actions ? "text-[#FF5A4F]" : ""}><StudioIcon name="actions" /></span>
