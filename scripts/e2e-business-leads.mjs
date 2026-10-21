@@ -67,14 +67,16 @@ try {
   await inquire(booking, "Mara Vos", `mara_${suffix}@example.test`, { message: "Can we visit on Thursday?", company: "Vos & Co", preferredDates: "Thu 30 Oct" }, "mara-1");
   await inquire(collab, "Mara Vos", `mara_${suffix}@example.test`, { message: "And a campaign together?", collabType: "campaign" }, "mara-2");
   await inquire(booking, "Jun Park", `jun_${suffix}@example.test`, { message: "Two people, mornings" }, "jun-1");
-  assert.equal(psql(`select count(*) || ':' || max(inquiries) from public.business_leads where profile_id = '${owner.id}'`), "2:2"); check("three Business inquiries become two leads; the repeat email joins its lead");
+  const form = psql(`insert into public.profile_actions (profile_id, mode_id, kind, title, status, config) values ('${owner.id}', '${mode}', 'form', 'Quote request', 'published', '{"questions":[{"id":"q1","label":"Team size","type":"short","required":true}]}') returning id`).split("\n")[0];
+  await inquire(form, "Jun Park", `jun_${suffix}@example.test`, { q1: "Twelve" }, "jun-2");
+  assert.equal(psql(`select count(*) || ':' || max(inquiries) from public.business_leads where profile_id = '${owner.id}'`), "2:2"); check("four Business inquiries become two leads; repeat emails join their lead");
 
   const phone = await browser.newContext(phoneSize);
   await consent(phone);
   const page = await phone.newPage();
   await signIn(page, owner);
   await page.goto(`${appUrl}/app/identity/leads`);
-  await page.locator('[data-funnel="responses"]').getByText("3", { exact: true }).waitFor(); check("the funnel counts the three inquiries");
+  await page.locator('[data-funnel="responses"]').getByText("4", { exact: true }).waitFor(); check("the funnel counts the four inquiries");
   assert.match(await page.locator('[data-funnel="leads"]').innerText(), /\b2\b/); check("and the two new leads");
   assert.match(await page.locator('[data-funnel="bookings"]').innerText(), /\b2\b/); check("and the two booking requests");
   assert.equal(await page.locator("[data-lead]").count(), 2); check("the inbox opens on the two open leads");
@@ -99,6 +101,10 @@ try {
   await page.getByRole("button", { name: /^All/ }).click();
   await page.getByPlaceholder("Name or email").fill("jun");
   assert.equal(await page.locator("[data-lead]").count(), 1); check("search finds a lead by name");
+  await page.locator("[data-lead]").click();
+  await page.getByText("Team size").waitFor();
+  await page.getByText("Twelve").waitFor(); check("custom Form questions show their label, not their id");
+  await page.keyboard.press("Escape");
   await phone.close();
 
   const desk = await browser.newContext({ viewport: { width: 1440, height: 900 } });

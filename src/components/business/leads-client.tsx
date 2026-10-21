@@ -181,7 +181,7 @@ function LeadSheet({ lead, canNote, onClose }: { lead: Lead; canNote: boolean; o
                         {inquiry && Object.entries(inquiry.answers).filter(([, value]) => value).length > 0 && (
                           <dl className="mt-2 flex flex-col gap-1.5 rounded-[16px] bg-white p-3.5 text-[14px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)]">
                             {Object.entries(inquiry.answers).filter(([, value]) => value).map(([key, value]) => (
-                              <div className="grid gap-0.5" key={key}><dt className="text-[12px] text-black/45">{ANSWER_LABEL[key] ?? key}</dt><dd className="whitespace-pre-wrap break-words">{answerText(key, String(value))}</dd></div>
+                              <div className="grid gap-0.5" key={key}><dt className="text-[12px] text-black/45">{ANSWER_LABEL[key] ?? inquiry.labels[key] ?? "Answer"}</dt><dd className="whitespace-pre-wrap break-words">{answerText(key, String(value))}</dd></div>
                             ))}
                           </dl>
                         )}
