@@ -490,7 +490,7 @@ export function WideHero({ scene }: { scene: Scene }) {
   const align = centered ? "center" : "flex-start";
   const { eyebrow, meta } = wideIdentityLines(scene);
   return (
-    <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
+    <div className="relative grid h-[var(--sv-h)] grid-cols-2 @min-[1100px]/profile:h-[max(var(--sv-h),var(--profile-vh,100svh))] @min-[1100px]/profile:grid-cols-[56%_1fr]" data-wide-hero={look.id}>
       <HeroFoot className="!h-[22%]" scene={scene} />
       {STAGED.has(look.id) ? <WideStage scene={scene} /> : (
         <div className="relative overflow-hidden" style={{ margin: inset, borderRadius: theme.wide.radius, maskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, WebkitMaskImage: theme.wide.mask ? "linear-gradient(90deg,#000 72%,#0000)" : undefined, background: scene.photo ? "#2A2622" : theme.light ? look.accent : "#1E1B18" }}>
@@ -519,9 +519,9 @@ export function WideHero({ scene }: { scene: Scene }) {
           <div className="mt-[clamp(6px,.7cqw,12px)] flex flex-wrap items-center gap-2.5 [--sv-connect-h:54px] [--sv-connect-px:30px] [--sv-connect-w:auto]" data-wide-connect style={{ justifyContent: align }}>{scene.actions}</div>
           <SceneSocials scene={scene} align={align} copy={copy} links={scene.socials} size={40} style={look.socialStyle === "hidden" ? "hidden" : "rail"} theme={theme} />
         </div>
-        {/* Under the identity column, never across the photo. */}
-        {scene.cue(true)}
       </div>
+      {/* Centred on the page, just above the fold. */}
+      {scene.cue(true)}
     </div>
   );
 }
