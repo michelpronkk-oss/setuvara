@@ -38,7 +38,43 @@ export type AnalyticsData = {
   funnel?: AnalyticsCount<"step">[];
   deviceClasses?: AnalyticsCount<"device">[];
   comparison?: { profileViewsDelta: number | null; connectionsDelta: number | null };
+  /** What each Mode tool did in the range (get_mode_tools_summary). */
+  tools?: ModeTools;
 };
+
+export type ModeTools = {
+  actionResponses: number;
+  eventRsvps: number;
+  eventCheckIns: number;
+  leads: number;
+  bookings: number;
+  sales: number;
+  revenue: { currency: string; minor: number }[];
+  deals: number;
+  follows: number;
+  builderVotes: number;
+  builderSuggestions: number;
+};
+
+/** The tools summary from the API; anything malformed reads as absent, never as zero. */
+export function normalizeModeTools(value: unknown): ModeTools | undefined {
+  const raw = asRecord(value);
+  if (!raw) return undefined;
+  const n = (key: string) => count(raw[key]);
+  const keys = { actionResponses: "action_responses", eventRsvps: "event_rsvps", eventCheckIns: "event_check_ins", leads: "leads", bookings: "bookings", sales: "sales", deals: "deals", follows: "follows", builderVotes: "builder_votes", builderSuggestions: "builder_suggestions" } as const;
+  const out = {} as Record<keyof typeof keys, number>;
+  for (const [name, key] of Object.entries(keys) as [keyof typeof keys, string][]) {
+    const value = n(key) ?? n(name);
+    if (value === null) return undefined;
+    out[name] = value;
+  }
+  const revenue = Array.isArray(raw.revenue) ? raw.revenue.flatMap((item) => {
+    const row = asRecord(item);
+    const minor = count(row?.minor);
+    return typeof row?.currency === "string" && /^[a-z]{3}$/i.test(row.currency) && minor !== null ? [{ currency: row.currency.toLowerCase(), minor }] : [];
+  }) : [];
+  return { ...out, revenue };
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -135,6 +171,7 @@ export function normalizeAnalytics(value: unknown): AnalyticsData | null {
     ...(list("deviceClasses", "device_classes", "devices", "deviceBreakdown")
       ? { deviceClasses: counted(list("deviceClasses", "device_classes", "devices", "deviceBreakdown"), "device", "device_class") }
       : {}),
+    ...(normalizeModeTools(raw.tools) ? { tools: normalizeModeTools(raw.tools) } : {}),
     ...(comparisonRaw ? { comparison: { profileViewsDelta: delta("profileViewsDelta", "profile_views_delta"), connectionsDelta: delta("connectionsDelta", "connections_delta") } } : {}),
   };
 }

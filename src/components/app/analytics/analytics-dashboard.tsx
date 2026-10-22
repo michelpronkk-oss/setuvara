@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import { MemberBadge } from "@/components/app/status-badge";
 import { analyticsCapabilities } from "@/lib/analytics/capabilities";
 import { recordProfileShare } from "@/lib/analytics/client";
-import { normalizeAnalytics, type AnalyticsData, type AnalyticsRangeKind } from "@/lib/analytics/normalize";
+import { normalizeAnalytics, type AnalyticsData, type AnalyticsRangeKind, type ModeTools } from "@/lib/analytics/normalize";
 import {
   barWidth,
   dateSpan,
@@ -146,7 +146,7 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
 
         {failed ? <ErrorState onRetry={retry} />
           : !shown ? <LoadingState />
-            : dayOne ? <DayOne comparison={shown.comparison} fmt={fmt} shareMode={shareMode} shareUrl={shareUrl} />
+            : dayOne ? <><DayOne comparison={shown.comparison} fmt={fmt} shareMode={shareMode} shareUrl={shareUrl} />{shown.tools && Object.values(shown.tools).some((value) => Array.isArray(value) ? value.length > 0 : value > 0) && <ToolsSection fmt={fmt} tools={shown.tools} />}</>
               : <Signals data={shown} fmt={fmt} kind={kind} onUpgrade={setPaywall} walletLaunched={walletLaunched} />}
 
         {shown && !dayOne && <footer className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:border-t lg:border-[#0d0d0d]/[0.12] lg:pt-5">
@@ -158,6 +158,51 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
 
       {paywall && plan !== "pro" && !(paywall === "plus" && plan === "plus") && <AnalyticsPaywall onClose={closePaywall} plan={plan} target={paywall} />}
     </main>
+  );
+}
+
+const TOOL_ROWS: { key: Exclude<keyof ModeTools, "revenue">; label: string; mode: string; color: string }[] = [
+  { key: "actionResponses", label: "Action responses", mode: "All Modes", color: "#0d0d0d" },
+  { key: "eventRsvps", label: "Event RSVPs", mode: "Event", color: "#C7FF4A" },
+  { key: "eventCheckIns", label: "Checked in", mode: "Event", color: "#C7FF4A" },
+  { key: "leads", label: "New leads", mode: "Business", color: "#AFCBFF" },
+  { key: "bookings", label: "Bookings", mode: "Business", color: "#AFCBFF" },
+  { key: "sales", label: "Sales", mode: "Creator", color: "#E8A6FF" },
+  { key: "deals", label: "Brand deals", mode: "Creator", color: "#E8A6FF" },
+  { key: "follows", label: "New followers", mode: "Creator", color: "#E8A6FF" },
+  { key: "builderVotes", label: "Roadmap votes", mode: "Creator", color: "#E8A6FF" },
+  { key: "builderSuggestions", label: "Feature ideas", mode: "Creator", color: "#E8A6FF" },
+];
+
+/** What your Mode tools did in the range: only the ones with activity, so it stays short. */
+function ToolsSection({ tools, fmt }: { tools: ModeTools; fmt: Format }) {
+  const rows = TOOL_ROWS.filter((row) => tools[row.key] > 0);
+  const money = tools.revenue.filter((item) => item.minor > 0);
+  return (
+    <section aria-labelledby="tools-title" className="flex flex-col gap-5 lg:border-t-[1.5px] lg:border-[#0d0d0d] lg:pt-9" data-mode-tools>
+      <div className="flex flex-col gap-2">
+        <span className={label}>Your Mode tools</span>
+        <h2 className={sectionTitle} id="tools-title">{rows.length || money.length ? "What your tools brought in." : "Your tools are ready."}</h2>
+      </div>
+      {rows.length || money.length ? (
+        <ul className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr))]">
+          {money.map((item) => (
+            <li className="flex flex-col gap-1 rounded-[18px] bg-[#0d0d0d] p-5 text-[#f5f4ef]" key={item.currency}>
+              <span className="font-display text-[34px] font-extrabold leading-none tracking-[-0.05em] tabular-nums">{new Intl.NumberFormat("en", { style: "currency", currency: item.currency.toUpperCase(), maximumFractionDigits: 0 }).format(item.minor / 100)}</span>
+              <span className="text-[13px] text-[#f5f4ef]/70">Sales revenue · Creator</span>
+            </li>
+          ))}
+          {rows.map((row) => (
+            <li className="flex flex-col gap-1 rounded-[18px] bg-white p-5 shadow-[inset_0_0_0_1px_#0d0d0d14]" key={row.key}>
+              <span className="font-display text-[34px] font-extrabold leading-none tracking-[-0.05em] tabular-nums">{fmt(tools[row.key])}</span>
+              <span className="flex items-center gap-1.5 text-[13px] text-black/65"><span aria-hidden="true" className="size-2 rounded-full" style={{ background: row.color }} />{row.label} · {row.mode}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="max-w-xl text-[14.5px] leading-[1.5] text-black/60">When people answer an Action, RSVP to your event, book you or buy from you, it shows up here.</p>
+      )}
+    </section>
   );
 }
 
@@ -266,6 +311,8 @@ function Signals({ data, kind, fmt, onUpgrade, walletLaunched }: { data: Analyti
           </div>
         )}
       </div>
+
+      {data.tools && <ToolsSection fmt={fmt} tools={data.tools} />}
 
       {deeper && (
         <div className="grid gap-x-10 gap-y-11 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))] lg:grid-cols-3 lg:gap-14 lg:border-t-[1.5px] lg:border-[#0d0d0d] lg:pt-9">
