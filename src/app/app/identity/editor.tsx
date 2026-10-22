@@ -109,6 +109,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   const [paywallCapability, setPaywallCapability] = useState<CapabilityKey | null>(null);
   // Unsaved premium looks the owner is previewing, per Mode. Never written to the database.
   const [appearancePreviews, setAppearancePreviews] = useState<Record<string, ModeAppearance>>({});
+  const [pageOrders, setPageOrders] = useState<Record<string, EditorApi["pageOrder"]>>({});
   const [plusSheet, setPlusSheet] = useState<PlusTrigger | null>(null);
   // A crop session: a new file (its object URL), or a re-crop of the kept original (or, for photos
   // saved before originals were kept, of the saved photo itself, which then becomes the original).
@@ -865,7 +866,10 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   }, []);
   const closePaywall = useCallback(() => setPaywallCapability(null), []);
 
+  const modeKey = mode?.id ?? "";
+  const setPageOrder = useCallback((value: EditorApi["pageOrder"]) => setPageOrders((all) => ({ ...all, [modeKey]: value })), [modeKey]);
   const api: EditorApi = {
+    pageOrder: pageOrders[modeKey] ?? null, setPageOrder,
     actionsLive, profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
     updateProfile, updateSetting, updateAppearance, requestCapability,
     appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
