@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { PulseLine } from "@/components/app/pulse";
 import { coralButton, lineButton } from "@/components/creator/studio-ui";
 import type { RevenueVisibility } from "@/lib/builder/model";
 import { connectRevenue, disconnectRevenue, setRevenueHistory, syncRevenueNow } from "@/lib/revenue/actions";
@@ -154,15 +155,11 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
 function Trend({ rows, currency }: { rows: RevenueSnapshot[]; currency: string }) {
   const sorted = [...rows].sort((a, b) => a.day.localeCompare(b.day));
   const last = sorted.at(-1)!;
-  const max = Math.max(...sorted.map((r) => r.mrr_minor), 1);
-  const points = sorted.map((r, i) => `${sorted.length === 1 ? 50 : (i / (sorted.length - 1)) * 100},${30 - (r.mrr_minor / max) * 28}`).join(" ");
   return (
-    <div className="grid gap-1">
-      {sorted.some((r) => r.reconstructed) && <p className="text-[12px] text-black/55">Includes months reconstructed from Stripe history.</p>}
+    <div className="grid gap-1 rounded-[20px] bg-[#0D0D0D] p-4 text-[#F5F4EF]">
+      {sorted.some((r) => r.reconstructed) && <p className="text-[12px] text-[#F5F4EF]/55">Includes months reconstructed from Stripe history.</p>}
       <p className="text-[14px] tabular-nums"><b>{money(last.mrr_minor, currency)}</b> MRR · {money(last.mrr_minor * 12, currency)} ARR · {last.paying_customers} paying</p>
-      <svg aria-label={`MRR in ${currency.toUpperCase()} over ${sorted.length} days`} className="h-10 w-full" preserveAspectRatio="none" role="img" viewBox="0 0 100 32">
-        <polyline fill="none" points={points} stroke="#0D0D0D" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-      </svg>
+      <PulseLine className="mt-2 h-16" id={`mrr-${currency}`} label={`MRR in ${currency.toUpperCase()} over ${sorted.length} days`} tone="#C7FF4A" values={sorted.map((r) => r.mrr_minor)} />
     </div>
   );
 }

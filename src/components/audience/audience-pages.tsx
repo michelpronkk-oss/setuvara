@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Head } from "@/components/actions/actions-pages";
+import { PulseCard, PulseLine } from "@/components/app/pulse";
 import { coralButton, EmptyState, StudioPage } from "@/components/creator/studio-ui";
 import type { ModeSlug } from "@/components/profile/types";
 import { actionsBase, newActionHref } from "@/lib/actions/studio-server";
@@ -22,33 +23,17 @@ const eyebrow = (slug: ModeSlug) => <><span aria-hidden="true" className="size-2
 function Pulse({ people, daily, cards, tone }: { people: number; daily: AudienceSummary["daily"]; cards: { label: string; value: number; note: string }[]; tone: string }) {
   const net = daily.reduce((sum, day) => sum + day.joined - day.left, 0);
   const series = daily.reduce<number[]>((list, day) => [...list, Math.max(0, (list.at(-1) ?? Math.max(0, people - net)) + day.joined - day.left)], []);
-  const max = Math.max(1, ...series);
-  const W = 600;
-  const H = 140;
-  const pts = series.map((v, i) => [series.length > 1 ? (i / (series.length - 1)) * W : W, H - 8 - (v / max) * (H - 24)] as const);
-  const line = pts.length ? `M0,${pts[0][1]} ${pts.map(([x, y]) => `L${x.toFixed(1)},${y.toFixed(1)}`).join(" ")}` : `M0,${H - 8} L${W},${H - 8}`;
   return (
-    <section aria-label="Audience at a glance" className="relative isolate mb-6 grid gap-6 overflow-hidden rounded-[28px] bg-[#0D0D0D] p-6 text-[#F5F4EF] shadow-[0_30px_60px_-40px_#0D0D0D] md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:p-8">
-      <span aria-hidden="true" className="pointer-events-none absolute -left-20 -top-24 -z-10 size-80 rounded-full opacity-50 blur-3xl" style={{ background: `radial-gradient(circle, ${tone}66, transparent 65%)` }} />
-      <div className="min-w-0">
-        <p className="font-label text-[10.5px] uppercase tracking-[0.16em] text-[#F5F4EF]/55">People · 90 days</p>
-        <p className="mt-2 flex items-baseline gap-3"><span className="font-display text-[64px] font-bold leading-none tracking-[-0.06em] tabular-nums md:text-[80px]">{people}</span><span className="text-[14px] text-[#F5F4EF]/60">{people === 1 ? "person confirmed" : "people confirmed"}</span></p>
-        <svg aria-label={`Audience over the last 90 days, ending at ${people}`} className="mt-4 h-[120px] w-full overflow-visible" preserveAspectRatio="none" role="img" viewBox={`0 0 ${W} ${H}`}>
-          <defs><linearGradient id="pulse-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={tone} stopOpacity="0.35" /><stop offset="100%" stopColor={tone} stopOpacity="0" /></linearGradient></defs>
-          <path d={`${line} L${W},${H} L0,${H} Z`} fill="url(#pulse-fill)" />
-          <path className="pulse-draw" d={line} fill="none" stroke={tone} strokeLinejoin="round" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-        </svg>
-      </div>
-      <dl className="grid content-end gap-2">
-        {cards.slice(1).map((card) => (
-          <div className="flex items-center justify-between gap-3 rounded-[18px] bg-[#F5F4EF]/[0.06] px-4 py-3" key={card.label}>
-            <dt><span className="block text-[14px] font-semibold">{card.label}</span><span className="block text-[12px] text-[#F5F4EF]/50">{card.note}</span></dt>
-            <dd className="font-display text-[30px] font-bold leading-none tracking-[-0.05em] tabular-nums">{card.label === "Left" && card.value ? `−${card.value}` : card.label === "Joined" && card.value ? `+${card.value}` : card.value}</dd>
-          </div>
-        ))}
-      </dl>
-      <style>{`.pulse-draw{stroke-dasharray:3000;stroke-dashoffset:3000;animation:pulse-draw 1.6s cubic-bezier(.65,0,.35,1) .1s forwards}@keyframes pulse-draw{to{stroke-dashoffset:0}}@media (prefers-reduced-motion:reduce){.pulse-draw{animation:none;stroke-dashoffset:0}}`}</style>
-    </section>
+    <PulseCard
+      after={<span className="text-[14px] text-[#F5F4EF]/60">{people === 1 ? "person confirmed" : "people confirmed"}</span>}
+      chart={<PulseLine className="h-[120px] md:h-[140px]" id="audience" label={`Audience over the last 90 days, ending at ${people}`} tone={tone} values={series.length > 1 ? series : [people, people]} />}
+      className="mb-6"
+      eyebrow="People · 90 days"
+      label="Audience at a glance"
+      rows={cards.slice(1).map((card) => ({ label: card.label, note: card.note, value: card.label === "Left" && card.value ? `−${card.value}` : card.label === "Joined" && card.value ? `+${card.value}` : card.value }))}
+      tone={tone}
+      value={people}
+    />
   );
 }
 

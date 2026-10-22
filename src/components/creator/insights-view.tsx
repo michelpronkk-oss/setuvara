@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { PlatformTile, StudioHead, StudioPage } from "@/components/creator/studio-ui";
+import { DeltaChip, PulseBars, PulseCard, PulseLine } from "@/components/app/pulse";
 import { MeetMark } from "@/components/marketing/brand";
 import type { ProfileAnalyticsReport } from "@/lib/analytics/server";
 import { formatAmount } from "@/lib/commerce/model";
@@ -76,12 +77,9 @@ export function InsightsView({ ranges, range, report, audience, collabs, store, 
             <Kpi detail="From Creator campaigns" label="Emails sent" value={emailsSent} />
           </Group>
           {audience.joined + audience.left > 0 && (
-            <div className="mt-3 rounded-[22px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.07)] md:p-6">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[15px] font-semibold">Joined and left per day</p>
-                <p className="flex items-center gap-3 text-[13px] text-black/60"><span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2 rounded-full bg-[#0D0D0D]" />Joined</span><span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2 rounded-full bg-[#FF5A4F]" />Left</span></p>
-              </div>
-              <Bars rows={audience.daily} />
+            <div className="mt-3 rounded-[22px] bg-[#0D0D0D] p-5 text-[#F5F4EF] md:p-6">
+              <p className="mb-3 text-[15px] font-semibold">Joined and left per day</p>
+              <PulseBars below={{ label: "Left", color: "#FF5A4F", values: audience.daily.map((d) => d.left) }} days={audience.daily.map((d) => d.day)} label="Joined and left per day" layers={[{ label: "Joined", color: "#E8A6FF", values: audience.daily.map((d) => d.joined) }]} />
             </div>
           )}
 
@@ -196,64 +194,7 @@ function storyLine(opens: number, peak: { date: string; profileViews: number }, 
 
 /** Page opens on a dark card: the count, a smooth curve that draws in, and the other signals beside it. */
 function OpensPulse({ opens, delta, values, story, rows }: { opens: number; delta: number | null; values: number[]; story: string; rows: { label: string; value: number; note: string }[] }) {
-  const W = 800;
-  const H = 220;
-  const max = Math.max(...values, 1) * 1.15;
-  const pts = values.map((value, index) => [values.length > 1 ? (index / (values.length - 1)) * W : W / 2, H - 6 - (value / max) * (H - 20)] as const);
-  let d = pts.length ? `M${pts[0][0]},${pts[0][1]}` : "";
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [p0, p1, p2, p3] = [pts[i - 1] ?? pts[i], pts[i], pts[i + 1], pts[i + 2] ?? pts[i + 1]];
-    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]},${p2[1]}`;
-  }
   return (
-    <section aria-label="Page opens" className="relative isolate grid gap-6 overflow-hidden rounded-[28px] bg-[#0D0D0D] p-6 text-[#F5F4EF] shadow-[0_30px_60px_-40px_#0D0D0D] md:p-8 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      <span aria-hidden="true" className="pointer-events-none absolute -left-24 -top-28 -z-10 size-96 rounded-full opacity-50 blur-3xl" style={{ background: "radial-gradient(circle, #E8A6FF80, transparent 65%)" }} />
-      <div className="min-w-0">
-        <p className="flex items-center gap-2 font-label text-[10.5px] uppercase tracking-[0.16em] text-[#F5F4EF]/55"><MeetMark className="size-3.5" />Page opens on Setuvara</p>
-        <p className="mt-2 flex flex-wrap items-baseline gap-3">
-          <span className="font-display text-[72px] font-bold leading-none tracking-[-0.06em] tabular-nums md:text-[88px]">{opens.toLocaleString("en")}</span>
-          {delta !== null && <span className="rounded-full px-2.5 py-1 text-[12.5px] font-semibold" style={delta >= 0 ? { background: "#C7FF4A", color: "#0D0D0D" } : { boxShadow: "inset 0 0 0 1px rgba(245,244,239,.25)" }}>{delta >= 0 ? "▲" : "▼"} {Math.abs(Math.round(delta))}% vs previous</span>}
-        </p>
-        {values.length > 1 ? (
-          <svg aria-label="Page opens per day" className="mt-5 h-[170px] w-full overflow-visible md:h-[200px]" preserveAspectRatio="none" role="img" viewBox={`0 0 ${W} ${H}`}>
-            <defs>
-              <linearGradient id="opens-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#E8A6FF" stopOpacity="0.35" /><stop offset="100%" stopColor="#E8A6FF" stopOpacity="0" /></linearGradient>
-              <linearGradient id="opens-line" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stopColor="#E8A6FF" /><stop offset="100%" stopColor="#FF5A4F" /></linearGradient>
-            </defs>
-            {[0.25, 0.5, 0.75].map((y) => <line key={y} stroke="#F5F4EF" strokeDasharray="2 5" strokeOpacity="0.1" vectorEffect="non-scaling-stroke" x1="0" x2={W} y1={H * y} y2={H * y} />)}
-            <path className="opens-fade" d={`${d} L${W},${H} L0,${H} Z`} fill="url(#opens-fill)" />
-            <path className="opens-draw" d={d} fill="none" stroke="url(#opens-line)" strokeLinecap="round" strokeWidth="2.75" vectorEffect="non-scaling-stroke" />
-          </svg>
-        ) : <p className="mt-5 text-[14px] text-[#F5F4EF]/55">Not enough days yet.</p>}
-        <p className="mt-3 text-[14px] leading-[1.5] text-[#F5F4EF]/65">{story}</p>
-      </div>
-      <dl className="grid content-end gap-2">
-        {rows.map((row) => (
-          <div className="flex items-center justify-between gap-3 rounded-[18px] bg-[#F5F4EF]/[0.06] px-4 py-3" key={row.label}>
-            <dt><span className="block text-[14px] font-semibold">{row.label}</span><span className="block text-[12px] text-[#F5F4EF]/50">{row.note}</span></dt>
-            <dd className="font-display text-[30px] font-bold leading-none tracking-[-0.05em] tabular-nums">{row.value.toLocaleString("en")}</dd>
-          </div>
-        ))}
-      </dl>
-      <style>{`.opens-draw{stroke-dasharray:3000;stroke-dashoffset:3000;animation:opens-draw 1.6s cubic-bezier(.65,0,.35,1) .1s forwards}.opens-fade{opacity:0;animation:opens-fade 1s ease-out .8s forwards}@keyframes opens-draw{to{stroke-dashoffset:0}}@keyframes opens-fade{to{opacity:1}}@media (prefers-reduced-motion:reduce){.opens-draw,.opens-fade{animation:none;stroke-dashoffset:0;opacity:1}}`}</style>
-    </section>
-  );
-}
-
-/** Joined above the line, left below, one bar per day. */
-function Bars({ rows }: { rows: { day: string; joined: number; left: number }[] }) {
-  const max = Math.max(1, ...rows.map((row) => Math.max(row.joined, row.left)));
-  const width = 800 / rows.length;
-  const bar = Math.max(Math.min(width * 0.45, 14), 1);
-  return (
-    <svg aria-label="Joined and left per day" className="h-[120px] w-full md:h-[140px]" preserveAspectRatio="none" role="img" viewBox="0 0 800 120">
-      <line stroke="rgba(13,13,13,.15)" strokeWidth="1" vectorEffect="non-scaling-stroke" x1="0" x2="800" y1="80" y2="80" />
-      {rows.map((row, index) => (
-        <g key={row.day}>
-          {row.joined > 0 && <rect fill="#0D0D0D" height={(row.joined / max) * 76} rx="1.5" width={bar} x={index * width + (width - bar) / 2} y={80 - (row.joined / max) * 76} />}
-          {row.left > 0 && <rect fill="#FF5A4F" height={(row.left / max) * 36} rx="1.5" width={bar} x={index * width + (width - bar) / 2} y={81} />}
-        </g>
-      ))}
-    </svg>
+    <PulseCard after={<DeltaChip delta={delta} />} chart={<PulseLine id="opens" label="Page opens per day" tone="#E8A6FF" values={values} />} eyebrow={<><MeetMark className="size-3.5" />Page opens on Setuvara</>} label="Page opens" rows={rows.map((row) => ({ ...row, value: row.value.toLocaleString("en") }))} story={story} tone="#E8A6FF" value={opens.toLocaleString("en")} />
   );
 }
