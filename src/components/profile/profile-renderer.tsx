@@ -8,7 +8,7 @@ import { MeetMark } from "@/components/marketing/brand";
 import { FramedPhoto } from "@/components/profile/focused-photo";
 import { ProfileImage } from "@/components/profile/profile-image";
 import { ProfileBlocks, type BlockTone } from "@/components/profile/profile-blocks";
-import { pageRuns } from "@/lib/profile/page-order";
+import { pageRuns, type PageSizes } from "@/lib/profile/page-order";
 import { SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MemberBadge } from "@/components/app/status-badge";
 import type { MemberTier } from "@/lib/billing/member-badge";
@@ -82,6 +82,8 @@ type ProfileRendererProps = {
    * "kind:id") follow it in one stream. Null keeps the default layout.
    */
   pageOrder?: string[] | null;
+  /** Tile sizes keyed like pageOrder: small pairs two side by side, hero runs media edge to edge. */
+  pageSizes?: PageSizes;
   pieces?: Record<string, ReactNode>;
   /** "Make yours on Setuvara" (Free) or the small Setuvara mark (Plus) at the end. */
   attribution?: boolean;
@@ -208,7 +210,7 @@ function Slides({ scene, render }: { scene: Scene; render: (source: PhotoSource,
 }
 
 function Profile(props: ProfileProps) {
-  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "", pageOrder = null, pieces } = props;
+  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "", pageOrder = null, pageSizes, pieces } = props;
   const copy = getMessages("en").profile;
   const source = photoSource(mode);
   const photo = source ? mode.image_url ?? source.url : null;
@@ -326,7 +328,7 @@ function Profile(props: ProfileProps) {
         <WideHero scene={scene} />
       </div>
 
-      <AppearanceContent order={pageOrder} pieces={pieces} attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
+      <AppearanceContent order={pageOrder} pieces={pieces} sizes={pageSizes} attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
       {floating && <FloatingConnect dot={connect.dot} label={copy.connect} style={{ background: connect.bg, color: connect.fg, boxShadow: [connect.edge !== "none" ? connect.edge : "", "0 14px 34px -12px #0D0D0D99"].filter(Boolean).join(","), outlineColor: theme.identity.fg }} />}
     </article>
   );
@@ -391,7 +393,7 @@ function aboutParagraphs(scene: Scene, bio = "") {
   return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 
-function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card, order, pieces }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode; order?: string[] | null; pieces?: Record<string, ReactNode> }) {
+function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card, order, pieces, sizes }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode; order?: string[] | null; pieces?: Record<string, ReactNode>; sizes?: PageSizes }) {
   const { theme, mode, look } = scene;
   const bio = profile.bio?.trim() ?? "";
   const paragraphs = aboutParagraphs(scene, bio);
@@ -403,7 +405,18 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
   const story = paragraphs.length > 1 || hasBlocks || earned || Boolean(order) || (mode.slug === "event" && !spread);
   const shownLinks = look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links;
   // The owner's order: one stream in the story column, each run drawn by its own component.
-  const stream = order ? pageRuns(order).map((run, index) => {
+  // Only what actually shows joins the stream, so two small tiles pair up even when something
+  // between them (a hidden block, a link shown under the name) draws nothing.
+  const shows = (key: string) => {
+    const at = key.indexOf(":");
+    const kind = key.slice(0, at);
+    const id = key.slice(at + 1);
+    if (kind === "block") return Boolean(mode.blocks?.some((block) => block.id === id && block.is_visible && !block.is_soundtrack));
+    if (kind === "link") return shownLinks.some((item) => item.link.id === id);
+    return Boolean(pieces?.[key]);
+  };
+  const runs = order ? pageRuns(order.filter(shows), sizes) : [];
+  const draw = (run: (typeof runs)[number], index: number) => {
     const key = `${run.kind}-${run.ids[0]}-${index}`;
     if (run.kind === "block") {
       const blocks = run.ids.map((id) => mode.blocks?.find((block) => block.id === id)).filter((block): block is NonNullable<typeof block> => Boolean(block));
@@ -411,11 +424,24 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
     }
     if (run.kind === "link") {
       const runLinks = run.ids.map((id) => shownLinks.find((item) => item.link.id === id)).filter((item): item is ResolvedLink => Boolean(item));
-      return runLinks.length ? <Links copy={copy} key={key} links={runLinks} scene={scene} /> : null;
+      return runLinks.length ? <Links compact={run.size === "small"} copy={copy} key={key} links={runLinks} scene={scene} /> : null;
     }
     const nodes = run.ids.map((id) => pieces?.[`${run.kind}:${id}`]).filter(Boolean);
     return nodes.length ? <div className={`flex flex-col gap-4 ${run.kind === "action" && nodes.length > 1 ? "@min-[1100px]/profile:grid @min-[1100px]/profile:grid-cols-2 @min-[1100px]/profile:gap-5" : ""}`} key={key}>{nodes.map((node, at) => <Fragment key={`${key}-${at}`}>{node}</Fragment>)}</div> : null;
-  }) : null;
+  };
+  // The owner's order: one stream in the story column, each run drawn by its own component.
+  // Small tiles that follow each other share a row of two; a hero runs edge to edge on phones.
+  const stream: ReactNode[] | null = order ? [] : null;
+  for (let at = 0; stream && at < runs.length; at++) {
+    const run = runs[at];
+    if (run.size === "small") {
+      const group = [run];
+      while (runs[at + 1]?.size === "small") group.push(runs[++at]);
+      stream.push(<div className="grid grid-cols-2 gap-3 @min-[1100px]/profile:gap-5 [&_[data-featured-media]]:rounded-[18px] [&_ul]:gap-2" data-tile-row={group.length} key={`small-${at}`}>{group.map((item, i) => <div className="min-w-0 self-stretch [&>*]:h-full" data-tile-size="small" key={i}>{draw(item, at * 100 + i)}</div>)}</div>);
+    } else if (run.size === "hero") {
+      stream.push(<div className="-mx-4 @min-[700px]/profile:-mx-8 @min-[1100px]/profile:mx-0 [&_[data-featured-media]]:rounded-none [&_[data-media-frame]]:rounded-none @min-[1100px]/profile:[&_[data-featured-media]]:rounded-[28px] @min-[1100px]/profile:[&_[data-media-frame]]:rounded-[28px] [&_figcaption]:px-4 @min-[1100px]/profile:[&_figcaption]:px-1" data-tile-size="hero" key={`hero-${at}`}>{draw(run, at)}</div>);
+    } else stream.push(draw(run, at));
+  }
   const label = "hidden font-label text-[10.5px] uppercase tracking-[0.2em] @min-[1100px]/profile:block";
   // Phones and tablets: one column, exactly as before (the two groups dissolve into it).
   // Desktop: a spread. The story (About, pictures, content) gets the room; a quiet column beside
@@ -532,7 +558,7 @@ function EventCard({ mode, theme, copy, className = "" }: { mode: ProfileMode; t
 }
 
 /** Compact link rows (62px) in their stored order. Social shows brand colour discs. */
-function Links({ links, scene, copy }: { links: ResolvedLink[]; scene: Scene; copy: Copy }) {
+function Links({ links, scene, copy, compact = false }: { links: ResolvedLink[]; scene: Scene; copy: Copy; /** A small tile: icon above a two-line title, filling its half of the row. */ compact?: boolean }) {
   if (!links.length) return null;
   const { theme } = scene;
   const brand = theme.id === "social";
@@ -540,20 +566,20 @@ function Links({ links, scene, copy }: { links: ResolvedLink[]; scene: Scene; co
   const shown = collapse ? links.slice(0, LINK_VISIBLE) : links;
   const rest = collapse ? links.slice(LINK_VISIBLE) : [];
   const row = (item: ResolvedLink) => (
-    <li key={item.link.id}>
-      <a className="flex h-[62px] items-center gap-3 rounded-[var(--sv-card-r-small,18px)] pl-2.5 pr-4 transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" data-link-id={item.link.id} href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }} target={item.external ? "_blank" : undefined}>
+    <li className={compact ? "h-full" : undefined} key={item.link.id}>
+      <a className={`${compact ? "relative flex h-full min-h-[118px] flex-col items-start gap-3 p-3.5" : "flex h-[62px] items-center gap-3 pl-2.5 pr-4"} rounded-[var(--sv-card-r-small,18px)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`} data-link-id={item.link.id} href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }} target={item.external ? "_blank" : undefined}>
         <span aria-hidden="true" className="grid size-[42px] shrink-0 place-items-center rounded-full [&_img]:size-[19px] [&_svg]:size-[19px]" style={{ background: brand ? brandColour(item.providerId) : theme.light ? "#0D0D0D0D" : "#F5F4EF14", color: brand ? "#FFFFFF" : theme.fg }}><LinkGlyph icon={item.icon} url={item.url} /></span>
         <span className="flex min-w-0 flex-1 flex-col gap-px">
-          <span className="truncate text-[15.5px] font-semibold">{item.link.title}</span>
+          <span className={compact ? "line-clamp-2 text-[15px] font-semibold leading-[1.25]" : "truncate text-[15.5px] font-semibold"}>{item.link.title}</span>
           <span className="truncate text-[12.5px]" style={{ color: theme.muted }}>{item.display}</span>
         </span>
-        <span aria-hidden="true" style={{ color: theme.muted }}>↗</span>
+        <span aria-hidden="true" className={compact ? "absolute right-3.5 top-3" : undefined} style={{ color: theme.muted }}>↗</span>
       </a>
     </li>
   );
   return (
-    <nav aria-label={copy.links} className="mt-1.5 flex flex-col gap-2 scroll-mt-6" data-profile-links id="profile-links">
-      <ul className="flex flex-col gap-2">{shown.map(row)}</ul>
+    <nav aria-label={copy.links} className={`${compact ? "h-full" : "mt-1.5"} flex flex-col gap-2 scroll-mt-6`} data-profile-links id={compact ? undefined : "profile-links"}>
+      <ul className={`flex flex-col gap-2 ${compact ? "h-full" : ""}`}>{shown.map(row)}</ul>
       {rest.length > 0 && (
         <details className="group">
           <summary className="flex h-11 cursor-pointer list-none items-center justify-center rounded-full text-[14px] font-semibold [&::-webkit-details-marker]:hidden" style={{ boxShadow: `inset 0 0 0 1.5px ${theme.card.edge}` }}>{copy.allLinks} · {links.length}</summary>

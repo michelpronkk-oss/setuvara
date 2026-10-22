@@ -122,7 +122,7 @@ function FeaturedImage({ url, alt, tone, onError }: { url: string; alt: string; 
   useEffect(() => measure(ref.current), [url]);
   return (
     <div className="relative w-full overflow-hidden rounded-[22px] @min-[1100px]/profile:max-h-[min(82vh,760px)]" data-featured-media style={{ aspectRatio: tall ? "4 / 5" : undefined, background: mediaFrame(tone).background }}>
-      <ProfileImage alt={alt} className={`block w-full ${tall ? "h-full object-cover object-[50%_30%]" : "h-auto"}`} onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={url} />
+      <ProfileImage alt={alt} className={`block w-full ${tall ? "h-full object-cover object-[50%_30%]" : "h-auto"}`} onError={onError} onLoad={(event) => measure(event.currentTarget)} ref={ref} sizes="(max-width: 480px) 100vw, (max-width: 768px) calc(100vw - 64px), (max-width: 1100px) 656px, 960px" src={url} />
       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }} />
     </div>
   );
@@ -194,7 +194,7 @@ function VideoBlock({ id, data, tone, accent }: { id: string; data: Record<strin
     return (
       <figure>
         {title && <p className="mb-2 px-1 text-[14px] font-semibold leading-snug">{title}</p>}
-        <div className="overflow-hidden rounded-[22px] bg-[#0D0D0D]" style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+        <div className="overflow-hidden rounded-[22px] bg-[#0D0D0D]" data-media-frame style={{ boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
           <video
             aria-label={title || "Uploaded video"}
             className="block max-h-[80vh] w-full object-contain"
@@ -436,7 +436,7 @@ function FeatureBlock({ data, tone }: { data: Record<string, unknown>; tone: Blo
   let site = str(data.siteName);
   if (!site) { try { site = new URL(url).hostname.replace(/^www\./, ""); } catch { site = ""; } }
   return (
-    <a className="group block overflow-hidden rounded-[var(--sv-card-r,16px)] transition hover:opacity-95" href={url} rel="noopener noreferrer" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target="_blank">
+    <a className="group block overflow-hidden rounded-[var(--sv-card-r,16px)] transition hover:opacity-95" data-media-frame href={url} rel="noopener noreferrer" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target="_blank">
       {image && !imageFailed && (
         <span className="relative block aspect-[1.91/1] w-full overflow-hidden" style={{ background: tone.bg }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- third-party link preview image */}
