@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { nameType, nameTypeStyle } from "@/components/profile/name-type";
+import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { after } from "next/server";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
@@ -346,6 +348,9 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   const pageTone = profileTone(mode, plan);
   const browserThemeColor = resolvedBrowserThemeColor(mode, plan);
   const resolvedLook = resolveAppearance(mode, plan);
+  // Builder and revenue headings wear the page's own name type, so they read as part of the look.
+  const builderType = nameType(resolvedLook.nameFont, appearanceTheme(resolvedLook.id, resolvedLook.accent, Boolean(mode.image_path)).identity);
+  const builderDisplay = { fontFamily: nameTypeStyle(builderType).fontFamily, fontWeight: nameTypeStyle(builderType).fontWeight, fontStyle: nameTypeStyle(builderType).fontStyle, textTransform: nameTypeStyle(builderType).textTransform, letterSpacing: nameTypeStyle(builderType).letterSpacing };
   const copy = getMessages("en").profile;
   const sharedPassportStamp = passportHighlight && typeof passportHighlight === "object"
     ? passportHighlight as { type: PassportStampType; title: string; subtitle: string | null; countryCode: string | null }
@@ -373,7 +378,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
               locked={lockedWork}
             />}
             {!creator && <ActionCards accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions} />}
-            <PublicBuilder accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions.map((item) => item.action)} images={blockImages} projects={projects} viewer={builderViewer} />
+            <PublicBuilder display={builderDisplay} accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions.map((item) => item.action)} images={blockImages} projects={projects} viewer={builderViewer} />
             <PublicTestimonials accent={resolveModeAccent(mode)} items={testimonials} />
             {sharedPassportStamp && (
             <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
