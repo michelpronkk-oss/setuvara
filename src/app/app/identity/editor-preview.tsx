@@ -13,6 +13,7 @@ import { soundtrackBlock } from "@/lib/blocks/registry";
 import type { ConnectionContext, ProfileMode } from "@/components/profile/types";
 import type { EditorApi, PreviewState } from "./editor-types";
 import { PreviewingBar, useAppearance } from "./editor-appearance";
+import { usePreviewPieces } from "./editor-preview-pieces";
 import { useI18n } from "@/lib/i18n/provider";
 import { MODE_SLUGS } from "./editor-types";
 import { MonoLabel, Segmented, modeMeta, previewVisitorAction } from "./editor-ui";
@@ -54,6 +55,7 @@ function PreviewProfile({ api, state, setState, soundGate = false }: { api: Edit
   const { mode, profile } = api;
   const { messages } = useI18n();
   const context = useSampleContext(mode);
+  const pieces = usePreviewPieces(api);
   return (
     <ProfileRenderer
       attribution
@@ -63,7 +65,7 @@ function PreviewProfile({ api, state, setState, soundGate = false }: { api: Edit
       memberTier={api.memberTier}
       mode={mode}
       pageOrder={api.pageOrder?.order ?? null}
-      pieces={api.pageOrder ? previewPieces(api.pageOrder.labels) : undefined}
+      pieces={pieces}
       profile={profile}
       plan={api.plan}
       selectedRewards={api.selectedRewards}
@@ -73,17 +75,6 @@ function PreviewProfile({ api, state, setState, soundGate = false }: { api: Edit
       visitorAction={state === "visitor" ? previewVisitorAction(mode, messages.profile.connect, () => setState("connected")) : undefined}
     />
   );
-}
-
-/** Stand-ins for Actions, projects and Mode sections, so the preview shows where they sit. */
-function previewPieces(labels: Record<string, { kind: string; title: string }>) {
-  const tag: Record<string, string> = { action: "Action", project: "Project", section: "Section" };
-  return Object.fromEntries(Object.entries(labels).map(([key, item]) => [key, (
-    <div className="flex items-center gap-3 rounded-[var(--sv-card-r,18px)] p-4" data-preview-piece={item.kind} key={key} style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent)", background: "color-mix(in srgb, currentColor 5%, transparent)" }}>
-      <span className="font-label text-[9.5px] uppercase tracking-[0.16em] opacity-60">{tag[item.kind] ?? item.kind}</span>
-      <span className="min-w-0 truncate text-[15px] font-semibold">{item.title}</span>
-    </div>
-  )]));
 }
 
 function PaneBar({ api }: { api: EditorApi }) {

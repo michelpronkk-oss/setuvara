@@ -76,8 +76,8 @@ export function usePageItems(api: EditorApi) {
     return [{ key, kind: "section", section: item.id as PageSection }];
   });
 
-  // The preview follows a saved order; labels stand in for what it can't draw.
-  const orderKey = saved ? order.join(",") : "";
+  // The preview follows this order, saved or default.
+  const orderKey = order.join(",");
   const labelKey = items.flatMap((row) => row.kind === "action" && row.action.status === "published" ? [`${row.key}=${row.action.title || "Untitled Action"}`]
     : row.kind === "project" && row.project.visibility === "public" ? [`${row.key}=${row.project.name}`]
     : row.kind === "section" ? [`${row.key}=${SECTION_NAME[row.section]}`] : []).join("|");
