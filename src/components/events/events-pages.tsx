@@ -36,51 +36,109 @@ function DateTile({ event }: { event: EventRecord }) {
 function EventRow({ event, now }: { event: EventRecord; now: number }) {
   const when = eventWhen(event);
   const phase = eventPhase(event, now);
-  const seats = event.capacity ? `${event.confirmed_count} / ${event.capacity} going` : `${event.confirmed_count} going`;
+  const seats = event.capacity ? `${event.confirmed_count} / ${event.capacity}` : `${event.confirmed_count}`;
   return (
     <li>
-      <Link className="flex items-center gap-4 rounded-[24px] bg-white p-3.5 pr-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.3)] md:p-4" data-event-row={phase} href={`/app/identity/events/${event.id}`}>
+      <Link className="group flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:outline-offset-[-2px] md:px-5" data-event-row={phase} href={`/app/identity/events/${event.id}`}>
         <DateTile event={event} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-[20px] font-bold leading-tight tracking-[-0.035em]">{event.title}</p>
-          <p className="mt-0.5 truncate text-[13.5px] text-black/55">{when.time}{event.city ? ` · ${event.city}` : event.online_url ? " · Online" : ""}</p>
+          <p className="truncate text-[16px] font-semibold tracking-[-0.01em]">{event.title}</p>
+          <p className="mt-0.5 truncate text-[13.5px] text-black/55">{when.date} · {when.time}{event.city ? ` · ${event.city}` : event.online_url ? " · Online" : ""}</p>
         </div>
-        <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
-          <PhasePill phase={phase} />
-          {phase !== "draft" && <p className="text-[13px] font-semibold text-black/60">{seats}{event.waitlist_count ? ` · ${event.waitlist_count} waiting` : ""}</p>}
-        </div>
-        <span aria-hidden="true" className="text-xl text-black/30">›</span>
+        <PhasePill phase={phase} />
+        <p className="hidden w-[92px] shrink-0 text-right text-[13.5px] tabular-nums text-black/60 sm:block">{phase === "draft" ? "—" : <><span className="font-semibold text-black">{seats}</span> going</>}</p>
+        <span aria-hidden="true" className="text-xl text-black/30 transition-transform group-hover:translate-x-0.5">›</span>
       </Link>
     </li>
   );
 }
 
-/** Event Mode's events: what's coming, drafts, and the history, newest first. */
+/** The next published event, leading the page: when, where, how full, and the two things you do with it. */
+function NextEvent({ event, now }: { event: EventRecord; now: number }) {
+  const when = eventWhen(event);
+  const phase = eventPhase(event, now);
+  const days = Math.ceil((new Date(event.starts_at).getTime() - now) / 86_400_000);
+  const lead = phase === "live" ? "Happening now" : days <= 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`;
+  const share = event.capacity ? Math.min(1, event.confirmed_count / event.capacity) : null;
+  const where = event.venue_name && event.city ? `${event.venue_name}, ${event.city}` : event.city || event.venue_name || (event.online_url ? "Online" : "");
+  return (
+    <section aria-labelledby="sv-next-event" className="relative mb-10 overflow-hidden rounded-[28px] bg-[#0D0D0D] p-6 text-[#F5F4EF] md:p-8">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 size-[340px] rounded-full bg-[#C7FF4A]/[0.07] blur-3xl" />
+      <div className="relative flex flex-wrap items-start justify-between gap-6">
+        <div className="min-w-0 max-w-[620px]">
+          <Mono className="flex items-center gap-2 text-[#C7FF4A]">{phase === "live" && <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-[#C7FF4A]" />}Next up · {lead}</Mono>
+          <h2 className="mt-3 text-balance font-display text-[34px] font-bold leading-[0.98] tracking-[-0.045em] md:text-[44px]" id="sv-next-event">{event.title}</h2>
+          <p className="mt-3 text-[15px] text-[#F5F4EF]/70">{when.date} · {when.time}{where ? ` · ${where}` : ""}</p>
+        </div>
+        <div className="min-w-[200px]">
+          <p className="font-display text-[44px] font-bold leading-none tracking-[-0.05em] tabular-nums">{event.confirmed_count}<span className="ml-2 text-[15px] font-semibold tracking-normal text-[#F5F4EF]/55">{event.capacity ? `of ${event.capacity} going` : "going"}</span></p>
+          {share !== null && <div aria-hidden="true" className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-[#C7FF4A]" style={{ width: `${Math.max(2, share * 100)}%` }} /></div>}
+          {event.waitlist_count > 0 && <p className="mt-2 text-[13px] text-[#F5F4EF]/60">{event.waitlist_count} on the waitlist</p>}
+        </div>
+      </div>
+      <div className="relative mt-7 flex flex-wrap gap-2.5">
+        <Link className="inline-flex min-h-11 items-center rounded-full bg-[#C7FF4A] px-5 text-[14px] font-semibold text-[#0D0D0D] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4EF]" href={`/app/identity/events/${event.id}`}>Guest list &amp; details</Link>
+        <a className="inline-flex min-h-11 items-center rounded-full px-5 text-[14px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.3)] transition hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-[#F5F4EF]" href={eventPath(event)} rel="noreferrer" target="_blank">View event page ↗</a>
+      </div>
+    </section>
+  );
+}
+
+/** No events yet: the whole journey in three steps, and one way in. */
+function EventsEmpty() {
+  const steps = [
+    { title: "Create the page", body: "A name, a time and a place. It takes your Event Mode's look." },
+    { title: "Share the link", body: "Guests RSVP in a tap. Set a limit and a waitlist fills itself." },
+    { title: "Open the door", body: "Scan each guest's pass on the day, or check them in from the list." },
+  ];
+  return (
+    <section className="overflow-hidden rounded-[28px] bg-[#0D0D0D] text-[#F5F4EF] md:grid md:grid-cols-[1.1fr_1fr]">
+      <div className="p-6 md:p-9">
+        <Mono className="text-[#C7FF4A]">Your first event</Mono>
+        <h2 className="mt-3 font-display text-[36px] font-bold leading-[0.98] tracking-[-0.05em] md:text-[48px]">Host something.</h2>
+        <p className="mt-3 max-w-[40ch] text-[15px] leading-[1.55] text-[#F5F4EF]/70">A dinner, a launch, a meetup. Setuvara gives it its own page with RSVPs, a guest list and a door.</p>
+        <Link className="mt-7 inline-flex min-h-12 items-center rounded-full bg-[#C7FF4A] px-6 text-[15px] font-semibold text-[#0D0D0D] transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4EF]" href="/app/identity/events/new">Create an event</Link>
+      </div>
+      <ol className="flex flex-col justify-center gap-5 border-t border-white/10 p-6 md:border-l md:border-t-0 md:p-9">
+        {steps.map((step, index) => (
+          <li className="flex gap-4" key={step.title}>
+            <span aria-hidden="true" className="font-label text-[12px] text-[#C7FF4A]">0{index + 1}</span>
+            <span><span className="block text-[16px] font-semibold">{step.title}</span><span className="mt-1 block text-[14px] leading-[1.5] text-[#F5F4EF]/60">{step.body}</span></span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** Event Mode's events: the next one up front, then what's coming, drafts, and the history. */
 export async function EventsIndex() {
   const data = await loadOrganizer("/app/identity/events");
   if (!data.mode) notFound();
-  if (!data.ready) return <StudioPage><Head eyebrow={eyebrow} title="Events" /><EmptyState body="Events need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
+  if (!data.ready) return <StudioPage className="max-w-[1120px]"><Head eyebrow={eyebrow} title="Events" /><EmptyState body="Events need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
   const now = clock();
   const upcoming = data.events.filter((event) => event.status === "published" && new Date(event.ends_at).getTime() > now).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const drafts = data.events.filter((event) => event.status === "draft");
-  const past = data.events.filter((event) => !upcoming.includes(event) && !drafts.includes(event));
+  const past = data.events.filter((event) => !upcoming.includes(event) && !drafts.includes(event)).sort((a, b) => b.starts_at.localeCompare(a.starts_at));
   const going = upcoming.reduce((sum, event) => sum + event.confirmed_count, 0);
-  const groups = [["Coming up", upcoming], ["Drafts", drafts], ["Past", past]] as const;
+  const [next, ...later] = upcoming;
+  const groups = [["Coming up", later], ["Drafts", drafts], ["Past", past]] as const;
   return (
-    <StudioPage>
-      <Head action={<Link className={coralButton} href="/app/identity/events/new">New event</Link>} eyebrow={eyebrow} sub={upcoming.length ? `${upcoming.length} coming up · ${going} going` : "Each event gets its own page, RSVPs and guest list."} title="Events" />
+    <StudioPage className="max-w-[1120px] pb-12">
+      <Head action={data.events.length ? <Link className={coralButton} href="/app/identity/events/new">New event</Link> : undefined} eyebrow={eyebrow} sub={upcoming.length ? `${upcoming.length} coming up · ${going} going` : data.events.length ? "Each event gets its own page, RSVPs and guest list." : undefined} title="Events" />
       {!eventsEnabled() && offNote}
-      {data.events.length === 0 ? (
-        <EmptyState action={<Link className={coralButton} href="/app/identity/events/new">Create your first event</Link>} body="A dinner, a launch, a meetup. Give it a name, a time and a place; Setuvara gives it a page in your Event Mode's look, with RSVPs, a guest list and a waitlist." title="Host something." />
-      ) : (
-        <div className="flex flex-col gap-9">
-          {groups.filter(([, list]) => list.length).map(([title, list]) => (
-            <section aria-label={title} key={title}>
-              <Mono className="mb-3 text-black/50">{title} · {list.length}</Mono>
-              <ul className="flex flex-col gap-2.5">{list.map((event) => <EventRow event={event} key={event.id} now={now} />)}</ul>
-            </section>
-          ))}
-        </div>
+      {data.events.length === 0 ? <EventsEmpty /> : (
+        <>
+          {next && <NextEvent event={next} now={now} />}
+          <div className="flex flex-col gap-9">
+            {groups.filter(([, list]) => list.length).map(([title, list]) => (
+              <section aria-label={title} key={title}>
+                <Mono className="mb-3 px-1 text-black/50">{title} · {list.length}</Mono>
+                <ul className="divide-y divide-black/[0.07] overflow-hidden rounded-[24px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">{list.map((event) => <EventRow event={event} key={event.id} now={now} />)}</ul>
+              </section>
+            ))}
+          </div>
+        </>
       )}
     </StudioPage>
   );

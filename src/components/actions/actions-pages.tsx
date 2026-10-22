@@ -93,39 +93,50 @@ export async function ActionsIndex({ slug }: { slug: ModeSlug }) {
     { label: "This week", value: `${thisWeek}`, note: "responses, entries and signups" },
   ];
 
+  const accent = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" }[slug];
+
   return (
-    <StudioPage>
+    <StudioPage className="max-w-[1180px] pb-12">
       <Head
-        action={actions.length ? <div className="flex flex-wrap gap-2">{slug === "creator" && <Link className={lineButton} href="/app/identity/creator/collabs">Deals</Link>}<Link className={lineButton} href={`/app/identity/goals?mode=${slug}`}>Start from a goal</Link><Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link></div> : <Link className={lineButton} href={`/app/identity/goals?mode=${slug}`}>Start from a goal</Link>}
-        eyebrow={<><span aria-hidden="true" className="size-2 rounded-full" style={{ background: { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" }[slug] }} />{MODE_NAME[slug]} Mode</>}
-        sub={actions.length ? `${live} live${needs ? ` · ${needs} new` : ""}` : "Forms, newsletters, giveaways and questions on your page."}
+        action={actions.length ? <div className="flex flex-wrap gap-2">{slug === "creator" && <Link className={lineButton} href="/app/identity/creator/collabs">Deals</Link>}<Link className={lineButton} href={`/app/identity/goals?mode=${slug}`}>Start from a goal</Link><Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link></div> : undefined}
+        eyebrow={<><span aria-hidden="true" className="size-2 rounded-full" style={{ background: accent }} />{MODE_NAME[slug]} Mode</>}
+        sub={actions.length ? `${live} live${needs ? ` · ${needs} new` : ""}` : undefined}
         title="Actions"
       />
       {!creatorActionsEnabled() && <ActionsOffNote />}
       {actions.length ? (
         <>
-          <dl className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {cards.map((card) => {
+          <dl className="mb-10 grid grid-cols-2 overflow-hidden rounded-[24px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:grid-cols-4">
+            {cards.map((card, index) => {
               const audience = card.label === "Subscribers";
               return (
-                <div className="relative rounded-[24px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] transition has-[a:hover]:shadow-[inset_0_0_0_1.5px_#0D0D0D] md:p-5" key={card.label}>
-                  <dt><Mono className="text-black/55">{card.label}</Mono></dt>
-                  <dd className={`mt-2 font-display text-[36px] font-bold leading-none tracking-[-0.05em] md:text-[44px] ${card.hot ? "text-[#FF5A4F]" : ""}`}>{card.value}</dd>
-                  <dd className="mt-1 text-[13px] text-black/60">{audience ? <Link className="font-semibold text-[#0D0D0D] after:absolute after:inset-0 after:rounded-[24px]" href={audienceHref(slug)}>Open Audience →</Link> : card.note}</dd>
+                <div className={`relative p-5 md:p-6 ${index % 2 ? "border-l border-black/[0.07]" : ""} ${index > 1 ? "border-t border-black/[0.07] md:border-t-0" : ""} ${index === 2 ? "md:border-l" : ""} ${audience ? "transition-colors has-[a:hover]:bg-black/[0.02]" : ""}`} key={card.label}>
+                  <dt className="text-[13px] font-medium text-black/55">{card.label}</dt>
+                  <dd className={`mt-2 font-display text-[36px] font-bold leading-none tracking-[-0.05em] tabular-nums md:text-[42px] ${card.hot ? "text-[#FF5A4F]" : ""}`}>{card.value}</dd>
+                  <dd className="mt-1.5 text-[13px] text-black/55">{audience ? <Link className="font-semibold text-[#0D0D0D] after:absolute after:inset-0" href={audienceHref(slug)}>Open Audience →</Link> : card.note}</dd>
                 </div>
               );
             })}
           </dl>
-          <ActionsList base={base} profileId={data.userId} rows={rows} />
+          <section aria-labelledby="sv-actions-list">
+            <h2 className="mb-3 px-1 font-display text-[22px] font-bold tracking-[-0.035em]" id="sv-actions-list">On your page</h2>
+            <div className="rounded-[24px] bg-white px-4 py-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:px-5">
+              <ActionsList base={base} profileId={data.userId} rows={rows} />
+            </div>
+          </section>
         </>
       ) : (
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-12">
-          <div>
-            <h2 className="font-display text-[30px] font-bold leading-[1] tracking-[-0.05em] md:text-[38px]">Give visitors something to do.</h2>
-            <p className="mt-3 max-w-[40ch] text-[15px] leading-[1.5] text-black/70">Each Action is a card on your {MODE_NAME[slug]} page with its own form, in your Appearance. Responses land here. None of them opens your chat.</p>
-          </div>
+        <>
+          <section className="relative mb-10 overflow-hidden rounded-[28px] bg-[#0D0D0D] p-6 text-[#F5F4EF] md:p-9">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 size-[360px] rounded-full opacity-[0.12] blur-3xl" style={{ background: accent }} />
+            <Mono className="relative" style={{ color: accent }}>Actions</Mono>
+            <h2 className="relative mt-3 max-w-[16ch] font-display text-[36px] font-bold leading-[0.98] tracking-[-0.05em] md:text-[48px]">Give visitors something to do.</h2>
+            <p className="relative mt-3 max-w-[52ch] text-[15px] leading-[1.55] text-[#F5F4EF]/70">Each Action is a card on your {MODE_NAME[slug]} page with its own form, in your Appearance. Responses land here, never in your chat.</p>
+            <Link className="relative mt-6 inline-flex min-h-11 items-center rounded-full px-5 text-[14px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.3)] transition hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-[#F5F4EF]" href={`/app/identity/goals?mode=${slug}`}>Or start from a goal →</Link>
+          </section>
+          <h2 className="mb-3 px-1 font-display text-[22px] font-bold tracking-[-0.035em]">Choose what people do</h2>
           <KindPicker hrefFor={(kind) => newActionHref(slug, kind)} limits={limits} slug={slug} />
-        </div>
+        </>
       )}
     </StudioPage>
   );

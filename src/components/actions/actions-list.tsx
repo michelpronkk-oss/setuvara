@@ -45,7 +45,7 @@ export function ActionsList({ rows, profileId, base }: { rows: ActionRow[]; prof
 
   return (
     <div>
-      <ul className="divide-y divide-black/10 border-y border-black/10">
+      <ul className="divide-y divide-black/[0.07]">
         {shown.map((row) => {
           const index = active.indexOf(row);
           const when = actionWindow(row);

@@ -5,7 +5,9 @@ import { linkProviderById } from "@/lib/links/providers";
 
 /** A Creator studio page: the design's 1440 grid with 32px gutters, one column on phones. */
 export function StudioPage({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <main className={`mx-auto w-full max-w-[1520px] px-3.5 pt-5 md:px-8 md:pt-7 ${className}`}>{children}</main>;
+  // A page that names its own width gets it; two max-w classes would leave the winner to stylesheet order.
+  const width = /(^|\s)max-w-/.test(className) ? "" : "max-w-[1520px]";
+  return <main className={`mx-auto w-full ${width} px-3.5 pt-5 md:px-8 md:pt-7 ${className}`}>{children}</main>;
 }
 
 export function StudioHead({ title, sub, action, className = "" }: { title: string; sub?: ReactNode; action?: ReactNode; className?: string }) {
