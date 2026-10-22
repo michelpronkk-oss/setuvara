@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PlusTag } from "@/app/app/identity/editor-ui";
+import { PulseBars } from "@/components/app/pulse";
 import { Mono } from "@/components/creator/studio-ui";
 import { isConfirmedKind, rate, type ActionInsights, type ActionKind } from "@/lib/actions/model";
 
@@ -23,10 +24,6 @@ export function ActionInsightsView({ kind, insights }: { kind: ActionKind; insig
     ...(confirms ? [{ label: "Confirmed", value: row.confirmed, of: row.responses }] : []),
   ];
   const daily = insights.daily ?? [];
-  const peak = Math.max(1, ...daily.map((day) => Math.max(day.views, day.opens)));
-  const bar = 6;
-  const gap = daily.length > 120 ? 1 : 3;
-  const total = Math.max(1, daily.length * (bar + gap));
   const conversion = rate(confirms ? row.confirmed : row.responses, row.views);
 
   return (
@@ -57,31 +54,15 @@ export function ActionInsightsView({ kind, insights }: { kind: ActionKind; insig
         })}
       </ol>
 
-      <figure className="rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] md:p-6">
-        <figcaption className="flex flex-wrap items-baseline justify-between gap-2">
-          <Mono className="text-black/55">Daily · {insights.days} days</Mono>
-          <span className="flex items-center gap-3 text-[13px] text-black/60">
-            <span className="flex items-center gap-1.5"><span aria-hidden="true" className="size-2 rounded-full bg-black/20" />Views</span>
-            <span className="flex items-center gap-1.5"><span aria-hidden="true" className="size-2 rounded-full bg-[#0D0D0D]" />Opens</span>
-            <span className="flex items-center gap-1.5"><span aria-hidden="true" className="size-2 rounded-full bg-[#FF5A4F]" />{steps[2].label}</span>
-          </span>
-        </figcaption>
-        <svg aria-label={`${row.views} views, ${row.opens} opens and ${row.responses} responses over ${insights.days} days`} className="mt-4 h-[140px] w-full" preserveAspectRatio="none" role="img" viewBox={`0 0 ${total} 100`}>
-          <line stroke="rgba(13,13,13,.12)" strokeWidth=".6" vectorEffect="non-scaling-stroke" x1="0" x2={total} y1="99" y2="99" />
-          {daily.map((day, index) => {
-            const x = index * (bar + gap);
-            return (
-              <g key={day.day}>
-                <title>{`${day.day}: ${day.views} views, ${day.opens} opens, ${day.responses} ${steps[2].label.toLowerCase()}`}</title>
-                {day.views > 0 && <rect fill="rgba(13,13,13,.16)" height={(day.views / peak) * 96} rx="1" width={bar} x={x} y={99 - (day.views / peak) * 96} />}
-                {day.opens > 0 && <rect fill="#0D0D0D" height={(day.opens / peak) * 96} rx="1" width={bar} x={x} y={99 - (day.opens / peak) * 96} />}
-                {day.responses > 0 && <rect fill="#FF5A4F" height={Math.max(3, (Math.min(day.responses, peak) / peak) * 96)} rx="1" width={bar} x={x} y={99 - Math.max(3, (Math.min(day.responses, peak) / peak) * 96)} />}
-              </g>
-            );
-          })}
-        </svg>
-        <div className="mt-2 flex justify-between font-label text-[10px] uppercase tracking-[0.12em] text-black/40"><span>{daily[0]?.day.slice(5) ?? ""}</span><span>Today</span></div>
-      </figure>
+      <section className="relative isolate overflow-hidden rounded-[28px] bg-[#0D0D0D] p-5 text-[#F5F4EF] shadow-[0_30px_60px_-40px_#0D0D0D] md:p-6">
+        <span aria-hidden="true" className="pointer-events-none absolute -left-20 -top-24 -z-10 size-80 rounded-full opacity-40 blur-3xl" style={{ background: "radial-gradient(circle, #FF5A4F66, transparent 65%)" }} />
+        <Mono className="mb-4 block text-[#F5F4EF]/55">Daily · {insights.days} days</Mono>
+        <PulseBars days={daily.map((day) => day.day)} label={`${row.views} views, ${row.opens} opens and ${row.responses} responses over ${insights.days} days`} layers={[
+          { label: "Views", color: "rgba(245,244,239,.22)", values: daily.map((day) => day.views) },
+          { label: "Opens", color: "#F5F4EF", values: daily.map((day) => day.opens) },
+          { label: steps[2].label, color: "#FF5A4F", values: daily.map((day) => day.responses) },
+        ]} />
+      </section>
 
       <p className="text-[13px] leading-[1.5] text-black/55">
         {conversion === null ? "Numbers start once people see this on your page." : `${percent(conversion, confirms ? row.confirmed : row.responses)} of people who saw the card ${confirms ? "confirmed" : "sent"}.`} Your own visits don&apos;t count. Views and opens are daily totals with no visitor details kept.
