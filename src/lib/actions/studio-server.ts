@@ -1,5 +1,6 @@
 import "server-only";
 
+import { loginHref, rememberNext } from "@/lib/app/login-next";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -35,11 +36,11 @@ export function newActionHref(slug: ModeSlug, kind?: string) {
  * One Mode's Actions for its signed-in owner, with everything the editor's phone needs to draw the
  * real page: the Mode as the profile renders it (signed photos, links, blocks), the plan and the link.
  */
-export const loadModeActions = cache(async (slug: ModeSlug, next: string) => {
+const loadModeActionsData = cache(async (slug: ModeSlug) => {
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
-  if (error || !userId) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (error || !userId) redirect(loginHref());
 
   const [{ data: profile }, { data: modeRows }, viewer, requestHeaders] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
@@ -47,7 +48,7 @@ export const loadModeActions = cache(async (slug: ModeSlug, next: string) => {
     getViewerPlan(userId),
     headers(),
   ]);
-  if (!profile) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (!profile) redirect(loginHref());
   const row = modeRows?.find((item) => item.slug === slug);
   if (!row) return { supabase, userId, profile: profile as ProfileIdentity, mode: null } as const;
 
@@ -116,5 +117,11 @@ export const loadModeActions = cache(async (slug: ModeSlug, next: string) => {
     origin,
   } as const;
 });
+
+/** loadModeActions for this request; `next` is where sign-in returns to. */
+export function loadModeActions(slug: ModeSlug, next: string) {
+  rememberNext(next);
+  return loadModeActionsData(slug);
+}
 
 export type ModeActions = Exclude<Awaited<ReturnType<typeof loadModeActions>>, { mode: null }>;

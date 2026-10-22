@@ -22,15 +22,14 @@ export default async function CreatorInsightsPage({ searchParams }: { searchPara
   const range = RANGES.find((item) => item.value === query.range && capabilities.availableRanges.includes(item.value)) ?? RANGES[0];
   // Creator-only numbers need the Mode filter, which comes with Plus. Free sees what Setuvara itself holds.
   const resolved = capabilities.modeBreakdown ? resolveAnalyticsQuery(new URLSearchParams({ range: range.value, mode: "creator" }), capabilities) : null;
-  let report: ProfileAnalyticsReport | null = null;
-  if (resolved?.ok) {
-    try { report = await getProfileAnalyticsReport({ profileId: studio.userId, plan, query: resolved.data }); } catch { report = null; }
-  }
+  // The report and the creator's own rows load side by side.
+  const reportLoad: Promise<ProfileAnalyticsReport | null> = resolved?.ok ? getProfileAnalyticsReport({ profileId: studio.userId, plan, query: resolved.data }).catch(() => null) : Promise.resolve(null);
   const since = rangeSince(range.days);
   const lists = studio.actions.filter((action) => action.kind === "newsletter").map((action) => action.id);
   const { supabase, userId } = studio;
   // Everything below is the creator's own rows under RLS; a table that isn't there yet reads as empty.
-  const [subscribers, deals, moves, orders, refunds, stats, campaigns] = await Promise.all([
+  const [report, subscribers, deals, moves, orders, refunds, stats, campaigns] = await Promise.all([
+    reportLoad,
     lists.length ? supabase.from("action_submissions").select("email, status, verified_at, unsubscribed_at").eq("kind", "newsletter").in("action_id", lists).limit(20000) : Promise.resolve({ data: [] }),
     supabase.from("creator_deals").select(DEAL_COLUMNS).eq("creator_user_id", userId).limit(2000),
     supabase.from("creator_deal_activities").select("deal_id, kind, from_stage, created_at").eq("creator_user_id", userId).eq("kind", "stage").gte("created_at", since).limit(5000),

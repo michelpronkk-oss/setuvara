@@ -26,7 +26,7 @@ function Pulse({ people, daily, cards, tone }: { people: number; daily: Audience
   return (
     <PulseCard
       after={<span className="text-[14px] text-[#F5F4EF]/60">{people === 1 ? "person confirmed" : "people confirmed"}</span>}
-      chart={<PulseLine className="h-[120px] md:h-[140px]" id="audience" label={`Audience over the last 90 days, ending at ${people}`} tone={tone} values={series.length > 1 ? series : [people, people]} />}
+      chart={<PulseLine className="h-[120px] md:h-[150px]" label={`Audience over the last 90 days, ending at ${people}`} points={daily.map((day, index) => ({ date: day.day, value: series[index], notes: [day.joined ? `${day.joined} joined` : "", day.left ? `${day.left} left` : ""].filter(Boolean) }))} tone={tone} unit={["person", "people"]} />}
       className="mb-6"
       eyebrow="People · 90 days"
       label="Audience at a glance"

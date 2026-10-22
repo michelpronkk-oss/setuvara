@@ -1,5 +1,6 @@
 import "server-only";
 
+import { currentNext, rememberNext } from "@/lib/app/login-next";
 import { cache } from "react";
 
 import { loadCreatorStudio } from "@/lib/creator/studio-server";
@@ -36,8 +37,8 @@ export type Dispute = { order_id: string; amount_minor: number; currency: string
 const EMPTY_STATUS: SellerStatus = { terms_accepted: false, suspended: false, can_sell: false, plan: "free", fees: [], account: null };
 
 /** Everything the Commerce workspace reads, for the signed-in creator only (RLS), plus the live Stripe balance. */
-export const loadCommerce = cache(async (next: string) => {
-  const studio = await loadCreatorStudio(next);
+const loadCommerceData = cache(async () => {
+  const studio = await loadCreatorStudio(currentNext());
   if (!studio.mode) return { studio, ready: false } as const;
   const { supabase, userId } = studio;
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
@@ -92,5 +93,11 @@ export const loadCommerce = cache(async (next: string) => {
     balance,
   } as const;
 });
+
+/** loadCommerce for this request; `next` is where sign-in returns to. */
+export function loadCommerce(next: string) {
+  rememberNext(next);
+  return loadCommerceData();
+}
 
 export type CommerceWorkspace = Extract<Awaited<ReturnType<typeof loadCommerce>>, { ready: boolean; seller: SellerStatus }>;

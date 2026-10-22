@@ -1,5 +1,6 @@
 import "server-only";
 
+import { loginHref, rememberNext } from "@/lib/app/login-next";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -16,17 +17,17 @@ import { EMPTY_KIT, isWorkBlock, readCreatorSettings, workItem, type MediaKit, t
 const MEDIA = "profile-media";
 
 /** Everything the Creator studio and the Creator dashboard read, for the signed-in owner only. */
-export const loadCreatorStudio = cache(async (next = "/app/identity/creator") => {
+const loadCreatorStudioData = cache(async () => {
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
-  if (error || !userId) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (error || !userId) redirect(loginHref());
 
   const [{ data: profile }, { data: mode }] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, bio, is_published").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("id, slug, is_enabled, settings, appearance, image_path, image_focus_x, image_focus_y, connect_policy, updated_at").eq("profile_id", userId).eq("slug", "creator").maybeSingle(),
   ]);
-  if (!profile) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (!profile) redirect(loginHref());
   if (!mode) return { supabase, userId, profile, mode: null } as const;
 
   const [links, blocks, offers, actions, submissions, limits, socials, kit, follows, monetization, requestHeaders, image] = await Promise.all([
@@ -47,6 +48,9 @@ export const loadCreatorStudio = cache(async (next = "/app/identity/creator") =>
   ]);
 
   const rows = readableBlocks(blocks.data as unknown[] | null);
+  const origin = await getPublicOrigin(requestHeaders);
+  // Share links and signed media don't depend on each other: fetch them together.
+  const sharing = mode.is_enabled && profile.is_published ? ownerModeShareUrls(userId, profile.username, ["creator"], origin) : Promise.resolve({} as Awaited<ReturnType<typeof ownerModeShareUrls>>);
   const signed = await Promise.all(rows.map(async (block): Promise<ProfileBlock> => {
     const imagePath = typeof block.data.image_path === "string" ? block.data.image_path : null;
     const videoPath = typeof block.data.video_path === "string" ? block.data.video_path : null;
@@ -56,8 +60,7 @@ export const loadCreatorStudio = cache(async (next = "/app/identity/creator") =>
     ]);
     return { ...block, data: { ...block.data, ...(imageUrl.data ? { image_url: imageUrl.data.signedUrl } : {}), ...(videoUrl.data ? { video_url: videoUrl.data.signedUrl } : {}) } };
   }));
-  const origin = await getPublicOrigin(requestHeaders);
-  const shareUrls = mode.is_enabled && profile.is_published ? await ownerModeShareUrls(userId, profile.username, ["creator"], origin) : {};
+  const shareUrls = await sharing;
 
   return {
     supabase,
@@ -85,5 +88,11 @@ export const loadCreatorStudio = cache(async (next = "/app/identity/creator") =>
     origin,
   } as const;
 });
+
+/** loadCreatorStudio for this request; `next` is where sign-in returns to. */
+export function loadCreatorStudio(next = "/app/identity/creator") {
+  rememberNext(next);
+  return loadCreatorStudioData();
+}
 
 export type CreatorStudio = Exclude<Awaited<ReturnType<typeof loadCreatorStudio>>, { mode: null }>;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { PlatformTile, StudioHead, StudioPage } from "@/components/creator/studio-ui";
-import { DeltaChip, PulseBars, PulseCard, PulseLine } from "@/components/app/pulse";
+import { DeltaChip, PulseBars, PulseCard, PulseLine, type PulsePoint } from "@/components/app/pulse";
 import { MeetMark } from "@/components/marketing/brand";
 import type { ProfileAnalyticsReport } from "@/lib/analytics/server";
 import { formatAmount } from "@/lib/commerce/model";
@@ -57,7 +57,7 @@ export function InsightsView({ ranges, range, report, audience, collabs, store, 
               { label: "QR and Tap", value: scans ?? 0, note: "scans of your code" },
               { label: "Followers", value: followerCount, note: "following you on Setuvara" },
               { label: "Action responses", value: responses, note: "requests, entries, questions" },
-            ]} story={storyLine(opens ?? 0, peak, typeof sources[0]?.source === "string" ? sources[0].source : undefined)} values={daily.map((row) => row.profileViews)} />
+            ]} story={storyLine(opens ?? 0, peak, typeof sources[0]?.source === "string" ? sources[0].source : undefined)} points={daily.map((row) => ({ date: row.date, value: row.profileViews, notes: row.connections ? [`${row.connections} new ${row.connections === 1 ? "connection" : "connections"}`] : undefined }))} />
           ) : (
             <div className="relative isolate overflow-hidden rounded-[28px] bg-[#0D0D0D] p-7 text-[#F5F4EF]">
               <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full opacity-70 blur-2xl" style={{ background: "radial-gradient(circle, #E8A6FF80, transparent 65%)" }} />
@@ -193,8 +193,8 @@ function storyLine(opens: number, peak: { date: string; profileViews: number }, 
 }
 
 /** Page opens on a dark card: the count, a smooth curve that draws in, and the other signals beside it. */
-function OpensPulse({ opens, delta, values, story, rows }: { opens: number; delta: number | null; values: number[]; story: string; rows: { label: string; value: number; note: string }[] }) {
+function OpensPulse({ opens, delta, points, story, rows }: { opens: number; delta: number | null; points: PulsePoint[]; story: string; rows: { label: string; value: number; note: string }[] }) {
   return (
-    <PulseCard after={<DeltaChip delta={delta} />} chart={<PulseLine id="opens" label="Page opens per day" tone="#E8A6FF" values={values} />} eyebrow={<><MeetMark className="size-3.5" />Page opens on Setuvara</>} label="Page opens" rows={rows.map((row) => ({ ...row, value: row.value.toLocaleString("en") }))} story={story} tone="#E8A6FF" value={opens.toLocaleString("en")} />
+    <PulseCard after={<DeltaChip delta={delta} />} chart={<PulseLine label="Page opens per day" points={points} tone="#E8A6FF" unit={["open", "opens"]} />} eyebrow={<><MeetMark className="size-3.5" />Page opens on Setuvara</>} label="Page opens" rows={rows.map((row) => ({ ...row, value: row.value.toLocaleString("en") }))} story={story} tone="#E8A6FF" value={opens.toLocaleString("en")} />
   );
 }
