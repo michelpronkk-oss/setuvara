@@ -422,7 +422,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
     {/* Phones end the hero mid-pixel; the page reaches up under the fade so no hairline of the photo shows. */}
     {theme.atmosphere.on && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[3px] h-[3px]" data-hero-seam style={{ background: theme.base }} />}
     <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10 @min-[1100px]/profile:grid @min-[1100px]/profile:items-start @min-[1100px]/profile:gap-x-[clamp(48px,5cqw,88px)] @min-[1100px]/profile:px-12 @min-[1100px]/profile:pb-28 @min-[1100px]/profile:pt-16 ${spread ? "@min-[1100px]/profile:max-w-[1240px] @min-[1100px]/profile:grid-cols-[minmax(0,1fr)_360px]" : "@min-[1100px]/profile:max-w-[640px] @min-[1100px]/profile:grid-cols-1"}`} data-appearance-content data-spread={spread ? "split" : "single"}>
-      <div className="contents @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6" data-profile-story>
+      <div className="contents @min-[1100px]/profile:col-start-1 @min-[1100px]/profile:row-start-1 @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6" data-profile-story>
         {paragraphs.length > 0 && (
           <section aria-label={copy.about} className={`mb-2 flex flex-col gap-3 @min-[1100px]/profile:mb-6 @min-[1100px]/profile:gap-4 ${paragraphs.length === 1 ? "@min-[900px]/profile:hidden" : ""}`} data-profile-about>
             <h2 className={label} style={{ color: theme.muted, textAlign: theme.bioAlign }}>{copy.about}</h2>
@@ -435,13 +435,17 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
         {mode.slug === "event" && setting(mode, "eventName") && <EventCard className={spread ? "@min-[1100px]/profile:hidden" : ""} copy={copy} mode={mode} theme={theme} />}
         {stream ?? <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-6" gallery mediaLayout={look.mediaLayout} tone={blockTone} />}
       </div>
-      <div className={`contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6 ${spread ? "@min-[1100px]/profile:sticky @min-[1100px]/profile:top-8" : ""}`} data-profile-aside>
+      <div className={`contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6 ${spread ? "@min-[1100px]/profile:sticky @min-[1100px]/profile:top-8 @min-[1100px]/profile:col-start-2 @min-[1100px]/profile:row-span-2 @min-[1100px]/profile:row-start-1" : ""}`} data-profile-aside>
         {spread && card}
         {/* Under name: the rows skip what the name shows. In links and Both: every row stays. */}
         {!stream && shownLinks.length > 0 && <div className="contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-2.5"><h2 aria-hidden="true" className={label} style={{ color: theme.muted }}>{copy.links}</h2><Links copy={copy} links={shownLinks} scene={scene} /></div>}
         {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
-        {footer}
-        {attribution && branded && (
+        {/* Actions, Builder, testimonials: after the links on phones; under the story on a desktop
+            spread, where they get the room instead of the narrow side column. */}
+        {footer && (spread ? null : footer)}
+      </div>
+      {spread && footer && <div className="contents @min-[1100px]/profile:col-start-1 @min-[1100px]/profile:row-start-2 @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6" data-profile-more>{footer}</div>}
+      {attribution && branded && <div className={`contents ${spread ? "@min-[1100px]/profile:col-start-2 @min-[1100px]/profile:row-start-3 @min-[1100px]/profile:block" : ""}`}>
           <footer className="mt-10 flex flex-col items-center gap-3.5 @min-[1100px]/profile:mt-4" data-attribution="setuvara">
             <span aria-hidden="true" className="h-px w-16" style={{ background: `linear-gradient(90deg,transparent,${theme.card.edge},transparent)` }} />
             <Link aria-label={copy.makeYours} className="group flex min-h-11 flex-col items-center gap-1.5 rounded-[14px] px-4 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={`/signup?appearance=${look.id}`} style={{ color: theme.fg, outlineColor: theme.fg }}>
@@ -449,8 +453,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
               <span className="flex items-center gap-1 font-label text-[9.5px] uppercase tracking-[0.22em] transition group-hover:opacity-100" style={{ color: theme.muted }}>{copy.makeYoursShort}<span aria-hidden="true">↗</span></span>
             </Link>
           </footer>
-        )}
-      </div>
+      </div>}
     </div>
     </div>
   );
