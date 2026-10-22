@@ -904,20 +904,32 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
     <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pl-[268px]`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
       <EditorSidebar avatarFocus={personalMode ? modeFocus(personalMode) : undefined} avatarUrl={personalMode?.image_url ?? null} liveUrl={publicUrl(slug)} modes={modes} onGo={go} personalUrl={profile.username ? publicUrl("personal") : null} plan={plan} profile={profile} section={section} signOut={signOut} slug={slug} />
 
-      {/* Desktop top bar: where you are, save state, preview and publish. The Mode lives in the sidebar. */}
-      <header className="hidden h-[76px] shrink-0 items-center justify-between gap-5 border-b border-black/[0.08] pl-8 pr-6 lg:flex xl:pl-11">
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2.5 text-[15px]">
-          <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: MODE_DOT[slug], opacity: mode.is_enabled ? 1 : 0.4 }} />
-          <button className="shrink-0 font-semibold hover:underline hover:underline-offset-4" onClick={() => go("home")} type="button">{modeMeta[slug].name} Mode</button>
-          {!mode.is_enabled && <span className="shrink-0 rounded-full bg-black/[0.06] px-2 py-0.5 font-label text-[10px] uppercase tracking-[0.12em] text-black/55">Off</span>}
-          {section !== "home" && <><span aria-hidden="true" className="text-black/25">/</span><span aria-current="page" className="truncate text-black/55">{SECTIONS.find((item) => item.id === section)?.title}</span></>}
-        </nav>
-        <div className="flex items-center gap-3">
-          <SaveChip justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
-          <button className="inline-flex min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:hidden" onClick={() => setFullPreview(true)} type="button">Preview</button>
-          <button className="hidden min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:inline-flex" onClick={() => setFullPreview(true)} type="button">Full preview</button>
-          {publishButton}
+      {/* Desktop top bar: the Mode, its page sections as tabs, save state, preview and publish. */}
+      <header className="hidden shrink-0 border-b border-black/[0.08] pl-8 pr-6 lg:block xl:pl-11">
+        <div className="flex h-[68px] items-center justify-between gap-5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ background: MODE_DOT[slug], opacity: mode.is_enabled ? 1 : 0.4 }} />
+            <h1 className="truncate font-display text-[22px] font-bold tracking-[-0.035em]">{modeMeta[slug].name} Mode</h1>
+            {!mode.is_enabled && <span className="shrink-0 rounded-full bg-black/[0.06] px-2 py-0.5 font-label text-[10px] uppercase tracking-[0.12em] text-black/55">Off</span>}
+          </div>
+          <div className="flex items-center gap-3">
+            <SaveChip justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
+            <button className="inline-flex min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:hidden" onClick={() => setFullPreview(true)} type="button">Preview</button>
+            <button className="hidden min-h-11 items-center rounded-full px-[18px] text-sm font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition hover:bg-black/[0.04] xl:inline-flex" onClick={() => setFullPreview(true)} type="button">Full preview</button>
+            {publishButton}
+          </div>
         </div>
+        <nav aria-label={`${modeMeta[slug].name} Mode page`} className="-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          {PAGE_TABS.map((tab) => {
+            const active = section === tab.id;
+            return (
+              <button aria-current={active ? "page" : undefined} className={`relative min-h-11 shrink-0 px-3 text-[14px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-4px] ${active ? "font-semibold text-[#0D0D0D]" : "font-medium text-black/55 hover:text-[#0D0D0D]"}`} key={tab.id} onClick={() => go(tab.id)} type="button">
+                {tab.label}
+                <span aria-hidden="true" className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full ${active ? "bg-[#0D0D0D]" : "bg-transparent"}`} />
+              </button>
+            );
+          })}
+        </nav>
       </header>
 
       {/* Mobile top bar: where you are, which Mode, preview and publish */}
@@ -1035,6 +1047,8 @@ const MOBILE_TABS: { id: Section; label: string }[] = [
   { id: "appearance", label: "Appearance" },
   { id: "share", label: "Share" },
 ];
+/** Desktop tabs: the phone's sections plus the Mode's settings. */
+const PAGE_TABS: { id: Section; label: string }[] = [...MOBILE_TABS, { id: "settings", label: "Settings" }];
 
 function MobileModeSwitch({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
   // Same picker as Home on phones: ink for the Mode you are editing, a dimmed dot for a Mode that is off.

@@ -63,8 +63,7 @@ export function HomeSection({ api }: { api: EditorApi }) {
   const info = summaries(api);
   return (
     <div>
-      <h1 className="font-display text-[2.5rem] font-extrabold leading-[0.95] tracking-[-0.05em]">{modeMeta[slug].name} Mode</h1>
-      <p className="mt-2.5 max-w-[540px] text-[15px] leading-6 text-black/60">{modeIntro[slug]} It lives at <span className="font-medium text-black">{info.share}</span>.</p>
+      <p className="max-w-[560px] text-[16px] leading-7 text-black/62">{modeIntro[slug]}{info.share ? <> It lives at <span className="font-medium text-black">{info.share}</span>.</> : null}</p>
 
       <div className="mt-8 grid grid-cols-2 gap-4">
         <button className="group relative row-span-2 flex min-h-[290px] flex-col justify-end overflow-hidden rounded-[22px] bg-[#0D0D0D] p-6 text-left text-[#F5F4EF]" onClick={() => api.go("profile")} type="button">

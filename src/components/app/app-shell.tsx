@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { MeetMark } from "@/components/marketing/brand";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -11,42 +11,23 @@ import type { ModeSlug } from "@/components/profile/types";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeedbackSheet } from "./feedback-sheet";
-import { rememberedHomeMode, rememberHomeMode, subscribeHomeMode } from "./home/home-mode";
 import { HomeScreenRuntime, HomeScreenSheet, useStandalone } from "./home-screen";
+import { NavIcon } from "./nav-icons";
+import { SettingsLink, SideNav, type GlobalPage } from "./side-nav";
 import { StatusBadge } from "./status-badge";
 
 const navigation = [
   { href: "/app", labelKey: "home", shortKey: "home", icon: "home" },
   { href: "/app/identity", labelKey: "identity", shortKey: "identity", icon: "identity" },
   { href: "/app/wallet", labelKey: "wallet", shortKey: "wallet", icon: "wallet" },
-  { href: "/app/analytics", labelKey: "analytics", shortKey: "analytics", icon: "analytics" },
   { href: "/app/connections", labelKey: "connections", shortKey: "people", icon: "people" },
   { href: "/app/passport", labelKey: "passport", shortKey: "passport", icon: "passport" },
+  { href: "/app/analytics", labelKey: "analytics", shortKey: "analytics", icon: "analytics" },
 ] as const;
-const settingsItem = { href: "/app/settings", labelKey: "settings", shortKey: "settings", icon: "settings" } as const;
 
-type NavItem = (typeof navigation)[number] | typeof settingsItem;
-type NavIconName = NavItem["icon"];
+type NavItem = (typeof navigation)[number];
 export type ShellMode = { slug: ModeSlug; enabled: boolean };
 
-// 24px line icons, 1.8 stroke, round joins. The current destination lights its icon coral.
-const navIcons: Record<NavIconName, ReactNode> = {
-  home: <path d="M4 10.4 12 4l8 6.4V19a1 1 0 0 1-1 1h-4.25v-5.25h-5.5V20H5a1 1 0 0 1-1-1v-8.6Z" />,
-  identity: <><rect height="14" rx="2.75" width="18" x="3" y="5" /><circle cx="9" cy="10.6" r="2.2" /><path d="M5.9 16.2c.6-1.5 1.75-2.3 3.1-2.3s2.5.8 3.1 2.3M14.6 10h4M14.6 13.4h2.8" /></>,
-  wallet: <><path d="M4 7.6A2.6 2.6 0 0 1 6.6 5H17v3" /><path d="M4 7.6V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6.6A2.6 2.6 0 0 1 4 7.6Z" /><circle cx="16.3" cy="13.5" fill="currentColor" r="1.1" stroke="none" /></>,
-  analytics: <path d="M5 20v-5.5M10 20V9M15 20v-7.5M20 20V4.5" />,
-  people: <><circle cx="9" cy="8.4" r="3.2" /><path d="M3.4 19.4c.7-3.1 2.9-4.9 5.6-4.9s4.9 1.8 5.6 4.9" /><path d="M15.4 5.4a3 3 0 0 1 0 5.9M17.2 14.6c1.8.5 3 2 3.4 4.4" /></>,
-  passport: <><rect height="18" rx="2.5" width="14" x="5" y="3" /><circle cx="12" cy="10" r="3" /><path d="M9.5 16.6h5" /></>,
-  settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.7 7.7 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.7 7.7 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.7 7.7 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.7 7.7 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z" /></>,
-};
-
-function NavIcon({ name, className = "size-[21px]" }: { name: NavIconName; className?: string }) {
-  return <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">{navIcons[name]}</svg>;
-}
-
-const MODE_NAMES: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
-const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
-const noSubscription = () => () => {};
 
 // Unread messages across the account inbox. Conversation changes wake a recount;
 // the count itself always comes from the database.
@@ -134,39 +115,29 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
       <HomeScreenRuntime />
       <a className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-[#0d0d0d] focus:px-4 focus:py-2 focus:text-white" href="#app-main">Skip to content</a>
 
-      {/* Tablet and desktop: a dark sidebar. An icon rail on tablets and small laptops, the full menu from 1280px. */}
-      <aside aria-label="Setuvara" className="fixed inset-y-3 left-3 z-40 hidden w-[80px] flex-col rounded-[26px] bg-[#0d0d0d] text-[#f5f4ef] shadow-[0_30px_60px_-34px_rgba(13,13,13,.8)] md:flex xl:w-[256px]">
-        <Link aria-label="Setuvara Home" className="mx-3 mt-3 flex h-[60px] items-center justify-center gap-2.5 rounded-[16px] focus-visible:outline-2 xl:justify-start xl:px-3.5" href="/app">
-          <MeetMark className="size-[26px] shrink-0" />
-          <span className="hidden font-display text-[22px] font-bold tracking-[-0.04em] xl:inline">setuvara</span>
-        </Link>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-4 pt-4 [scrollbar-width:none] xl:pt-5">
-          <nav aria-label="Main navigation" className="flex flex-col gap-1">
-            {visibleNavigation.map((item) => <SideLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} unread={item.href === "/app/connections" ? unread : 0} />)}
-          </nav>
-          {modes.length > 0 && <SideModes isPublished={isPublished} modes={modes} pathname={pathname} />}
-        </div>
-        {/* Outside the scrolling list, so the account menu can open over the page. */}
-        <div className="flex flex-col gap-1 px-3 pb-3">
-          <SideLink item={settingsItem} pathname={pathname} pendingPath={pendingPath} />
-          <div aria-hidden="true" className="mx-2 my-2 h-px bg-white/[0.08]" />
-          <AccountMenu {...account} placement="sidebar" />
-        </div>
-      </aside>
+      {/* Desktop: the one Setuvara sidebar, shared with every Mode page. */}
+      <SideNav
+        footer={<><SettingsLink current={globalPage(pathname) === "settings"} /><AccountMenu {...account} placement="panel" /></>}
+        modes={modes}
+        place={{ global: globalPage(pathname) }}
+        published={isPublished}
+        unread={unread}
+        wallet={walletPubliclyLaunched}
+      />
 
       {/* Phone: slim top bar with the mark and account; the destinations live in the tab bar below. */}
-      <header className="sticky top-0 z-40 flex h-[60px] items-center justify-between bg-[#f5f4ef]/95 px-4 backdrop-blur-sm md:hidden">
+      <header className="sticky top-0 z-40 flex h-[60px] items-center justify-between bg-[#f5f4ef]/95 px-4 backdrop-blur-sm lg:hidden">
         <Link aria-label="Setuvara Home" className="flex min-h-11 items-center gap-2.5 rounded-full focus-visible:outline-2" href="/app">
           <MeetMark className="size-[22px]" />
           <span className="font-display text-[19px] font-bold tracking-[-0.03em]">setuvara</span>
         </Link>
         <AccountMenu {...account} placement="header" />
       </header>
-      {pendingPath && <span aria-hidden="true" className="sv-nav-progress pointer-events-none fixed inset-x-0 top-[58px] z-50 h-[2px] bg-[#ff5a4f] md:left-[92px] md:top-0 xl:left-[268px]" key={pendingPath} />}
+      {pendingPath && <span aria-hidden="true" className="sv-nav-progress pointer-events-none fixed inset-x-0 top-[58px] z-50 h-[2px] bg-[#ff5a4f] lg:left-[268px] lg:top-0" key={pendingPath} />}
 
-      <div className={`min-w-0 md:pb-0 md:pl-[92px] xl:pl-[268px] ${messagesSurface ? "" : "pb-[calc(78px+env(safe-area-inset-bottom))]"}`} id="app-main" tabIndex={-1}>{children}</div>
+      <div className={`min-w-0 lg:pb-0 lg:pl-[268px] ${messagesSurface ? "" : "pb-[calc(78px+env(safe-area-inset-bottom))]"}`} id="app-main" tabIndex={-1}>{children}</div>
 
-      {!messagesSurface && <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid rounded-t-[24px] bg-[#0d0d0d] px-1.5 pb-[env(safe-area-inset-bottom)] pt-1 text-[#f5f4ef] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] sm:px-3 md:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
+      {!messagesSurface && <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid rounded-t-[24px] bg-[#0d0d0d] px-1.5 pb-[env(safe-area-inset-bottom)] pt-1 text-[#f5f4ef] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] sm:px-3 lg:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
         {visibleNavigation.map((item) => <TabLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} unread={item.href === "/app/connections" ? unread : 0} />)}
       </nav>}
     </div>
@@ -190,56 +161,17 @@ function TabLink({ item, pathname, pendingPath, unread = 0 }: { item: NavItem; p
   return (
     <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[10.5px] leading-none tracking-[-0.005em] focus-visible:outline-2 sm:text-[12px] ${active ? "font-semibold text-[#f5f4ef]" : "font-medium text-[#f5f4ef]/55"}`} href={item.href}>
       <span className={`relative grid h-8 w-12 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out active:scale-90 ${active ? "bg-white/[0.1] text-[#ff5a4f]" : "text-[#f5f4ef]/65"}`}><NavIcon name={item.icon} /><UnreadDot className="-right-0.5 -top-1" count={unread} /></span>
-      <span className="max-w-full truncate">{messages.common[item.shortKey]}{unreadLabel && <span className="sr-only">{unreadLabel}</span>}</span>
+      <span className="max-w-full truncate">{item.href === "/app/identity" ? "Modes" : messages.common[item.shortKey]}{unreadLabel && <span className="sr-only">{unreadLabel}</span>}</span>
     </Link>
   );
 }
 
-function SideLink({ item, pathname, pendingPath, unread = 0 }: { item: NavItem; pathname: string; pendingPath: string | null; unread?: number }) {
-  const { messages } = useI18n();
-  const unreadLabel = unreadText(unread);
-  const active = isActive(pendingPath ?? pathname, item.href);
-  const label = messages.common[item.labelKey];
-  return (
-    <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`group relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[16px] text-[10.5px] leading-none transition-colors focus-visible:outline-2 xl:min-h-12 xl:flex-row xl:justify-start xl:gap-3.5 xl:px-3.5 xl:text-[15px] ${active ? "bg-white/[0.08] font-semibold text-[#f5f4ef]" : "font-medium text-[#f5f4ef]/60 hover:bg-white/[0.04] hover:text-[#f5f4ef]"}`} href={item.href} title={label}>
-      <span className={`relative transition-colors ${active ? "text-[#ff5a4f]" : ""}`}><NavIcon name={item.icon} /><UnreadDot className="-right-2 -top-1.5 xl:hidden" count={unread} /></span>
-      <span className="max-w-full truncate px-1 xl:px-0"><span className="xl:hidden">{messages.common[item.shortKey]}</span><span className="hidden xl:inline">{label}</span>{unreadLabel && <span className="sr-only">{unreadLabel}</span>}</span>
-      {unread > 0 && <span aria-hidden="true" className="ml-auto hidden h-5 min-w-5 place-items-center rounded-full bg-[#ff5a4f] px-1.5 text-[11px] font-bold leading-none text-white xl:grid">{unread > 99 ? "99+" : unread}</span>}
-    </Link>
-  );
-}
-
-// Every Mode at a glance: colour, name and whether it opens publicly. Picking one shows it on Home.
-function SideModes({ modes, isPublished, pathname }: { modes: ShellMode[]; isPublished: boolean; pathname: string }) {
-  const params = useSearchParams();
-  const saved = useSyncExternalStore(subscribeHomeMode, rememberedHomeMode, () => null);
-  const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
-  const onHome = pathname === "/app";
-  const current: ModeSlug | null = !onHome || !hydrated ? null : params.get("mode") === "creator" ? "creator" : saved ?? "personal";
-  return (
-    <section aria-labelledby="sv-side-modes" className="mt-7 hidden xl:block">
-      <div className="mb-2 flex items-center justify-between px-3.5">
-        <h2 className="font-label text-[10px] uppercase tracking-[0.16em] text-[#f5f4ef]/40" id="sv-side-modes">Modes</h2>
-        {!isPublished && <span className="font-label text-[10px] uppercase tracking-[0.12em] text-[#ff5a4f]">Draft</span>}
-      </div>
-      <ul className="flex flex-col gap-0.5">
-        {modes.map((mode) => {
-          const live = isPublished && mode.enabled;
-          const href = mode.slug === "creator" ? (mode.enabled ? "/app?mode=creator" : "/app/identity?mode=creator&section=profile") : `/app?mode=${mode.slug}`;
-          const on = current === mode.slug;
-          return (
-            <li key={mode.slug}>
-              <Link aria-current={on ? "true" : undefined} className={`flex min-h-11 items-center gap-3 rounded-[14px] px-3.5 text-[14px] transition-colors focus-visible:outline-2 ${on ? "bg-white/[0.06] font-semibold text-[#f5f4ef]" : "font-medium text-[#f5f4ef]/70 hover:bg-white/[0.04] hover:text-[#f5f4ef]"}`} href={href} onClick={() => { if (mode.slug !== "creator") rememberHomeMode(mode.slug); }}>
-                <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: MODE_DOT[mode.slug], opacity: mode.enabled ? 1 : 0.35 }} />
-                <span className="min-w-0 flex-1 truncate">{MODE_NAMES[mode.slug]}</span>
-                <span className={`font-label text-[10px] uppercase tracking-[0.12em] ${live ? "text-[#c7ff4a]" : "text-[#f5f4ef]/35"}`}>{live ? "Live" : mode.enabled ? "Private" : "Off"}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
+/** Which Setuvara-wide page the path belongs to, for the sidebar. */
+function globalPage(pathname: string): GlobalPage {
+  if (pathname === "/app") return "home";
+  for (const page of ["connections", "passport", "analytics", "wallet"] as const) if (pathname === `/app/${page}` || pathname.startsWith(`/app/${page}/`)) return page;
+  if (pathname.startsWith("/app/settings") || pathname === "/app/context" || pathname === "/app/tap") return "settings";
+  return "other";
 }
 
 export function AccountMenu({ displayName, username, avatarUrl, avatarFocus, plan, publicProfileUrl, signOut, placement }: {
