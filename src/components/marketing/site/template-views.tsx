@@ -88,11 +88,7 @@ export function TemplatePage({ template }: { template: LookTemplate | ModeTempla
         {/* Capped at the widest drawing (1280 × 0.9 plus the frame) so it never leaves an empty strip. */}
         <div className={`${nameFontClasses} mx-auto max-w-[1168px]`}>
           <BrowserFrame url={`setuvara.com/${who.username}`}>
-            <div className="sm:hidden"><ModeDesktop look={lookFor(mode, look)} scale={0.26} slug={mode} who={who} /></div>
-            <div className="hidden sm:block md:hidden"><ModeDesktop look={lookFor(mode, look)} scale={0.44} slug={mode} who={who} /></div>
-            <div className="hidden md:block lg:hidden"><ModeDesktop look={lookFor(mode, look)} scale={0.52} slug={mode} who={who} /></div>
-            <div className="hidden lg:block xl:hidden"><ModeDesktop look={lookFor(mode, look)} scale={0.7} slug={mode} who={who} /></div>
-            <div className="hidden xl:block"><ModeDesktop look={lookFor(mode, look)} scale={0.9} slug={mode} who={who} /></div>
+            <ModeDesktop look={lookFor(mode, look)} scales="[--z:.26] sm:[--z:.44] md:[--z:.52] lg:[--z:.7] xl:[--z:.9]" slug={mode} who={who} />
           </BrowserFrame>
         </div>
       </Section>

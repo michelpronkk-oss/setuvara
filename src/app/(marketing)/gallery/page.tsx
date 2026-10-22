@@ -60,13 +60,13 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => Array.from(part)[0]?.toUpperCase() ?? "").join("");
 }
 
-function GalleryCard({ entry }: { entry: GalleryEntry }) {
+function GalleryCard({ entry, eager }: { entry: GalleryEntry; eager: boolean }) {
   return (
     <li>
       <Link className="group block rounded-[24px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral" href={`/${entry.path}`}>
         <div className="relative aspect-[4/5] overflow-hidden rounded-[24px] bg-ink" style={entry.photo ? undefined : { background: entry.accent }}>
           {entry.photo
-            ? <ProfileImage alt="" className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" fill sizes="(min-width: 1280px) 22vw, (min-width: 640px) 45vw, 92vw" src={entry.photo} style={{ objectPosition: `${entry.focus.x}% ${entry.focus.y}%` }} />
+            ? <ProfileImage alt="" priority={eager} className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" fill sizes="(min-width: 1280px) 22vw, (min-width: 640px) 45vw, 92vw" src={entry.photo} style={{ objectPosition: `${entry.focus.x}% ${entry.focus.y}%` }} />
             : <span aria-hidden="true" className="absolute inset-0 grid place-items-center font-display text-[72px] font-extrabold tracking-[-0.06em] text-ink/80">{initials(entry.name)}</span>}
           <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
           <span className="absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.14em] text-white backdrop-blur-sm">{MODE_PAGES[entry.mode].name} · {entry.lookName}</span>
@@ -118,7 +118,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Prom
           <p aria-live="polite" className="mt-5 text-[14px] text-ink/55">{pages.length === 1 ? "1 page" : `${pages.length} pages`}{filtered && <> · <Link className="font-semibold text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink" href="/gallery#pages" scroll={false}>Clear filters</Link></>}</p>
 
           {pages.length > 0
-            ? <ul className="mt-6 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{pages.map((entry) => <GalleryCard entry={entry} key={`${entry.mode}:${entry.path}`} />)}</ul>
+            ? <ul className="mt-6 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{pages.map((entry, index) => <GalleryCard eager={index < 4} entry={entry} key={`${entry.mode}:${entry.path}`} />)}</ul>
             : (
               <div className="mt-6 rounded-[28px] bg-white px-6 py-12 text-center shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:py-16">
                 <p className="font-display text-[clamp(28px,3vw,40px)] font-bold leading-tight tracking-[-0.045em]">{filtered ? "No pages here yet." : "The first pages are on their way."}</p>

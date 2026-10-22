@@ -32,7 +32,7 @@ export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, Re
         {labels.map((label, index) => (
           <button
             aria-pressed={active === index}
-            className={`min-h-10 rounded-full px-4 text-[13px] font-semibold transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:px-5 ${active === index ? "bg-paper text-ink" : "text-paper/70 hover:text-paper"}`}
+            className={`min-h-10 rounded-full px-3 text-[13px] font-semibold transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral min-[380px]:px-4 sm:px-5 ${active === index ? "bg-paper text-ink" : "text-paper/70 hover:text-paper"}`}
             key={label}
             onClick={() => choose(index)}
             type="button"

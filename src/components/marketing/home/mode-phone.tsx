@@ -140,16 +140,17 @@ const DESKTOP = { width: 1280, height: 800 };
 
 /**
  * The same cast member's page as a desktop visitor sees it: drawn at a real 1280px window (the
- * Appearance's wide hero) and scaled into the frame. `scale` sets the drawn size.
+ * Appearance's wide hero) and scaled into the frame. `scale` sets the drawn size; `scales` instead
+ * gives Tailwind classes that set --z per breakpoint, so one drawing serves every width.
  */
-export function ModeDesktop({ slug, who, look: override, live, scale = 0.5, label }: { slug: DemoMode["slug"]; who?: Person; look?: Look; live?: PublicLiveContext; scale?: number; label?: string }) {
+export function ModeDesktop({ slug, who, look: override, live, scale = 0.5, scales, label }: { slug: DemoMode["slug"]; who?: Person; look?: Look; live?: PublicLiveContext; scale?: number; scales?: string; label?: string }) {
   const cast = CAST[slug];
   const person = who ?? cast.who;
   const { profile, mode } = demo(slug, person, override ?? cast.look);
   const look = previewAppearance(mode);
   return (
-    <div aria-label={label ?? `${person.name}'s ${slug} page on a desktop`} className="relative overflow-hidden" role="img" style={{ width: DESKTOP.width * scale, height: DESKTOP.height * scale, background: appearanceTheme(look.id, look.accent).base }}>
-      <div aria-hidden="true" className="pointer-events-none [&_[data-floating-connect]]:hidden" inert style={{ width: DESKTOP.width, zoom: scale, "--profile-vh": `${DESKTOP.height}px` } as CSSProperties}>
+    <div aria-label={label ?? `${person.name}'s ${slug} page on a desktop`} className={`relative overflow-hidden ${scales ?? ""}`} role="img" style={{ ...(scales ? { width: `calc(${DESKTOP.width}px * var(--z))`, height: `calc(${DESKTOP.height}px * var(--z))` } : { width: DESKTOP.width * scale, height: DESKTOP.height * scale }), background: appearanceTheme(look.id, look.accent).base }}>
+      <div aria-hidden="true" className="pointer-events-none [&_[data-floating-connect]]:hidden" inert style={{ width: DESKTOP.width, zoom: scales ? "var(--z)" : scale, "--profile-vh": `${DESKTOP.height}px` } as CSSProperties}>
         <MarketingProfilePreview liveContext={live ?? cast.live} nameAs="p" memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
       </div>
     </div>

@@ -16,11 +16,9 @@ export function ModeScreens({ slug }: { slug: ModeSlugPage }) {
   const { who } = CAST[slug];
   return (
     <div className={`${nameFontClasses} relative`}>
-      <div className="hidden lg:block lg:pl-[72px] xl:hidden">
-        <BrowserFrame url={MODE_PAGES[slug].share}><ModeDesktop scale={0.44} slug={slug} /></BrowserFrame>
-      </div>
-      <div className="hidden xl:block xl:pl-[88px]">
-        <BrowserFrame url={MODE_PAGES[slug].share}><ModeDesktop scale={0.5} slug={slug} /></BrowserFrame>
+      <div className="hidden lg:block lg:pl-[72px] xl:pl-[88px]">
+        {/* The drawing is wider than the window (352–544px for 563–640px), so it hangs off the left, behind the phone, and the name side stays whole. */}
+        <BrowserFrame url={MODE_PAGES[slug].share}><div className="flex justify-end [&>*]:shrink-0"><ModeDesktop scales="[--z:.44] xl:[--z:.5]" slug={slug} /></div></BrowserFrame>
       </div>
       <div className="flex justify-center lg:hidden">
         <PhoneStage slug={slug}><CastPhone slug={slug} /></PhoneStage>

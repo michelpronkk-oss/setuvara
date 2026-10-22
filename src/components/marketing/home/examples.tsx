@@ -32,19 +32,14 @@ export function Examples() {
           </div>
         </div>
         <p className="mt-5 max-w-[34rem] text-[18px] leading-[1.5] text-ink/65">Ten Looks, each with its own phone and desktop composition. On a laptop your page is a full editorial spread, not a phone in the middle of the screen.</p>
-        <ul className={`${nameFontClasses} mt-12 grid gap-6 lg:mt-16 lg:grid-cols-2`}>
+        <ul className={`${nameFontClasses} mx-auto mt-12 grid max-w-[1168px] gap-6 lg:mt-16 lg:grid-cols-2`}>
           {EXAMPLES.map((example, index) => (
             <li className={`group relative ${index === 0 ? "lg:col-span-2" : ""}`} key={example.slug}>
               {/* The drawing is a real page with its own links, so it is inert and the caption link covers the card. */}
               <div inert>
                 <BrowserFrame className="transition-transform duration-300 group-hover:-translate-y-1" url={MODE_PAGES[example.slug].share}>
-                  {/* One drawing per breakpoint keeps the page sharp at every width. */}
-                  <div className="sm:hidden"><ModeDesktop scale={0.26} slug={example.slug} /></div>
-                  <div className="hidden sm:block md:hidden"><ModeDesktop scale={0.44} slug={example.slug} /></div>
-                  <div className="hidden md:block lg:hidden"><ModeDesktop scale={0.52} slug={example.slug} /></div>
-                  {/* Column widths: lg 912px (halves 444), xl 1168px (halves 572). */}
-                  <div className="hidden lg:block xl:hidden"><ModeDesktop scale={index === 0 ? 0.7 : 0.34} slug={example.slug} /></div>
-                  <div className="hidden xl:block"><ModeDesktop scale={index === 0 ? 0.9 : 0.44} slug={example.slug} /></div>
+                  {/* One drawing, zoomed per breakpoint. Column widths: lg 912px (halves 444), xl 1168px (halves 572). */}
+                  <ModeDesktop scales={index === 0 ? "[--z:.26] sm:[--z:.44] md:[--z:.52] lg:[--z:.7] xl:[--z:.9]" : "[--z:.26] sm:[--z:.44] md:[--z:.52] lg:[--z:.34] xl:[--z:.44]"} slug={example.slug} />
                 </BrowserFrame>
               </div>
               <p className="mt-3 flex items-center justify-between text-[14px] text-ink/60"><span>{example.caption}</span><Link className="font-semibold text-ink transition-transform after:absolute after:inset-0 after:rounded-[20px] group-hover:translate-x-0.5 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-coral" href={MODE_PAGES[example.slug].path}>{MODE_PAGES[example.slug].name} Mode →</Link></p>
