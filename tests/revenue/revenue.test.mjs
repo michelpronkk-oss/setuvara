@@ -1,4 +1,4 @@
-/** Verified Revenue maths, the Stripe adapter's subscription normalisation, the RevenueCat and Dodo Payments adapters.  npm run test:revenue */
+/** Verified Revenue maths, the Stripe adapter's subscription normalisation, the RevenueCat, Dodo Payments and Paddle adapters.  npm run test:revenue */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, "../..");
 const cache = join(root, "node_modules/.cache");
 mkdirSync(cache, { recursive: true });
 const out = mkdtempSync(join(cache, "setuvara-revenue-"));
-let m, s, rc, dodo;
+let m, s, rc, dodo, paddle;
 before(async () => {
   writeFileSync(join(out, "empty.js"), "");
   const opts = { bundle: true, format: "cjs", platform: "node", logLevel: "silent", external: ["stripe", "dodopayments"], alias: { "server-only": join(out, "empty.js") } };
@@ -18,11 +18,13 @@ before(async () => {
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/stripe.ts")], outfile: join(out, "s.cjs") });
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/revenuecat.ts")], outfile: join(out, "rc.cjs") });
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/dodo.ts")], outfile: join(out, "dodo.cjs") });
+  await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/paddle.ts")], outfile: join(out, "paddle.cjs") });
   const require = createRequire(join(root, "package.json"));
   m = require(join(out, "m.cjs"));
   s = require(join(out, "s.cjs"));
   rc = require(join(out, "rc.cjs"));
   dodo = require(join(out, "dodo.cjs"));
+  paddle = require(join(out, "paddle.cjs"));
 });
 after(() => rmSync(out, { recursive: true, force: true }));
 
@@ -238,5 +240,60 @@ test("Dodo sync sums active and past_due subscriptions per currency", async () =
       { currency: "eur", mrr_minor: 3400, paying_customers: 2, active_subscriptions: 2 },
       { currency: "usd", mrr_minor: 2400, paying_customers: 1, active_subscriptions: 1 },
     ]);
+  } finally { globalThis.fetch = original; }
+});
+
+const month = { interval: "month", frequency: 1 };
+const psub = (over = {}) => ({ status: "active", currency_code: "EUR", customer_id: "ctm_1", billing_cycle: month, discount: null,
+  items: [{ status: "active", quantity: 2, recurring: true, price: { unit_price: { amount: "1500", currency_code: "EUR" }, billing_cycle: month } }], ...over });
+const PADDLE_KEY = "pdl_sdbx_apikey_" + "a".repeat(26);
+
+test("Paddle: active and past_due count; one-off items, trials and other currencies don't", () => {
+  assert.deepEqual(paddle.paddleLines(psub(), NOW), [{ customer: "ctm_1", currency: "eur", amountMinor: 3000, interval: "month", intervalCount: 1 }]);
+  assert.equal(paddle.paddleLines(psub({ status: "past_due" }), NOW).length, 1);
+  for (const status of ["trialing", "paused", "canceled"]) assert.equal(paddle.paddleLines(psub({ status }), NOW).length, 0, status);
+  const oneOff = { status: "active", quantity: 1, recurring: false, price: { unit_price: { amount: "9900", currency_code: "EUR" }, billing_cycle: null } };
+  assert.equal(paddle.paddleLines(psub({ items: [...psub().items, oneOff] }), NOW).length, 1);
+});
+
+test("Paddle: ongoing discounts apply, expired ones don't", () => {
+  assert.equal(paddle.paddleLines(psub({ discount: { type: "percentage", amount: "50", ends_at: null } }), NOW)[0].amountMinor, 1500);
+  assert.equal(paddle.paddleLines(psub({ discount: { type: "flat", amount: "1000", ends_at: "2027-01-01T00:00:00Z" } }), NOW)[0].amountMinor, 2000);
+  assert.equal(paddle.paddleLines(psub({ discount: { type: "flat_per_seat", amount: "500", ends_at: null } }), NOW)[0].amountMinor, 2000);
+  assert.equal(paddle.paddleLines(psub({ discount: { type: "percentage", amount: "50", ends_at: "2026-01-01T00:00:00Z" } }), NOW)[0].amountMinor, 3000);
+});
+
+test("Paddle verify: sandbox keys are test, live keys live, writable keys refused", async () => {
+  await assert.rejects(paddle.paddleRevenue.verify("pdl_" + "secret_wrong"), /Paddle Billing API key/);
+  let stub = stubFetch([["GET", "/subscriptions", 200, { data: [] }], ["PATCH", "/subscriptions/sub_01setuvarapermissionprobe00", 403, { error: { code: "forbidden" } }]]);
+  try {
+    assert.equal((await paddle.paddleRevenue.verify(PADDLE_KEY)).environment, "test");
+    assert.ok(stub.calls.every((c) => c.url.startsWith("https://sandbox-api.paddle.com/")));
+  } finally { stub.restore(); }
+  stub = stubFetch([["GET", "/subscriptions", 200, { data: [] }], ["PATCH", "/subscriptions/sub_01setuvarapermissionprobe00", 403, {}]]);
+  try { assert.equal((await paddle.paddleRevenue.verify(PADDLE_KEY.replace("sdbx", "live"))).environment, "live"); } finally { stub.restore(); }
+  stub = stubFetch([["GET", "/subscriptions", 200, { data: [] }], ["PATCH", "/subscriptions/sub_01setuvarapermissionprobe00", 404, {}]]);
+  try { await assert.rejects(paddle.paddleRevenue.verify(PADDLE_KEY), /can write/); } finally { stub.restore(); }
+  stub = stubFetch([["GET", "/subscriptions", 403, {}]]);
+  try { await assert.rejects(paddle.paddleRevenue.verify(PADDLE_KEY), /Subscriptions: Read/); } finally { stub.restore(); }
+});
+
+test("Paddle sync follows pagination and sums per currency", async () => {
+  const original = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url) => {
+    seen.push(String(url));
+    const second = String(url).includes("after=");
+    const body = second ? { data: [psub({ customer_id: "ctm_2", currency_code: "USD", items: [{ ...psub().items[0], quantity: 1, price: { unit_price: { amount: "12000", currency_code: "USD" }, billing_cycle: { interval: "year", frequency: 1 } } }] })], meta: { pagination: { has_more: false } } }
+      : { data: [psub()], meta: { pagination: { has_more: true, next: "https://sandbox-api.paddle.com/subscriptions?after=sub_1" } } };
+    return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    assert.deepEqual(await paddle.paddleRevenue.sync(PADDLE_KEY), { method: "paddle_subscriptions_v1", rows: [
+      { currency: "eur", mrr_minor: 3000, paying_customers: 1, active_subscriptions: 1 },
+      { currency: "usd", mrr_minor: 1000, paying_customers: 1, active_subscriptions: 1 },
+    ] });
+    assert.match(seen[0], /status=active,past_due/);
+    assert.equal(seen.length, 2);
   } finally { globalThis.fetch = original; }
 });

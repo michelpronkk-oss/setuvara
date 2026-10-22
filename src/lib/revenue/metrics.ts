@@ -49,7 +49,7 @@ export function discounted(amountMinor: number, discounts: { percentOff?: number
   return Math.max(0, value);
 }
 
-export type ProviderCode = "stripe" | "revenuecat" | "dodo";
+export type ProviderCode = "stripe" | "revenuecat" | "dodo" | "paddle";
 
 export type VerifiedKey = { environment: "live" | "test"; accountRef: string | null; keyHint: string };
 
