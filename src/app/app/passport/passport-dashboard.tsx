@@ -501,7 +501,7 @@ function EmptyPassport({ coverObject, count, titleRef }: { coverObject: CoverFac
       <div className="flex flex-1 flex-col sm:mx-auto sm:w-full sm:max-w-[520px] lg:mx-0 lg:max-w-[560px]">
         <div className="flex flex-col gap-2.5 px-6 pt-7 lg:px-0 lg:pt-0">
           <p className="hidden font-label text-[12px] tracking-[0.16em] lg:block">YOUR PASSPORT</p>
-          <h1 className="font-display text-[36px] font-extrabold leading-[0.98] tracking-[-0.05em] outline-none lg:text-[56px]" id="empty-title" ref={titleRef} tabIndex={-1}>Your Passport starts with the first person you meet.</h1>
+          <h1 className="font-display text-[34px] font-bold leading-[1.02] tracking-[-0.045em] outline-none md:text-[44px]" id="empty-title" ref={titleRef} tabIndex={-1}>Your Passport starts with the first person you meet.</h1>
           <p className="text-[15px] leading-[1.5] text-[#0D0D0DB3] lg:text-[17px]">Five real Connections press your first stamp.</p>
         </div>
         <div className="mx-6 mt-[18px] flex items-center gap-4 border-t border-[#0D0D0D1F] pt-4 lg:mx-0">

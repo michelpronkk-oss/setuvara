@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppPageHeader } from "@/components/app/page-header";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { ConnectionsList, type ConnectionListItem } from "@/components/connections/connections-list";
@@ -138,7 +139,7 @@ export default async function ConnectionsPage() {
   return (
     <main className="min-h-screen bg-[#f5f4ef] px-4 py-6 text-[#0d0d0d] sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl">
-        <section className="mt-3 flex flex-wrap items-end justify-between gap-5 sm:mt-5"><div><p className="text-[10px] font-bold tracking-[0.2em] text-black/45">YOUR PEOPLE</p><h1 className="mt-3 text-[2.15rem] font-semibold leading-[1.02] tracking-[-0.055em] sm:text-5xl">Connections that stay.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-black/55">Who you met, and where.</p></div>{chatEnabled && <Link className="inline-flex min-h-11 items-center rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2" href="/app/connections/messages">Messages{unreadCount > 0 ? <span className="ml-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#ff5a4f] px-1.5 text-[11px] font-bold">{unreadCount > 99 ? "99+" : unreadCount}<span className="sr-only"> unread</span></span> : <span aria-hidden="true" className="ml-2 text-[#c7ff4a]">↗</span>}</Link>}</section>
+        <div className="mt-3 sm:mt-5"><AppPageHeader eyebrow="Your people" sub="Who you met, and where." title="Connections" actions={chatEnabled && <Link className="inline-flex min-h-11 items-center rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2" href="/app/connections/messages">Messages{unreadCount > 0 ? <span className="ml-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#ff5a4f] px-1.5 text-[11px] font-bold">{unreadCount > 99 ? "99+" : unreadCount}<span className="sr-only"> unread</span></span> : <span aria-hidden="true" className="ml-2 text-[#c7ff4a]">↗</span>}</Link>} /></div>
         <ConnectionsList items={items} />
       </div>
     </main>

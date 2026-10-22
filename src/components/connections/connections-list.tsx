@@ -67,7 +67,13 @@ export function ConnectionsList({ items }: { items: ConnectionListItem[] }) {
           <div className="hidden shrink-0 text-right sm:block"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/45">{item.mode}</p><p className="mt-1 text-xs text-black/45">{item.lastMet}</p></div>
           <span aria-hidden="true" className="text-lg text-black/30 transition group-hover:translate-x-1">→</span>
         </Link>)}
-        {filtered.length === 0 && <div className="py-12 text-center"><p className="font-semibold">{items.length ? "No connections found" : "Your people will be here."}</p><p className="mt-2 text-sm text-black/55">{items.length ? "Try another name, event, company, or city." : "When you connect in person, Setuvara helps you remember."}</p></div>}
+        {filtered.length === 0 && (items.length
+          ? <div className="py-12 text-center"><p className="font-semibold">No connections found</p><p className="mt-2 text-sm text-black/55">Try another name, event, company, or city.</p></div>
+          : <div className="flex flex-col items-center gap-4 px-6 py-12 text-center" data-connections-empty>
+            <span aria-hidden="true" className="grid size-12 place-items-center rounded-full bg-[#0d0d0d] text-[#f5f4ef]"><svg className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19c.8-3 3-4.6 5.5-4.6s4.7 1.6 5.5 4.6" /><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.6c1.3.6 2.2 2 2.6 4.4" /></svg></span>
+            <div><p className="text-[17px] font-semibold tracking-[-0.01em]">Your people will be here.</p><p className="mx-auto mt-1.5 max-w-sm text-sm leading-6 text-black/55">Show your Quick QR when you meet someone. They connect in one scan, and Setuvara remembers where you met.</p></div>
+            <Link className="inline-flex min-h-11 items-center rounded-full bg-[#ff5a4f] px-5 text-sm font-semibold text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" href="/app/tap">Show Quick QR</Link>
+          </div>)}
       </div>
     </>
   );

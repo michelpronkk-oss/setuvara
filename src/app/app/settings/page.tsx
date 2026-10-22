@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppPageHeader } from "@/components/app/page-header";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -39,8 +40,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1080px] px-4 pb-10 pt-5 sm:px-6 md:px-8 md:pb-14 md:pt-10">
-      <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-black/50">Account</p>
-      <h1 className="mt-2 font-display text-[34px] font-bold leading-none tracking-[-0.045em] md:text-[44px]">Settings</h1>
+      <AppPageHeader eyebrow="Account" title="Settings" />
 
       <div className="mt-7 grid gap-5 md:mt-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
         <Link className="group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-[26px] bg-[#0d0d0d] p-6 text-[#f5f4ef] focus-visible:outline-2 focus-visible:outline-offset-2 lg:col-span-2 lg:min-h-[156px] lg:flex-row lg:items-end lg:p-8" href="/app/settings/billing">
