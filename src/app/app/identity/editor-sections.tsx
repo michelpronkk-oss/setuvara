@@ -13,7 +13,7 @@ import { meetMarkBottom, meetMarkTop, MeetMark } from "@/components/marketing/br
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { FocusedPhoto } from "@/components/profile/focused-photo";
 import { modeFocus } from "@/components/profile/photo-focus";
-import { APPEARANCE_NAMES, extraSlideLimit, QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
+import { APPEARANCE_NAMES, extraSlideLimit, inkOnAccent, QR_STYLES, resolveAppearance, resolveQrStyle, type QrStyle } from "@/components/profile/appearance";
 import { QrFrame } from "@/components/profile/qr-frame";
 import type { ModeSlug, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { hasCapability } from "@/lib/billing/capabilities";
@@ -805,12 +805,16 @@ export function ShareSection({ api }: { api: EditorApi }) {
             <p className="mt-1 text-[12.5px] leading-5 text-black/55">{(mode.appearance.qrStyle ?? "standard") !== qrStyle ? qrCopy.inactive : qrCopy.qrNote}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 @min-[460px]/qr:grid-cols-3">
               {QR_STYLES.map((style) => {
+                const qrAccent = resolveAppearance(mode, api.plan).accent;
                 const on = qrStyle === style;
                 const allowed = style === "standard" || hasCapability(api.plan, "share.qr_premium");
                 return (
-                  <button aria-label={`${qrCopy.qrStyles[style]}${style === "standard" ? "" : ` · ${qrCopy.plus}`}`} aria-pressed={on} className={`flex min-h-[52px] min-w-0 flex-col items-start justify-center gap-1 rounded-2xl px-3.5 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-[#0D0D0D] text-white" : "bg-[#F5F4EF] hover:bg-black/[0.06]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button">
-                    <span className="w-full break-words text-[13px] font-semibold leading-[1.2]">{qrCopy.qrStyles[style]}</span>
-                    {!allowed && <PlusTag dark={on} />}
+                  <button aria-label={`${qrCopy.qrStyles[style]}${style === "standard" ? "" : ` · ${qrCopy.plus}`}`} aria-pressed={on} className={`group relative flex min-w-0 flex-col gap-2 rounded-[18px] p-1.5 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 ${on ? "bg-white shadow-[inset_0_0_0_2px_#0D0D0D]" : "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] hover:shadow-[inset_0_0_0_1px_rgba(13,13,13,.3)]"}`} key={style} onClick={() => allowed ? api.updateAppearance({ qrStyle: style === "standard" ? undefined : style }) : api.openPlusSheet({ kind: "qr", name: style })} type="button">
+                    <QrSwatch accent={qrAccent} style={style} />
+                    <span className="flex min-h-6 items-center justify-between gap-1.5 px-1.5 pb-1">
+                      <span className="min-w-0 truncate text-[13px] font-semibold leading-[1.2]">{qrCopy.qrStyles[style]}</span>
+                      {on ? <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-[#0D0D0D] text-[11px] text-white">✓</span> : !allowed ? <PlusTag /> : null}
+                    </span>
                   </button>
                 );
               })}
@@ -950,4 +954,28 @@ async function downloadQr(id: string, format: "png" | "svg", filename: string) {
   canvas.getContext("2d")?.drawImage(image, 0, 0, 1024, 1024);
   URL.revokeObjectURL(svgUrl);
   save(canvas.toDataURL("image/png"), "png");
+}
+
+/** A small picture of each QR style, so the choice reads at a glance. */
+function QrSwatch({ style, accent }: { style: string; accent: string }) {
+  const code = (
+    <svg aria-hidden="true" className="size-full" viewBox="0 0 21 21">
+      <path d="M0 0h7v7H0zM14 0h7v7h-7zM0 14h7v7H0z" fill="#0D0D0D" /><path d="M1.5 1.5h4v4h-4zM15.5 1.5h4v4h-4zM1.5 15.5h4v4h-4z" fill="#fff" /><path d="M2.5 2.5h2v2h-2zM16.5 2.5h2v2h-2zM2.5 16.5h2v2h-2z" fill="#0D0D0D" />
+      <path d="M9 1h2v2H9zM9 5h3v2H9zM1 9h2v3H1zM5 9h4v2H5zM11 9h2v4h-2zM15 9h4v2h-4zM9 13h2v4H9zM13 15h2v2h-2zM17 13h3v2h-3zM15 18h5v2h-5zM11 18h2v2h-2z" fill="#0D0D0D" />
+    </svg>
+  );
+  const framed = style === "label" || style === "inverse" || style === "rounded";
+  const outer = style === "inverse" ? "#0D0D0D" : accent;
+  return (
+    <span aria-hidden="true" className="grid h-[76px] place-items-center rounded-[13px] bg-[#F5F4EF]">
+      {framed ? (
+        <span className={`flex flex-col gap-1 p-1 ${style === "rounded" ? "rounded-[14px]" : "rounded-[9px]"}`} style={{ background: outer }}>
+          <span className={`block size-10 bg-white p-1 ${style === "rounded" ? "rounded-[10px]" : "rounded-[6px]"}`}>{code}</span>
+          {style === "label" && <span className="mx-0.5 mb-0.5 block h-1 w-6 rounded-full" style={{ background: inkOnAccent(accent), opacity: 0.8 }} />}
+        </span>
+      ) : (
+        <span className="block size-11 rounded-[7px] bg-white p-1.5" style={{ boxShadow: style === "accent-frame" ? `0 0 0 2.5px ${accent}` : "inset 0 0 0 1px rgba(13,13,13,.12)" }}>{code}</span>
+      )}
+    </span>
+  );
 }
