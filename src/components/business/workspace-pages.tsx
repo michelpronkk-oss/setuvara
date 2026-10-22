@@ -16,7 +16,7 @@ export async function TeamsIndex() {
   const { memberships } = await loadMemberships();
   return (
     <StudioPage className="max-w-[920px] pb-10">
-      <Head eyebrow={<>{dot}Teams</>} sub="Businesses that brought you in to work their leads." title="Teams" />
+      <Head tone="#AFCBFF" eyebrow={<>{dot}Teams</>} sub="Businesses that brought you in to work their leads." title="Teams" />
       {memberships.length === 0 ? (
         <EmptyState body="When a business on Setuvara Pro invites you, accept from the link in their email and their leads show up here." title="No teams yet." />
       ) : (
@@ -50,7 +50,7 @@ export async function WorkspaceIndex({ businessId }: { businessId: string }) {
   const membership = memberships.find((item) => item.business_id === businessId);
   return (
     <StudioPage className="max-w-[1180px] pb-10">
-      <Head
+      <Head tone="#AFCBFF"
         action={<span className="flex items-center gap-2">
           <span className="rounded-full bg-[#0D0D0D] px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.12em] text-[#C7FF4A]">{ROLE_LABEL[workspace.role]}</span>
           {membership && <LeaveTeam memberId={membership.member_id} name={name} />}

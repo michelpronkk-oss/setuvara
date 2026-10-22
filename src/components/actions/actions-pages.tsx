@@ -40,20 +40,28 @@ async function loadTimes(supabase: ModeActions["supabase"], id: string) {
   };
 }
 
-/** The page head: kind or Mode, the title, a quiet line under it, and the main button. */
-export function Head({ eyebrow, title, sub, action, back }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string } }) {
+/**
+ * The page head of every Mode tool: a dark stage with a soft glow, the Mode, a big title, one
+ * line, and the main button. Shared by Actions, Leads, Testimonials, Team, Events and Audience.
+ */
+export function Head({ eyebrow, title, sub, action, back, tone = "#FF5A4F" }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string }; tone?: string }) {
   return (
-    <header className="mb-6 md:mb-8">
-      {back && <Link className="mb-4 inline-flex min-h-9 items-center gap-1.5 rounded-full text-[14px] font-semibold text-black/55 transition hover:text-black" href={back.href}><span aria-hidden="true">←</span>{back.label}</Link>}
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div className="min-w-0">
-          <div className="hidden items-center gap-2.5 text-[14px] font-semibold text-black/55 lg:flex">{eyebrow}</div>
-          <h1 className="text-balance font-display text-[34px] font-bold leading-[0.95] tracking-[-0.045em] md:text-[56px] md:tracking-[-0.05em] lg:mt-2">{title}</h1>
-          {sub && <p className="mt-3 text-[15px] text-black/60 md:text-base">{sub}</p>}
+    <div className="mb-6 md:mb-8">
+      {back && <Link className="mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-full text-[14px] font-semibold text-black/55 transition hover:text-black" href={back.href}><span aria-hidden="true">←</span>{back.label}</Link>}
+      <header className="relative isolate overflow-hidden rounded-[28px] bg-[#0D0D0D] px-5 pb-6 pt-5 text-[#F5F4EF] shadow-[0_30px_60px_-40px_#0D0D0D] md:rounded-[32px] md:px-9 md:pb-9 md:pt-8" data-tool-head>
+        <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 -z-10 size-[420px] rounded-full opacity-90 blur-2xl" style={{ background: `radial-gradient(circle, ${tone}80, transparent 65%)` }} />
+        <span aria-hidden="true" className="pointer-events-none absolute -bottom-40 left-1/3 -z-10 size-[360px] rounded-full opacity-40 blur-3xl" style={{ background: "radial-gradient(circle, #C7FF4A33, transparent 65%)" }} />
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] [background-image:radial-gradient(#F5F4EF_1px,transparent_1px)] [background-size:18px_18px]" />
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5 font-label text-[11px] uppercase tracking-[0.16em] text-[#F5F4EF]/60">{eyebrow}</div>
+            <h1 className="mt-3 text-balance font-display text-[38px] font-bold leading-[0.92] tracking-[-0.05em] md:text-[64px]">{title}</h1>
+            {sub && <p className="mt-3 max-w-[60ch] text-[15px] leading-[1.45] text-[#F5F4EF]/70 md:text-[16px]">{sub}</p>}
+          </div>
+          {action && <div className="flex flex-wrap items-center gap-2.5">{action}</div>}
         </div>
-        {action}
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }
 

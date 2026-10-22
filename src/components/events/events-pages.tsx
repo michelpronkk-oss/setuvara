@@ -115,7 +115,7 @@ function EventsEmpty() {
 export async function EventsIndex() {
   const data = await loadOrganizer("/app/identity/events");
   if (!data.mode) notFound();
-  if (!data.ready) return <StudioPage className="max-w-[1120px]"><Head eyebrow={eyebrow} title="Events" /><EmptyState body="Events need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
+  if (!data.ready) return <StudioPage className="max-w-[1120px]"><Head tone="#C7FF4A" eyebrow={eyebrow} title="Events" /><EmptyState body="Events need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
   const now = clock();
   const upcoming = data.events.filter((event) => event.status === "published" && new Date(event.ends_at).getTime() > now).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const drafts = data.events.filter((event) => event.status === "draft");
@@ -125,7 +125,7 @@ export async function EventsIndex() {
   const groups = [["Coming up", later], ["Drafts", drafts], ["Past", past]] as const;
   return (
     <StudioPage className="max-w-[1120px] pb-12">
-      <Head action={data.events.length ? <Link className={coralButton} href="/app/identity/events/new">New event</Link> : undefined} eyebrow={eyebrow} sub={upcoming.length ? `${upcoming.length} coming up · ${going} going` : data.events.length ? "Each event gets its own page, RSVPs and guest list." : undefined} title="Events" />
+      <Head tone="#C7FF4A" action={data.events.length ? <Link className={coralButton} href="/app/identity/events/new">New event</Link> : undefined} eyebrow={eyebrow} sub={upcoming.length ? `${upcoming.length} coming up · ${going} going` : data.events.length ? "Each event gets its own page, RSVPs and guest list." : undefined} title="Events" />
       {!eventsEnabled() && offNote}
       {data.events.length === 0 ? <EventsEmpty /> : (
         <>
@@ -149,7 +149,7 @@ export async function NewEvent() {
   if (!data.mode) notFound();
   return (
     <StudioPage className="max-w-[860px]">
-      <Head back={{ href: "/app/identity/events", label: "Events" }} eyebrow={eyebrow} title="New event" />
+      <Head tone="#C7FF4A" back={{ href: "/app/identity/events", label: "Events" }} eyebrow={eyebrow} title="New event" />
       <ClientEventEditor event={null} modeId={data.mode.id} modeLive={data.modeLive} profileId={data.userId} />
     </StudioPage>
   );
@@ -176,7 +176,7 @@ export async function EventDetail({ id }: { id: string }) {
   ];
   return (
     <StudioPage className="max-w-[1120px]">
-      <Head
+      <Head tone="#C7FF4A"
         action={phase !== "draft" && phase !== "cancelled" ? (
           <div className="flex flex-wrap gap-2">
             {checkIn === "open" && <Link className={inkButton} data-open-scanner href={`/app/identity/events/${event.id}/scan`}><ScanIcon />Scan passes</Link>}
@@ -233,7 +233,7 @@ export async function DoorScan({ id }: { id: string }) {
   const closed = { soon: "Check-in opens 12 hours before the start. Come back then, or check guests in from the list on the day.", closed: "Check-in has closed for this event.", cancelled: "This event was cancelled." } as const;
   return (
     <StudioPage className="max-w-[560px]">
-      <Head back={back} eyebrow={<>{eyebrow}<span aria-hidden="true" className="text-black/25">/</span>Door</>} sub={<>{when.date} · {when.time}</>} title={event.title} />
+      <Head tone="#C7FF4A" back={back} eyebrow={<>{eyebrow}<span aria-hidden="true" className="text-black/25">/</span>Door</>} sub={<>{when.date} · {when.time}</>} title={event.title} />
       {door === "open"
         ? <DoorScanner checkedIn={checkedIn} eventId={event.id} going={event.confirmed_count} />
         : <EmptyState action={<Link className={lineButton} href={back.href}>Guest list</Link>} body={closed[door]} title="The door isn't open." />}

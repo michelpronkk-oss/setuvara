@@ -14,14 +14,14 @@ const eyebrow = <><span aria-hidden="true" className="size-2 rounded-full bg-[#C
 export async function TeamIndex() {
   const data = await loadTeam();
   if (!data.mode) notFound();
-  if (!data.ready) return <StudioPage><Head eyebrow={eyebrow} title="Team" /><EmptyState body="Teams need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
+  if (!data.ready) return <StudioPage><Head tone="#AFCBFF" eyebrow={eyebrow} title="Team" /><EmptyState body="Teams need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
   const { team } = data;
   const { used } = seatCount(team);
 
   if (team.seats === 0) {
     return (
       <StudioPage className="max-w-[1180px]">
-        <Head eyebrow={eyebrow} sub="Bring the people who answer your leads." title="Team" />
+        <Head tone="#AFCBFF" eyebrow={eyebrow} sub="Bring the people who answer your leads." title="Team" />
         <section className="relative overflow-hidden rounded-[30px] bg-[#0D0D0D] p-7 text-[#F5F4EF] md:p-10" data-team-upsell>
           <span aria-hidden="true" className="absolute -right-24 -top-24 size-72 rounded-full bg-[#C7FF4A]/25 blur-3xl" />
           <Mono className="relative flex items-center gap-2 text-[#e8d28a]"><MemberBadge decorative size={16} tier="pro" />Pro</Mono>
@@ -40,7 +40,7 @@ export async function TeamIndex() {
 
   return (
     <StudioPage className="max-w-[1180px]">
-      <Head eyebrow={eyebrow} sub={`${used} of ${team.seats} seats · ${team.members.filter((member) => member.status === "active").length} joined`} title="Team" />
+      <Head tone="#AFCBFF" eyebrow={eyebrow} sub={`${used} of ${team.seats} seats · ${team.members.filter((member) => member.status === "active").length} joined`} title="Team" />
       <TeamBoard business={data.profile.display_name} ownerEmail={data.email} owner={data.profile.display_name} team={team} />
     </StudioPage>
   );
