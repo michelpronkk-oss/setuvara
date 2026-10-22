@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -83,7 +84,7 @@ export function WalletExperience({ walletPubliclyLaunched }: { walletPubliclyLau
       });
       if (!response.ok) throw new Error(response.status === 403 ? "Editorial appearance is part of Setuvara Plus." : "Appearance could not be saved.");
       await load();
-      setNotice("Wallet appearance saved.");
+      setNotice(""); toast("Wallet appearance saved");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Appearance could not be saved.");
     } finally {
@@ -101,7 +102,7 @@ export function WalletExperience({ walletPubliclyLaunched }: { walletPubliclyLau
         body: "{}",
       });
       if (!response.ok) throw new Error("Saved passes could not be updated right now.");
-      setNotice("Saved Wallet passes are up to date.");
+      setNotice(""); toast("Saved Wallet passes are up to date");
       await load();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Saved passes could not be updated right now.");

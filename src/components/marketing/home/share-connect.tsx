@@ -13,7 +13,7 @@ const channels = [
   { name: "Link", detail: "A private link for Event or Business", live: true },
   { name: "Native share", detail: "Messages, AirDrop, any app", live: true },
   { name: "Wallet pass", detail: "Your Setuvara in Apple and Google Wallet", live: false },
-  { name: "NFC", detail: "Tap a phone or card to share", live: false },
+  { name: "Setuvara Tap", detail: "Any NFC card, ring or sticker opens your page", live: true },
 ];
 
 function ShareQr({ size, label }: { size: number; label: string }) {

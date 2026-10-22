@@ -31,14 +31,11 @@ export function SiteHeader() {
   const signedIn = useSignedIn();
   const menuButton = useRef<HTMLButtonElement>(null);
   const copy = getMessages("en").marketing;
-  const home = "/";
   const navigation = [
-    { href: `${home}#product`, label: copy.product },
     { href: "/modes", label: copy.modes },
-    { href: "/events", label: copy.events },
-    { href: "/teams", label: copy.teams },
+    { href: "/features", label: copy.features },
+    { href: "/gallery", label: copy.gallery },
     { href: "/pricing", label: copy.pricing },
-    { href: "/contact", label: copy.contact },
   ];
 
   useEffect(() => {
@@ -76,7 +73,7 @@ export function SiteHeader() {
       {/* The blur lives on its own layer: backdrop-filter on the header would trap the fixed menu inside it. */}
       <div aria-hidden="true" className={`absolute inset-0 z-[1] border-b transition-colors duration-300 ${menuOpen ? "border-transparent bg-ink" : "border-ink/10 bg-paper/90 backdrop-blur-md supports-[backdrop-filter]:bg-paper/75"}`} />
       <div className="relative z-10 mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:min-h-[72px] lg:px-14">
-        <Link aria-label="Setuvara home" className={`inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-md ${focusRing}`} href={home} onClick={closeMenu}>
+        <Link aria-label="Setuvara home" className={`inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-md ${focusRing}`} href="/" onClick={closeMenu}>
           <MeetMark className={`size-7 transition-colors duration-300 ${menuOpen ? "text-coral" : ""}`} />
           <Wordmark className="text-[23px] leading-none" />
         </Link>

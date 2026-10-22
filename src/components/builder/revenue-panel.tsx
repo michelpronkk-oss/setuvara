@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import { confirmDialog } from "@/components/app/confirm-dialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -140,7 +141,7 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
             <label className="flex items-start gap-2 text-[14px]" key={v.value}>
               <input checked={visibility === v.value} className="mt-1" disabled={pending} name="revenue_visibility" onChange={() => start(async () => {
                 const { error } = await createClient().from("builder_projects").update({ revenue_visibility: v.value }).eq("id", projectId);
-                setMessage(error ? "That didn't save. Try again." : "Saved."); router.refresh();
+                setMessage(error ? "That didn't save. Try again." : ""); if (!error) toast("Saved"); router.refresh();
               })} type="radio" />
               <span><b>{v.label}</b> <span className="text-black/60">{v.note}</span></span>
             </label>

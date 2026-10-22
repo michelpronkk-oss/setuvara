@@ -15,8 +15,8 @@ import { marketingMetadata, SETUVARA_ORIGIN, SETUVARA_ORGANIZATION_ID } from "@/
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = marketingMetadata({
-  title: "Pricing | Setuvara",
-  description: `Free is complete, for good. Plus (${formatPrice(getPublicPlan("plus").monthlyPriceMinor)} a month) adds the badge, all ten Appearances and insights. Pro (${formatPrice(getPublicPlan("pro").monthlyPriceMinor)} a month) adds the full picture.`,
+  title: "Pricing: Free, Plus and Pro | Setuvara",
+  description: `Free: all four Modes, Actions, Leads, Builder. Plus (${formatPrice(getPublicPlan("plus").monthlyPriceMinor)} a month): all ten Looks, email, verified revenue, 0% fees. Pro (${formatPrice(getPublicPlan("pro").monthlyPriceMinor)} a month): a team and deeper analytics.`,
   path: "/pricing",
 });
 

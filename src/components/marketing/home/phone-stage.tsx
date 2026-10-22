@@ -11,6 +11,7 @@ export const STAGE_PALETTES: Record<DemoMode["slug"], { base: string; a: string;
   personal: { base: "#dce8fa", a: "#72a7e7", b: "#b9d4fb", c: "#ff7d70" },
   event: { base: "#efffc9", a: "#c5ff47", b: "#8fdc4e", c: "#fbffe8" },
   business: { base: "#f1ebe4", a: "#ff8a7a", b: "#ddd2c4", c: "#fff7ef" },
+  creator: { base: "#f1e6fb", a: "#e8a6ff", b: "#c9b6f5", c: "#ffd7c9" },
 };
 
 const NOISE = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;

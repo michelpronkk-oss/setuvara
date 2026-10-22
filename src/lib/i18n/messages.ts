@@ -83,7 +83,7 @@ const messages = {
       regionTitle: "Region", regionDescription: "Your region is stored separately and does not change Setuvara’s interface language.",
     },
     marketing: {
-      product: "Product", modes: "Modes", events: "For Events", teams: "For Teams", pricing: "Pricing",
+      product: "Product", modes: "Modes", features: "Features", gallery: "Gallery", events: "For Events", teams: "For Teams", pricing: "Pricing",
       login: "Log in", getSetuvara: "Get Setuvara", createSetuvara: "Create your Setuvara",
       oneIdentity: "One identity. Every version of you.", yourIdentity: "Your identity. Your connections.",
       shareConnect: "Share & Connect", roadmap: "Roadmap", account: "Account", setuvaraFor: "Setuvara for",

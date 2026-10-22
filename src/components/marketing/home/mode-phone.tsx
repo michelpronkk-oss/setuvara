@@ -41,6 +41,12 @@ const DEMOS: Record<DemoMode["slug"], Demo> = {
     settings: { role: "Partnerships Lead", company: "Setuvara", city: "Lisbon", description: "Helping teams meet better at every event." },
     links: [["linkedin", "LinkedIn"], ["calendly", "Book a 20-min intro"], ["url", "Setuvara"]],
   },
+  creator: {
+    appearance: "film",
+    accent: "#E8A6FF",
+    settings: { category: "Music · Live sessions", city: "Lagos", tagline: "Late-night sets, recorded live. New session every Friday." },
+    links: [["youtube", "YouTube"], ["spotify", "Spotify"], ["instagram", "Instagram"], ["tiktok", "TikTok"]],
+  },
 };
 
 const AANYA_CLOSE: Person = { name: person.name, username: person.username, photo: "/pricing/aanya-close.webp", face: { x: 45, y: 50 } };
@@ -49,6 +55,8 @@ export const DEMO_PEOPLE = {
   theo: { name: "Theo Laurent", username: "theo", photo: "/pricing/theo-close.webp", face: { x: 47, y: 46 } },
   lucas: { name: "Lucas Meyer", username: "lucas", photo: "/pricing/lucas-wide.webp", face: { x: 52, y: 24 } },
   lucasClose: { name: "Lucas Meyer", username: "lucas", photo: "/pricing/lucas-close.webp", face: { x: 50, y: 38 } },
+  sena: { name: "Sena Okafor", username: "sena", photo: "/pricing/sena-close.webp", face: { x: 50, y: 42 } },
+  noor: { name: "Noor Haddad", username: "noor", photo: "/pricing/noor-close.webp", face: { x: 50, y: 42 } },
 } satisfies Record<string, Person>;
 
 /** Slush's own week, far enough ahead that the static page never shows it expired. */
@@ -59,12 +67,14 @@ export const CAST: Record<DemoMode["slug"], { who: Person; look: Look; live?: Pu
   personal: { who: DEMO_PEOPLE.aanya, look: { theme: "stack", pictures: ["/pricing/aanya-wide.webp"] } },
   event: { who: DEMO_PEOPLE.theo, look: { theme: "immersive", nameFont: "impact", scrollCue: "swipe", namePosition: "bottom" }, live: SLUSH },
   business: { who: DEMO_PEOPLE.lucasClose, look: { theme: "glow" } },
+  creator: { who: DEMO_PEOPLE.sena, look: { theme: "film" } },
 };
 
 /** Real provider hosts, so the hero shows each Mode's social icons the way a member's page does. */
 const LINK_URLS: Record<string, string> = {
   instagram: "https://instagram.com/setuvara", spotify: "https://open.spotify.com/playlist/setuvara", whatsapp: "https://wa.me/351900000000",
   tiktok: "https://tiktok.com/@setuvara", linkedin: "https://linkedin.com/in/setuvara", calendly: "https://calendly.com/setuvara",
+  youtube: "https://youtube.com/@setuvara",
 };
 
 function demo(slug: ModeSlug & DemoMode["slug"], who: Person, override?: Look): { profile: ProfileIdentity; mode: ProfileMode } {
@@ -121,6 +131,28 @@ export function ModePhone({ slug, label, who, look: override, live, mediaPriorit
           <MarketingProfilePreview liveContext={live} marketingMediaPriority={mediaPriority} nameAs="p" memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
         </div>
         <span className="absolute left-1/2 top-2.5 h-[26px] w-[84px] -translate-x-1/2 rounded-full bg-[#0a0a0a]" />
+      </div>
+    </div>
+  );
+}
+
+const DESKTOP = { width: 1280, height: 800 };
+
+/**
+ * The same cast member's page as a desktop visitor sees it: drawn at a real 1280px window (the
+ * Appearance's wide hero) and scaled into the frame. `scale` sets the drawn size; `scales` instead
+ * gives Tailwind classes that set --z per breakpoint, so one drawing serves every width. Its photos
+ * never preload: drawings sit below the fold or only show on wide screens.
+ */
+export function ModeDesktop({ slug, who, look: override, live, scale = 0.5, scales, label }: { slug: DemoMode["slug"]; who?: Person; look?: Look; live?: PublicLiveContext; scale?: number; scales?: string; label?: string }) {
+  const cast = CAST[slug];
+  const person = who ?? cast.who;
+  const { profile, mode } = demo(slug, person, override ?? cast.look);
+  const look = previewAppearance(mode);
+  return (
+    <div aria-label={label ?? `${person.name}'s ${slug} page on a desktop`} className={`relative overflow-hidden ${scales ?? ""}`} role="img" style={{ ...(scales ? { width: `calc(${DESKTOP.width}px * var(--z))`, height: `calc(${DESKTOP.height}px * var(--z))` } : { width: DESKTOP.width * scale, height: DESKTOP.height * scale }), background: appearanceTheme(look.id, look.accent).base }}>
+      <div aria-hidden="true" className="pointer-events-none [&_[data-floating-connect]]:hidden" inert style={{ width: DESKTOP.width, zoom: scales ? "var(--z)" : scale, "--profile-vh": `${DESKTOP.height}px` } as CSSProperties}>
+        <MarketingProfilePreview liveContext={live ?? cast.live} marketingMediaPriority="normal" nameAs="p" memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
       </div>
     </div>
   );

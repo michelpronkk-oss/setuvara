@@ -3,17 +3,18 @@
 import { useId, useState } from "react";
 
 import { MemberBadge } from "@/components/app/status-badge";
+import { JsonLd } from "@/components/seo/json-ld";
 import { MeetMark } from "@/components/marketing/brand";
 
 import { PlanCta } from "./pricing-context";
 import { H2 } from "./shared";
 
 const FAQ: readonly [string, string][] = [
-  ["Do I need to pay?", "No. Free includes every Mode, your profile, sharing, Connections and Passport. No card, no trial clock."],
+  ["Do I need to pay?", "No. Free includes all four Modes, your profile, sharing, Actions, Leads, Builder, Connections and Passport. No card, no trial clock. Paid sales on Free carry a 5% Setuvara fee, and emailing your Audience starts on Plus."],
   ["Can I hide Connect?", "Yes, on every plan. For each Mode, show it to everyone, only to people you share with in person, or no one. Change it whenever."],
   ["What does the badge mean?", "That you’re a Plus or Pro member. It’s status, not an ID check. The Setuvara Mark is awarded, never sold."],
   ["What analytics do I get?", "Free: 7 days. Plus: 30 and 90 days, with sources, Modes and conversion. Pro: any range up to 2 years, the Connection journey, devices and CSV."],
-  ["Can I use my own domain?", "Not yet. It’s in development for Pro, with actions, lead capture and webhooks. Pro’s price covers what’s live today."],
+  ["Can I use my own domain?", "Not yet. Your own domain and webhooks are in development for Pro. Pro’s price covers what’s live today."],
   ["How do I switch or cancel?", "From Billing in your account. Upgrades start now, prorated. Downgrades and cancellations take effect at renewal."],
   ["What happens if I downgrade?", "Your Modes, Connections and stamps stay. Plus looks fall back to Free ones, and your choices return if you upgrade again."],
   ["Who handles payment?", "Dodo Payments. Setuvara never sees your full card number."],
@@ -24,6 +25,7 @@ export function Faq() {
   const base = useId();
   return (
     <section aria-labelledby="faq-title" className="scroll-mt-16 bg-paper" id="faq">
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: FAQ.map(([question, answer]) => ({ "@type": "Question", name: question, acceptedAnswer: { "@type": "Answer", text: answer } })) }} />
       <div className="mx-auto grid w-full max-w-[1440px] grid-cols-[minmax(0,1fr)] items-start gap-x-20 gap-y-10 px-5 py-[clamp(64px,8vw,120px)] sm:px-8 lg:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)] lg:px-14">
         <div className="flex flex-col gap-5">
           <H2 id="faq-title">Questions.</H2>

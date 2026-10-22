@@ -24,6 +24,7 @@ import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { isModeHandleSlug } from "@/lib/handles/mode-handle";
 import { modeTools, type ModePage } from "@/components/app/side-nav";
+import { GalleryRow } from "./editor-gallery";
 import { PublicLinkCard } from "./editor-public-link";
 import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
 import { Card, Counter, Field, MonoLabel, Pill, PlusTag, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper, previewVisitorAction } from "./editor-ui";
@@ -539,6 +540,7 @@ export function SettingsSection({ api }: { api: EditorApi }) {
         <SettingRow description={profile.is_published ? "Anyone with your link or QR can open your enabled Modes. Search engines can list your Personal Mode." : "Draft. Nobody can open your Setuvara until you publish."} title={profile.is_published ? "Your Setuvara is public" : "Your Setuvara is private"}>
           <Toggle label="Setuvara public" on={profile.is_published} onChange={(next) => void api.setPublished(next)} />
         </SettingRow>
+        {slug !== "event" && <GalleryRow api={api} key={slug} />}
       </Card>
 
       <ConnectionAccess api={api} />

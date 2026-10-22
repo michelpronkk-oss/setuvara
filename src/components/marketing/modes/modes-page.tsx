@@ -11,7 +11,7 @@ import type { DemoMode } from "../home/demo";
 import { ConnectChoice, Looks } from "../pricing/looks";
 
 /**
- * /modes: Personal, Event and Business in depth. Every claim maps to a live feature: per-Mode
+ * /modes: the four Modes side by side, each chapter leading to its own Mode page. Every claim maps to a live feature: per-Mode
  * fields (public-profile.ts), links, Appearances, opaque /s/ links for Event and Business,
  * connect_policy, Live Context, Save contact, and the Mode never being named publicly.
  */
@@ -58,6 +58,16 @@ const CHAPTERS: Chapter[] = [
     share: "setuvara.com/s/R3vT9wLe",
     tone: "bg-white",
   },
+  {
+    slug: "creator",
+    index: "04",
+    name: "Creator",
+    title: "The you that makes the work.",
+    line: "Your work, your store, your media kit and what you’re open to. Sell digital products and take brand deals from one page.",
+    fields: [["Category", "Film and music"], ["Based in", "Lagos"], ["Store", "Presets, guides and calls"], ["Open to", "Brand deals and collaborations"]],
+    share: "setuvara.com/s/Fm8cN2qZ",
+    tone: "bg-paper",
+  },
 ];
 
 export function ModesPage() {
@@ -80,14 +90,14 @@ function Hero() {
       <Shell className="flex flex-col items-center pb-14 pt-10 text-center sm:pt-16 lg:pb-20 lg:pt-20">
         <Label className="text-coral">Modes</Label>
         <Display as="h1" className="mt-5 text-[clamp(46px,8vw,124px)] leading-[0.88] sm:mt-6">
-          <span id="modes-hero-title">One identity.<br />Three ways to meet.</span>
+          <span id="modes-hero-title">One identity.<br />Four ways to meet.</span>
         </Display>
-        <p className="mt-5 max-w-[24rem] text-[18px] leading-[1.4] text-ink/70 sm:mt-7 sm:max-w-[34rem] sm:text-[21px]">Personal, Event and Business. Each with its own links, look, link and QR. They only ever see the one you share.</p>
+        <p className="mt-5 max-w-[24rem] text-[18px] leading-[1.4] text-ink/70 sm:mt-7 sm:max-w-[34rem] sm:text-[21px]">Personal, Event, Business and Creator. Each with its own links, look, link, QR and tools. They only ever see the one you share.</p>
         <div className="mt-8 flex w-full flex-col items-center gap-3 sm:mt-10"><ClaimForm id="modes-claim" /></div>
         <div className={`${nameFontClasses} mt-8 w-full max-w-[880px] sm:mt-12`}>
           <HeroModes
-            cards={[<CastPhone key="personal" mediaPriority="high" slug="personal" />, <CastPhone key="event" mediaPriority="high" slug="event" />, <CastPhone key="business" mediaPriority="high" slug="business" />]}
-            caption="Three people · Three Modes"
+            cards={[<CastPhone key="personal" mediaPriority="high" slug="personal" />, <CastPhone key="event" mediaPriority="high" slug="event" />, <CastPhone key="business" mediaPriority="high" slug="business" />, <CastPhone key="creator" slug="creator" />]}
+            caption="Four people · Four Modes"
           />
         </div>
       </Shell>
@@ -97,12 +107,12 @@ function Hero() {
 
 function Index() {
   return (
-    <section aria-label="The three Modes" className="border-y border-ink/10 bg-white">
-      <Shell className="grid grid-cols-[minmax(0,1fr)] divide-y divide-ink/10 md:grid-cols-3 md:divide-x md:divide-y-0">
+    <section aria-label="The four Modes" className="border-y border-ink/10 bg-white">
+      <Shell className="grid grid-cols-[minmax(0,1fr)] divide-y divide-ink/10 lg:grid-cols-4 lg:divide-x lg:divide-y-0">
         {CHAPTERS.map((chapter) => {
           const { who } = CAST[chapter.slug];
           return (
-            <Link className="group flex items-center gap-4 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink md:px-6 md:py-7 md:first:pl-0 md:last:pr-0" href={`#${chapter.slug}`} key={chapter.slug}>
+            <Link className="group flex items-center gap-4 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink lg:px-6 lg:py-7 lg:first:pl-0 lg:last:pr-0" href={`#${chapter.slug}`} key={chapter.slug}>
               <span aria-hidden="true" className="size-12 shrink-0 rounded-full bg-cover shadow-[0_0_0_1px_rgba(13,13,13,.08)]" style={{ backgroundImage: `url(${who.photo})`, backgroundPosition: `${who.face.x}% ${who.face.y}%` }} />
               <span className="min-w-0 flex-1">
                 <span className="block font-label text-[10px] uppercase tracking-[0.16em] text-ink/50">{chapter.index}</span>
@@ -138,6 +148,7 @@ function ModeChapter({ chapter, flip }: { chapter: Chapter; flip: boolean }) {
             <span className="truncate font-label text-[12px] text-paper/85">{chapter.share}</span>
             <span className="shrink-0 rounded-full bg-coral px-3 py-1 text-[12px] font-semibold text-ink">QR</span>
           </p>
+          <Link className="inline-flex min-h-11 items-center self-start text-[15px] font-semibold underline decoration-ink/25 underline-offset-4 hover:decoration-coral focus-visible:outline-2 focus-visible:outline-coral" href={`/${chapter.slug}`}>Everything in {chapter.name} Mode →</Link>
         </div>
         <div className={`${nameFontClasses} flex justify-center ${flip ? "lg:order-1" : ""}`}>
           <PhoneStage className="w-full max-w-[460px] rounded-[2.5rem] px-6 py-10 sm:py-12" slug={chapter.slug}>
@@ -152,7 +163,7 @@ function ModeChapter({ chapter, flip }: { chapter: Chapter; flip: boolean }) {
 const SEPARATE = [
   { title: "Its own links", line: "60 providers, or your own. Pitch deck in Event, playlist in Personal.", visual: <LinkChips /> },
   { title: "Its own look", line: "Pick an Appearance per Mode. Clean for business, Immersive for friends.", visual: <LookDots /> },
-  { title: "Its own link and QR", line: "Event and Business get a private short link with no username in it. Make a new one any time.", visual: <ShareRows /> },
+  { title: "Its own link and QR", line: "Event, Business and Creator get a private short link with no username in it. Make a new one any time.", visual: <ShareRows /> },
   { title: "Never labelled", line: "Visitors never see the word Mode. They just see you, the way you chose.", visual: <NoLabel /> },
 ];
 
