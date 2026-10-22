@@ -21,6 +21,7 @@ import { AddLinkPanel, DragHandle, LinkRow, RowChevron } from "./editor-sections
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { ContentImageControl } from "./content-image-control";
 import { PageActions } from "./editor-page-actions";
+import { PageOrder } from "./editor-page-order";
 import { ContentVideoControl } from "./content-video-control";
 import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
@@ -73,6 +74,8 @@ export function ContentSection({ api }: { api: EditorApi }) {
         <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FF5A4F] text-xl font-semibold text-[#0D0D0D]">+</span>
         <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold">Add content</span><span className="block truncate text-[13px] opacity-60">Paste any link, or add a video, music, a card…</span></span>
       </button>
+
+      <PageOrder api={api} key={`order-${mode.id}`} />
 
       {/* Blocks */}
       <section aria-label="Blocks" className="mt-8">

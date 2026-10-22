@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { LinkGlyph } from "@/components/links/provider-mark";
 import { MeetMark } from "@/components/marketing/brand";
 import { FramedPhoto } from "@/components/profile/focused-photo";
 import { ProfileImage } from "@/components/profile/profile-image";
 import { ProfileBlocks, type BlockTone } from "@/components/profile/profile-blocks";
+import { pageRuns } from "@/lib/profile/page-order";
 import { SoundtrackProvider } from "@/components/profile/soundtrack";
 import { MemberBadge } from "@/components/app/status-badge";
 import type { MemberTier } from "@/lib/billing/member-badge";
@@ -75,6 +76,13 @@ type ProfileRendererProps = {
   chrome?: ReactNode;
   /** Extra content after the links (the public page's shared Passport stamp). */
   footer?: ReactNode;
+  /**
+   * The owner's page order (lib/profile/page-order), already resolved against what exists. When
+   * set, blocks, links and the server-drawn pieces (Actions, projects, Mode sections, keyed
+   * "kind:id") follow it in one stream. Null keeps the default layout.
+   */
+  pageOrder?: string[] | null;
+  pieces?: Record<string, ReactNode>;
   /** "Make yours on Setuvara" (Free) or the small Setuvara mark (Plus) at the end. */
   attribution?: boolean;
   /** The owner's currently effective Live Context, if any (public RPC). */
@@ -200,7 +208,7 @@ function Slides({ scene, render }: { scene: Scene; render: (source: PhotoSource,
 }
 
 function Profile(props: ProfileProps) {
-  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "" } = props;
+  const { profile, mode, look, viewerState, previewAsVisitor, selectedRewards = {}, memberTier = null, chrome, footer, attribution = false, className = "", pageOrder = null, pieces } = props;
   const copy = getMessages("en").profile;
   const source = photoSource(mode);
   const photo = source ? mode.image_url ?? source.url : null;
@@ -317,7 +325,7 @@ function Profile(props: ProfileProps) {
         <WideHero scene={scene} />
       </div>
 
-      <AppearanceContent attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
+      <AppearanceContent order={pageOrder} pieces={pieces} attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
       {floating && <FloatingConnect dot={connect.dot} label={copy.connect} style={{ background: connect.bg, color: connect.fg, boxShadow: [connect.edge !== "none" ? connect.edge : "", "0 14px 34px -12px #0D0D0D99"].filter(Boolean).join(","), outlineColor: theme.identity.fg }} />}
     </article>
   );
@@ -382,15 +390,29 @@ function aboutParagraphs(scene: Scene, bio = "") {
   return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 
-function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode }) {
+function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card, order, pieces }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode; order?: string[] | null; pieces?: Record<string, ReactNode> }) {
   const { theme, mode, look } = scene;
   const bio = profile.bio?.trim() ?? "";
   const paragraphs = aboutParagraphs(scene, bio);
   const hasBlocks = Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
   // On desktop the first paragraph sits in the hero; the page keeps what the hero does not show.
   const earned = Boolean(rewards.profile_mark === "signal_50_mark" || rewards.profile_mark === "thousand_mark");
-  const spread = paragraphs.length > 1 || hasBlocks || earned;
+  const spread = paragraphs.length > 1 || hasBlocks || earned || Boolean(order);
   const shownLinks = look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links;
+  // The owner's order: one stream in the story column, each run drawn by its own component.
+  const stream = order ? pageRuns(order).map((run, index) => {
+    const key = `${run.kind}-${run.ids[0]}-${index}`;
+    if (run.kind === "block") {
+      const blocks = run.ids.map((id) => mode.blocks?.find((block) => block.id === id)).filter((block): block is NonNullable<typeof block> => Boolean(block));
+      return <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={blocks} className="@min-[1100px]/profile:gap-6" gallery key={key} mediaLayout={look.mediaLayout} tone={blockTone} />;
+    }
+    if (run.kind === "link") {
+      const runLinks = run.ids.map((id) => shownLinks.find((item) => item.link.id === id)).filter((item): item is ResolvedLink => Boolean(item));
+      return runLinks.length ? <Links copy={copy} key={key} links={runLinks} scene={scene} /> : null;
+    }
+    const nodes = run.ids.map((id) => pieces?.[`${run.kind}:${id}`]).filter(Boolean);
+    return nodes.length ? <div className="flex flex-col gap-4" key={key}>{nodes.map((node, at) => <Fragment key={`${key}-${at}`}>{node}</Fragment>)}</div> : null;
+  }) : null;
   const label = "hidden font-label text-[10.5px] uppercase tracking-[0.2em] @min-[1100px]/profile:block";
   // Phones and tablets: one column, exactly as before (the two groups dissolve into it).
   // Desktop: a spread. The story (About, pictures, content) gets the room; a quiet column beside
@@ -411,12 +433,12 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
         )}
         <EarnedMark copy={copy} rewards={rewards} theme={theme} />
         {mode.slug === "event" && setting(mode, "eventName") && <EventCard className={spread ? "@min-[1100px]/profile:hidden" : ""} copy={copy} mode={mode} theme={theme} />}
-        <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-6" gallery mediaLayout={look.mediaLayout} tone={blockTone} />
+        {stream ?? <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-6" gallery mediaLayout={look.mediaLayout} tone={blockTone} />}
       </div>
       <div className={`contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6 ${spread ? "@min-[1100px]/profile:sticky @min-[1100px]/profile:top-8" : ""}`} data-profile-aside>
         {spread && card}
         {/* Under name: the rows skip what the name shows. In links and Both: every row stays. */}
-        {shownLinks.length > 0 && <div className="contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-2.5"><h2 aria-hidden="true" className={label} style={{ color: theme.muted }}>{copy.links}</h2><Links copy={copy} links={shownLinks} scene={scene} /></div>}
+        {!stream && shownLinks.length > 0 && <div className="contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-2.5"><h2 aria-hidden="true" className={label} style={{ color: theme.muted }}>{copy.links}</h2><Links copy={copy} links={shownLinks} scene={scene} /></div>}
         {owner && links.length === 0 && !hasBlocks && <p className="rounded-[18px] px-4 py-4 text-[13px]" style={{ color: theme.muted, boxShadow: `inset 0 0 0 1px ${theme.card.edge}` }}>{copy.noLinks}</p>}
         {footer}
         {attribution && branded && (
