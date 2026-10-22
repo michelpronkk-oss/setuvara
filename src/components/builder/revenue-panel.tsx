@@ -87,6 +87,9 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
                 <span className="font-normal text-black/55">Reconstructed months use today&apos;s prices and are labelled on your page. Daily measurements start the day you connect.</span>
               </label>
             )}
+            {currencies.length === 0 && c.last_sync_ok && (
+              <p className="text-[14px] tabular-nums"><b>{money(0, "eur")}</b> MRR · {money(0, "eur")} ARR · 0 subscriptions <span className="text-black/50">· figures appear with the first paying subscription</span></p>
+            )}
             {currencies.map((currency) => <Trend currency={currency} key={currency} rows={rows.filter((r) => r.currency === currency)} />)}
             <div className="flex flex-wrap gap-2">
             <button className={lineButton} disabled={pending} onClick={() => start(async () => { const r = await syncRevenueNow(c.id); setMessage(r.ok ? "Synced." : r.error); router.refresh(); })} type="button">{pending ? "Syncing…" : "Sync now"}</button>
