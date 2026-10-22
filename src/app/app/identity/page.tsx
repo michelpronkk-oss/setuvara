@@ -12,6 +12,7 @@ import { ownerModeShareUrls } from "@/lib/share/mode-share";
 import { ownerModeHandles } from "@/lib/handles/mode-server";
 import { memberTierForPlan } from "@/lib/billing/member-badge";
 
+import { creatorActionsEnabled } from "@/lib/actions/server";
 import { signOut } from "./actions";
 import { IdentityEditor } from "./editor";
 import type { RewardCategory } from "@/lib/passport/rewards";
@@ -107,6 +108,7 @@ export default async function IdentityEditorPage({ searchParams }: IdentityEdito
 
   return (
     <IdentityEditor
+      actionsLive={creatorActionsEnabled()}
       error={query.error}
       initialMode={requestedMode}
       initialModes={modes}

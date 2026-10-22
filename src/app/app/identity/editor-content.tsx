@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AddLinkPanel, DragHandle, LinkRow, RowChevron } from "./editor-sections";
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { ContentImageControl } from "./content-image-control";
+import { PageActions } from "./editor-page-actions";
 import { ContentVideoControl } from "./content-video-control";
 import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
@@ -133,6 +134,8 @@ export function ContentSection({ api }: { api: EditorApi }) {
           </Card>
         )}
       </section>
+
+      <PageActions api={api} key={mode.id} />
 
       {sheet?.type === "add" && <AddSheet api={api} onClose={() => setSheet(null)} onPick={setSheet} />}
       {sheet?.type === "block" && <BlockSheet api={api} block={sheet.block} key={sheet.block?.id ?? sheet.kind} kind={sheet.kind} onClose={() => setSheet(null)} seed={sheet.seed} />}

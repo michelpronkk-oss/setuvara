@@ -35,6 +35,8 @@ export const SETTING_KEYS: Record<ModeSlug, Record<string, number>> = {
 export type PlusTrigger = { kind: "appearance" | "advanced" | "soundtrack" | "qr" | "type" | "restore"; name?: string; appearance?: AppearanceId };
 
 export type EditorApi = {
+  /** Actions show to visitors on this site (CREATOR_ACTIONS_ENABLED). */
+  actionsLive: boolean;
   profile: ProfileIdentity;
   modes: ProfileMode[];
   mode: ProfileMode;
