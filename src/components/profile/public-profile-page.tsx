@@ -17,6 +17,7 @@ import { ProfileStage } from "@/components/profile/profile-stage";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
 import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { ActionCards } from "@/components/actions/action-card";
+import { LinkClickTracker } from "@/components/profile/link-click-tracker";
 import { CreatorAudience } from "@/components/creator/creator-audience";
 import { CreatorSections } from "@/components/creator/creator-sections";
 import { getPublicActions } from "@/lib/actions/public";
@@ -383,6 +384,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   return (
     <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       {(handle ? indexable : !shareToken) && <JsonLd data={personStructuredData} />}
+      {!owner && <LinkClickTracker />}
       {owner && <OwnerBar editHref={`/app/identity?mode=${slug}`} shareHref={`/app/identity?mode=${slug}&section=share`} />}
       <ProfileStage accent={resolveModeAccent(mode)} base={pageTone.bg} dark={pageTone.dark} photo={imageUrl}>
         <ProfileRenderer

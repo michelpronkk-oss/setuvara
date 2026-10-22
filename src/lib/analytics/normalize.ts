@@ -40,6 +40,8 @@ export type AnalyticsData = {
   comparison?: { profileViewsDelta: number | null; connectionsDelta: number | null };
   /** What each Mode tool did in the range (get_mode_tools_summary). */
   tools?: ModeTools;
+  /** Taps per link in the range (get_link_clicks). */
+  links?: LinkClicks;
 };
 
 export type ModeTools = {
@@ -55,6 +57,23 @@ export type ModeTools = {
   builderVotes: number;
   builderSuggestions: number;
 };
+
+export type LinkClicks = { total: number; links: { id: string; title: string; type: string; mode: string; clicks: number }[] };
+
+/** Link taps from the API; malformed rows are dropped, a malformed whole reads as absent. */
+export function normalizeLinkClicks(value: unknown): LinkClicks | undefined {
+  const raw = asRecord(value);
+  const total = count(raw?.total);
+  if (!raw || total === null || !Array.isArray(raw.links)) return undefined;
+  const links = raw.links.flatMap((item) => {
+    const row = asRecord(item);
+    const clicks = count(row?.clicks);
+    return row && typeof row.link_id === "string" && typeof row.title === "string" && clicks !== null
+      ? [{ id: row.link_id, title: row.title, type: typeof row.link_type === "string" ? row.link_type : "website", mode: typeof row.mode_slug === "string" ? row.mode_slug : "personal", clicks }]
+      : [];
+  });
+  return { total, links };
+}
 
 /** The tools summary from the API; anything malformed reads as absent, never as zero. */
 export function normalizeModeTools(value: unknown): ModeTools | undefined {
@@ -172,6 +191,7 @@ export function normalizeAnalytics(value: unknown): AnalyticsData | null {
       ? { deviceClasses: counted(list("deviceClasses", "device_classes", "devices", "deviceBreakdown"), "device", "device_class") }
       : {}),
     ...(normalizeModeTools(raw.tools) ? { tools: normalizeModeTools(raw.tools) } : {}),
+    ...(normalizeLinkClicks(raw.links) ? { links: normalizeLinkClicks(raw.links) } : {}),
     ...(comparisonRaw ? { comparison: { profileViewsDelta: delta("profileViewsDelta", "profile_views_delta"), connectionsDelta: delta("connectionsDelta", "connections_delta") } } : {}),
   };
 }

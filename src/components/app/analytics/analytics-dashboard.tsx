@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import { MemberBadge } from "@/components/app/status-badge";
 import { analyticsCapabilities } from "@/lib/analytics/capabilities";
 import { recordProfileShare } from "@/lib/analytics/client";
-import { normalizeAnalytics, type AnalyticsData, type AnalyticsRangeKind, type ModeTools } from "@/lib/analytics/normalize";
+import { normalizeAnalytics, type AnalyticsData, type AnalyticsRangeKind, type LinkClicks, type ModeTools } from "@/lib/analytics/normalize";
+import { providerForLink } from "@/lib/links/providers";
 import {
   barWidth,
   dateSpan,
@@ -244,6 +245,49 @@ function ToolsSection({ tools, fmt }: { tools: ModeTools; fmt: Format }) {
   );
 }
 
+const MODE_COLOR: Record<string, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
+const MODE_NAME: Record<string, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
+
+/** Which links people tap, most first, with each one's share of all taps. */
+function TopLinks({ links, fmt }: { links: LinkClicks; fmt: Format }) {
+  const top = links.links.slice(0, 8);
+  const max = Math.max(1, ...top.map((link) => link.clicks));
+  return (
+    <section aria-labelledby="links-title" className="flex flex-col gap-5 lg:border-t-[1.5px] lg:border-[#0d0d0d] lg:pt-9" data-top-links>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <span className={label}>Link taps</span>
+          <h2 className={sectionTitle} id="links-title">{links.total ? "What people tap." : "Your links are ready."}</h2>
+        </div>
+        {links.total > 0 && <span className="font-display text-[34px] font-extrabold leading-none tracking-[-0.05em] tabular-nums">{fmt(links.total)}<span className="ml-2 font-sans text-[13px] font-medium tracking-normal text-black/55">{links.total === 1 ? "tap" : "taps"}</span></span>}
+      </div>
+      {top.length ? (
+        <ol className="grid gap-2">
+          {top.map((link, index) => {
+            const provider = providerForLink(link.type);
+            return (
+              <li className="relative isolate flex min-h-[60px] items-center gap-3 overflow-hidden rounded-[18px] bg-white px-4 py-3 shadow-[inset_0_0_0_1px_#0d0d0d14]" key={link.id}>
+                <span aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 transition-[width] duration-700" style={{ width: `${Math.max(4, (link.clicks / max) * 100)}%`, background: `${MODE_COLOR[link.mode] ?? "#0d0d0d"}2E` }} />
+                <span className="w-5 shrink-0 font-label text-[11px] text-black/40 tabular-nums">{String(index + 1).padStart(2, "0")}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold">{link.title || provider.name}</span>
+                  <span className="flex items-center gap-1.5 text-[12.5px] text-black/55"><span aria-hidden="true" className="size-2 rounded-full" style={{ background: MODE_COLOR[link.mode] ?? "#0d0d0d" }} />{provider.name} · {MODE_NAME[link.mode] ?? link.mode}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block font-display text-[22px] font-extrabold leading-none tracking-[-0.04em] tabular-nums">{fmt(link.clicks)}</span>
+                  <span className="text-[11.5px] text-black/45">{Math.round((link.clicks / Math.max(1, links.total)) * 100)}%</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="max-w-xl text-[14.5px] leading-[1.5] text-black/60">When visitors tap a link on your page, it shows up here, most tapped first. Your own taps don&apos;t count.</p>
+      )}
+    </section>
+  );
+}
+
 const RANGE_CHIPS = [
   { value: "7d", label: "7D", tag: null },
   { value: "30d", label: "30D", tag: "PLUS" },
@@ -351,6 +395,7 @@ function Signals({ data, kind, fmt, onUpgrade, walletLaunched }: { data: Analyti
       )}
 
       {data.tools && <ToolsSection fmt={fmt} tools={data.tools} />}
+      {data.links && <TopLinks fmt={fmt} links={data.links} />}
 
       {deeper && (
         <div className="grid gap-x-10 gap-y-11 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))] lg:grid-cols-3 lg:gap-14 lg:border-t-[1.5px] lg:border-[#0d0d0d] lg:pt-9">
