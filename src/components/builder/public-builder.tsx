@@ -1,5 +1,7 @@
+import type { CSSProperties } from "react";
 import { byStage, PROJECT_STATUS_LABEL, ROADMAP_STAGE_LABEL, safeHttps, type BuilderViewer, type PublicProject, type RoadmapStage } from "@/lib/builder/model";
 import { SuggestForm, VoteButton } from "./builder-participation";
+import { ProjectMark } from "./project-mark";
 import { VerifiedRevenue } from "./verified-revenue";
 import { ctaFor, type PublicAction } from "@/lib/actions/model";
 
@@ -14,7 +16,9 @@ const dayMonth = (iso: string) => new Date(iso).toLocaleDateString("en", { day: 
  * What the owner is building, on their Creator or Business page. It sits inside any Appearance:
  * colour comes from currentColor and the page accent, never a fixed palette.
  */
-export function PublicBuilder({ projects, images, actions, actionHref, accent, accentInk, viewer }: {
+export function PublicBuilder({ projects, images, actions, actionHref, accent, accentInk, viewer, display }: {
+  /** The page's name type for headings and figures (its Appearance). */
+  display?: CSSProperties;
   projects: PublicProject[];
   /** Who is looking: their votes and ideas. Absent on previews, where nothing is interactive. */
   viewer?: BuilderViewer;
@@ -42,17 +46,17 @@ export function PublicBuilder({ projects, images, actions, actionHref, accent, a
               <header className="flex items-start gap-4">
                 {logo
                   ? <span aria-hidden="true" className="size-12 shrink-0 rounded-[14px] bg-cover bg-center" style={{ backgroundImage: `url("${logo}")` }} />
-                  : <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-[14px] font-display text-[22px] font-bold" style={{ background: accent, color: accentInk }}>{project.name.slice(0, 1).toUpperCase()}</span>}
+                  : <ProjectMark display={display} accent={accent} accentInk={accentInk} name={project.name} url={url} />}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-display text-[26px] font-bold leading-[1.02] tracking-[-0.04em]">{project.name}</h3>
+                    <h3 className="font-display text-[26px] font-bold leading-[1.02] tracking-[-0.04em]" style={display}>{project.name}</h3>
                     <span className={`${label} rounded-full px-2 py-0.5 text-[9.5px]`} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>{PROJECT_STATUS_LABEL[project.status]}</span>
                   </div>
                   {project.tagline && <p className="mt-1 text-[16px] leading-[1.4] opacity-80">{project.tagline}</p>}
                   <p className={`${label} mt-2 opacity-55`}>{[project.category, project.launched_on ? `Since ${month(project.launched_on)}` : null].filter(Boolean).join(" · ")}</p>
                 </div>
               </header>
-              {project.revenue && project.revenue.length > 0 && <VerifiedRevenue accent={accent} accentInk={accentInk} idBase={project.id} sources={project.revenue} />}
+              {project.revenue && project.revenue.length > 0 && <VerifiedRevenue display={display} accent={accent} accentInk={accentInk} idBase={project.id} sources={project.revenue} />}
               {project.description && <p className="whitespace-pre-line text-[15px] leading-[1.55] opacity-80">{project.description}</p>}
               {project.tech_stack.length > 0 && <ul aria-label="Built with" className="flex flex-wrap gap-1.5">{project.tech_stack.map((tech) => <li className="rounded-full px-2.5 py-1 text-[12.5px]" key={tech} style={{ background: soft }}>{tech}</li>)}</ul>}
 

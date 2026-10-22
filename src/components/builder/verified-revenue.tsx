@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { PublicRevenue } from "@/lib/builder/model";
 
 const label = "font-label text-[10px] uppercase tracking-[0.2em]";
@@ -71,7 +72,7 @@ const CSS = `
 `;
 
 /** Verified figures, one card per provider and currency, never summed: overlapping providers can't double-count. */
-export function VerifiedRevenue({ sources, accent, accentInk, idBase }: { sources: PublicRevenue[]; accent: string; accentInk: string; idBase: string }) {
+export function VerifiedRevenue({ sources, accent, accentInk, idBase, display }: { sources: PublicRevenue[]; accent: string; accentInk: string; idBase: string; display?: CSSProperties }) {
   const cards = sources.map((s, i) => {
     const figure = s.visibility === "exact" && s.mrr_minor != null ? money(s.mrr_minor, s.currency)
       : s.visibility === "range" && s.band ? `${BAND[s.band] ?? s.band}` : null;
@@ -91,7 +92,7 @@ export function VerifiedRevenue({ sources, accent, accentInk, idBase }: { source
           {note && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>{note}</span>}
         </div>
         <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
-          {figure && <p className="font-display text-[34px] font-bold leading-none tracking-[-0.04em] tabular-nums">{figure}<span className="ml-1.5 align-baseline text-[13px] font-semibold tracking-normal opacity-60">{s.visibility === "range" ? `${s.currency.toUpperCase()} MRR` : "MRR"}</span></p>}
+          {figure && <p className="font-display text-[34px] font-bold leading-none tracking-[-0.04em] tabular-nums" style={display}>{figure}<span className="ml-1.5 align-baseline font-sans text-[13px] font-semibold normal-case not-italic tracking-normal opacity-60">{s.visibility === "range" ? `${s.currency.toUpperCase()} MRR` : "MRR"}</span></p>}
           {growth != null && (
             <span className="mb-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12.5px] font-semibold tabular-nums" style={growth >= 0 ? { background: accent, color: accentInk } : { boxShadow: `inset 0 0 0 1px ${line}` }}>
               <svg aria-hidden="true" className="size-3" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24"><path d={growth >= 0 ? "M7 17 17 7M9 7h8v8" : "M7 7l10 10M17 9v8H9"} /></svg>
