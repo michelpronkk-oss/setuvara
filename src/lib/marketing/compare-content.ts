@@ -66,7 +66,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     slug: "beacons",
     name: "Beacons",
     pricingUrl: "https://beacons.ai/i/plans",
-    metaTitle: "Setuvara vs Beacons: creator page, store and media kit compared | Setuvara",
+    metaTitle: "Setuvara vs Beacons: creator pages compared | Setuvara",
     metaDescription: "Beacons is a creator link in bio with a store and media kit. Setuvara adds Personal, Event and Business Modes, in-person sharing by QR and tap, and 0% fees on Plus.",
     title: "Setuvara vs Beacons",
     lede: "Beacons is an all-in-one link in bio for creators, with a store, a media kit and email. Setuvara’s Creator Mode covers that ground, and the same account has pages for your personal life, events and business.",
@@ -102,7 +102,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     name: "Popl",
     pricingUrl: "https://popl.co/pages/pricing",
     metaTitle: "Setuvara vs Popl: digital business cards compared | Setuvara",
-    metaDescription: "Popl is an NFC digital business card for people and sales teams. Setuvara is a digital business card too, with four Modes, Events, Leads and a free plan that does the job.",
+    metaDescription: "Popl is an NFC digital business card for people and sales teams. Setuvara is one too, with four Modes, Events, Leads and a free plan that does the job.",
     title: "Setuvara vs Popl and digital business cards",
     lede: "Popl and other digital business cards share your contact details with a tap or a scan. Setuvara does that, and gives you the right page for the room: Business at a meeting, Event at a conference, Personal with friends.",
     summary: {
@@ -137,7 +137,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     name: "Carrd",
     pricingUrl: "https://carrd.co/pro",
     metaTitle: "Setuvara vs Carrd: a page builder or a page that works | Setuvara",
-    metaDescription: "Carrd builds simple one-page sites you design yourself. Setuvara gives you finished pages for four parts of your life, with Looks, QR and tap sharing, Actions and Connections.",
+    metaDescription: "Carrd builds simple one-page sites you design yourself. Setuvara gives you finished pages for four parts of your life, shared by QR or tap.",
     title: "Setuvara vs Carrd",
     lede: "Carrd is a one-page website builder: a blank canvas you design. Setuvara starts from you instead: pick a Look, add your links and details, and every Mode is a finished page on phone and desktop.",
     summary: {

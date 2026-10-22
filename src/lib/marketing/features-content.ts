@@ -30,7 +30,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   actions: {
     slug: "actions",
     name: "Actions",
-    metaTitle: "Actions: forms, newsletter sign-ups, bookings and giveaways on your page | Setuvara",
+    metaTitle: "Actions: forms, sign-ups, bookings and giveaways | Setuvara",
     metaDescription: "Put a form, a newsletter sign-up, a booking request, questions, collaboration requests or a giveaway on your Setuvara page. Every response lands in its own inbox.",
     eyebrow: "Actions",
     title: "Your page, with a next step.",
@@ -65,8 +65,8 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   builder: {
     slug: "builder",
     name: "Builder",
-    metaTitle: "Builder: share what you're building, with verified revenue | Setuvara",
-    metaDescription: "Show your projects on your Setuvara page: a public roadmap with voting, updates and revenue verified from Stripe, RevenueCat, Dodo Payments or Paddle. Build in public, with proof.",
+    metaTitle: "Builder: show what you're building, with verified revenue | Setuvara",
+    metaDescription: "Show your projects on your Setuvara page: a public roadmap with voting, updates and revenue verified from Stripe, RevenueCat, Dodo or Paddle. Build in public, with proof.",
     eyebrow: "Builder and Verified Revenue",
     title: "Build in public, with proof.",
     lede: "Builder puts what you're building on your page: the project, a roadmap people can vote on, updates and a revenue figure checked against your payment provider instead of typed in.",
@@ -100,8 +100,8 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   analytics: {
     slug: "analytics",
     name: "Analytics",
-    metaTitle: "Analytics: views, scans and connections for your link in bio | Setuvara",
-    metaDescription: "See who opens your Setuvara: profile views, QR and Tap scans, link taps and connections, by source and Mode, with period comparison and a conversion funnel on Pro. No tracking of who your visitors are.",
+    metaTitle: "Analytics: views, scans and connections | Setuvara",
+    metaDescription: "Profile views, QR and Tap scans, link taps and connections, by source and Mode, with comparison and a funnel on Pro. No tracking of who your visitors are.",
     eyebrow: "Analytics",
     title: "See it working.",
     lede: "Views, scans, link taps and the people who connected, for every Mode. Free shows your last seven days; Plus and Pro show where they came from, which Mode they saw and how many became a connection.",
@@ -135,7 +135,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   "qr-and-tap": {
     slug: "qr-and-tap",
     name: "QR and Tap",
-    metaTitle: "QR code business card and NFC tap: share your page in person | Setuvara",
+    metaTitle: "QR code business card and NFC tap | Setuvara",
     metaDescription: "Share your Setuvara by QR code or a tap of an NFC card, ring or sticker. Change which Mode it opens without reprinting. Five QR styles, Quick QR and tap analytics.",
     eyebrow: "QR and Tap",
     title: "Meet in person, share in one move.",
@@ -170,7 +170,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   wallet: {
     slug: "wallet",
     name: "Wallet",
-    metaTitle: "Wallet pass: your Setuvara in Apple and Google Wallet (coming soon) | Setuvara",
+    metaTitle: "Wallet pass for Apple and Google Wallet (coming soon) | Setuvara",
     metaDescription: "A Setuvara pass in Apple Wallet and Google Wallet: your QR one swipe away, even offline. Coming soon. Share by QR, Quick QR and Tap today.",
     eyebrow: "Wallet",
     status: "coming",

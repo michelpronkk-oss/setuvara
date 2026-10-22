@@ -1,6 +1,13 @@
 import type { MetadataRoute } from "next";
 
+import { BLOG_POSTS } from "@/lib/marketing/blog-content";
+import { COMPARE_ORDER } from "@/lib/marketing/compare-content";
+import { FEATURE_ORDER } from "@/lib/marketing/features-content";
 import { SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
+import { MODE_ORDER } from "@/lib/marketing/modes-content";
+import { TEMPLATE_SLUGS } from "@/lib/marketing/templates-content";
+import { TOOLS } from "@/lib/marketing/tools";
+import { USE_CASE_ORDER } from "@/lib/marketing/use-cases-content";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedUsername } from "@/lib/usernames";
 
@@ -28,6 +35,21 @@ const marketingUrls: MetadataRoute.Sitemap = [
   { url: `${SETUVARA_ORIGIN}/data-deletion`, changeFrequency: "yearly", priority: 0.3 },
   { url: `${SETUVARA_ORIGIN}/modes`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${SETUVARA_ORIGIN}/contact`, changeFrequency: "yearly", priority: 0.5 },
+  { url: `${SETUVARA_ORIGIN}/what-is-setuvara`, changeFrequency: "monthly", priority: 0.8 },
+  ...MODE_ORDER.map((slug) => ({ url: `${SETUVARA_ORIGIN}/${slug}`, changeFrequency: "monthly" as const, priority: 0.8 })),
+  { url: `${SETUVARA_ORIGIN}/features`, changeFrequency: "monthly", priority: 0.7 },
+  ...FEATURE_ORDER.map((slug) => ({ url: `${SETUVARA_ORIGIN}/features/${slug}`, changeFrequency: "monthly" as const, priority: 0.7 })),
+  { url: `${SETUVARA_ORIGIN}/gallery`, changeFrequency: "daily", priority: 0.7 },
+  { url: `${SETUVARA_ORIGIN}/templates`, changeFrequency: "monthly", priority: 0.7 },
+  ...TEMPLATE_SLUGS.map((slug) => ({ url: `${SETUVARA_ORIGIN}/templates/${slug}`, changeFrequency: "monthly" as const, priority: 0.6 })),
+  { url: `${SETUVARA_ORIGIN}/use-cases`, changeFrequency: "monthly", priority: 0.7 },
+  ...USE_CASE_ORDER.map((slug) => ({ url: `${SETUVARA_ORIGIN}/use-cases/${slug}`, changeFrequency: "monthly" as const, priority: 0.7 })),
+  { url: `${SETUVARA_ORIGIN}/compare`, changeFrequency: "monthly", priority: 0.7 },
+  ...COMPARE_ORDER.map((slug) => ({ url: `${SETUVARA_ORIGIN}/compare/${slug}`, changeFrequency: "monthly" as const, priority: 0.7 })),
+  { url: `${SETUVARA_ORIGIN}/tools`, changeFrequency: "monthly", priority: 0.6 },
+  ...TOOLS.map((tool) => ({ url: `${SETUVARA_ORIGIN}${tool.path}`, changeFrequency: "monthly" as const, priority: 0.8 })),
+  { url: `${SETUVARA_ORIGIN}/blog`, changeFrequency: "weekly", priority: 0.6 },
+  ...BLOG_POSTS.map((post) => ({ url: `${SETUVARA_ORIGIN}/blog/${post.slug}`, lastModified: new Date(`${post.updated ?? post.published}T00:00:00Z`), changeFrequency: "yearly" as const, priority: 0.6 })),
 ];
 
 const profileUrlLimit = sitemapUrlLimit - marketingUrls.length;

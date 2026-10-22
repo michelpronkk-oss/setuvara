@@ -19,6 +19,12 @@ export const PRICES = {
   pro: { monthly: usd(plan("pro").monthlyPriceMinor), yearly: usd(plan("pro").yearlyPriceMinor) },
 } as const;
 
+/** The same prices as numbers, for structured data (Offer.price). */
+export const PRICE_NUMBERS = {
+  plus: { monthly: plan("plus").monthlyPriceMinor / 100, yearly: plan("plus").yearlyPriceMinor / 100 },
+  pro: { monthly: plan("pro").monthlyPriceMinor / 100, yearly: plan("pro").yearlyPriceMinor / 100 },
+} as const;
+
 export const PRICE_LINE = `Free to start. Plus is ${PRICES.plus.monthly} a month or ${PRICES.plus.yearly} a year; Pro is ${PRICES.pro.monthly} a month or ${PRICES.pro.yearly} a year. Prices in USD.`;
 
 export const MODES = [
@@ -128,4 +134,12 @@ export const EVERY_PLAN = [
 ] as const;
 
 /** Designed, not shipped. Named plainly wherever it appears. */
+/** What Setuvara is not, said plainly so nobody (or no model) files it under the wrong thing. */
+export const NOT_THIS = [
+  "Not only a link in bio: each Mode is a full page, and Setuvara remembers who you meet.",
+  "Not a social network: there is no feed and no public friend list.",
+  "Not a CRM: Leads and Connections cover meeting people and following up, not a sales pipeline for a large team.",
+  "Not an ID check: the member badge means a Plus or Pro plan, not a verified identity.",
+] as const;
+
 export const COMING = ["Your own domain (Pro)", "Webhooks and integrations (Pro)", "Apple and Google Wallet pass"] as const;

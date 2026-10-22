@@ -13,7 +13,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const post = findPost((await params).slug);
   if (!post) return {};
-  const base = marketingMetadata({ title: `${post.title} | Setuvara`, description: post.description, path: `/blog/${post.slug}` });
+  const base = marketingMetadata({ title: `${post.metaTitle ?? post.title} | Setuvara`, description: post.description, path: `/blog/${post.slug}` });
   return { ...base, openGraph: { ...base.openGraph, type: "article", publishedTime: post.published, modifiedTime: post.updated ?? post.published } };
 }
 

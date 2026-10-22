@@ -16,7 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata = marketingMetadata({
   title: "Pricing: Free, Plus and Pro | Setuvara",
-  description: `Free includes all four Modes, Actions, Leads and Builder. Plus (${formatPrice(getPublicPlan("plus").monthlyPriceMinor)} a month) adds all ten Looks, audience email, verified revenue and 0% sales fees. Pro (${formatPrice(getPublicPlan("pro").monthlyPriceMinor)} a month) adds a team, deeper analytics and higher limits.`,
+  description: `Free: all four Modes, Actions, Leads, Builder. Plus (${formatPrice(getPublicPlan("plus").monthlyPriceMinor)} a month): all ten Looks, email, verified revenue, 0% fees. Pro (${formatPrice(getPublicPlan("pro").monthlyPriceMinor)} a month): a team and deeper analytics.`,
   path: "/pricing",
 });
 
