@@ -139,13 +139,13 @@ function Block({ block, tone, accent, accentInk, compact = false }: { block: Pro
     case "services": {
       const items = (data.items as { name?: string; detail?: string; price?: string }[] | undefined) ?? [];
       return (
-        <section className="overflow-hidden rounded-[var(--sv-card-r,16px)]" style={surface}>
-          <p className="px-4 pt-4 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{str(data.heading) || "Services"}</p>
-          <ul className="mt-2">
+        <section className="overflow-hidden rounded-[var(--sv-card-r,16px)] @min-[1100px]/profile:!overflow-visible @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!shadow-none" data-block-services style={surface}>
+          <p className="px-4 pt-4 font-label text-[10px] uppercase tracking-[0.16em] @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!pt-0 @min-[1100px]/profile:!text-[11px] @min-[1100px]/profile:!tracking-[0.22em]" style={{ color: tone.sub }}>{str(data.heading) || "Services"}</p>
+          <ul className="mt-2 @min-[1100px]/profile:!mt-5">
             {items.map((item, index) => (
-              <li className="flex items-start justify-between gap-4 px-4 py-3" key={index} style={{ borderTop: index ? `1px solid ${tone.line}` : undefined }}>
-                <span className="min-w-0"><span className="block text-[15px] font-semibold leading-snug">{item.name}</span>{item.detail && <span className="mt-0.5 block text-[13px] leading-5" style={{ color: tone.sub }}>{item.detail}</span>}</span>
-                {item.price && <span className="shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: tone.bg }}>{item.price}</span>}
+              <li className="flex items-start justify-between gap-4 px-4 py-3 @min-[1100px]/profile:!items-baseline @min-[1100px]/profile:!gap-8 @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!py-[clamp(18px,1.6cqw,26px)] @min-[1100px]/profile:!border-t" key={index} style={{ borderTop: index ? `1px solid ${tone.line}` : undefined, borderColor: tone.line }}>
+                <span className="min-w-0"><span className="block text-[15px] font-semibold leading-snug @min-[1100px]/profile:!text-[clamp(19px,1.5cqw,24px)] @min-[1100px]/profile:!tracking-[-0.02em]">{item.name}</span>{item.detail && <span className="mt-0.5 block text-[13px] leading-5 @min-[1100px]/profile:!mt-1.5 @min-[1100px]/profile:!text-[15px] @min-[1100px]/profile:!leading-6" style={{ color: tone.sub }}>{item.detail}</span>}</span>
+                {item.price && <span className="shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!py-0 @min-[1100px]/profile:!text-[15px] @min-[1100px]/profile:!tabular-nums" style={{ background: tone.bg }}>{item.price}</span>}
               </li>
             ))}
           </ul>
@@ -155,11 +155,11 @@ function Block({ block, tone, accent, accentInk, compact = false }: { block: Pro
     case "highlights": {
       const items = (data.items as { value?: string; label?: string }[] | undefined) ?? [];
       return (
-        <section className="grid rounded-[var(--sv-card-r,16px)]" style={{ ...surface, gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+        <section className="grid rounded-[var(--sv-card-r,16px)] @min-[1100px]/profile:!gap-x-[clamp(24px,2.6cqw,48px)] @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!shadow-none" data-block-highlights style={{ ...surface, gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
           {items.map((item, index) => (
-            <div className="min-w-0 px-3 py-4 text-center" key={index} style={{ borderLeft: index ? `1px solid ${tone.line}` : undefined }}>
-              <p className="truncate font-display text-[1.65rem] font-extrabold leading-none tracking-[-0.05em]">{item.value}</p>
-              <p className="mt-1.5 text-[12px] leading-4" style={{ color: tone.sub }}>{item.label}</p>
+            <div className="min-w-0 px-3 py-4 text-center @min-[1100px]/profile:!border-l-0 @min-[1100px]/profile:!border-t @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!pb-0 @min-[1100px]/profile:!pt-6 @min-[1100px]/profile:!text-left" key={index} style={{ borderLeft: index ? `1px solid ${tone.line}` : undefined, borderColor: tone.line }}>
+              <p className="truncate font-display text-[1.65rem] font-extrabold leading-none tracking-[-0.05em] @min-[1100px]/profile:!text-[clamp(44px,4.6cqw,76px)] @min-[1100px]/profile:!tracking-[-0.055em] @min-[1100px]/profile:[font-family:var(--sv-name-family,inherit)] @min-[1100px]/profile:[font-style:var(--sv-name-style,normal)] @min-[1100px]/profile:[font-weight:var(--sv-name-weight,800)]">{item.value}</p>
+              <p className="mt-1.5 text-[12px] leading-4 @min-[1100px]/profile:!mt-3 @min-[1100px]/profile:!text-[15px] @min-[1100px]/profile:!leading-5" style={{ color: tone.sub }}>{item.label}</p>
             </div>
           ))}
         </section>
@@ -167,9 +167,9 @@ function Block({ block, tone, accent, accentInk, compact = false }: { block: Pro
     }
     case "testimonial":
       return (
-        <figure className="rounded-[var(--sv-card-r,16px)] px-5 pb-5 pt-4" style={surface}>
+        <figure className="rounded-[var(--sv-card-r,16px)] px-5 pb-5 pt-4 @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!pb-0 @min-[1100px]/profile:!pt-0 @min-[1100px]/profile:!shadow-none" style={surface}>
           <span aria-hidden="true" className="block font-display text-[2.6rem] font-extrabold leading-none" style={{ color: accent === tone.bg ? tone.ink : accent }}>“</span>
-          <blockquote className="-mt-2 text-[16px] font-medium leading-[1.45]">{str(data.quote)}</blockquote>
+          <blockquote className="-mt-2 text-[16px] font-medium leading-[1.45] @min-[1100px]/profile:!text-[clamp(24px,2.1cqw,34px)] @min-[1100px]/profile:!leading-[1.28] @min-[1100px]/profile:!tracking-[-0.02em] @min-[1100px]/profile:[text-wrap:pretty]">{str(data.quote)}</blockquote>
           <figcaption className="mt-3 text-[13px]"><span className="font-semibold">{str(data.author)}</span>{str(data.role) && <span style={{ color: tone.sub }}> · {str(data.role)}</span>}</figcaption>
         </figure>
       );

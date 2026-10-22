@@ -75,7 +75,9 @@ export function ActionCards({ actions, actionHref, accent, accentInk }: { action
   if (!actions.length) return null;
   const cards = actions.map(({ action, coverUrl }) => <ActionCard accent={accent} accentInk={accentInk} action={action} coverUrl={coverUrl} href={actionHref?.(action.id)} key={action.id} />);
   // Only real visitor pages count views; previews and the owner's own page pass no links.
+  // Wide pages set two or more side by side; phones keep one column.
+  const layout = `flex flex-col gap-4 text-left ${actions.length > 1 ? "@min-[1100px]/profile:grid @min-[1100px]/profile:grid-cols-2 @min-[1100px]/profile:items-stretch @min-[1100px]/profile:gap-5" : ""}`;
   return actionHref
-    ? <ActionViewBeacon className="flex flex-col gap-4 text-left" data-mode-actions ids={actions.map(({ action }) => action.id)}>{cards}</ActionViewBeacon>
-    : <div className="flex flex-col gap-4 text-left" data-mode-actions>{cards}</div>;
+    ? <ActionViewBeacon className={layout} data-mode-actions ids={actions.map(({ action }) => action.id)}>{cards}</ActionViewBeacon>
+    : <div className={layout} data-mode-actions>{cards}</div>;
 }

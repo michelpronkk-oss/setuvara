@@ -45,7 +45,7 @@ export function CreatorSections({ settings, work, offers, productHref, actions =
   return <div className="flex flex-col gap-9 text-left @min-[1100px]/profile:gap-12" data-creator-sections>{shown}</div>;
 }
 
-const label = "font-label text-[10.5px] uppercase tracking-[0.18em] opacity-60";
+const label = "font-label text-[10.5px] uppercase tracking-[0.18em] opacity-60 @min-[1100px]/profile:text-[11.5px] @min-[1100px]/profile:tracking-[0.24em]";
 const line = "color-mix(in srgb, currentColor 14%, transparent)";
 
 function FeaturedWork({ item }: { item: WorkItem }) {
@@ -75,8 +75,8 @@ function FeaturedWork({ item }: { item: WorkItem }) {
 function SelectedWork({ items, locked = [] }: { items: WorkItem[]; locked?: LockedPiece[] }) {
   return (
     <section aria-labelledby="creator-work" className="flex flex-col gap-3.5" data-creator-work>
-      <h2 className="font-display text-[26px] font-bold tracking-[-0.04em]" id="creator-work">Selected work</h2>
-      <div className="grid grid-cols-2 gap-2.5 @min-[700px]/profile:grid-cols-3">
+      <h2 className="font-display text-[26px] font-bold tracking-[-0.04em] @min-[1100px]/profile:text-[clamp(34px,3cqw,48px)] @min-[1100px]/profile:tracking-[-0.045em]" id="creator-work">Selected work</h2>
+      <div className="grid grid-cols-2 gap-2.5 @min-[700px]/profile:grid-cols-3 @min-[1100px]/profile:grid-flow-dense @min-[1100px]/profile:gap-4 @min-[1100px]/profile:[&>*:first-child]:col-span-2 @min-[1100px]/profile:[&>*:first-child]:row-span-2 @min-[1100px]/profile:[&>*:first-child]:!aspect-auto">
         {items.slice(0, 9).map((item) => {
           const href = item.url ?? item.videoUrl ?? item.imageUrl ?? undefined;
           const tile = (

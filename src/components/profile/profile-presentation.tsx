@@ -654,6 +654,8 @@ function WideMarquee({ scene }: { scene: Scene }) {
 function WideBio({ scene }: { scene: Scene }) {
   const text = aboutParagraphs(scene, scene.bio ?? "")[0];
   if (!text) return null;
+  // Film already plays this line as the subtitle across the picture; say it once.
+  if (scene.look.id === "film" && filmSubtitle(scene.bio)?.trim() === text.trim()) return null;
   return <p className="max-w-[480px] whitespace-pre-line text-[clamp(16px,1.25cqw,19px)] leading-[1.5] opacity-90 [text-wrap:pretty]" data-wide-bio style={{ color: scene.theme.fg }}>{text}</p>;
 }
 

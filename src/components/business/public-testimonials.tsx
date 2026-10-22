@@ -1,6 +1,6 @@
 import { byline, type PublicTestimonial } from "@/lib/business/testimonials";
 
-const label = "font-label text-[10.5px] uppercase tracking-[0.18em]";
+const label = "font-label text-[10.5px] uppercase tracking-[0.18em] @min-[1100px]/profile:text-[11.5px] @min-[1100px]/profile:tracking-[0.24em]";
 const line = "color-mix(in srgb, currentColor 14%, transparent)";
 
 /**
@@ -16,7 +16,7 @@ export function PublicTestimonials({ items, accent }: { items: PublicTestimonial
         {items.map((item) => {
           const who = byline(item);
           return (
-            <li className={`flex shrink-0 snap-start flex-col gap-4 rounded-[22px] p-5 ${items.length === 1 ? "w-full" : "w-[86%] @min-[700px]/profile:w-[calc(50%-6px)]"}`} data-testimonial-id={item.id} key={item.id} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
+            <li className={`flex shrink-0 snap-start flex-col gap-4 rounded-[22px] p-5 @min-[1100px]/profile:gap-6 @min-[1100px]/profile:p-8 ${items.length === 1 ? "w-full" : "w-[86%] @min-[700px]/profile:w-[calc(50%-6px)]"}`} data-testimonial-id={item.id} key={item.id} style={{ boxShadow: `inset 0 0 0 1px ${line}` }}>
               <div className="flex items-center justify-between gap-3">
                 <span aria-hidden="true" className="font-display text-[40px] font-bold leading-[0.6]" style={{ color: accent }}>&ldquo;</span>
                 {item.rating && (
@@ -25,7 +25,7 @@ export function PublicTestimonials({ items, accent }: { items: PublicTestimonial
                   </span>
                 )}
               </div>
-              <blockquote className="whitespace-pre-line text-[16px] leading-[1.5]">{item.body}</blockquote>
+              <blockquote className="whitespace-pre-line text-[16px] leading-[1.5] @min-[1100px]/profile:text-[clamp(20px,1.7cqw,28px)] @min-[1100px]/profile:leading-[1.36] @min-[1100px]/profile:tracking-[-0.015em] @min-[1100px]/profile:[text-wrap:pretty]">{item.body}</blockquote>
               <footer className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
                 <cite className="font-semibold not-italic">{item.author_name}</cite>
                 {who && <span className="opacity-60">{who}</span>}
