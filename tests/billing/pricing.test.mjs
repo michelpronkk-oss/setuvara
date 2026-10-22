@@ -37,12 +37,14 @@ Deno.test("pricing copy only sells live capabilities and real counts", () => {
   assert.equal(CAPABILITY_REGISTRY["identity.remove_attribution"].availability, "live");
   assert(!hasCapability("free", "identity.remove_attribution"));
   assert(hasCapability("plus", "identity.remove_attribution") && hasCapability("pro", "identity.remove_attribution"));
-  for (const key of ["domain.custom", "actions.advanced", "leads.capture", "webhooks.access", "integrations.access"]) {
+  for (const key of ["domain.custom", "webhooks.access", "integrations.access"]) {
     assert.equal(CAPABILITY_REGISTRY[key].availability, "future", `${key} is still future, so it may only appear under Coming to Pro`);
   }
+  // Actions and Leads shipped on every plan (limits in the database), so pricing may sell them.
+  for (const key of ["actions.advanced", "leads.capture"]) assert(hasCapability("free", key), `${key} is live on Free`);
   const sold = Object.values(PLAN_HIGHLIGHTS).flat().map((item) => item.text.toLowerCase()).join(" | ");
-  for (const word of ["domain", "webhook", "lead", "integration"]) assert(!sold.includes(word), `${word} must not be listed as included`);
-  assert.equal(COMING_TO_PRO.length, 3);
+  for (const word of ["domain", "webhook", "integration"]) assert(!sold.includes(word), `${word} must not be listed as included`);
+  assert.equal(COMING_TO_PRO.length, 2);
   assert.deepEqual([PLAN_COUNTS.appearances, PLAN_COUNTS.freeAppearances, PLAN_COUNTS.plusSlides, PLAN_COUNTS.proSlides, PLAN_COUNTS.qrStyles], [10, 2, 2, 4, 5]);
 });
 

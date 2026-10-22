@@ -20,7 +20,7 @@ export function Tap() {
       <div className={`${SECTION} ${SECTION_PAD} gap-[clamp(36px,4vw,56px)]`}>
         <SectionHead lede={<Lede>Equip a Mode once. Quick QR follows today, your card and Wallet pass when they launch.</Lede>}>
           <div className="flex flex-col gap-5">
-            <div className="flex flex-wrap items-center gap-3"><Mono className="text-coral">Setuvara Tap</Mono><SoonPill>Card and Wallet coming soon</SoonPill></div>
+            <div className="flex flex-wrap items-center gap-3"><Mono className="text-coral">Setuvara Tap</Mono><SoonPill>Wallet pass coming soon</SoonPill></div>
             <H2 id="tap-title">Your identity,<br />off the screen.</H2>
           </div>
         </SectionHead>
@@ -30,7 +30,7 @@ export function Tap() {
             <Mono className="flex items-center gap-2 text-lime"><span className="size-2 rounded-full bg-lime" />Equipped</Mono>
             <div className="flex flex-col gap-1.5"><span className="font-display text-[clamp(40px,4vw,52px)] font-extrabold leading-[0.88] tracking-[-0.055em]">Personal</span><span className="text-lg font-semibold text-coral">Connect in person</span></div>
             <div className="mt-auto flex flex-col">
-              {[["Quick QR", true], ["NFC card", false], ["Wallet pass", false]].map(([label, live]) => (
+              {[["Quick QR", true], ["NFC Tap", true], ["Wallet pass", false]].map(([label, live]) => (
                 <div className="flex items-center justify-between border-t border-paper/10 py-3 text-[15px] font-semibold" key={label as string}><span>{label}</span><Status live={live as boolean} /></div>
               ))}
             </div>
@@ -77,7 +77,7 @@ export function Tap() {
 
         <div className="grid grid-cols-[minmax(0,1fr)] border-t-[1.5px] border-ink md:grid-cols-3">
           {[
-            { tag: "Free", tone: "text-ink/65", line: "Quick QR today. Core card and pass at launch." },
+            { tag: "Free", tone: "text-ink/65", line: "Quick QR and Tap on your own NFC card, live now. The Wallet pass at launch." },
             { tag: "Plus", tone: "text-coral", line: "A premium pass look, at launch." },
             { tag: "Pro", tone: "text-[#a8843a]", line: "Tap and device insights, live now." },
           ].map((item) => <div className="flex flex-col gap-1.5 pr-6 pt-[22px]" key={item.tag}><Mono className={item.tone}>{item.tag}</Mono><span className="text-[14px] leading-[1.45] text-ink/75">{item.line}</span></div>)}

@@ -24,9 +24,11 @@ export type PlanHighlight = { text: string; strong?: boolean };
 
 export const PLAN_HIGHLIGHTS: Readonly<Record<PlanCode, readonly PlanHighlight[]>> = {
   free: [
-    { text: "Every Mode" },
+    { text: "All four Modes, Creator included" },
     { text: "Profile, links, content and soundtrack" },
-    { text: "QR, Quick QR and Connect" },
+    { text: "QR, Quick QR, Tap and Connect" },
+    { text: "2 live Actions, Leads and 1 Builder project" },
+    { text: "A store, with a 5% Setuvara fee" },
     { text: "Connections, notes and Passport" },
     { text: "7 days of insights" },
     { text: "Immersive and Clean" },
@@ -38,6 +40,10 @@ export const PLAN_HIGHLIGHTS: Readonly<Record<PlanCode, readonly PlanHighlight[]
     { text: "No “Made with Setuvara”" },
     { text: `${PLAN_COUNTS.plusSlides}-photo slideshow` },
     { text: "Member Passport finish" },
+    { text: "8 live Actions and giveaways" },
+    { text: "Email your Audience, 2,500 a month" },
+    { text: "Verified revenue and 5 Builder projects" },
+    { text: "0% Setuvara fee on sales" },
     { text: "30 and 90 day insights" },
   ],
   pro: [
@@ -47,13 +53,15 @@ export const PLAN_HIGHLIGHTS: Readonly<Record<PlanCode, readonly PlanHighlight[]
     { text: "Connection journey" },
     { text: "Device and Tap insights" },
     { text: "CSV export" },
+    { text: "A team of 5 on your Leads" },
+    { text: "24 live Actions, 20,000 emails a month" },
+    { text: "3 revenue providers, 20 Builder projects" },
   ],
 };
 
 /** Pro rows the matrix lists as `future`. Shown as coming, never as included. */
 export const COMING_TO_PRO = [
   "Your own domain",
-  "Actions and lead capture",
   "Webhooks and integrations",
 ] as const;
 

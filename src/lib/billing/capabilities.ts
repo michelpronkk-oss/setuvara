@@ -76,8 +76,10 @@ export const PLAN_MATRIX = {
   "analytics.advanced_filters": { label: "Advanced analytics filters", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Analytics", pricing: null, downgrade: "future-unavailable" },
   "appearance.advanced_controls": { label: "Accent intensity, surfaces and link styles", requiredPlan: "plus", availability: "live", enforcement: "server-derived-presentation", surface: "Identity editor and shared ProfileRenderer", pricing: { id: "premium-presentation", label: "Premium themes and layouts, QR presentation, Passport finish, and soundtrack presentation" }, downgrade: "preserve-config-fallback" },
   "domain.custom": { label: "Use a domain you own", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Public profile", pricing: null, downgrade: "future-unavailable" },
-  "actions.advanced": { label: "Advanced professional actions", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Identity editor", pricing: null, downgrade: "future-unavailable" },
-  "leads.capture": { label: "Lead capture", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Business Mode", pricing: null, downgrade: "future-unavailable" },
+  // Actions and Leads are live on every plan; their per-plan limits live in the database
+  // (private.action_plan_limits, private.business_plan_limits) and lib/marketing/facts.ts.
+  "actions.advanced": { label: "Actions (forms, newsletter, booking, questions, collabs, giveaways)", requiredPlan: "free", availability: "live", enforcement: "server-plan", surface: "Actions in every Mode", pricing: null, downgrade: "restrict-access-keep-data" },
+  "leads.capture": { label: "Leads", requiredPlan: "free", availability: "live", enforcement: "server-plan", surface: "Business Mode", pricing: null, downgrade: "restrict-access-keep-data" },
   "integrations.access": { label: "Connected integrations", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Integrations", pricing: null, downgrade: "future-unavailable" },
   "webhooks.access": { label: "Webhooks", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Integrations", pricing: null, downgrade: "future-unavailable" },
   "wallet.core": { label: "Standard Wallet eligibility", requiredPlan: "free", availability: "live", enforcement: "prelaunch", surface: "Wallet (provider launch pending)", pricing: null, downgrade: "unaffected" },

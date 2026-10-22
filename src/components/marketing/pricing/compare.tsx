@@ -15,7 +15,7 @@ const m = (text: string): Cell => ({ text, muted: true });
 
 const GROUPS: Group[] = [
   { name: "Identity", color: "text-ink/65", rows: [
-    { label: "Personal, Event and Business Modes", cells: [true, true, true] },
+    { label: "Personal, Event, Business and Creator Modes", cells: [true, true, true] },
     { label: "Public profile, links and content blocks", cells: [true, true, true] },
     { label: "Profile soundtrack", cells: [true, true, true] },
     { label: "Connect: everyone, in person only, or off", cells: [true, true, true] },
@@ -33,8 +33,34 @@ const GROUPS: Group[] = [
   { name: "Sharing", color: "text-ink/65", rows: [
     { label: "Link, QR and Quick QR", cells: [true, true, true] },
     { label: "QR styles", cells: [m("Standard"), `All ${PLAN_COUNTS.qrStyles}`, `All ${PLAN_COUNTS.qrStyles}`] },
-    { label: "Tap card", cells: [m("Core"), m("Core"), m("Core")], soon: true },
+    { label: "Tap with your own NFC card, ring or sticker", cells: [true, true, true] },
     { label: "Wallet pass", cells: [m("Core"), "Premium look", "Premium look"], soon: true },
+  ] },
+  { name: "Actions & Audience", color: "text-ink/65", rows: [
+    { label: "Newsletter, form, booking, questions and collab Actions", cells: [true, true, true] },
+    { label: "Live Actions, across all Modes", cells: [m("2"), "8", "24"] },
+    { label: "Giveaways open at once", cells: [false, "1", "5"] },
+    { label: "Questions per Action", cells: [m("3"), "6", "12"] },
+    { label: "Responses CSV export and thank-you rewards", cells: [false, true, true] },
+    { label: "Email your Audience", cells: [false, "2,500 a month", "20,000 a month"] },
+  ] },
+  { name: "Business", color: "text-ink/65", rows: [
+    { label: "Leads with stages and a funnel", cells: [true, true, true] },
+    { label: "Lead notes and CSV export", cells: [false, true, true] },
+    { label: "Funnel window", cells: [m("7 days"), "90 days", "365 days"] },
+    { label: "Bookings ahead", cells: [m("14 days"), "60 days", "120 days"] },
+    { label: "Testimonials shown", cells: [m("3"), "24", "60"] },
+    { label: "Team seats", cells: [false, false, "5"] },
+  ] },
+  { name: "Builder", color: "text-ink/65", rows: [
+    { label: "Public projects", cells: [m("1"), "5", "20"] },
+    { label: "Roadmap with voting", cells: [true, true, true] },
+    { label: "Feature suggestions", cells: [false, true, true] },
+    { label: "Verified revenue providers", cells: [false, "1", "3"] },
+  ] },
+  { name: "Creator store", color: "text-ink/65", rows: [
+    { label: "Sell digital products and services", cells: [true, true, true] },
+    { label: "Setuvara fee on sales", cells: [m("5%"), "0%", "0%"] },
   ] },
   { name: "Analytics", color: "text-[#a43d36]", rows: [
     { label: "Views, scans and Connections", cells: [true, true, true] },
@@ -54,7 +80,6 @@ const GROUPS: Group[] = [
   ] },
   { name: "Coming to Pro", color: "text-[#8a6a2c]", rows: [
     { label: "Your own domain", cells: [false, false, m("Coming soon")], soon: true },
-    { label: "Advanced actions and lead capture", cells: [false, false, m("Coming soon")], soon: true },
     { label: "Webhooks and integrations", cells: [false, false, m("Coming soon")], soon: true },
   ] },
 ];

@@ -60,36 +60,33 @@ export function ProShowcase() {
           </article>
 
           <article className={`${CARD} flex-[1_1_100%] bg-paper text-ink`}>
-            <div className="flex flex-wrap items-center justify-between gap-3"><Mono className="text-ink/65">09 · Next for Pro</Mono><SoonPill>In development</SoonPill></div>
+            <Mono className="text-ink/65">09 · Pro at work</Mono>
             <div className="grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 md:grid-cols-3">
+              <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
+                <div className="flex flex-col gap-1.5">
+                  {[["Lucas Meyer", "Owner"], ["Ines Duarte", "Manager"], ["Tom Okafor", "Member"]].map(([name, role]) => (
+                    <span className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-2 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" key={name}><span className="text-[13px] font-semibold">{name}</span><span className="text-[12px] text-ink/60">{role}</span></span>
+                  ))}
+                </div>
+                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">A team on your Leads</h3>
+                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Up to five teammates work your Business leads, as managers or members.</p>
+              </div>
+              <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
+                <div className="flex flex-col gap-1.5">
+                  {["Stripe", "RevenueCat", "Paddle"].map((label, index) => <span className={`flex h-9 items-center justify-between rounded-full px-4 text-[13px] font-semibold ${index === 0 ? "bg-ink text-paper" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} key={label}>{label}<span className="font-label text-[10px] uppercase tracking-[0.12em] opacity-60">Verified</span></span>)}
+                </div>
+                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Revenue, verified</h3>
+                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Three providers at once on Builder projects, with three years of history.</p>
+              </div>
               <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
                 <div className="flex h-9 items-center gap-2 rounded-full bg-[#e6e4dc] px-3 font-label text-[12px] text-ink/70">
                   <svg aria-hidden="true" className="size-3 shrink-0" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3 7h10v7H3z" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>yourname.com
                 </div>
-                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Your own domain</h3>
-                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Your domain, your Setuvara.</p>
-                <span className="mt-auto"><SoonPill /></span>
-              </div>
-              <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
-                <div className="flex flex-col gap-1.5">
-                  {["Request an intro", "RSVP", "Book a call"].map((label, index) => <span className={`flex h-9 items-center rounded-full px-4 text-[13px] font-semibold ${index === 0 ? "bg-ink text-paper" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]"}`} key={label}>{label}</span>)}
-                </div>
-                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Advanced actions</h3>
-                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">A main button that does more, per Mode.</p>
-                <span className="mt-auto"><SoonPill /></span>
-              </div>
-              <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">
-                <div className="flex flex-col gap-1.5">
-                  {[["Lead capture", "Structured, with source"], ["Webhooks", "Send to your tools"], ["Integrations", "CRM and calendar"]].map(([title, line]) => (
-                    <span className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-2 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]" key={title}><span className="text-[13px] font-semibold">{title}</span><span className="text-[12px] text-ink/60">{line}</span></span>
-                  ))}
-                </div>
-                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Leads and integrations</h3>
-                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Only for actions you set up.</p>
+                <h3 className="m-0 font-display text-[19px] font-bold leading-none tracking-[-0.03em]">Your own domain, webhooks</h3>
+                <p className="m-0 text-[13px] leading-[1.5] text-ink/65">Your domain for your Setuvara, and webhooks to your own tools. In development; each joins Pro when it ships.</p>
                 <span className="mt-auto"><SoonPill /></span>
               </div>
             </div>
-            <div className="flex flex-col gap-2 border-t border-ink/15 pt-5"><h3 className="m-0 flex items-center gap-2 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]"><MeetMark className="size-5 text-[#a8843a]" />Coming to Pro.</h3><p className="m-0 max-w-[560px] text-[14px] leading-[1.5] text-ink/65">Not part of Pro today. Each one joins when it ships.</p></div>
           </article>
         </div>
       </div>
