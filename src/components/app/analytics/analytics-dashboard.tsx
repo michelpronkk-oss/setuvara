@@ -302,15 +302,15 @@ function Signals({ data, kind, fmt, onUpgrade, walletLaunched }: { data: Analyti
     <>
       <div className="flex flex-col gap-11 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-16">
         <Hero data={data} fmt={fmt} previous={previous} showConversion={showConversion} />
-        {deeper ? (
-          <GrowthChart daily={data.daily ?? []} delta={data.comparison?.profileViewsDelta} fmt={fmt} kind={kind} />
-        ) : (
-          <div className="flex flex-col gap-11">
-            <ScanMethods data={data} fmt={fmt} />
-            {data.plan === "free" && <PlusCard onUpgrade={() => onUpgrade("plus")} />}
-          </div>
-        )}
+        <GrowthChart daily={data.daily ?? []} delta={data.comparison?.profileViewsDelta} fmt={fmt} kind={kind} />
       </div>
+
+      {!deeper && (
+        <div className="grid gap-x-10 gap-y-11 lg:grid-cols-2 lg:gap-14 lg:border-t-[1.5px] lg:border-[#0d0d0d] lg:pt-9">
+          <ScanMethods data={data} fmt={fmt} />
+          {data.plan === "free" && <PlusCard onUpgrade={() => onUpgrade("plus")} />}
+        </div>
+      )}
 
       {data.tools && <ToolsSection fmt={fmt} tools={data.tools} />}
 
