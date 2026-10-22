@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -199,7 +200,7 @@ export function ActionEditor({ kind, initial, thanks: thanks0 = null, starter, p
   }
 
   async function remove() {
-    if (!initial || !window.confirm("Delete this Action and every response to it? This can't be undone.")) return;
+    if (!initial || !(await confirmDialog({ title: "Delete this Action?", body: "Every response to it goes too. This can't be undone.", action: "Delete", tone: "danger" }))) return;
     setBusy(true);
     const { error: deleteError } = await createClient().from("profile_actions").delete().eq("id", initial.id).eq("profile_id", profileId);
     setBusy(false);

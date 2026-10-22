@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -114,7 +115,7 @@ export function ActionInbox({ action, submissions, chatLinks, rates, initialId =
         {selected.status !== "spam" ? <button className="min-h-11 rounded-full px-4 text-[15px] font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy} onClick={() => void run(() => setStatus(selected.id, "spam"))} type="button">Spam</button>
           : <button className={lineButton} disabled={busy} onClick={() => void run(() => setStatus(selected.id, "new"))} type="button">Not spam</button>}
         {["declined", "archived"].includes(selected.status) && <button className={lineButton} disabled={busy} onClick={() => void run(() => setStatus(selected.id, "new"))} type="button">Reopen</button>}
-        <button className="min-h-11 rounded-full px-4 text-[15px] font-semibold text-[#B42318] hover:bg-black/[0.04] disabled:opacity-50" disabled={busy} onClick={() => { if (window.confirm("Delete this response? This can't be undone.")) void run(() => removeSubmission(selected.id)); }} type="button">Delete</button>
+        <button className="min-h-11 rounded-full px-4 text-[15px] font-semibold text-[#B42318] hover:bg-black/[0.04] disabled:opacity-50" disabled={busy} onClick={async () => { if (await confirmDialog({ title: "Delete this response?", body: "This can't be undone.", action: "Delete", tone: "danger" })) void run(() => removeSubmission(selected.id)); }} type="button">Delete</button>
         <p className="w-full text-[13px] text-black/55">{chatLinks[selected.id] ? "You're connected, so replies can continue in Connect Chat." : "Sending this form didn't open a chat. Reply by email, or connect first."}</p>
       </div>
       {error && <p className="text-sm font-medium text-[#B42318]" role="alert">{error}</p>}
