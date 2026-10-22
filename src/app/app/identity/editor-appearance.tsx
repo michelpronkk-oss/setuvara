@@ -31,7 +31,7 @@ import { Pill, PlusTag, SectionHeader, Sheet, modeMeta, previewVisitorAction } f
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed";
+type ControlKey = "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed" | "socialStyle";
 type MoreKey = "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
@@ -52,6 +52,28 @@ const CONTROLS: Record<AppearanceId, ControlKey[]> = {
 const ALWAYS: ControlKey[] = ["scrollCue", "username", "focus", "slideSpeed"];
 /** Name type leads every look's controls: it is the most visible personal choice after the look itself. */
 const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], ...ALWAYS];
+
+/**
+ * "Make it yours" in five plain groups, plus the fine-tuning behind Advanced. A look only shows
+ * the controls it has (controlsFor); a group with none of them is left out.
+ */
+const GROUPS: { id: string; title: string; keys: ControlKey[] }[] = [
+  { id: "name", title: "Name", keys: ["nameFont", "username", "nameSize", "namePosition", "align"] },
+  { id: "look", title: "Look", keys: ["accent"] },
+  { id: "links", title: "Links", keys: ["socials"] },
+  { id: "motion", title: "Motion & sound", keys: ["motion", "sound", "slideSpeed"] },
+  { id: "photo", title: "Photo", keys: ["focus", "zoom"] },
+];
+const ADVANCED: ControlKey[] = ["readability", "socialStyle", "scrollCue"];
+function groupsFor(id: AppearanceId) {
+  const has = new Set(controlsFor(id));
+  // Icon style belongs to the social icons control.
+  if (has.has("socials")) has.add("socialStyle");
+  return {
+    groups: GROUPS.map((group) => ({ ...group, keys: group.keys.filter((key) => has.has(key)) })).filter((group) => group.keys.length),
+    advanced: ADVANCED.filter((key) => has.has(key)),
+  };
+}
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0D0D0D]";
 /** Extends a compact control's hit area to 44px tall without changing how it looks. */
@@ -179,9 +201,7 @@ function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State;
 
       <section aria-label={copy.personalize.replace("{name}", APPEARANCE_NAMES[look.id])}>
         <StepHead index={2} meta={APPEARANCE_NAMES[look.id]} title="Make it yours" />
-        <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[22px] bg-white px-5 py-2 shadow-[inset_0_0_0_1px_#0D0D0D12,0_18px_40px_-34px_#0D0D0D66]" data-personalize-panel>
-          {controlsFor(look.id).map((key) => <Control api={api} control={key} key={key} state={state} />)}
-        </div>
+        <GroupedControls api={api} state={state} />
       </section>
 
       <section aria-label="Extras">
@@ -266,7 +286,7 @@ type Option<T extends string | number> = { value: T; label: string; plus: boolea
 function ControlRow({ label, note, children }: { label: string; note?: ReactNode; children: ReactNode }) {
   const id = useId();
   return (
-    <div aria-labelledby={id} className="grid items-center gap-x-4 gap-y-2 py-2.5 @[500px]/controls:grid-cols-[120px_minmax(0,1fr)]" data-control-row role="group">
+    <div aria-labelledby={id} className="grid items-center gap-x-4 gap-y-2 py-2.5 @[500px]/controls:grid-cols-[100px_minmax(0,1fr)]" data-control-row role="group">
       <span className="flex items-baseline justify-between gap-2 text-[12.5px] font-semibold text-[#0D0D0D]/80 @[500px]/controls:flex-col @[500px]/controls:gap-0.5" id={id}>
         {label}
         {note}
@@ -320,18 +340,20 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
       return (
         <div className="flex flex-col" data-social-control>
           <Segment copy={copy} label={copy.socials} locked={false} onPick={(value) => choose(value === "links" ? { socialStyle: "hidden", socialPlacement: undefined } : { socialStyle: look.socialStyle === "hidden" ? defaultSocialStyle(look.id) : look.socialStyle, socialPlacement: value === "both" ? "both" : undefined })} options={SOCIAL_PLACEMENTS.map((value) => ({ value, label: copy.socialPlacements[value], plus: false }))} value={look.socialPlacement} />
-          {look.socialPlacement !== "links" && <Segment copy={copy} label={copy.socialStyle} locked={false} onPick={(value) => choose({ socialStyle: value })} options={SOCIAL_STYLES.filter((value) => value !== "hidden").map((value) => ({ value, label: copy.socialStyles[value], plus: false }))} value={look.socialStyle} />}
         </div>
       );
+    case "socialStyle":
+      if (look.socialPlacement === "links") return null;
+      return <Segment copy={copy} label={copy.socialStyle} locked={false} onPick={(value) => choose({ socialStyle: value })} options={SOCIAL_STYLES.filter((value) => value !== "hidden").map((value) => ({ value, label: copy.socialStyles[value], plus: false }))} value={look.socialStyle} />;
     case "motion":
       return <Segment copy={copy} label={copy.motion} locked={previewLocked("motion")} onPick={(value) => choose({ motion: value })} options={MOTION_LEVELS.map((value) => ({ value, label: copy.motions[value], plus: premium("motion", value) }))} value={look.motion} />;
     case "zoom":
-      return <Segment copy={copy} label={copy.zoom} locked={false} onPick={(value) => choose({ portraitZoom: value === 100 ? undefined : value })} options={(ZOOM_OUT_APPEARANCES.has(look.id) ? EDITOR_ZOOMS_WITH_OUT : EDITOR_ZOOMS).map((value) => ({ value, label: `${value}%`, plus: false }))} value={look.zoom} />;
+      return <ZoomSlider label={copy.zoom} onPick={(value) => choose({ portraitZoom: value === 100 ? undefined : value as ModeAppearance["portraitZoom"] })} steps={ZOOM_OUT_APPEARANCES.has(look.id) ? EDITOR_ZOOMS_WITH_OUT : EDITOR_ZOOMS} value={look.zoom} />;
     case "sound":
       return (
         <div className="flex flex-col pb-1">
           <Segment copy={copy} label={copy.soundtrack} locked={previewLocked("soundtrackPresentation")} onPick={(value) => choose({ soundtrackPresentation: value, soundStyle: undefined })} options={SOUND_PRESENTATIONS.map((value) => ({ value, label: copy.soundPresentations[value], plus: premium("soundtrackPresentation", value) }))} value={look.soundPresentation} />
-          {!soundtrackBlock(api.mode) && <p className="-mt-1 pb-1.5 text-[12px] text-black/50 @[500px]/controls:pl-[136px]">{copy.noSoundtrack}</p>}
+          {!soundtrackBlock(api.mode) && <p className="-mt-1 pb-1.5 text-[12px] text-black/50 @[500px]/controls:pl-[116px]">{copy.noSoundtrack}</p>}
         </div>
       );
     case "accent":
@@ -395,17 +417,17 @@ function ScrollCueControl({ api, state }: { api: EditorApi; state: State }) {
   const locked = state.previewing && !allowed(api.plan, "scrollCue", working.scrollCue);
   return (
     <ControlRow label={copy.scrollCue} note={locked && <PlusTag />}>
-      <div aria-label={copy.scrollCue} className="grid grid-cols-4 gap-1.5" data-scroll-cue-picker role="radiogroup">
+      <div aria-label={copy.scrollCue} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:none]" data-scroll-cue-picker role="radiogroup">
         {SCROLL_CUE_CHOICES.map((value) => {
           const on = choice === value;
           const plus = !allowed(api.plan, "scrollCue", value);
           const cue = value === "auto" ? APPEARANCE_CUES[look.id] : value === "off" ? null : value;
           return (
-            <button aria-checked={on} aria-label={`${copy.scrollCues[value]}${plus ? ` · ${copy.plus}` : ""}`} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-between gap-1 rounded-[12px] px-1.5 pb-1.5 pt-2.5 transition-colors ${focusRing}`} data-scroll-cue-choice={value} key={value} onClick={() => api.chooseAppearance({ scrollCue: value === "auto" ? undefined : value })} role="radio" style={{ background: on ? "#0D0D0D" : "#0D0D0D0A", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
-              <span aria-hidden="true" className={`flex h-7 items-center justify-center ${cue === "swipe" || cue === "caption" || cue === "credits" ? "scale-[.8]" : ""}`}>
+            <button aria-checked={on} aria-label={`${copy.scrollCues[value]}${plus ? ` · ${copy.plus}` : ""}`} className={`flex h-[52px] w-[62px] shrink-0 flex-col items-center justify-between rounded-[12px] px-1 pb-1 pt-1.5 transition-colors ${focusRing}`} data-scroll-cue-choice={value} key={value} onClick={() => api.chooseAppearance({ scrollCue: value === "auto" ? undefined : value })} role="radio" style={{ background: on ? "#0D0D0D" : "#0D0D0D0A", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
+              <span aria-hidden="true" className={`flex h-6 items-center justify-center ${cue === "swipe" || cue === "caption" || cue === "credits" ? "scale-[.7]" : "scale-[.85]"}`}>
                 {cue ? <CueGlyph accent={look.accent} animated={on} cue={cue} text={copy.scrollCues[cue]} /> : <span className="block h-px w-4 bg-current opacity-50" />}
               </span>
-              <span className="flex items-center gap-1 text-[11px] font-semibold opacity-80">
+              <span className="flex items-center gap-0.5 text-[10.5px] font-semibold opacity-80">
                 {copy.scrollCues[value]}
                 {plus && <PlusTag variant="mark" />}
               </span>
@@ -417,17 +439,58 @@ function ScrollCueControl({ api, state }: { api: EditorApi; state: State }) {
   );
 }
 
+/** The groups as labelled cards; Advanced stays folded until asked for. */
+function GroupedControls({ api, state, compact = false }: { api: EditorApi; state: State; compact?: boolean }) {
+  const { groups, advanced } = groupsFor(state.look.id);
+  const [open, setOpen] = useState(false);
+  const panel = compact
+    ? "@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[18px] bg-white px-4 py-1 shadow-[inset_0_0_0_1px_#0D0D0D12]"
+    : "@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] rounded-[22px] bg-white px-5 py-1.5 shadow-[inset_0_0_0_1px_#0D0D0D12,0_18px_40px_-34px_#0D0D0D66]";
+  return (
+    <div className="flex flex-col gap-5" data-personalize-panel>
+      {groups.map((group) => (
+        <div className="flex flex-col gap-2" data-control-group={group.id} key={group.id}>
+          <h4 className="px-1 font-label text-[10.5px] uppercase tracking-[0.16em] text-black/50">{group.title}</h4>
+          <div className={panel}>{group.keys.map((key) => <Control api={api} control={key} key={key} state={state} />)}</div>
+        </div>
+      ))}
+      {advanced.length > 0 && (
+        <div className="flex flex-col gap-2" data-control-group="advanced">
+          <button aria-expanded={open} className={`flex min-h-11 items-center justify-between gap-3 rounded-[16px] px-4 text-left shadow-[inset_0_0_0_1px_#0D0D0D1F] ${focusRing}`} onClick={() => setOpen((value) => !value)} type="button">
+            <span className="flex flex-col"><span className="text-[13px] font-semibold">Advanced</span><span className="text-[11.5px] text-black/55">Readability, icon style, scroll cue</span></span>
+            <span aria-hidden="true" className={`text-[15px] text-black/50 transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+          </button>
+          {open && <div className={panel}>{advanced.map((key) => <Control api={api} control={key} key={key} state={state} />)}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Photo zoom as a slider over the look's steps; the value stays one of them. */
+function ZoomSlider({ label, steps, value, onPick }: { label: string; steps: readonly number[]; value: number; onPick: (value: number) => void }) {
+  const index = Math.max(0, steps.indexOf(value));
+  return (
+    <ControlRow label={label} note={<span className="font-label text-[11px] tabular-nums text-black/55">{steps[index]}%</span>}>
+      <div className="flex flex-col gap-1">
+        <input aria-label={label} aria-valuetext={`${steps[index]}%`} className={`h-8 w-full cursor-pointer accent-[#0D0D0D] ${focusRing}`} max={steps.length - 1} min={0} onChange={(event) => onPick(steps[Number(event.target.value)])} step={1} type="range" value={index} />
+        <div aria-hidden="true" className="flex justify-between px-0.5 text-[10.5px] tabular-nums text-black/40">{steps.map((step) => <span key={step}>{step}</span>)}</div>
+      </div>
+    </ControlRow>
+  );
+}
+
 function AccentControl({ api, state }: { api: EditorApi; state: State }) {
   const { copy, look } = state;
   const custom = !ACCENT_PRESETS.some((preset) => preset.hex === look.accent);
   return (
     <ControlRow label={copy.colour}>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2.5">
         {ACCENT_PRESETS.map((preset) => {
           const on = look.accent === preset.hex;
-          return <button aria-label={copy.accentLabel.replace("{name}", copy.accents[preset.id])} aria-pressed={on} className={`size-8 rounded-full ${focusRing}`} key={preset.id} onClick={() => api.chooseAppearance({ accent: preset.hex })} style={{ background: preset.hex, boxShadow: on ? "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" : "inset 0 0 0 1px #0D0D0D14" }} title={copy.accents[preset.id]} type="button" />;
+          return <button aria-label={copy.accentLabel.replace("{name}", copy.accents[preset.id])} aria-pressed={on} className={`size-10 rounded-full ${focusRing}`} key={preset.id} onClick={() => api.chooseAppearance({ accent: preset.hex })} style={{ background: preset.hex, boxShadow: on ? "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" : "inset 0 0 0 1px #0D0D0D14" }} title={copy.accents[preset.id]} type="button" />;
         })}
-        <label className="relative grid size-8 cursor-pointer place-items-center rounded-full text-base focus-within:outline focus-within:outline-2 focus-within:outline-offset-2" style={custom ? { background: look.accent, boxShadow: "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" } : { boxShadow: "inset 0 0 0 1px #0D0D0D47" }} title={copy.custom}>
+        <label className="relative grid size-10 cursor-pointer place-items-center rounded-full text-base focus-within:outline focus-within:outline-2 focus-within:outline-offset-2" style={custom ? { background: look.accent, boxShadow: "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" } : { boxShadow: "inset 0 0 0 1px #0D0D0D47" }} title={copy.custom}>
           {!custom && <span aria-hidden="true">+</span>}
           <input aria-label={copy.customAccent} className="absolute inset-0 size-full cursor-pointer opacity-0" onChange={(event) => { if (/^#[\da-f]{6}$/i.test(event.target.value)) api.chooseAppearance({ accent: event.target.value.toUpperCase() }); }} type="color" value={look.accent.toLowerCase()} />
         </label>
@@ -585,8 +648,6 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { zoom, sheet } = usePreviewFit(tab, collapsed);
-  const controls = controlsFor(look.id);
-  const visible = expanded ? controls : controls.slice(0, 3);
   const sheetHeight = `${sheet}px`;
 
   return (
@@ -629,8 +690,8 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
               </>
             )}
             {tab === "personalize" && (
-              <div className="@container/controls flex flex-col divide-y divide-[#0D0D0D]/[0.07] pb-2">
-                {visible.map((key) => <Control api={api} control={key} key={key} state={state} />)}
+              <div className="flex flex-col gap-4 pb-2">
+                <GroupedControls api={api} compact state={state} />
                 <button className={`min-h-11 self-start rounded-full px-4 text-[13px] font-semibold shadow-[inset_0_0_0_1px_#0D0D0D33] ${focusRing}`} onClick={() => setExpanded((value) => !value)} type="button">{expanded ? copy.less : copy.more}</button>
                 {expanded && <><MoreRows api={api} onMore={onMore} state={state} /><ResetAppearance api={api} state={state} /></>}
               </div>
