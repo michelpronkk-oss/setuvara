@@ -29,8 +29,9 @@ export function Hero() {
               <CastPhone key="personal" mediaPriority="high" slug="personal" />,
               <CastPhone key="event" mediaPriority="high" slug="event" />,
               <CastPhone key="business" mediaPriority="high" slug="business" />,
+              <CastPhone key="creator" slug="creator" />,
             ]}
-            caption="Three people · Three Modes"
+            caption="Four people · Four Modes"
           />
         </div>
       </Shell>

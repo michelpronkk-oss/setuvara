@@ -2,21 +2,21 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-const labels = ["Personal", "Event", "Business"] as const;
+const labels = ["Personal", "Event", "Business", "Creator"] as const;
 
 /**
- * The hero's only interactive piece: three server-rendered Mode profiles fanned
- * around one identity. It cycles on its own until the visitor picks a Mode, and
+ * The hero's only interactive piece: the four Modes' server-rendered profiles fanned
+ * around one identity, the chosen one in front with its neighbours either side. It cycles on its own until the visitor picks a Mode, and
  * never auto-advances for visitors who prefer reduced motion.
  */
-export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, ReactNode]; caption: string }) {
+export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, ReactNode, ReactNode]; caption: string }) {
   const [active, setActive] = useState(1);
   const [held, setHeld] = useState(false);
 
   useEffect(() => {
     if (held || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") setActive((current) => (current + 1) % 3);
+      if (document.visibilityState === "visible") setActive((current) => (current + 1) % labels.length);
     }, 3600);
     return () => window.clearInterval(timer);
   }, [held]);
@@ -44,19 +44,22 @@ export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, Re
 
       <div className="relative h-[452px] w-full [--fan-x:54px] [--s:.74] min-[420px]:[--fan-x:66px] sm:h-[530px] sm:[--fan-x:170px] sm:[--s:.86] lg:h-[610px] lg:[--fan-x:236px] lg:[--s:1]">
         {cards.map((card, index) => {
-          const relative = ((index - active + 4) % 3) - 1;
+          const relative = ((index - active + labels.length + 1) % labels.length) - 1;
           const front = relative === 0;
+          // The fourth card waits behind the front one, so it rises into place from the middle.
+          const hidden = relative > 1;
+          const slot = hidden ? 0 : relative;
           return (
             <div
               aria-hidden={!front}
-              className="mode-panel absolute left-1/2 top-0 origin-top"
+              className={`mode-panel absolute left-1/2 top-0 origin-top ${hidden ? "pointer-events-none" : ""}`}
               inert={!front}
               key={labels[index]}
               style={{
-                transform: `translateX(calc(-50% + ${relative} * var(--fan-x))) translateY(${front ? 0 : 22}px) rotate(${relative * 6}deg) scale(calc(var(--s) * ${front ? 1 : 0.88}))`,
-                zIndex: front ? 3 : 1,
+                transform: `translateX(calc(-50% + ${slot} * var(--fan-x))) translateY(${front ? 0 : 22}px) rotate(${slot * 6}deg) scale(calc(var(--s) * ${front ? 1 : 0.88}))`,
+                zIndex: front ? 3 : hidden ? 0 : 1,
                 filter: front ? "none" : "saturate(.75)",
-                opacity: front ? 1 : 0.92,
+                opacity: front ? 1 : hidden ? 0 : 0.92,
               }}
             >
               {card}

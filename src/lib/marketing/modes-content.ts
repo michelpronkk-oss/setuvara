@@ -156,7 +156,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
       { title: "Writers and educators", body: "Sell a guide, grow a newsletter, take questions." },
       { title: "Video creators", body: "Featured work, brand deals and a media kit that's never out of date." },
     ],
-    share: "setuvara.com/sena",
+    share: "setuvara.com/s/Fm8cN2qZ",
     faq: [
       { q: "What is Creator Mode?", a: "Creator Mode is a Setuvara page for creators: featured work, a store, a live media kit, brand deal requests, Actions and an audience, alongside your links." },
       { q: "How do I get Creator Mode?", a: "Every Setuvara account has it. Switch Creator Mode on and fill it in; it's on every plan, including Free." },

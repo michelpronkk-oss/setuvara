@@ -8,19 +8,29 @@ import { getMessages } from "@/lib/i18n/messages";
 
 export function SiteFooter() {
   const copy = getMessages("en").marketing;
-  const home = "/";
   const columns = [
     { title: copy.product, links: [
       { href: "/modes", label: copy.modes },
-      { href: `${home}#share`, label: copy.shareConnect },
-      { href: `${home}#connections`, label: copy.connections },
-      { href: `${home}#passport`, label: copy.passport },
+      { href: "/features", label: copy.features },
+      { href: "/gallery", label: copy.gallery },
+      { href: "/templates", label: "Templates" },
+      { href: "/pricing", label: copy.pricing },
       { href: "/roadmap", label: copy.roadmap },
     ] },
-    { title: copy.setuvaraFor, links: [
+    { title: copy.modes, links: [
+      { href: "/personal", label: "Personal" },
+      { href: "/event", label: "Event" },
+      { href: "/business", label: "Business" },
+      { href: "/creator", label: "Creator" },
       { href: "/events", label: copy.events },
       { href: "/teams", label: copy.teams },
-      { href: "/pricing", label: copy.pricing },
+    ] },
+    { title: "Resources", links: [
+      { href: "/what-is-setuvara", label: "What is Setuvara" },
+      { href: "/compare", label: "Compare" },
+      { href: "/use-cases", label: "Use cases" },
+      { href: "/tools/qr-code-generator", label: "QR code generator" },
+      { href: "/blog", label: "Blog" },
     ] },
     { title: copy.account, links: [
       { href: "/signup", label: copy.getSetuvara },
@@ -31,8 +41,8 @@ export function SiteFooter() {
   return (
     <footer className="overflow-hidden bg-ink text-paper">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-14 px-5 pb-8 pt-16 sm:px-8 sm:pt-20 lg:px-14 lg:pt-24">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div className="col-span-2 flex flex-col gap-4 lg:col-span-1">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
+          <div className="col-span-2 flex flex-col gap-4 sm:col-span-4 lg:col-span-1">
             <MeetMark className="size-14 text-coral" />
             <p className="max-w-60 text-[15px] leading-6 text-paper/70">{copy.yourIdentity}</p>
             <a aria-label="Setuvara on Instagram (@setuvara.app)" className="mt-1 inline-flex min-h-11 items-center gap-2.5 self-start rounded-full bg-paper/[0.07] py-1.5 pl-1.5 pr-4 text-[14px] text-paper/85 transition-colors hover:bg-paper/[0.12] hover:text-paper focus-visible:outline-2 focus-visible:outline-coral" href="https://instagram.com/setuvara.app" rel="noopener noreferrer" target="_blank">
