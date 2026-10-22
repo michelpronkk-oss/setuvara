@@ -7,37 +7,7 @@ import type { ReactNode } from "react";
 
 const MOTION = `.pulse-draw{stroke-dasharray:3000;stroke-dashoffset:3000;animation:pulse-draw 1.6s cubic-bezier(.65,0,.35,1) .1s forwards}.pulse-fade{opacity:0;animation:pulse-fade 1s ease-out .8s forwards}.pulse-rise{transform-origin:bottom;transform-box:fill-box;animation:pulse-rise .9s cubic-bezier(.2,.8,.2,1) both}@keyframes pulse-draw{to{stroke-dashoffset:0}}@keyframes pulse-fade{to{opacity:1}}@keyframes pulse-rise{from{transform:scaleY(0)}}@media (prefers-reduced-motion:reduce){.pulse-draw,.pulse-fade,.pulse-rise{animation:none;stroke-dashoffset:0;opacity:1}}`;
 
-/** A smooth (Catmull-Rom) path through the values. */
-function smoothPath(values: number[], W: number, H: number) {
-  const max = Math.max(...values, 1) * 1.15;
-  const pts = values.map((value, index) => [values.length > 1 ? (index / (values.length - 1)) * W : W / 2, H - 6 - (value / max) * (H - 20)] as const);
-  let d = pts.length ? `M${pts[0][0]},${pts[0][1]}` : "";
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [p0, p1, p2, p3] = [pts[i - 1] ?? pts[i], pts[i], pts[i + 1], pts[i + 2] ?? pts[i + 1]];
-    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]},${p2[1]}`;
-  }
-  return d;
-}
-
-/** The line on its own, for inside a dark card. `id` keeps gradients apart when two are on a page. */
-export function PulseLine({ id, values, tone, label, className = "h-[170px] md:h-[200px]" }: { id: string; values: number[]; tone: string; label: string; className?: string }) {
-  const W = 800;
-  const H = 220;
-  if (values.length < 2) return <p className="mt-5 text-[14px] text-[#F5F4EF]/55">Not enough days yet.</p>;
-  const d = smoothPath(values, W, H);
-  return (
-    <svg aria-label={label} className={`w-full overflow-visible ${className}`} preserveAspectRatio="none" role="img" viewBox={`0 0 ${W} ${H}`}>
-      <defs>
-        <linearGradient id={`${id}-fill`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={tone} stopOpacity="0.35" /><stop offset="100%" stopColor={tone} stopOpacity="0" /></linearGradient>
-        <linearGradient id={`${id}-line`} x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stopColor={tone} stopOpacity="0.55" /><stop offset="100%" stopColor={tone} /></linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((y) => <line key={y} stroke="#F5F4EF" strokeDasharray="2 5" strokeOpacity="0.1" vectorEffect="non-scaling-stroke" x1="0" x2={W} y1={H * y} y2={H * y} />)}
-      <path className="pulse-fade" d={`${d} L${W},${H} L0,${H} Z`} fill={`url(#${id}-fill)`} />
-      <path className="pulse-draw" d={d} fill="none" stroke={`url(#${id}-line)`} strokeLinecap="round" strokeWidth="2.75" vectorEffect="non-scaling-stroke" />
-      <style>{MOTION}</style>
-    </svg>
-  );
-}
+export { PulseLine, type PulsePoint } from "./pulse-line";
 
 export type BarLayer = { label: string; color: string; values: number[] };
 
@@ -96,8 +66,8 @@ export function PulseCard({ eyebrow, value, after, tone, chart, story, rows, lab
           <span className="font-display text-[64px] font-bold leading-none tracking-[-0.06em] tabular-nums md:text-[80px]">{value}</span>
           {after}
         </p>
-        {chart && <div className="mt-5">{chart}</div>}
-        {story && <p className="mt-3 text-[14px] leading-[1.5] text-[#F5F4EF]/65">{story}</p>}
+        {chart && <div className="mt-8">{chart}</div>}
+        {story && <p className="mt-5 border-t border-[#F5F4EF]/10 pt-4 text-[14px] leading-[1.5] text-[#F5F4EF]/65">{story}</p>}
       </div>
       {!!rows?.length && (
         <dl className="grid content-end gap-2">

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { currentNext, rememberNext } from "@/lib/app/login-next";
 import { cache } from "react";
 
 import type { ModeSlug } from "@/components/profile/types";
@@ -20,8 +21,8 @@ export type AudiencePerson = { id: string; action_id: string; name: string; emai
  * The signed-in member's Audience, seen from one Mode: numbers and growth across every list, the
  * newest subscribers and the campaign history. Everything is read as the owner, under RLS.
  */
-export const loadAudience = cache(async (slug: ModeSlug, next: string) => {
-  const data = await loadModeActions(slug, next);
+const loadAudienceData = cache(async (slug: ModeSlug) => {
+  const data = await loadModeActions(slug, currentNext());
   if (!data.mode) return { ...data, ready: false as const };
   const { supabase } = data;
   const [summary, limits, campaigns, people] = await Promise.all([
@@ -40,3 +41,9 @@ export const loadAudience = cache(async (slug: ModeSlug, next: string) => {
     people: (people.data ?? []) as AudiencePerson[],
   };
 });
+
+/** loadAudience for this request; `next` is where sign-in returns to. */
+export function loadAudience(slug: ModeSlug, next: string) {
+  rememberNext(next);
+  return loadAudienceData(slug);
+}

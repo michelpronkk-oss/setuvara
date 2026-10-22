@@ -1,5 +1,6 @@
 import "server-only";
 
+import { loginHref, rememberNext } from "@/lib/app/login-next";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
@@ -9,11 +10,11 @@ import { headers } from "next/headers";
 import { EVENT_COLUMNS, GUEST_COLUMNS, type EventRecord, type Guest } from "./model";
 
 /** The signed-in organizer's Event Mode and its events, read under RLS. */
-export const loadOrganizer = cache(async (next: string) => {
+const loadOrganizerData = cache(async () => {
   const supabase = await createClient();
   const { data: claims, error } = await supabase.auth.getClaims();
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
-  if (error || !userId) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (error || !userId) redirect(loginHref());
   const [{ data: profile }, { data: mode }, events, origin] = await Promise.all([
     supabase.from("profiles").select("id, is_published").eq("id", userId).maybeSingle(),
     supabase.from("profile_modes").select("id, is_enabled").eq("profile_id", userId).eq("slug", "event").maybeSingle(),
@@ -30,6 +31,12 @@ export const loadOrganizer = cache(async (next: string) => {
     origin,
   };
 });
+
+/** loadOrganizer for this request; `next` is where sign-in returns to. */
+export function loadOrganizer(next: string) {
+  rememberNext(next);
+  return loadOrganizerData();
+}
 
 /** One event and its guest list, for its organizer. */
 export const loadOrganizerEvent = cache(async (id: string) => {

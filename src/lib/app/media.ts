@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
 import { readFocus, type PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug } from "@/components/profile/types";
 
@@ -88,6 +89,17 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /** Hosted Storage supports transforms; the local stack can run without imgproxy. */
 export async function signHomeImage(supabase: SupabaseClient, path: string | null | undefined, thumbnail = false) {
   if (!path) return null;
+  // The /app layout and a studio layout both sign the same avatar; one request signs it once.
+  const signs = requestSigns();
+  const key = `${thumbnail}:${path}`;
+  let signed = signs.get(key);
+  if (!signed) { signed = signImage(supabase, path, thumbnail); signs.set(key, signed); }
+  return signed;
+}
+
+const requestSigns = cache(() => new Map<string, Promise<string | null>>());
+
+async function signImage(supabase: SupabaseClient, path: string, thumbnail: boolean) {
   const hostname = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1").hostname;
   const local = hostname === "127.0.0.1" || hostname === "localhost";
   const bucket = supabase.storage.from("profile-media");

@@ -159,7 +159,7 @@ function Trend({ rows, currency }: { rows: RevenueSnapshot[]; currency: string }
     <div className="grid gap-1 rounded-[20px] bg-[#0D0D0D] p-4 text-[#F5F4EF]">
       {sorted.some((r) => r.reconstructed) && <p className="text-[12px] text-[#F5F4EF]/55">Includes months reconstructed from Stripe history.</p>}
       <p className="text-[14px] tabular-nums"><b>{money(last.mrr_minor, currency)}</b> MRR · {money(last.mrr_minor * 12, currency)} ARR · {last.paying_customers} paying</p>
-      <PulseLine className="mt-2 h-16" id={`mrr-${currency}`} label={`MRR in ${currency.toUpperCase()} over ${sorted.length} days`} tone="#C7FF4A" values={sorted.map((r) => r.mrr_minor)} />
+      <div className="mt-8"><PulseLine className="h-20" label={`MRR in ${currency.toUpperCase()} over ${sorted.length} days`} points={sorted.map((r) => ({ date: r.day, value: Math.round(r.mrr_minor / 100), notes: [`${r.paying_customers} paying`] }))} tone="#C7FF4A" unit={[`${currency.toUpperCase()} MRR`, `${currency.toUpperCase()} MRR`]} /></div>
     </div>
   );
 }
