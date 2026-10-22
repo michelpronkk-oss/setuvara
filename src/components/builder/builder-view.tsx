@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 
 import { BuilderStudio } from "@/components/builder/builder-studio";
 import type { RevenueConnection, RevenueLimits, RevenueSnapshot } from "@/components/builder/revenue-panel";
-import { StudioHead, StudioPage } from "@/components/creator/studio-ui";
+import { Head } from "@/components/actions/actions-pages";
+import { StudioPage } from "@/components/creator/studio-ui";
 import { loadModeActions } from "@/lib/actions/studio-server";
 import { DEFAULT_BUILDER_LIMITS, PROJECT_COLUMNS, ROADMAP_COLUMNS, UPDATE_COLUMNS, type BuilderInsights, type BuilderLimits, type BuilderProject, type BuilderSuggestion, type ProjectUpdate, type RoadmapItem } from "@/lib/builder/model";
 
@@ -30,7 +31,7 @@ export async function BuilderView({ slug, project }: { slug: "creator" | "busine
   const insights = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, (await supabase.rpc("builder_project_insights", { p_project_id: id })).data] as const)));
   return (
     <StudioPage>
-      <StudioHead sub={`Projects on your ${slug === "creator" ? "Creator" : "Business"} page: what you're building, its roadmap and what shipped.`} title="Builder" />
+      <Head eyebrow={<><span aria-hidden="true" className="size-2 rounded-full" style={{ background: slug === "creator" ? "#E8A6FF" : "#AFCBFF" }} />{slug === "creator" ? "Creator" : "Business"} Mode</>} sub="What you're building, its roadmap, what shipped and the revenue behind it. Shown on your page." title="Builder" tone={slug === "creator" ? "#E8A6FF" : "#AFCBFF"} />
       <BuilderStudio
         actions={data.actions.map((action) => ({ id: action.id, title: action.title, status: action.status }))}
         images={data.covers}
