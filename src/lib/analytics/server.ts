@@ -151,6 +151,13 @@ export async function getModeToolsSummary(profileId: string, startDate: string, 
   return error ? null : data;
 }
 
+/** Pro only: the previous period of the same length and the loop per Mode (get_profile_analytics_pro). */
+export async function getProAnalytics(profileId: string, query: AnalyticsQuery): Promise<unknown> {
+  const admin = createBillingAdminClient();
+  const { data, error } = await admin.rpc("get_profile_analytics_pro", { p_profile_id: profileId, p_from: query.startDate, p_to: query.endDate, p_mode: query.mode, p_source: query.source });
+  return error ? null : data;
+}
+
 /** The signed-in member's link taps; the database clamps the window to their plan. */
 export async function getLinkClicks(startDate: string, endDate: string, mode: AnalyticsQuery["mode"] = null): Promise<unknown> {
   const supabase = await createClient();

@@ -33,6 +33,7 @@ import {
   type Format,
 } from "@/lib/analytics/view";
 import type { PlanCode } from "@/lib/billing/catalog";
+import { ModeFunnels, PeriodCompare } from "./analytics-pro";
 import { GrowthChart } from "./analytics-chart";
 import { AnalyticsPaywall, type PaywallTarget } from "./analytics-paywall";
 
@@ -384,7 +385,7 @@ function Signals({ data, kind, fmt, onUpgrade, walletLaunched }: { data: Analyti
     <>
       <div className="flex flex-col gap-11 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-16">
         <Hero data={data} fmt={fmt} previous={previous} showConversion={showConversion} />
-        <GrowthChart daily={data.daily ?? []} delta={data.comparison?.profileViewsDelta} fmt={fmt} kind={kind} />
+        <GrowthChart daily={data.daily ?? []} delta={data.comparison?.profileViewsDelta} fmt={fmt} kind={kind} previous={data.pro?.previous.daily} />
       </div>
 
       {!deeper && (
@@ -402,6 +403,13 @@ function Signals({ data, kind, fmt, onUpgrade, walletLaunched }: { data: Analyti
           {caps.modeBreakdown === true && <Modes data={data} fmt={fmt} />}
           {caps.sourceBreakdown === true && <Sources data={data} fmt={fmt} walletLaunched={walletLaunched} />}
           {showConversion && <Conversion data={data} fmt={fmt} />}
+        </div>
+      )}
+
+      {data.pro && (
+        <div className="grid gap-x-10 gap-y-11 lg:grid-cols-2 lg:gap-14 lg:border-t-[1.5px] lg:border-[#0d0d0d] lg:pt-9" data-pro-compare>
+          <PeriodCompare data={data} fmt={fmt} pro={data.pro} />
+          <ModeFunnels fmt={fmt} pro={data.pro} />
         </div>
       )}
 
@@ -628,7 +636,7 @@ function ProHint({ onUpgrade }: { onUpgrade: () => void }) {
     <section aria-label="Setuvara Pro" className="flex items-start gap-3 border-t border-[#0d0d0d]/[0.12] pt-[18px]">
       <MemberBadge className="mt-0.5" decorative size={24} tier="pro" />
       <div className="flex flex-col gap-1.5">
-        <p className="text-[15px] leading-[1.45]">Go further back, see your whole loop and which devices people use.</p>
+        <p className="text-[15px] leading-[1.45]">Compare every period with the one before, see your loop for each Mode, go further back and see which devices people use.</p>
         <button aria-haspopup="dialog" className="min-h-11 self-start text-[14px] font-bold underline underline-offset-[3px] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={onUpgrade} type="button">Explore Pro</button>
       </div>
     </section>
