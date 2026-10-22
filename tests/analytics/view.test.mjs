@@ -160,3 +160,15 @@ Deno.test("growth chart: daily bars up to 90 days, weekly buckets beyond, safe w
   const flat = chartBars([{ date: "2026-10-10", profileViews: 0, connections: 0 }]);
   NO_NAN(chartSummary(flat.bars, "day", fmt));
 });
+
+Deno.test("Pro block: previous period and loop per Mode are validated, malformed blocks are dropped", async () => {
+  const { normalizePro } = await import("../../src/lib/analytics/normalize.ts");
+  const pro = normalizePro({
+    previous: { from: "2026-08-24", to: "2026-09-22", profile_views: 120, qr_scans: 10, quick_qr_scans: 4, tap_scans: 2, shares: 7, connections: 3, daily: [{ date: "2026-08-24", profile_views: 5, connections: 1 }, { date: "bad", profile_views: 1, connections: 0 }] },
+    mode_funnels: [{ mode: "business", profile_views: 272, shares: 11, connections: 0 }, { mode: "wallet", profile_views: 9, shares: 0, connections: 0 }],
+  });
+  assert.deepEqual(pro.previous, { from: "2026-08-24", to: "2026-09-22", profileViews: 120, scans: 16, shares: 7, connections: 3, daily: [{ date: "2026-08-24", profileViews: 5, connections: 1 }] });
+  assert.deepEqual(pro.modeFunnels, [{ mode: "business", profileViews: 272, shares: 11, connections: 0 }]);
+  assert.equal(normalizePro({ previous: { from: "2026-08-24", to: "2026-09-22", profile_views: -1 } }), undefined);
+  assert.equal(normalizePro(null), undefined);
+});

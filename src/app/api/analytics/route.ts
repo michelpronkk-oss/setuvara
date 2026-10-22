@@ -1,6 +1,6 @@
 import { analyticsCapabilities } from "@/lib/analytics/capabilities";
 import { resolveAnalyticsQuery } from "@/lib/analytics/range";
-import { getLinkClicks, getModeToolsSummary, getProfileAnalyticsReport, getProfileIdForUser } from "@/lib/analytics/server";
+import { getLinkClicks, getModeToolsSummary, getProAnalytics, getProfileAnalyticsReport, getProfileIdForUser } from "@/lib/analytics/server";
 import { getConfirmedBillingUser } from "@/lib/billing/auth";
 import { getUserBillingState } from "@/lib/billing/service";
 
@@ -23,15 +23,17 @@ export async function GET(request: Request) {
     }
     const profileId = await getProfileIdForUser(user.id);
     if (!profileId) return Response.json({ error: "analytics_unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
-    const [report, tools, links] = await Promise.all([
+    const [report, tools, links, pro] = await Promise.all([
       getProfileAnalyticsReport({ profileId, plan: billing.plan, query: resolved.data }),
       getModeToolsSummary(profileId, resolved.data.startDate, resolved.data.endDate, resolved.data.mode),
       getLinkClicks(resolved.data.startDate, resolved.data.endDate, resolved.data.mode),
+      capabilities.funnels ? getProAnalytics(profileId, resolved.data) : Promise.resolve(null),
     ]);
     return Response.json({
       ...report,
       ...(tools ? { tools } : {}),
       ...(links ? { links } : {}),
+      ...(pro ? { pro } : {}),
       capabilities: {
         historyDays: capabilities.maxHistoryDays,
         availableRanges: capabilities.availableRanges,

@@ -42,7 +42,42 @@ export type AnalyticsData = {
   tools?: ModeTools;
   /** Taps per link in the range (get_link_clicks). */
   links?: LinkClicks;
+  /** Pro: the previous period and the loop per Mode (get_profile_analytics_pro). */
+  pro?: ProAnalytics;
 };
+
+export type ProAnalytics = {
+  previous: { from: string; to: string; profileViews: number; scans: number; shares: number; connections: number; daily: AnalyticsDailyPoint[] };
+  modeFunnels: { mode: "personal" | "event" | "business" | "creator"; profileViews: number; shares: number; connections: number }[];
+};
+
+const PRO_MODES = new Set(["personal", "event", "business", "creator"]);
+
+/** Validates the Pro block; anything malformed drops the whole block rather than showing half a comparison. */
+export function normalizePro(value: unknown): ProAnalytics | undefined {
+  const raw = asRecord(value);
+  const previous = asRecord(raw?.previous);
+  if (!raw || !previous || typeof previous.from !== "string" || !DATE.test(previous.from) || typeof previous.to !== "string" || !DATE.test(previous.to)) return undefined;
+  const nums = ["profile_views", "qr_scans", "quick_qr_scans", "tap_scans", "shares", "connections"].map((key) => count(previous[key]));
+  if (nums.some((item) => item === null)) return undefined;
+  const [profileViews, qr, quick, tap, shares, connections] = nums as number[];
+  const daily = Array.isArray(previous.daily) ? previous.daily.flatMap((item) => {
+    const row = asRecord(item);
+    const views = count(row?.profile_views ?? row?.profileViews);
+    const connects = count(row?.connections);
+    return typeof row?.date === "string" && DATE.test(row.date) && views !== null && connects !== null ? [{ date: row.date, profileViews: views, connections: connects }] : [];
+  }) : [];
+  const modeFunnels = Array.isArray(raw.mode_funnels) ? raw.mode_funnels.flatMap((item) => {
+    const row = asRecord(item);
+    const views = count(row?.profile_views);
+    const sharesCount = count(row?.shares);
+    const connects = count(row?.connections);
+    return typeof row?.mode === "string" && PRO_MODES.has(row.mode) && views !== null && sharesCount !== null && connects !== null
+      ? [{ mode: row.mode as ProAnalytics["modeFunnels"][number]["mode"], profileViews: views, shares: sharesCount, connections: connects }]
+      : [];
+  }) : [];
+  return { previous: { from: previous.from, to: previous.to, profileViews, scans: qr + quick + tap, shares, connections, daily }, modeFunnels };
+}
 
 export type ModeTools = {
   actionResponses: number;
@@ -192,6 +227,7 @@ export function normalizeAnalytics(value: unknown): AnalyticsData | null {
       : {}),
     ...(normalizeModeTools(raw.tools) ? { tools: normalizeModeTools(raw.tools) } : {}),
     ...(normalizeLinkClicks(raw.links) ? { links: normalizeLinkClicks(raw.links) } : {}),
+    ...(normalizePro(raw.pro) ? { pro: normalizePro(raw.pro) } : {}),
     ...(comparisonRaw ? { comparison: { profileViewsDelta: delta("profileViewsDelta", "profile_views_delta"), connectionsDelta: delta("connectionsDelta", "connections_delta") } } : {}),
   };
 }

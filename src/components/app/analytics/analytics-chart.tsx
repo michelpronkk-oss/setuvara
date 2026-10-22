@@ -11,12 +11,16 @@ const label = "font-label text-[11px] uppercase tracking-[0.14em]";
  * One growth chart: profile views as ink bars, the latest in Coral, and a Coral dot
  * under every day someone connected. No gridlines, no y-axis, three dates.
  */
-export function GrowthChart({ daily, kind, delta, fmt }: { daily: AnalyticsDailyPoint[]; kind: AnalyticsRangeKind; delta: number | null | undefined; fmt: Format }) {
+export function GrowthChart({ daily, kind, delta, fmt, previous }: { daily: AnalyticsDailyPoint[]; kind: AnalyticsRangeKind; delta: number | null | undefined; fmt: Format;
+  /** Pro: the period before, drawn as a dashed line behind the bars, matched day for day. */
+  previous?: AnalyticsDailyPoint[] }) {
   const { bars, unit } = useMemo(() => chartBars(daily), [daily]);
+  const before = useMemo(() => (previous?.length ? chartBars(previous).bars : []), [previous]);
+  const ghost = before.length === bars.length && bars.length > 1 ? before : null;
   const [selected, setSelected] = useState<number | null>(null);
   const summaryId = useId();
   const readoutId = useId();
-  const max = Math.max(0, ...bars.map((bar) => bar.views));
+  const max = Math.max(0, ...bars.map((bar) => bar.views), ...(ghost ?? []).map((bar) => bar.views));
   const gap = bars.length > 30 ? 1 : 3;
   const title = growthTitle(kind, delta);
   const active = selected !== null && bars[selected] ? bars[selected] : null;
@@ -24,6 +28,7 @@ export function GrowthChart({ daily, kind, delta, fmt }: { daily: AnalyticsDaily
     <div className="flex flex-wrap gap-[18px] text-[13px]">
       <span className="flex items-center gap-[7px]"><span aria-hidden="true" className="size-2.5 rounded-[2px] bg-[#0d0d0d]" />Profile views</span>
       <span className="flex items-center gap-[7px]"><span aria-hidden="true" className="size-2 rounded-full bg-[#ff5a4f]" />Days someone connected</span>
+      {ghost && <span className="flex items-center gap-[7px]"><span aria-hidden="true" className="w-4 border-t-[1.5px] border-dashed border-[#0d0d0d]/55" />Period before</span>}
     </div>
   );
 
@@ -60,7 +65,7 @@ export function GrowthChart({ daily, kind, delta, fmt }: { daily: AnalyticsDaily
         <p className="border-b-[1.5px] border-[#0d0d0d] pb-4 text-[15px] text-black/65">No daily activity in this period yet.</p>
       ) : (
         <div className="flex flex-col gap-2">
-          <p aria-live="polite" className="min-h-4 font-label text-[11px] tracking-[0.06em]" data-chart-readout="" id={readoutId}>{active ? barReadout(active, unit, fmt) : ""}</p>
+          <p aria-live="polite" className="min-h-4 font-label text-[11px] tracking-[0.06em]" data-chart-readout="" id={readoutId}>{active ? `${barReadout(active, unit, fmt)}${ghost && selected !== null ? ` · before: ${fmt(ghost[selected].views)}` : ""}` : ""}</p>
           <div
             aria-describedby={summaryId}
             aria-label={`Profile views over time. Use the arrow keys to read each ${unit}.`}
@@ -73,7 +78,14 @@ export function GrowthChart({ daily, kind, delta, fmt }: { daily: AnalyticsDaily
             role="group"
             tabIndex={0}
           >
-            <div aria-hidden="true" className="flex h-[150px] items-end border-b-[1.5px] border-[#0d0d0d] lg:h-[300px]" style={{ gap }}>
+            <div aria-hidden="true" className="relative flex h-[150px] items-end border-b-[1.5px] border-[#0d0d0d] lg:h-[300px]" style={{ gap }}>
+              {ghost && max > 0 && (
+                <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible" preserveAspectRatio="none" viewBox={`0 0 ${ghost.length} 100`}>
+                  {/* A paper halo under the dashes keeps the line readable across black bars and paper alike. */}
+                  <polyline fill="none" points={ghost.map((bar, index) => `${index + 0.5},${100 - (bar.views / max) * 100}`).join(" ")} stroke="#f5f4ef" strokeLinejoin="round" strokeWidth="4" vectorEffect="non-scaling-stroke" />
+                  <polyline fill="none" points={ghost.map((bar, index) => `${index + 0.5},${100 - (bar.views / max) * 100}`).join(" ")} stroke="#0d0d0d" strokeDasharray="5 4" strokeLinejoin="round" strokeWidth="1.75" vectorEffect="non-scaling-stroke" />
+                </svg>
+              )}
               {bars.map((bar, index) => {
                 const height = max > 0 ? Math.max(bar.views > 0 ? 2 : 0, (bar.views / max) * 100) : 0;
                 const latest = index === bars.length - 1;
