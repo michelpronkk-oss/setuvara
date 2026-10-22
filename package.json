@@ -84,6 +84,8 @@
     "test:builder-voting:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/builder_voting_security.sql",
     "test:revenue": "node --test tests/revenue/revenue.test.mjs",
     "test:mode-tools:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/mode_tools_summary_security.sql",
+    "test:page-order": "node --test tests/profile/page-order.test.mjs",
+    "test:page-order:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/mode_page_order_security.sql",
     "test:revenue:db": "psql -v ON_ERROR_STOP=1 -f supabase/tests/verified_revenue_security.sql"
   },
   "dependencies": {

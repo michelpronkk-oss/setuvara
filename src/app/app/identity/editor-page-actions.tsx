@@ -86,7 +86,7 @@ export function PageActions({ api }: { api: EditorApi }) {
 
   return (
     <section aria-label="Actions" className="mt-8" data-page-actions>
-      <GroupHead meta={rows === null ? undefined : rows.length ? `${live} live · after your links` : "after your links"} title="Actions" />
+      <GroupHead meta={rows === null ? undefined : rows.length ? `${live} live · place them in Page order` : undefined} title="Actions" />
       {!api.actionsLive && rows !== null && rows.length > 0 && <p className="mb-2 rounded-[14px] bg-[#FFF3D6] px-4 py-2.5 text-[13px] leading-5">Visitors don&apos;t see Actions yet. Arrange them now; they appear in this order once Actions go live.</p>}
 
       {rows === null ? (

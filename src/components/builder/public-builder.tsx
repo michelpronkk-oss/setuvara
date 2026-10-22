@@ -16,7 +16,9 @@ const dayMonth = (iso: string) => new Date(iso).toLocaleDateString("en", { day: 
  * What the owner is building, on their Creator or Business page. It sits inside any Appearance:
  * colour comes from currentColor and the page accent, never a fixed palette.
  */
-export function PublicBuilder({ projects, images, actions, actionHref, accent, accentInk, viewer, display }: {
+export function PublicBuilder({ projects, images, actions, actionHref, accent, accentInk, viewer, display, bare = false }: {
+  /** Placed by the owner's page order: no "Building" label above each project. */
+  bare?: boolean;
   /** The page's name type for headings and figures (its Appearance). */
   display?: CSSProperties;
   projects: PublicProject[];
@@ -32,7 +34,7 @@ export function PublicBuilder({ projects, images, actions, actionHref, accent, a
   const actionById = new Map(actions.map((action) => [action.id, action]));
   return (
     <section aria-label="What I'm building" className="flex flex-col gap-4 text-left" data-builder-projects={projects.length}>
-      <p className={`${label} opacity-60`}>Building</p>
+      {!bare && <p className={`${label} opacity-60`}>Building</p>}
       {projects.map((project) => {
         const cover = project.cover_block_id ? images[project.cover_block_id] ?? null : null;
         const logo = project.logo_block_id ? images[project.logo_block_id] ?? null : null;

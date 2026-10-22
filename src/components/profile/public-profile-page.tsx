@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { resolveOrder } from "@/lib/profile/page-order";
 import { freshPlatforms, type PublicPlatform } from "@/lib/social/model";
 import { nameType, nameTypeStyle } from "@/components/profile/name-type";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
@@ -360,6 +361,25 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     ? passportHighlight as { type: PassportStampType; title: string; subtitle: string | null; countryCode: string | null }
     : null;
 
+  // The owner's page order across blocks, links, Actions, projects and Mode sections; no row keeps the default.
+  const { data: orderRow } = await supabase.from("mode_page_order").select("items").eq("mode_id", rawMode.id).maybeSingle();
+  const accent = resolveModeAccent(mode);
+  const accentInk = inkOnAccent(accent);
+  const pageOrder = Array.isArray(orderRow?.items) && orderRow.items.length ? resolveOrder(slug as ModeSlug, orderRow.items as string[], {
+    blocks: (mode.blocks ?? []).filter((block) => block.is_visible && !block.is_soundtrack).map((block) => block.id),
+    links: mode.links.filter((link) => link.is_visible).map((link) => link.id),
+    actions: creator ? [] : modeActions.map((item) => item.action.id),
+    projects: projects.map((project) => project.id),
+    sections: [...(testimonials.length ? ["testimonials" as const] : []), ...(creator ? ["creator" as const] : []), ...(creatorPlatforms.length ? ["audience" as const] : [])],
+  }) : null;
+  const pieces: Record<string, React.ReactNode> | undefined = pageOrder ? {
+    ...Object.fromEntries((creator ? [] : modeActions).map((item) => [`action:${item.action.id}`, <ActionCards accent={accent} accentInk={accentInk} actionHref={actionHref} actions={[item]} key={item.action.id} />])),
+    ...Object.fromEntries(projects.map((project) => [`project:${project.id}`, <PublicBuilder accent={accent} accentInk={accentInk} actionHref={actionHref} actions={modeActions.map((item) => item.action)} bare display={builderDisplay} images={blockImages} key={project.id} projects={[project]} viewer={builderViewer} />])),
+    "section:testimonials": <PublicTestimonials accent={accent} items={testimonials} />,
+    "section:audience": <CreatorAudience accent={accent} display={builderDisplay} platforms={creatorPlatforms} />,
+    "section:creator": creator ? <CreatorSections accent={accent} accentInk={accentInk} actionHref={actionHref} actions={modeActions} locked={lockedWork} offers={creatorOffers} productHref={owner || !shareToken ? undefined : (id) => `/s/${shareToken}/p/${id}`} settings={readCreatorSettings(rawMode.settings as Record<string, unknown>)} work={publicBlocks.filter(isWorkBlock).map(workItem)} /> : null,
+  } : undefined;
+
   return (
     <main data-public-profile-surface="true" data-public-profile-appearance={resolvedLook.id} className={`${marketingFontClasses} ${nameFontClasses} min-h-dvh bg-[var(--page-bg)] font-brand`} style={{ "--page-bg": browserThemeColor, colorScheme: pageTone.dark ? "dark" : "light" } as React.CSSProperties}>
       {(handle ? indexable : !shareToken) && <JsonLd data={personStructuredData} />}
@@ -369,7 +389,9 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           attribution
           className="min-h-dvh"
           edgeToEdge
-          footer={creator || creatorPlatforms.length || modeActions.length || testimonials.length || projects.length || sharedPassportStamp ? (<>
+          pageOrder={pageOrder}
+          pieces={pieces}
+          footer={pageOrder ? (sharedPassportStamp ? <PassportShare stamp={sharedPassportStamp} /> : undefined) : creator || creatorPlatforms.length || modeActions.length || testimonials.length || projects.length || sharedPassportStamp ? (<>
             {creator && <CreatorAudience accent={resolveModeAccent(mode)} display={builderDisplay} platforms={creatorPlatforms} />}
             {creator && <CreatorSections
               accent={resolveModeAccent(mode)}
@@ -385,12 +407,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
             {!creator && <ActionCards accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions} />}
             <PublicBuilder display={builderDisplay} accent={resolveModeAccent(mode)} accentInk={inkOnAccent(resolveModeAccent(mode))} actionHref={actionHref} actions={modeActions.map((item) => item.action)} images={blockImages} projects={projects} viewer={builderViewer} />
             <PublicTestimonials accent={resolveModeAccent(mode)} items={testimonials} />
-            {sharedPassportStamp && (
-            <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
-              <PassportRecordStamp size={116} stamp={{ id: `${sharedPassportStamp.type}:${sharedPassportStamp.title}:${sharedPassportStamp.countryCode ?? ""}`, type: sharedPassportStamp.type, title: sharedPassportStamp.title, subtitle: sharedPassportStamp.subtitle, countryCode: sharedPassportStamp.countryCode, earnedAt: "" }} />
-              <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(sharedPassportStamp)}</p>{sharedPassportStamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{sharedPassportStamp.subtitle}</p>}</div>
-            </aside>
-            )}
+            {sharedPassportStamp && <PassportShare stamp={sharedPassportStamp} />}
           </>) : undefined}
           profile={identity}
           mode={mode}
@@ -427,4 +444,14 @@ function publicPassportStampTitle(stamp: { type: PassportStampType; title: strin
   if (stamp.type !== "country" || !stamp.countryCode) return stamp.title;
   try { return new Intl.DisplayNames(["en"], { type: "region" }).of(stamp.countryCode) ?? stamp.title; }
   catch { return stamp.title; }
+}
+
+/** A Passport stamp the member chose to share, at the foot of the page. */
+function PassportShare({ stamp }: { stamp: { type: PassportStampType; title: string; subtitle: string | null; countryCode: string | null } }) {
+  return (
+    <aside aria-label="A Passport stamp they chose to share" className="flex items-center gap-4 rounded-[var(--sv-card-r,16px)] p-4" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)" }}>
+      <PassportRecordStamp size={116} stamp={{ id: `${stamp.type}:${stamp.title}:${stamp.countryCode ?? ""}`, type: stamp.type, title: stamp.title, subtitle: stamp.subtitle, countryCode: stamp.countryCode, earnedAt: "" }} />
+      <div className="min-w-0"><p className="font-label text-[9px] font-semibold tracking-[0.16em] opacity-60">A PASSPORT MARK THEY CHOSE TO SHARE</p><p className="mt-1 break-words text-sm font-semibold">{publicPassportStampTitle(stamp)}</p>{stamp.subtitle && <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-65">{stamp.subtitle}</p>}</div>
+    </aside>
+  );
 }
