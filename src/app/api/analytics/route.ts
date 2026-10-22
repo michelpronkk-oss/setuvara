@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     if (!profileId) return Response.json({ error: "analytics_unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
     const [report, tools] = await Promise.all([
       getProfileAnalyticsReport({ profileId, plan: billing.plan, query: resolved.data }),
-      getModeToolsSummary(profileId, resolved.data.startDate, resolved.data.endDate),
+      getModeToolsSummary(profileId, resolved.data.startDate, resolved.data.endDate, resolved.data.mode),
     ]);
     return Response.json({
       ...report,
