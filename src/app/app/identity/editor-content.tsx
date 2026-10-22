@@ -21,7 +21,7 @@ import { AddLinkPanel, DragHandle, LinkRow, RowChevron } from "./editor-sections
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { ContentImageControl } from "./content-image-control";
 import { PageActions } from "./editor-page-actions";
-import { PageOrder } from "./editor-page-order";
+import { ActionPageRow, ProjectPageRow, SectionPageRow, usePageItems } from "./editor-page-order";
 import { ContentVideoControl } from "./content-video-control";
 import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
@@ -45,23 +45,19 @@ export function ContentSection({ api }: { api: EditorApi }) {
     useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const blockDnd = useId();
-  const linkDnd = useId();
+  const pageDnd = useId();
+  const page = usePageItems(api);
+  const soundtracks = blocks.filter((block) => block.is_soundtrack);
+  const builderHref = slug === "creator" ? "/app/identity/creator/builder" : "/app/identity/builder?mode=business";
   const booking = mode.links.find((link) => BOOKING_PROVIDERS.includes(providerForLink(link.link_type).id) && link.is_visible);
   const copySources = MODE_SLUGS.filter((item) => item !== slug && (api.modes.find((entry) => entry.slug === item)?.links.length ?? 0) > 0);
   const suggested = MODE_BLOCKS[slug].filter((kind) => !blocks.some((block) => block.kind === kind)).slice(0, 3);
 
-  function onBlockDrag({ active, over }: DragEndEvent) {
+  function onPageDrag({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    const from = blocks.findIndex((block) => block.id === active.id);
-    const to = blocks.findIndex((block) => block.id === over.id);
-    if (from >= 0 && to >= 0) api.reorderBlocks(arrayMove(blocks, from, to));
-  }
-  function onLinkDrag({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const from = mode.links.findIndex((link) => link.id === active.id);
-    const to = mode.links.findIndex((link) => link.id === over.id);
-    if (from >= 0 && to >= 0) api.reorderLinks(arrayMove(mode.links, from, to));
+    const from = page.order.indexOf(String(active.id));
+    const to = page.order.indexOf(String(over.id));
+    if (from >= 0 && to >= 0) void page.save(arrayMove(page.order, from, to));
   }
 
   const hiddenLinks = mode.links.filter((link) => !link.is_visible).length;
@@ -75,42 +71,16 @@ export function ContentSection({ api }: { api: EditorApi }) {
         <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold">Add content</span><span className="block truncate text-[13px] opacity-60">Paste any link, or add a video, music, a card…</span></span>
       </button>
 
-      <PageOrder api={api} key={`order-${mode.id}`} />
+      {soundtracks.length > 0 && (
+        <ul aria-label="Soundtrack" className="mt-8 grid grid-cols-1 gap-2">
+          {soundtracks.map((block) => <BlockRow api={api} block={block} fixed key={block.id} onEdit={() => setSheet({ type: "block", kind: block.kind, block })} />)}
+        </ul>
+      )}
 
-      {/* Blocks */}
-      <section aria-label="Blocks" className="mt-8">
-        <GroupHead meta={`${blocks.length} of ${BLOCK_LIMIT}`} title="Blocks" />
-        {blocks.length > 0 && (
-          <DndContext collisionDetection={closestCenter} id={blockDnd} onDragEnd={onBlockDrag} sensors={sensors}>
-            <SortableContext items={blocks.map((block) => block.id)} strategy={verticalListSortingStrategy}>
-              <ul className="grid grid-cols-1 gap-2">
-                {blocks.map((block) => <BlockRow api={api} block={block} key={block.id} onEdit={() => setSheet({ type: "block", kind: block.kind, block })} />)}
-              </ul>
-            </SortableContext>
-          </DndContext>
-        )}
-        {blocks.filter((block) => block.kind === "image" && block.is_visible).length > 1 && <PictureLayout api={api} />}
-        {suggested.length > 0 && (blocks.length
-          ? <div className="mt-2.5 flex flex-wrap gap-2" data-block-suggestions>
-              {suggested.map((kind) => (
-                <button className="inline-flex min-h-10 items-center gap-2 rounded-full border-[1.5px] border-dashed border-black/20 pl-1.5 pr-3.5 text-[13px] font-semibold text-black/75 transition hover:border-black/60 hover:text-black" key={kind} onClick={() => setSheet({ type: "block", kind })} type="button">
-                  <BlockIcon className="size-7 rounded-full bg-white" path={BLOCKS[kind].icon} />{BLOCKS[kind].name}
-                </button>
-              ))}
-            </div>
-          : <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" data-block-suggestions>
-              {suggested.map((kind) => (
-                <button className="flex min-h-[64px] items-center gap-3 rounded-[18px] border-[1.5px] border-dashed border-black/20 px-3.5 text-left transition hover:border-black/60 hover:bg-white/70" key={kind} onClick={() => setSheet({ type: "block", kind })} type="button">
-                  <BlockIcon className="size-9 rounded-xl bg-white" path={BLOCKS[kind].icon} />
-                  <span className="min-w-0"><span className="block text-[14px] font-semibold">{BLOCKS[kind].name}</span><span className="block truncate text-[12px] text-black/50">{BLOCKS[kind].hint}</span></span>
-                </button>
-              ))}
-            </div>)}
-      </section>
-
-      {/* Links */}
-      <section aria-label="Links" className="mt-8">
-        <GroupHead meta={mode.links.length ? `${mode.links.length}${hiddenLinks ? ` · ${hiddenLinks} hidden` : ""}` : undefined} title="Links" />
+      {/* Your page: blocks, links, Actions, projects and sections in the order visitors see them. */}
+      <section aria-label="Your page" className={soundtracks.length ? "mt-6" : "mt-8"} data-your-page>
+        <GroupHead meta={page.saved ? <button className="text-[13px] font-semibold text-black/50 underline-offset-4 hover:text-black hover:underline" onClick={() => void page.save(null)} type="button">Reset order</button> : `${blocks.length - soundtracks.length} of ${BLOCK_LIMIT} blocks${hiddenLinks ? ` · ${hiddenLinks} hidden` : ""}`} title="Your page" />
+        {page.items.length > 1 && <p className="-mt-1 mb-3 px-0.5 text-[13px] leading-[1.45] text-black/55">Top to bottom, as visitors see it. Drag anything above anything.</p>}
 
         {slug === "business" && (
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-[#0D0D0D]/[0.04] px-4 py-3">
@@ -119,22 +89,41 @@ export function ContentSection({ api }: { api: EditorApi }) {
           </div>
         )}
 
-        {mode.links.length > 0 ? (
-          <DndContext collisionDetection={closestCenter} id={linkDnd} onDragEnd={onLinkDrag} sensors={sensors}>
-            <SortableContext items={mode.links.map((link) => link.id)} strategy={verticalListSortingStrategy}>
+        {!page.loaded && page.items.length === 0 ? (
+          <div aria-hidden="true" className="h-[66px] animate-pulse rounded-[18px] bg-black/[0.04]" />
+        ) : page.items.length > 0 ? (
+          <DndContext collisionDetection={closestCenter} id={pageDnd} onDragEnd={onPageDrag} sensors={sensors}>
+            <SortableContext items={page.items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
               <ul className="grid grid-cols-1 gap-2">
-                {mode.links.map((link) => <LinkRow api={api} editing={editingLink === link.id} key={link.id} link={link} onEdit={(open) => setEditingLink(open ? link.id : null)} />)}
+                {page.items.map((item) => item.kind === "block" ? <BlockRow api={api} block={item.block} key={item.key} onEdit={() => setSheet({ type: "block", kind: item.block.kind, block: item.block })} sortId={item.key} />
+                  : item.kind === "link" ? <LinkRow api={api} editing={editingLink === item.link.id} key={item.key} link={item.link} onEdit={(open) => setEditingLink(open ? item.link.id : null)} sortId={item.key} />
+                  : item.kind === "action" ? <ActionPageRow action={item.action} key={item.key} slug={slug} />
+                  : item.kind === "project" ? <ProjectPageRow href={`${builderHref}${builderHref.includes("?") ? "&" : "?"}project=${item.project.id}`} key={item.key} project={item.project} />
+                  : <SectionPageRow href={item.section === "creator" ? "/app/identity/creator/settings" : item.section === "testimonials" ? "/app/identity/testimonials" : undefined} key={item.key} section={item.section} />)}
               </ul>
             </SortableContext>
           </DndContext>
         ) : (
           <Card className="px-5 py-5">
-            <p className="text-[15px] font-semibold">No links in {modeMeta[slug].name} Mode yet</p>
+            <p className="text-[15px] font-semibold">Nothing on your {modeMeta[slug].name} page yet</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Pill onClick={() => setSheet({ type: "link", provider: null })} variant="ink">+ Add a link</Pill>
-              {copySources.map((item) => <Pill key={item} onClick={() => void api.copyLinksFrom(item)}>Copy from {modeMeta[item].name}</Pill>)}
+              {copySources.map((item) => <Pill key={item} onClick={() => void api.copyLinksFrom(item)}>Copy links from {modeMeta[item].name}</Pill>)}
             </div>
           </Card>
+        )}
+        {page.status && <p className="mt-2 px-0.5 text-[12.5px] text-black/55" role="status">{page.status}</p>}
+
+        {blocks.filter((block) => block.kind === "image" && block.is_visible).length > 1 && <PictureLayout api={api} />}
+        {suggested.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-2" data-block-suggestions>
+            {suggested.map((kind) => (
+              <button className="inline-flex min-h-10 items-center gap-2 rounded-full border-[1.5px] border-dashed border-black/20 pl-1.5 pr-3.5 text-[13px] font-semibold text-black/75 transition hover:border-black/60 hover:text-black" key={kind} onClick={() => setSheet({ type: "block", kind })} type="button">
+                <BlockIcon className="size-7 rounded-full bg-white" path={BLOCKS[kind].icon} />{BLOCKS[kind].name}
+              </button>
+            ))}
+            {page.items.length > 0 && mode.links.length === 0 && copySources.map((item) => <Pill className="!min-h-10" key={item} onClick={() => void api.copyLinksFrom(item)}>Copy links from {modeMeta[item].name}</Pill>)}
+          </div>
         )}
       </section>
 
@@ -153,14 +142,14 @@ export function ContentSection({ api }: { api: EditorApi }) {
 
 // ---------------------------------------------------------------- Rows
 
-function BlockRow({ api, block, onEdit }: { api: EditorApi; block: ProfileBlock; onEdit: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+function BlockRow({ api, block, onEdit, sortId, fixed = false }: { api: EditorApi; block: ProfileBlock; onEdit: () => void; sortId?: string; fixed?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortId ?? block.id, disabled: fixed });
   const meta = BLOCKS[block.kind];
   const soundtrack = Boolean(block.is_soundtrack);
   return (
     <li className={`min-w-0 rounded-[18px] bg-white transition-shadow ${isDragging ? "relative z-10 shadow-[0_24px_50px_-20px_rgba(13,13,13,.45),inset_0_0_0_2px_#0D0D0D]" : soundtrack ? "shadow-[inset_0_0_0_1.5px_#0D0D0D]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]"}`} ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null), transition }}>
       <div className="flex min-h-[66px] items-center gap-1.5 py-2 pl-1 pr-1 sm:gap-2">
-        <DragHandle {...attributes} {...listeners} />
+        {fixed ? <span aria-hidden="true" className="w-2 shrink-0" /> : <DragHandle {...attributes} {...listeners} />}
         {soundtrack
           ? <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#FF5A4F] text-[#0D0D0D]"><SpeakerIcon className="size-5" on /></span>
           : <BlockIcon className="size-10 rounded-xl bg-[#0D0D0D] text-[#F5F4EF]" path={meta.icon} />}

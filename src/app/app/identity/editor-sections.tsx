@@ -371,10 +371,10 @@ export function RowChevron({ label, onClick, open }: { label: string; onClick: (
   );
 }
 
-export function LinkRow({ api, link, editing, onEdit }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void }) {
+export function LinkRow({ api, link, editing, onEdit, sortId }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void; sortId?: string }) {
   const provider = providerForLink(link.link_type);
   const resolved = resolveStoredLink(provider.id, link.url);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortId ?? link.id });
   const [title, setTitle] = useState(link.title);
   const [value, setValue] = useState(resolved?.canonicalValue ?? link.url);
   const [error, setError] = useState<string | null>(null);
