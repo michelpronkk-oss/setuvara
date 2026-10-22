@@ -14,6 +14,7 @@ export const MODE_META = {
   personal: { label: "Personal", color: "#FF5A4F" },
   event: { label: "Event", color: "#C7FF4A" },
   business: { label: "Business", color: "#AFCBFF" },
+  creator: { label: "Creator", color: "#E8A6FF" },
 } as const;
 
 /** Human labels for the closed ANALYTICS_SOURCES enum. */

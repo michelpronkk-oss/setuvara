@@ -524,7 +524,7 @@ function ExportRow({ range }: { range: NonNullable<AnalyticsData["range"]> }) {
 const EXPLAIN = [
   { title: "Profile views", text: "Each time someone opens your Setuvara.", color: "#0D0D0D" },
   { title: "Connections", text: "People who connect with you, counted once.", color: "#FF5A4F" },
-  { title: "Modes", text: "Which version of you they opened: Personal, Event or Business. Plus.", color: "#C7FF4A" },
+  { title: "Modes", text: "Which version of you they opened: Personal, Event, Business or Creator. Plus.", color: "#C7FF4A" },
   { title: "How people reach you", text: "Quick QR, Tap or a shared link. Plus.", color: "#AFCBFF" },
 ];
 
