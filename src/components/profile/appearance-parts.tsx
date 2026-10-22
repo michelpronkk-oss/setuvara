@@ -81,7 +81,7 @@ export function SocialPresentation({ links, style, theme, align, size = 42, copy
   if (!links.length || style === "hidden") return null;
   const brand = theme.id === "social";
   const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
-  const anchor = (item: ResolvedLink) => ({ href: item.url, rel: item.external ? "noopener noreferrer" : undefined, target: item.external ? "_blank" : undefined, "aria-label": item.name, title: item.name });
+  const anchor = (item: ResolvedLink) => ({ "data-link-id": item.link.id, href: item.url, rel: item.external ? "noopener noreferrer" : undefined, target: item.external ? "_blank" : undefined, "aria-label": item.name, title: item.name });
   if (style === "compact") {
     // One glass pill; each glyph opens its platform (these platforms are not repeated in the link rows).
     return (

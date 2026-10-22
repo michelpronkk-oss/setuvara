@@ -285,7 +285,7 @@ function Profile(props: ProfileProps) {
   const soundTop = look.id === "clean" || look.id === "social" ? 28 : 18;
   const soundRight = look.id === "clean" || look.id === "social" ? 28 : 16;
   const floating = !owner && !connected && Boolean(props.visitorAction);
-  const bookingLink = booking && <a className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-full px-[18px] text-[15px] font-semibold transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={booking.url} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${theme.identity.line}`, color: theme.fg, outlineColor: theme.fg }} target="_blank">{copy.bookCall}</a>;
+  const bookingLink = booking && <a data-link-id={booking.link.id} className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-full px-[18px] text-[15px] font-semibold transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={booking.url} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${theme.identity.line}`, color: theme.fg, outlineColor: theme.fg }} target="_blank">{copy.bookCall}</a>;
   // The desktop card's actions: the hero's own (owner, connected), or one that opens the hero's Connect.
   const cardActions = owner || connected ? scene.actions : floating || booking ? <>{floating && <DeskConnect dot={connect.dot} label={copy.connect} />}{bookingLink}</> : null;
 
@@ -376,7 +376,7 @@ function Actions({ mode, owner, connected, theme, copy, visitorAction, connectio
   return (
     <>
       {visitorAction}
-      {booking && <a className={secondary} data-profile-action="book" href={booking.url} rel="noopener noreferrer" style={line} target="_blank">{copy.bookCall}</a>}
+      {booking && <a className={secondary} data-link-id={booking.link.id} data-profile-action="book" href={booking.url} rel="noopener noreferrer" style={line} target="_blank">{copy.bookCall}</a>}
       {visitorAction && mode.slug === "event" && eventName && <p className="basis-full text-[11px]" style={{ color: id.muted }}>{copy.eventSaved.replace("{event}", eventName)}</p>}
     </>
   );
@@ -535,7 +535,7 @@ function Links({ links, scene, copy }: { links: ResolvedLink[]; scene: Scene; co
   const rest = collapse ? links.slice(LINK_VISIBLE) : [];
   const row = (item: ResolvedLink) => (
     <li key={item.link.id}>
-      <a className="flex h-[62px] items-center gap-3 rounded-[var(--sv-card-r-small,18px)] pl-2.5 pr-4 transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }} target={item.external ? "_blank" : undefined}>
+      <a className="flex h-[62px] items-center gap-3 rounded-[var(--sv-card-r-small,18px)] pl-2.5 pr-4 transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" data-link-id={item.link.id} href={item.url} rel={item.external ? "noopener noreferrer" : undefined} style={{ background: theme.card.bg, boxShadow: `inset 0 0 0 1px ${theme.card.edge}`, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", outlineColor: theme.fg }} target={item.external ? "_blank" : undefined}>
         <span aria-hidden="true" className="grid size-[42px] shrink-0 place-items-center rounded-full [&_img]:size-[19px] [&_svg]:size-[19px]" style={{ background: brand ? brandColour(item.providerId) : theme.light ? "#0D0D0D0D" : "#F5F4EF14", color: brand ? "#FFFFFF" : theme.fg }}><LinkGlyph icon={item.icon} url={item.url} /></span>
         <span className="flex min-w-0 flex-1 flex-col gap-px">
           <span className="truncate text-[15.5px] font-semibold">{item.link.title}</span>

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { PlanCode } from "@/lib/billing/catalog";
 import { createBillingAdminClient } from "@/lib/billing/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { AnalyticsQuery } from "./range";
 
 type JsonRecord = Record<string, unknown>;
@@ -147,6 +148,13 @@ export async function getProfileAnalyticsReport(input: {
 export async function getModeToolsSummary(profileId: string, startDate: string, endDate: string, mode: AnalyticsQuery["mode"] = null): Promise<unknown> {
   const admin = createBillingAdminClient();
   const { data, error } = await admin.rpc("get_mode_tools_summary", { p_profile_id: profileId, p_from: startDate, p_to: endDate, p_mode: mode });
+  return error ? null : data;
+}
+
+/** The signed-in member's link taps; the database clamps the window to their plan. */
+export async function getLinkClicks(startDate: string, endDate: string, mode: AnalyticsQuery["mode"] = null): Promise<unknown> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_link_clicks", { p_from: startDate, p_to: endDate, p_mode: mode });
   return error ? null : data;
 }
 
