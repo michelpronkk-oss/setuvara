@@ -39,6 +39,8 @@ import { EditorSidebar, SectionIcon } from "./editor-sidebar";
 const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
 
 type EditorProps = {
+  /** Whether Actions show to visitors on this site yet. */
+  actionsLive?: boolean;
   initialProfile: ProfileIdentity;
   initialModes: ProfileMode[];
   initialMode: ModeSlug;
@@ -83,7 +85,7 @@ function isSection(value: string): value is Section {
   return value === "home" || SECTIONS.some((section) => section.id === value);
 }
 
-export function IdentityEditor({ initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls: initialModeShareUrls, modeHandles: initialModeHandles, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
+export function IdentityEditor({ actionsLive = false, initialProfile, initialModes, initialMode, initialSection, initialShareIntent, publicOrigin, modeShareUrls: initialModeShareUrls, modeHandles: initialModeHandles, error, signOut, unlockedRewards, selectedRewards: initialSelectedRewards, celebrationThreshold, memberTier, plan }: EditorProps) {
   const [profile, setProfile] = useState(initialProfile);
   const [modes, setModes] = useState(initialModes);
   const [slug, setSlug] = useState<ModeSlug>(initialMode);
@@ -865,7 +867,7 @@ export function IdentityEditor({ initialProfile, initialModes, initialMode, init
   const closePaywall = useCallback(() => setPaywallCapability(null), []);
 
   const api: EditorApi = {
-    profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
+    actionsLive, profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
     updateProfile, updateSetting, updateAppearance, requestCapability,
     appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
