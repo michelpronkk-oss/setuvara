@@ -10,7 +10,7 @@ export function Hero() {
   return (
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
       <Shell className="flex flex-col items-center pb-14 pt-10 text-center sm:pt-16 lg:pb-20 lg:pt-20">
-        <Label className="text-coral">Personal · Event · Business</Label>
+        <Label className="text-coral">Personal · Event · Business · Creator</Label>
         <Display as="h1" className="mt-5 text-[clamp(46px,8vw,124px)] leading-[0.88] sm:mt-6">
           <span id="hero-title">One identity.<br />Every version of&nbsp;you.</span>
         </Display>
