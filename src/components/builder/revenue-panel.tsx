@@ -17,12 +17,13 @@ export type RevenueLimits = { plan: "free" | "plus" | "pro"; providers: number; 
 
 const card = "rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
 const field = "min-h-12 w-full rounded-[16px] bg-white px-4 text-[16px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none focus:shadow-[inset_0_0_0_1.5px_#0D0D0D]";
-const AVAILABLE = ["stripe", "revenuecat"] as const;
+const AVAILABLE = ["stripe", "revenuecat", "dodo"] as const;
 const KEY_HELP: Record<string, string> = {
   stripe: "In Stripe, Developers → API keys → Create restricted key. Set Subscriptions, Customers and Prices to Read, everything else to None.",
   revenuecat: "In RevenueCat, Project settings → API keys → New secret API key, version 2. Set Charts & metrics to Read only, everything else to No access. MRR and active subscriptions come from RevenueCat's own overview, in USD.",
+  dodo: "In Dodo Payments, Developer → API Keys → Create key. Give it Subscriptions: Read only. A test-mode key connects as test data, which is never shown publicly.",
 };
-const PLACEHOLDER: Record<string, string> = { stripe: "rk_live_…", revenuecat: "sk_…" };
+const PLACEHOLDER: Record<string, string> = { stripe: "rk_live_…", revenuecat: "sk_…", dodo: "Dodo Payments API key" };
 const VISIBILITY: { value: RevenueVisibility; label: string; note: string }[] = [
   { value: "hidden", label: "Hidden", note: "Only you see it." },
   { value: "exact", label: "Exact", note: "MRR, ARR and paying customers." },
@@ -105,7 +106,7 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
             <select className={field} onChange={(e) => { setProvider(e.target.value as typeof provider); setKey(""); }} value={provider}>
               <option disabled={connected("stripe")} value="stripe">Stripe</option>
               <option disabled={connected("revenuecat")} value="revenuecat">RevenueCat</option>
-              <option disabled value="dodo">Dodo Payments (coming soon)</option>
+              <option disabled={connected("dodo")} value="dodo">Dodo Payments</option>
             </select>
           </label>
           {provider === "revenuecat" && (

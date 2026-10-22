@@ -1,4 +1,4 @@
-/** Verified Revenue maths, the Stripe adapter's subscription normalisation and the RevenueCat adapter.  npm run test:revenue */
+/** Verified Revenue maths, the Stripe adapter's subscription normalisation, the RevenueCat and Dodo Payments adapters.  npm run test:revenue */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -10,17 +10,19 @@ const root = resolve(import.meta.dirname, "../..");
 const cache = join(root, "node_modules/.cache");
 mkdirSync(cache, { recursive: true });
 const out = mkdtempSync(join(cache, "setuvara-revenue-"));
-let m, s, rc;
+let m, s, rc, dodo;
 before(async () => {
   writeFileSync(join(out, "empty.js"), "");
-  const opts = { bundle: true, format: "cjs", platform: "node", logLevel: "silent", external: ["stripe"], alias: { "server-only": join(out, "empty.js") } };
+  const opts = { bundle: true, format: "cjs", platform: "node", logLevel: "silent", external: ["stripe", "dodopayments"], alias: { "server-only": join(out, "empty.js") } };
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/metrics.ts")], outfile: join(out, "m.cjs") });
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/stripe.ts")], outfile: join(out, "s.cjs") });
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/revenuecat.ts")], outfile: join(out, "rc.cjs") });
+  await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/dodo.ts")], outfile: join(out, "dodo.cjs") });
   const require = createRequire(join(root, "package.json"));
   m = require(join(out, "m.cjs"));
   s = require(join(out, "s.cjs"));
   rc = require(join(out, "rc.cjs"));
+  dodo = require(join(out, "dodo.cjs"));
 });
 after(() => rmSync(out, { recursive: true, force: true }));
 
@@ -167,4 +169,74 @@ test("Stripe history: a subscription counts from its start, after its trial, unt
   ]);
   assert.equal(s.paidAt(subs[1], T("2026-07-31T23:59:59Z")), false, "still in trial");
   assert.equal(s.paidAt(subs[2], T("2026-08-31T23:59:59Z")), false, "ended");
+});
+
+const NOW = Date.parse("2026-10-22T12:00:00Z");
+const dsub = (over = {}) => ({ status: "active", currency: "EUR", customer: { customer_id: "cus_1" }, recurring_pre_tax_amount: 2400,
+  payment_frequency_interval: "Month", payment_frequency_count: 1, created_at: "2026-01-01T00:00:00Z", trial_period_days: 0, ...over });
+
+test("Dodo: active and past_due subscriptions count, at their pre-tax recurring amount", () => {
+  assert.deepEqual(dodo.dodoLines(dsub(), NOW), [{ customer: "cus_1", currency: "eur", amountMinor: 2400, interval: "month", intervalCount: 1 }]);
+  assert.equal(dodo.dodoLines(dsub({ status: "past_due" }), NOW).length, 1);
+  for (const status of ["pending", "on_hold", "paused", "cancelled", "failed", "expired"]) assert.equal(dodo.dodoLines(dsub({ status }), NOW).length, 0, status);
+});
+
+test("Dodo: trials, free plans and yearly billing", () => {
+  assert.equal(dodo.dodoLines(dsub({ created_at: "2026-10-20T00:00:00Z", trial_period_days: 14 }), NOW).length, 0, "in trial");
+  assert.equal(dodo.dodoLines(dsub({ created_at: "2026-09-01T00:00:00Z", trial_period_days: 14 }), NOW).length, 1, "trial over");
+  assert.equal(dodo.dodoLines(dsub({ recurring_pre_tax_amount: 0 }), NOW).length, 0, "free");
+  const [line] = dodo.dodoLines(dsub({ payment_frequency_interval: "Year", recurring_pre_tax_amount: 12000 }), NOW);
+  assert.equal(m.monthly(line), 1000);
+});
+
+test("Dodo verify refuses keys that are obviously not a key before calling Dodo", async () => {
+  await assert.rejects(dodo.dodoRevenue.verify("short"), /whole Dodo Payments API key/);
+});
+
+/** Answers Dodo calls by host, method and path, so the real SDK runs against a fake API. */
+function stubDodo(answer) {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(typeof url === "string" ? url : url.url);
+    const method = init.method ?? "GET";
+    calls.push(`${method} ${u.host}${u.pathname}`);
+    const [status, body] = answer(u.host.startsWith("test.") ? "test" : "live", method, u.pathname);
+    return new Response(JSON.stringify(body ?? {}), { status, headers: { "content-type": "application/json" } });
+  };
+  return { calls, restore: () => { globalThis.fetch = original; } };
+}
+const DODO_KEY = "dodo_" + "x".repeat(32);
+
+test("Dodo verify: the host that accepts the key decides live or test, and write access is refused", async () => {
+  let stub = stubDodo((env, method) => env === "live" ? [401] : method === "GET" ? [200, { items: [] }] : [403]);
+  try { assert.equal((await dodo.dodoRevenue.verify(DODO_KEY)).environment, "test"); } finally { stub.restore(); }
+  stub = stubDodo((env, method) => env === "test" ? [401] : method === "GET" ? [200, { items: [] }] : [403]);
+  try { assert.equal((await dodo.dodoRevenue.verify(DODO_KEY)).environment, "live"); } finally { stub.restore(); }
+  stub = stubDodo((env, method) => env === "live" ? (method === "GET" ? [200, { items: [] }] : [404]) : [401]);
+  try { await assert.rejects(dodo.dodoRevenue.verify(DODO_KEY), /can write/); } finally { stub.restore(); }
+  stub = stubDodo(() => [403]);
+  try { await assert.rejects(dodo.dodoRevenue.verify(DODO_KEY), /Subscriptions: Read/); } finally { stub.restore(); }
+  stub = stubDodo(() => [401]);
+  try { await assert.rejects(dodo.dodoRevenue.verify(DODO_KEY), /didn't accept/); } finally { stub.restore(); }
+});
+
+test("Dodo sync sums active and past_due subscriptions per currency", async () => {
+  const items = { active: [dsub(), dsub({ customer: { customer_id: "cus_2" }, payment_frequency_interval: "Year", recurring_pre_tax_amount: 12000 })], past_due: [dsub({ currency: "USD" })] };
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = new URL(typeof url === "string" ? url : url.url);
+    if (u.host.startsWith("test.")) return new Response("{}", { status: 401 });
+    const status = u.searchParams.get("status");
+    const page = Number(u.searchParams.get("page_number") ?? 0);
+    return new Response(JSON.stringify({ items: status && page === 0 ? items[status] ?? [] : [] }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const { rows, method } = await dodo.dodoRevenue.sync(DODO_KEY);
+    assert.equal(method, "dodo_subscriptions_v1");
+    assert.deepEqual(rows, [
+      { currency: "eur", mrr_minor: 3400, paying_customers: 2, active_subscriptions: 2 },
+      { currency: "usd", mrr_minor: 2400, paying_customers: 1, active_subscriptions: 1 },
+    ]);
+  } finally { globalThis.fetch = original; }
 });
