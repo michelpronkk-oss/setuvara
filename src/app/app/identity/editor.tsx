@@ -902,7 +902,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
 
   return (
     <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pl-[268px]`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
-      <EditorSidebar avatarFocus={personalMode ? modeFocus(personalMode) : undefined} avatarUrl={personalMode?.image_url ?? null} liveUrl={publicUrl(slug)} modes={modes} onGo={go} personalUrl={profile.username ? publicUrl("personal") : null} plan={plan} profile={profile} section={section} signOut={signOut} slug={slug} />
+      <EditorSidebar avatarFocus={personalMode ? modeFocus(personalMode) : undefined} avatarUrl={personalMode?.image_url ?? null} inPlace liveUrl={publicUrl(slug)} modes={modes} onGo={go} personalUrl={profile.username ? publicUrl("personal") : null} plan={plan} profile={profile} section={section} signOut={signOut} slug={slug} />
 
       {/* Desktop top bar: the Mode, its page sections as tabs, save state, preview and publish. */}
       <header className="hidden shrink-0 border-b border-black/[0.08] pl-8 pr-6 lg:block xl:pl-11">
@@ -936,7 +936,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
       <MobileModeHeader
         below={<MobileSaveLine justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />}
         modes={modes.map((item) => ({ slug: item.slug, enabled: item.is_enabled }))}
-        onMode={(next) => go(section, next)}
+        onMode={(next) => go("home", next)}
         onSection={(next) => go(next as Section)}
         place={sectionPlace(section)}
         right={<>
