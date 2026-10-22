@@ -861,12 +861,12 @@ function LinkPreviewCard({ api, slug }: { api: EditorApi; slug: ModeSlug }) {
   }
 
   return (
-    <section aria-label="Link preview" className="order-4 min-w-0 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[560px]/share:order-none @min-[760px]/share:p-5" data-share-card-preview>
+    <section aria-label="Link preview" className="@container/preview order-4 min-w-0 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[560px]/share:order-none @min-[560px]/share:col-start-2 @min-[760px]/share:p-5" data-share-card-preview>
       <p className="text-sm font-semibold">Link preview</p>
       <p className="mt-1 text-[12.5px] leading-5 text-black/55">What your link shows in messages and social posts. Download it as a post for Instagram or Threads.</p>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img alt="Your link preview card" className="mt-3 aspect-[1200/630] w-full rounded-2xl bg-[#0D0D0D] object-cover" decoding="async" height={630} loading="lazy" src={`${path}?v=${version}`} width={1200} />
-      <div className="mt-3 grid grid-cols-1 gap-2 @min-[300px]/share:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-2 @min-[340px]/preview:grid-cols-2">
         <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={saving !== null} onClick={() => void save("feed")} variant="ink">{saving === "feed" ? "Making post…" : "Download post"}</Pill>
         <Pill className="!min-h-11 whitespace-nowrap !px-3" disabled={saving !== null} onClick={() => void save("link")}>{saving === "link" ? "Saving…" : "Download preview"}</Pill>
       </div>
