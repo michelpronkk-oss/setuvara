@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { freshPlatforms, type PublicPlatform } from "@/lib/social/model";
 import { nameType, nameTypeStyle } from "@/components/profile/name-type";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { after } from "next/server";
@@ -15,6 +16,7 @@ import { ProfileStage } from "@/components/profile/profile-stage";
 import { profileTone, resolvedBrowserThemeColor } from "@/components/profile/appearance-theme";
 import { extraSlideLimit, inkOnAccent, resolveModeAccent, resolveAppearance } from "@/components/profile/appearance";
 import { ActionCards } from "@/components/actions/action-card";
+import { CreatorAudience } from "@/components/creator/creator-audience";
 import { CreatorSections } from "@/components/creator/creator-sections";
 import { getPublicActions } from "@/lib/actions/public";
 import { PublicBuilder } from "@/components/builder/public-builder";
@@ -283,6 +285,8 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
   const lockedWork = creator && !owner
     ? lockedPieces((await supabase.rpc("get_creator_public_summary", { p_username: username })).data, (profile.display_name || username).split(/\s+/)[0])
     : [];
+  // Verified platform audiences the creator chose to show (Creator Mode only).
+  const creatorPlatforms = creator ? freshPlatforms(await supabase.rpc("get_creator_platforms", { p_username: username }).then(({ data }) => (Array.isArray(data) ? data as PublicPlatform[] : []), () => [])) : [];
   // Every Mode can carry Actions; Creator places them among its own sections.
   const modeActions = await getPublicActions(username, slug);
   const testimonials = slug === "business" ? await getPublicTestimonials(username) : [];
@@ -365,7 +369,8 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           attribution
           className="min-h-dvh"
           edgeToEdge
-          footer={creator || modeActions.length || testimonials.length || projects.length || sharedPassportStamp ? (<>
+          footer={creator || creatorPlatforms.length || modeActions.length || testimonials.length || projects.length || sharedPassportStamp ? (<>
+            {creator && <CreatorAudience accent={resolveModeAccent(mode)} display={builderDisplay} platforms={creatorPlatforms} />}
             {creator && <CreatorSections
               accent={resolveModeAccent(mode)}
               accentInk={inkOnAccent(resolveModeAccent(mode))}
