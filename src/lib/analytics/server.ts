@@ -143,6 +143,13 @@ export async function getProfileAnalyticsReport(input: {
   };
 }
 
+/** What each Mode tool did in the range. Null when it can't be read; the page then leaves it out. */
+export async function getModeToolsSummary(profileId: string, startDate: string, endDate: string): Promise<unknown> {
+  const admin = createBillingAdminClient();
+  const { data, error } = await admin.rpc("get_mode_tools_summary", { p_profile_id: profileId, p_from: startDate, p_to: endDate });
+  return error ? null : data;
+}
+
 export async function getProfileIdForUser(userId: string): Promise<string | null> {
   const admin = createBillingAdminClient();
   const { data, error } = await admin.from("profiles").select("id").eq("id", userId).maybeSingle();
