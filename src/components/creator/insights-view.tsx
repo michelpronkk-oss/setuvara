@@ -34,9 +34,9 @@ export function InsightsView({ ranges, range, report, audience, collabs, store, 
 
   return (
     <StudioPage>
-      <StudioHead
+      <StudioHead creator
         action={(
-          <nav aria-label="Range" className="inline-flex gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]">
+          <nav aria-label="Range" className="inline-flex gap-1 rounded-full bg-white p-1 text-[#0D0D0D] shadow-[inset_0_0_0_1px_rgba(13,13,13,.12)]">
             {ranges.map((item) => {
               const on = item.value === range.value;
               return item.allowed

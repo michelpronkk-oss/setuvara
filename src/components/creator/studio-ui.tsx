@@ -10,14 +10,26 @@ export function StudioPage({ children, className = "" }: { children: ReactNode; 
   return <main className={`mx-auto w-full ${width} px-3.5 pt-5 md:px-8 md:pt-7 ${className}`}>{children}</main>;
 }
 
-export function StudioHead({ title, sub, action, className = "" }: { title: string; sub?: ReactNode; action?: ReactNode; className?: string }) {
+/**
+ * The head of a studio page: the same dark stage as every Mode tool, with the title, one line and
+ * the main button. `creator` adds the Creator Mode label and its pink glow.
+ */
+export function StudioHead({ title, sub, action, className = "", creator = false }: { title: string; sub?: ReactNode; action?: ReactNode; className?: string; creator?: boolean }) {
+  const tone = creator ? "#E8A6FF" : "#FF5A4F";
   return (
-    <header className={`mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 md:mb-6 ${className}`}>
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="font-display text-[34px] font-bold leading-[0.95] tracking-[-0.045em] md:text-[52px] md:tracking-[-0.05em]">{title}</h1>
-        {sub && <p className="text-[15px] text-black/65 md:text-base">{sub}</p>}
+    <header className={`relative isolate mb-6 overflow-hidden rounded-[28px] bg-[#0D0D0D] px-5 pb-6 pt-5 text-[#F5F4EF] shadow-[0_30px_60px_-40px_#0D0D0D] md:mb-8 md:rounded-[32px] md:px-9 md:pb-8 md:pt-7 ${className}`} data-tool-head>
+      <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 -z-10 size-[420px] rounded-full opacity-90 blur-2xl" style={{ background: `radial-gradient(circle, ${tone}80, transparent 65%)` }} />
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] [background-image:radial-gradient(#F5F4EF_1px,transparent_1px)] [background-size:18px_18px]" />
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-5">
+        <div className="min-w-0">
+          {creator && <p className="flex items-center gap-2.5 font-label text-[11px] uppercase tracking-[0.16em] text-[#F5F4EF]/60"><span aria-hidden="true" className="size-2 rounded-full" style={{ background: tone }} />Creator Mode</p>}
+          <h1 className={`${creator ? "mt-3" : ""} text-balance font-display text-[38px] font-bold leading-[0.92] tracking-[-0.05em] md:text-[60px]`}>{title}</h1>
+          {sub && <p className="mt-3 max-w-[60ch] text-[15px] leading-[1.45] text-[#F5F4EF]/70 md:text-[16px]">{sub}</p>}
+        </div>
+        {action && <div className="flex flex-wrap items-center gap-2.5" data-tool-actions>{action}</div>}
       </div>
-      {action}
+      {/* Ink buttons and selected pills read as light on the dark stage. */}
+      <style>{`[data-tool-actions] .bg-\\[\\#0D0D0D\\]:not(.bg-white *){background:#F5F4EF;color:#0D0D0D}`}</style>
     </header>
   );
 }

@@ -139,7 +139,7 @@ export function WorkStudio({ profileId, modeId, items, rawData, blockCount, asid
 
   return (
     <>
-      <StudioHead
+      <StudioHead creator
         action={items.length > 0 ? (
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
             <div className="-mx-3.5 flex min-w-0 flex-1 gap-2 overflow-x-auto px-3.5 pb-1 [scrollbar-width:none] md:mx-0 md:flex-none md:px-0">

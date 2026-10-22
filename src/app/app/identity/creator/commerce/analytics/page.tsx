@@ -25,7 +25,7 @@ export default async function CommerceAnalyticsPage() {
 
   return (
     <div className="grid gap-6">
-      <StudioHead sub="Last 30 days" title="Analytics" />
+      <StudioHead creator sub="Last 30 days" title="Analytics" />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {([["Product views", views.toLocaleString("en")], ["Checkouts started", starts.toLocaleString("en")], ["Purchases and claims", purchases.toLocaleString("en")], ["Conversion", pct(views ? purchases / views : null)]] as const).map(([label, value]) => (
           <div className="rounded-[22px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]" key={label}><Mono className="text-black/55">{label}</Mono><p className="mt-2 font-display text-[32px] font-bold leading-none tracking-[-0.05em] tabular-nums">{value}</p></div>
