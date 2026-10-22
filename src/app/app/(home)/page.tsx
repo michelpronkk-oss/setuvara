@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
@@ -5,6 +6,9 @@ import { Suspense } from "react";
 import { CreatorDashboard } from "@/components/creator/creator-dashboard";
 import { IdentityStage, type StageMode } from "@/components/app/home/identity-stage";
 import { GoalsSection } from "@/components/app/home/goals-section";
+import { ModesSection, type HomeModeTile } from "@/components/app/home/modes-section";
+import { PulseSection } from "@/components/app/home/pulse-section";
+import { SetupSection } from "@/components/app/home/setup-section";
 import { PassportSection, PassportSkeleton } from "@/components/app/home/passport-section";
 import { PeopleSection, PeopleSkeleton } from "@/components/app/home/people-section";
 import type { ModeSlug } from "@/components/profile/types";
@@ -62,27 +66,59 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
   const launch = query.launch === LAUNCH_VALUE;
   const initialMode = launch ? parseLaunchMode(cookieStore.get(LAUNCH_MODE_COOKIE)?.value) : ORDER.includes(query.mode as ModeSlug) ? (query.mode as ModeSlug) : "personal";
 
+  const tiles: HomeModeTile[] = (["personal", "event", "business", "creator"] as ModeSlug[]).filter((slug) => modeRows?.some((row) => row.slug === slug)).map((slug) => {
+    const row = modeRows!.find((item) => item.slug === slug)!;
+    const settings = (row.settings ?? {}) as Record<string, string | boolean>;
+    const tagline = typeof settings.tagline === "string" ? settings.tagline.trim() : "";
+    const summary = slug === "creator" ? tagline || "Add what you make." : describeMode(slug, settings, profile.bio).line;
+    return { slug, enabled: Boolean(row.is_enabled), summary };
+  });
+  const firstName = profile.display_name.trim().split(/\s+/)[0] || "there";
+  const publicUrl = `${publicOrigin.replace(/^https?:\/\//, "")}/${profile.username}`;
+
   return (
-    <main className="px-3.5 pb-6 pt-0.5 md:px-8 md:pb-6 md:pt-6 lg:grid lg:h-dvh lg:min-h-[680px] lg:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)] lg:gap-6 min-[1800px]:gap-8">
-      <h1 className="sr-only">Your Setuvara</h1>
-      <IdentityStage
-        displayName={profile.display_name}
-        initialMode={initialMode}
-        key={launch ? "launch" : query.mode ?? "home"}
-        hasRequestedMode={launch || ORDER.includes(query.mode as ModeSlug)}
-        launch={launch}
-        isPublished={profile.is_published}
-        modes={modes}
-        plan={billing.plan}
-        publicOrigin={publicOrigin}
-        modeShareUrls={modeShareUrls}
-        creatorHref={creatorRow?.is_enabled ? "/app?mode=creator" : null}
-        username={profile.username}
-      />
-      <div className="mt-5 flex min-h-0 flex-col gap-6 lg:mt-0 min-[1800px]:gap-8">
-        <Suspense fallback={<PeopleSkeleton />}><PeopleSection userId={userId} /></Suspense>
-        <Suspense fallback={null}><GoalsSection /></Suspense>
+    <main className="mx-auto w-full max-w-[1480px] px-3.5 pb-10 pt-1 md:px-8 md:pt-8">
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 px-1 pb-5 md:pb-7">
+        <div className="min-w-0">
+          <h1 className="font-display text-[30px] font-bold leading-none tracking-[-0.045em] md:text-[40px]">{profile.is_published ? `Hi, ${firstName}.` : `Welcome, ${firstName}.`}</h1>
+          <p className="mt-2 text-[14.5px] text-black/58">
+            {profile.is_published
+              ? <>Here&apos;s what&apos;s happening across your Setuvara · <span className="font-label text-[13px] text-black/70">{publicUrl}</span></>
+              : "Your Setuvara is a draft. Finish a few steps and publish it when you're ready."}
+          </p>
+        </div>
+        {!profile.is_published && <Link className="inline-flex min-h-11 items-center rounded-full bg-[#0D0D0D] px-5 text-[14px] font-semibold text-[#F5F4EF] transition hover:bg-black/85 focus-visible:outline-2 focus-visible:outline-offset-2" href="/app/identity?mode=personal&section=share">Publish your Setuvara</Link>}
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,1fr)] lg:gap-6">
+        <div className="lg:h-[min(680px,calc(100dvh-180px))] lg:min-h-[560px]">
+          <IdentityStage
+            displayName={profile.display_name}
+            initialMode={initialMode}
+            key={launch ? "launch" : query.mode ?? "home"}
+            hasRequestedMode={launch || ORDER.includes(query.mode as ModeSlug)}
+            launch={launch}
+            isPublished={profile.is_published}
+            modes={modes}
+            plan={billing.plan}
+            publicOrigin={publicOrigin}
+            modeShareUrls={modeShareUrls}
+            creatorHref={creatorRow?.is_enabled ? "/app?mode=creator" : null}
+            username={profile.username}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-5 lg:gap-6">
+          <Suspense fallback={null}><SetupSection bio={profile.bio ?? ""} isPublished={profile.is_published} userId={userId} /></Suspense>
+          <Suspense fallback={<PeopleSkeleton />}><PeopleSection userId={userId} /></Suspense>
+        </div>
+      </div>
+
+      <div className="mt-10 md:mt-12"><ModesSection modes={tiles} published={profile.is_published} /></div>
+
+      <div className="mt-10 grid gap-5 md:mt-12 md:grid-cols-2 lg:gap-6 xl:grid-cols-3">
+        <Suspense fallback={null}><PulseSection isPublished={profile.is_published} plan={billing.plan} userId={userId} /></Suspense>
         <Suspense fallback={<PassportSkeleton />}><PassportSection plan={billing.plan} /></Suspense>
+        <Suspense fallback={null}><GoalsSection /></Suspense>
       </div>
     </main>
   );
