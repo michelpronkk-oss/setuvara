@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -73,6 +74,7 @@ function Presentation({ initial, counts, profileId, modeId }: { initial: Creator
     const { error } = await createClient().from("profile_modes").update({ settings: writeCreatorSettings(settings) }).eq("id", modeId).eq("profile_id", profileId);
     if (error) { setStatus("error"); return; }
     setStatus("saved");
+    toast("Settings saved");
     router.refresh();
   }
 

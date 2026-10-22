@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -43,6 +44,7 @@ export function KitStudio({ profileId, initial, base, kitUrl }: { profileId: str
     const { error } = await createClient().from("creator_media_kits").upsert({ ...row, contact_email: row.contact_email?.trim() || null, user_id: profileId }, { onConflict: "user_id" });
     if (error) { setStatus("error"); return; }
     setStatus("saved");
+    toast("Media kit saved");
     router.refresh();
   }
 

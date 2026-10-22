@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -113,6 +114,7 @@ export function EventEditor({ event, profileId, modeId, modeLive, ended = false 
     // More seats may have promoted the waitlist; those guests get their email now.
     if (event && event.waitlist_count > 0) await settleEvent(event.id).catch(() => null);
     setBusy(false);
+    toast(event ? "Saved" : "Event created");
     if (!event) router.replace(`/app/identity/events/${result.data.id}`);
     else router.refresh();
   }
@@ -123,6 +125,7 @@ export function EventEditor({ event, profileId, modeId, modeLive, ended = false 
     const { error: cancelError } = await createClient().from("events").update({ status: "cancelled" }).eq("id", event.id).eq("profile_id", profileId);
     setBusy(false);
     if (cancelError) { setError(errorMessage(cancelError.message)); return; }
+    toast("Event cancelled");
     router.refresh();
   }
 

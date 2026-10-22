@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -194,6 +195,7 @@ export function ActionEditor({ kind, initial, thanks: thanks0 = null, starter, p
     }
     setBusy(false);
     setSaved(true);
+    toast(nextStatus === "published" && status !== "published" ? "Published" : "Saved");
     if (nextStatus === "published" && status !== "published") { setView("page"); }
     if (!initial) router.replace(`${base}/${result.data.id}?tab=edit`);
     else router.refresh();

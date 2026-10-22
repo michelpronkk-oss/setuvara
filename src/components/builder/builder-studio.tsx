@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/app/toast";
 import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -61,7 +62,7 @@ export function BuilderStudio(props: Props) {
   const run = (work: () => Promise<{ error: { message: string } | null } | void>, done = "Saved.") => start(async () => {
     const result = await work();
     if (result && result.error) { setError(builderError(result.error.message)); return; }
-    setSaved(done); router.refresh();
+    setSaved(done); toast(done.replace(/\.$/, "")); router.refresh();
   });
 
   const save = () => run(async () => {
