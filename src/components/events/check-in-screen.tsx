@@ -24,7 +24,7 @@ export async function CheckInScreen({ token }: { token: string }) {
   if (!guest || !event) {
     return (
       <StudioPage className="max-w-[640px]">
-        <Head back={back} eyebrow={eyebrow} title="Not your guest." />
+        <Head tone="#C7FF4A" back={back} eyebrow={eyebrow} title="Not your guest." />
         <EmptyState action={<Link className={lineButton} href="/app/identity/events">Your events</Link>} body="This pass isn't for one of your events, or it was changed. Ask the guest to open the newest email about the event." title="Nothing to check in." />
       </StudioPage>
     );
@@ -33,7 +33,7 @@ export async function CheckInScreen({ token }: { token: string }) {
   const when = eventWhen(record);
   return (
     <StudioPage className="max-w-[640px]">
-      <Head back={{ href: `/app/identity/events/${record.id}`, label: "Guest list" }} eyebrow={eyebrow} sub={<>{when.date} {when.year} · {when.time}</>} title={record.title} />
+      <Head tone="#C7FF4A" back={{ href: `/app/identity/events/${record.id}`, label: "Guest list" }} eyebrow={eyebrow} sub={<>{when.date} {when.year} · {when.time}</>} title={record.title} />
       <CheckInCard eventId={record.id} guest={guest as Guest} window={record.status === "cancelled" ? "cancelled" : checkInWindow(record)} />
     </StudioPage>
   );

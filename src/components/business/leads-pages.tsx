@@ -90,12 +90,12 @@ export function ComingUp({ bookings, linked = true }: { bookings: (Booking & { n
 export async function LeadsIndex({ days }: { days: number }) {
   const data = await loadLeads(days);
   if (!data.mode) notFound();
-  if (!data.ready) return <StudioPage><Head eyebrow={eyebrow} title="Leads" /><EmptyState body="Leads need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
+  if (!data.ready) return <StudioPage><Head tone="#AFCBFF" eyebrow={eyebrow} title="Leads" /><EmptyState body="Leads need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
   const { leads, funnel, limits } = data;
   const open = funnel.open_by_stage.new + funnel.open_by_stage.contacted + funnel.open_by_stage.qualified;
   return (
     <StudioPage className="max-w-[1180px]">
-      <Head eyebrow={eyebrow} sub={leads.length ? `${open} open · ${funnel.open_by_stage.new} new` : "Every inquiry from your Business Mode lands here as a lead."} title="Leads" />
+      <Head tone="#AFCBFF" eyebrow={eyebrow} sub={leads.length ? `${open} open · ${funnel.open_by_stage.new} new` : "Every inquiry from your Business Mode lands here as a lead."} title="Leads" />
       <ComingUp bookings={data.bookings} />
       <FunnelStrip days={days} funnel={funnel} />
       {leads.length === 0 ? (

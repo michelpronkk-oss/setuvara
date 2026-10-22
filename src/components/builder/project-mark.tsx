@@ -13,7 +13,7 @@ export function ProjectMark({ name, url, accent, accentInk, size = 48, display }
   const host = faviconHost(url);
   return (
     <span aria-hidden="true" className="grid shrink-0 place-items-center overflow-hidden rounded-[14px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]" data-project-mark={host ? "site" : "letter"} style={{ width: size, height: size }}>
-      {host ? <Favicon className="size-[58%]" fallback={letter} host={host} /> : letter}
+      {host ? <Favicon className="!size-full !object-cover" fallback={letter} host={host} /> : letter}
     </span>
   );
 }
