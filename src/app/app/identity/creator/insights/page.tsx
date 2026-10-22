@@ -51,7 +51,6 @@ export default async function CreatorInsightsPage({ searchParams }: { searchPara
       audience={audience}
       collabs={collabs}
       emailsSent={emailsSent}
-      followerCount={studio.followerCount}
       platforms={studio.socials}
       range={{ ...range, allowed: true }}
       ranges={RANGES.map((item) => ({ ...item, allowed: capabilities.availableRanges.includes(item.value) }))}

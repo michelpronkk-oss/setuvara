@@ -19,9 +19,9 @@ export type InsightsRange = { value: string; label: string; say: string; allowed
  * store over the same range, and verified platform counts. Every number arrives computed; a dash
  * means we can't know it yet, never zero.
  */
-export function InsightsView({ ranges, range, report, audience, collabs, store, emailsSent, responses, followerCount, platforms }: {
+export function InsightsView({ ranges, range, report, audience, collabs, store, emailsSent, responses, platforms }: {
   ranges: InsightsRange[]; range: InsightsRange; report: ProfileAnalyticsReport | null;
-  audience: AudienceInsight; collabs: DealInsight; store: StoreInsight; emailsSent: number; responses: number; followerCount: number; platforms: SocialAccount[];
+  audience: AudienceInsight; collabs: DealInsight; store: StoreInsight; emailsSent: number; responses: number; platforms: SocialAccount[];
 }) {
   const opens = report?.summary.profileViews ?? null;
   const scans = report ? report.summary.qrScans + report.summary.quickQrScans + report.summary.tapScans : null;
@@ -55,7 +55,7 @@ export function InsightsView({ ranges, range, report, audience, collabs, store, 
           {report ? (
             <OpensPulse delta={delta} opens={opens ?? 0} rows={[
               { label: "QR and Tap", value: scans ?? 0, note: "scans of your code" },
-              { label: "Followers", value: followerCount, note: "following you on Setuvara" },
+              { label: "Audience", value: audience.subscribed, note: "on your newsletter lists" },
               { label: "Action responses", value: responses, note: "requests, entries, questions" },
             ]} story={storyLine(opens ?? 0, peak, typeof sources[0]?.source === "string" ? sources[0].source : undefined)} points={daily.map((row) => ({ date: row.date, value: row.profileViews, notes: row.connections ? [`${row.connections} new ${row.connections === 1 ? "connection" : "connections"}`] : undefined }))} />
           ) : (
@@ -65,7 +65,7 @@ export function InsightsView({ ranges, range, report, audience, collabs, store, 
               <p className="mt-3 max-w-[52ch] text-[15px] leading-[1.5] text-[#F5F4EF]/65">Plus splits your analytics by Mode, so you see this page on its own: daily opens and where visitors came from. Your audience, deals and store below are always yours.</p>
               <Link className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#E8A6FF] px-[18px] text-[15px] font-semibold text-[#0D0D0D]" href="/pricing">See Plus</Link>
               <dl className="mt-6 grid grid-cols-3 gap-4 border-t border-[#F5F4EF]/10 pt-5">
-                {[["QR and Tap", scans ?? 0], ["Followers", followerCount], ["Action responses", responses]].map(([label, value]) => <div key={label}><dt className="font-label text-[10px] uppercase tracking-[0.16em] text-[#F5F4EF]/50">{label}</dt><dd className="mt-1 font-display text-[32px] font-bold leading-none tracking-[-0.05em]">{value}</dd></div>)}
+                {[["QR and Tap", scans ?? 0], ["Audience", audience.subscribed], ["Action responses", responses]].map(([label, value]) => <div key={label}><dt className="font-label text-[10px] uppercase tracking-[0.16em] text-[#F5F4EF]/50">{label}</dt><dd className="mt-1 font-display text-[32px] font-bold leading-none tracking-[-0.05em]">{value}</dd></div>)}
               </dl>
             </div>
           )}
