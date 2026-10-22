@@ -46,7 +46,7 @@ export const loadLeads = cache(async (days: number) => {
       ? supabase.from("business_bookings").select(BOOKING_COLUMNS).eq("profile_id", data.userId).in("action_id", bookingActions).neq("status", "cancelled").gte("ends_at", new Date().toISOString()).order("starts_at").limit(50)
       : Promise.resolve({ data: [] }),
   ]);
-  if (leads.error || funnel.error) return { ...data, ready: false as const };
+  if (leads.error || funnel.error || !funnel.data) return { ...data, ready: false as const };
   return {
     ...data,
     ready: true as const,
