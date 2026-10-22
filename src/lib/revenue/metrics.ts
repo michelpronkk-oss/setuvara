@@ -59,7 +59,11 @@ export interface RevenueAdapter {
   verify(key: string): Promise<VerifiedKey>;
   /** Current snapshot rows. Throws on any provider error so a partial read is never recorded. */
   sync(key: string): Promise<{ rows: SnapshotRow[]; method: string }>;
+  /** Month-end rows rebuilt from the provider's records, for providers that keep them. */
+  history?(key: string, months: number): Promise<{ rows: (SnapshotRow & { day: string })[]; method: string }>;
 }
+
+export type HistoryMode = "daily" | "reconstructed";
 
 export class RevenueKeyError extends Error {}
 

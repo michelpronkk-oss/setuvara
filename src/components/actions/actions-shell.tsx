@@ -97,6 +97,10 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
             <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/testimonials">
               <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#FFE7B8] [&_svg]:size-[20px]"><TestimonialsIcon /></span>Testimonials
             </Link>
+          ) : slug === "business" && page === "builder" ? (
+            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/builder?mode=business">
+              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><StudioIcon name="builder" /></span>Builder
+            </Link>
           ) : slug === "business" && page === "team" ? (
             <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/team">
               <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><TeamIcon /></span>Team

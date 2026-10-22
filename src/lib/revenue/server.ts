@@ -3,10 +3,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ProviderCode, RevenueAdapter } from "./metrics";
+import { revenuecatRevenue } from "./revenuecat";
 import { stripeRevenue } from "./stripe";
 
-/** Adapters that can be connected today. RevenueCat and Dodo Payments join here. */
-export const ADAPTERS: Partial<Record<ProviderCode, RevenueAdapter>> = { stripe: stripeRevenue };
+/** Adapters that can be connected today. Dodo Payments joins here. */
+export const ADAPTERS: Partial<Record<ProviderCode, RevenueAdapter>> = { stripe: stripeRevenue, revenuecat: revenuecatRevenue };
 
 /** One sync of one connection. Provider errors are recorded on the connection, never as numbers. */
 export async function syncConnection(service: SupabaseClient, connection: { id: string; provider: string }) {

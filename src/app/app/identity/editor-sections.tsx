@@ -135,6 +135,13 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
             <span aria-hidden="true" className="text-xl text-white/40">›</span>
           </Link>
         )}
+        {slug === "business" && (
+          <Link className="mt-4 flex min-h-[74px] items-center gap-4 rounded-[22px] bg-[#0D0D0D] px-4 text-[#F5F4EF]" href="/app/identity/builder?mode=business">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#AFCBFF]/15 text-[#AFCBFF]"><svg className="size-[19px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4.5 19.5h15M6.5 19.5V9.5l5.5-5 5.5 5v10" /><path d="M10 19.5v-5h4v5" /></svg></span>
+            <span className="min-w-0 flex-1"><span className="block font-display text-[1.3rem] font-bold leading-tight tracking-[-0.04em]">Builder</span><span className="block truncate text-[13px] text-white/55">Products, roadmap and verified revenue</span></span>
+            <span aria-hidden="true" className="text-xl text-white/40">›</span>
+          </Link>
+        )}
         {slug === "event" && (
           <Link className="mt-4 flex min-h-[74px] items-center gap-4 rounded-[22px] bg-[#0D0D0D] px-4 text-[#F5F4EF]" href="/app/identity/events">
             <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#C7FF4A]/15 text-[#C7FF4A]"><svg className="size-[19px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><rect height="15.5" rx="2.4" width="17" x="3.5" y="5" /><path d="M3.5 10h17M8 3.5v3M16 3.5v3M8 14h3" /></svg></span>

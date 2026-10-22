@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(32);
 
 create temporary table rv(kind text primary key, id uuid);
 grant select, insert on rv to anon, authenticated, service_role;
@@ -60,6 +60,35 @@ select is(public.get_builder_revenue_preview(pg_temp.uname('owner'), 'creator'),
 reset role;
 select ok(not has_function_privilege('anon','public.get_builder_revenue_preview(text,text)','execute'), 'visitors cannot call the preview');
 update public.revenue_connections set environment='live' where id=pg_temp.v('conn');
+
+-- History setting: reconstructed months only while the owner has it on, labelled, and gone when switched off.
+select ok(not has_function_privilege('authenticated','public.revenue_record_history(uuid,jsonb,text)','execute'), 'only the server writes reconstructed history');
+set local role service_role;
+select is(public.revenue_record_history(pg_temp.v('conn'), '[{"day":"2000-01-31","currency":"eur","mrr_minor":1,"paying_customers":1,"active_subscriptions":1}]', 'stripe_history_v1'), 0, 'nothing is reconstructed while the setting is daily');
+reset role;
+set local role authenticated;
+select pg_temp.as_user('other');
+select throws_ok($$select public.revenue_set_history(pg_temp.v('conn'), 'reconstructed')$$, 'P0002', 'connection_not_found', 'only the owner changes the history setting');
+select pg_temp.as_user('owner');
+select public.revenue_set_history(pg_temp.v('conn'), 'reconstructed');
+reset role;
+set local role service_role;
+select is(public.revenue_record_history(pg_temp.v('conn'), jsonb_build_array(
+  jsonb_build_object('day', current_date - 60, 'currency', 'eur', 'mrr_minor', 210000, 'paying_customers', 20, 'active_subscriptions', 20),
+  jsonb_build_object('day', current_date, 'currency', 'eur', 'mrr_minor', 1, 'paying_customers', 1, 'active_subscriptions', 1),
+  jsonb_build_object('day', current_date - 4000, 'currency', 'eur', 'mrr_minor', 1, 'paying_customers', 1, 'active_subscriptions', 1)), 'stripe_history_v1'), 1,
+  'only days before the first measurement and inside the plan window are stored');
+reset role;
+select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->>'reconstructed'), 'true', 'the public card says it includes reconstructed history');
+select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->'trend'), '[0.500, 1.000]'::jsonb, 'and the trend reaches back to it');
+select is((public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->>'mrr_minor'), '420000', 'the headline figure stays the latest measurement');
+set local role authenticated;
+select pg_temp.as_user('owner');
+select public.revenue_set_history(pg_temp.v('conn'), 'daily');
+reset role;
+select ok(not exists(select 1 from public.revenue_snapshots where connection_id = pg_temp.v('conn') and reconstructed)
+  and (public.get_public_builder_revenue(pg_temp.uname('owner'), 'creator')->(pg_temp.v('project')::text)->0->>'reconstructed') = 'false',
+  'switching back to daily deletes the reconstructed months');
 
 -- Isolation and disconnect.
 set local role authenticated;

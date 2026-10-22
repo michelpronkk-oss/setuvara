@@ -1,4 +1,4 @@
-/** Verified Revenue maths and the Stripe adapter's subscription normalisation.  npm run test:revenue */
+/** Verified Revenue maths, the Stripe adapter's subscription normalisation and the RevenueCat adapter.  npm run test:revenue */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -10,15 +10,17 @@ const root = resolve(import.meta.dirname, "../..");
 const cache = join(root, "node_modules/.cache");
 mkdirSync(cache, { recursive: true });
 const out = mkdtempSync(join(cache, "setuvara-revenue-"));
-let m, s;
+let m, s, rc;
 before(async () => {
   writeFileSync(join(out, "empty.js"), "");
   const opts = { bundle: true, format: "cjs", platform: "node", logLevel: "silent", external: ["stripe"], alias: { "server-only": join(out, "empty.js") } };
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/metrics.ts")], outfile: join(out, "m.cjs") });
   await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/stripe.ts")], outfile: join(out, "s.cjs") });
+  await build({ ...opts, entryPoints: [join(root, "src/lib/revenue/revenuecat.ts")], outfile: join(out, "rc.cjs") });
   const require = createRequire(join(root, "package.json"));
   m = require(join(out, "m.cjs"));
   s = require(join(out, "s.cjs"));
+  rc = require(join(out, "rc.cjs"));
 });
 after(() => rmSync(out, { recursive: true, force: true }));
 
@@ -76,4 +78,93 @@ test("Stripe verify refuses secret keys before calling Stripe", async () => {
 
 test("key hints never carry the secret", () => {
   assert.equal(m.keyHint("rk_" + "live_" + "51AbCdEfGh0000"), "rk_live_…0000");
+});
+
+const KEY = "sk_" + "AbCdEfGhIjKlMnOpQrStUv12";
+const overview = (mrr = 1234.56, active = 42) => ({ object: "overview_metrics", currency: "USD", metrics: [
+  { object: "overview_metric", id: "active_trials", unit: "#", period: "P0D", value: 7 },
+  { object: "overview_metric", id: "active_subscriptions", unit: "#", period: "P0D", value: active },
+  { object: "overview_metric", id: "mrr", unit: "$", period: "P28D", value: mrr },
+  { object: "overview_metric", id: "revenue", unit: "$", period: "P28D", value: 1500 },
+] });
+/** Answers RevenueCat calls by method and path suffix, recording each request. */
+function stubFetch(routes) {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const method = init.method ?? "GET";
+    calls.push({ url: String(url), method, auth: init.headers?.authorization });
+    const hit = routes.find(([m, suffix]) => m === method && new URL(url).pathname.endsWith(suffix));
+    const [, , status, body] = hit ?? [null, null, 404, { object: "error" }];
+    return new Response(JSON.stringify(body ?? {}), { status, headers: { "content-type": "application/json" } });
+  };
+  return { calls, restore: () => { globalThis.fetch = original; } };
+}
+
+test("RevenueCat: overview metrics become one row in the reported currency", () => {
+  assert.deepEqual(rc.revenuecatRows(overview()), [{ currency: "usd", mrr_minor: 123456, paying_customers: 42, active_subscriptions: 42 }]);
+  assert.deepEqual(rc.revenuecatRows(overview(0, 0)), []);
+  assert.throws(() => rc.revenuecatRows({ metrics: [{ id: "mrr", value: 10 }] }), /active_subscriptions/);
+  assert.throws(() => rc.revenuecatRows({ metrics: [{ id: "mrr", value: -1 }, { id: "active_subscriptions", value: 1 }] }), /mrr/);
+  assert.throws(() => rc.revenuecatRows({}), /no metrics/);
+});
+
+test("RevenueCat: the credential needs a project ID and a v2 secret key", () => {
+  assert.deepEqual(rc.revenuecatCredential(`proj1a2b3c4d:${KEY}`), { projectId: "proj1a2b3c4d", key: KEY });
+  assert.throws(() => rc.revenuecatCredential(KEY), /project ID/);
+  assert.throws(() => rc.revenuecatCredential("proj1a2b3c4d:appl_" + "x".repeat(24)), /secret key/);
+});
+
+test("RevenueCat verify accepts a metrics-only key", async () => {
+  const stub = stubFetch([["GET", "/projects/proj1/metrics/overview", 200, overview()], ["DELETE", "/customers/setuvara_permission_probe", 403, { type: "authorization_error" }]]);
+  try {
+    const verified = await rc.revenuecatRevenue.verify(`proj1:${KEY}`);
+    assert.deepEqual(verified, { environment: "live", accountRef: "proj1", keyHint: "sk_A…Uv12" });
+    assert.ok(stub.calls.every((c) => c.url.startsWith("https://api.revenuecat.com/v2/") && c.auth === `Bearer ${KEY}`));
+  } finally { stub.restore(); }
+});
+
+test("RevenueCat verify refuses keys that can write or can't read metrics", async () => {
+  let stub = stubFetch([["GET", "/metrics/overview", 200, overview()], ["DELETE", "/setuvara_permission_probe", 404, { type: "resource_missing" }]]);
+  try { await assert.rejects(rc.revenuecatRevenue.verify(`proj1:${KEY}`), /can write/); } finally { stub.restore(); }
+  stub = stubFetch([["GET", "/metrics/overview", 403, { type: "authorization_error" }]]);
+  try { await assert.rejects(rc.revenuecatRevenue.verify(`proj1:${KEY}`), /Charts & metrics/); } finally { stub.restore(); }
+  stub = stubFetch([["GET", "/metrics/overview", 401, {}]]);
+  try { await assert.rejects(rc.revenuecatRevenue.verify(`proj1:${KEY}`), /didn't accept/); } finally { stub.restore(); }
+  stub = stubFetch([]);
+  try { await assert.rejects(rc.revenuecatRevenue.verify(`proj1:${KEY}`), /project ID/); } finally { stub.restore(); }
+});
+
+test("RevenueCat sync reads the USD overview and labels the method", async () => {
+  const stub = stubFetch([["GET", "/metrics/overview", 200, overview(99.5, 3)]]);
+  try {
+    assert.deepEqual(await rc.revenuecatRevenue.sync(`proj1:${KEY}`), { rows: [{ currency: "usd", mrr_minor: 9950, paying_customers: 3, active_subscriptions: 3 }], method: "revenuecat_overview_v2" });
+    assert.match(stub.calls[0].url, /currency=USD$/);
+  } finally { stub.restore(); }
+  const refused = stubFetch([["GET", "/metrics/overview", 403, {}]]);
+  try { await assert.rejects(rc.revenuecatRevenue.sync(`proj1:${KEY}`), /permission/); } finally { refused.restore(); }
+});
+
+const T = (iso) => Date.parse(iso) / 1000;
+test("Stripe history: month ends are the last day of each past month, oldest first", () => {
+  assert.deepEqual(s.monthEnds(3, new Date("2026-10-21T12:00:00Z")).map((e) => e.day), ["2026-07-31", "2026-08-31", "2026-09-30"]);
+  assert.equal(s.monthEnds(1, new Date("2026-03-01T00:00:00Z"))[0].at, T("2026-02-28T23:59:59Z"));
+});
+
+test("Stripe history: a subscription counts from its start, after its trial, until it ended", () => {
+  const ends = s.monthEnds(4, new Date("2026-10-21T00:00:00Z"));
+  const subs = [
+    sub({ customer: "a", start_date: T("2026-05-10T00:00:00Z") }),
+    sub({ customer: "b", start_date: T("2026-07-15T00:00:00Z"), trial_end: T("2026-08-15T00:00:00Z") }),
+    sub({ customer: "c", status: "canceled", start_date: T("2026-06-01T00:00:00Z"), ended_at: T("2026-08-10T00:00:00Z") }),
+    sub({ customer: "d", status: "incomplete_expired", start_date: T("2026-06-01T00:00:00Z") }),
+  ];
+  assert.deepEqual(s.stripeHistory(subs, ends), [
+    { day: "2026-06-30", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+    { day: "2026-07-31", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+    { day: "2026-08-31", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+    { day: "2026-09-30", currency: "eur", mrr_minor: 2400, paying_customers: 2, active_subscriptions: 2 },
+  ]);
+  assert.equal(s.paidAt(subs[1], T("2026-07-31T23:59:59Z")), false, "still in trial");
+  assert.equal(s.paidAt(subs[2], T("2026-08-31T23:59:59Z")), false, "ended");
 });

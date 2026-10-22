@@ -106,7 +106,7 @@ export function VerifiedRevenue({ sources, accent, accentInk, idBase }: { source
           </dl>
         )}
         {s.trend && s.trend.length > 0 && <div className="mt-4 pr-1"><Trend accent={accent} id={`vr-${idBase}-${i}`} values={s.trend} /></div>}
-        <p className="mt-2 text-[11.5px] opacity-50">{s.trend && s.trend.length > 1 ? `Last ${s.trend.length} days · ` : "Tracking started · "}synced {new Date(s.synced_at).toLocaleDateString("en", { day: "numeric", month: "short", timeZone: "UTC" })}</p>
+        <p className="mt-2 text-[11.5px] opacity-50">{s.reconstructed ? "Reconstructed from Stripe history, then measured daily · " : s.trend && s.trend.length > 1 ? `Last ${s.trend.length} days · ` : "Tracking started · "}synced {new Date(s.synced_at).toLocaleDateString("en", { day: "numeric", month: "short", timeZone: "UTC" })}</p>
       </li>
     );
   });

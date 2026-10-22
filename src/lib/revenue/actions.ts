@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createCommerceServiceClient } from "@/lib/commerce/server";
 import { createClient } from "@/lib/supabase/server";
 
-import { RevenueKeyError, type ProviderCode } from "./metrics";
+import { RevenueKeyError, type HistoryMode, type ProviderCode } from "./metrics";
 import { ADAPTERS, syncConnection } from "./server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,6 +37,39 @@ export async function connectRevenue(projectId: string, provider: ProviderCode, 
   await syncConnection(service, { id: id as string, provider });
   refresh();
   return { ok: true as const, environment: verified.environment };
+}
+
+/**
+ * The owner's history setting. "reconstructed" rebuilds past month-ends from the provider's records within
+ * the plan's history window, labelled as such; "daily" deletes them again and keeps only measurements.
+ */
+export async function setRevenueHistory(connectionId: string, mode: HistoryMode) {
+  if (!UUID.test(connectionId) || (mode !== "daily" && mode !== "reconstructed")) return { ok: false as const, error: ERRORS.connection_not_found };
+  const supabase = await createClient();
+  const [{ data: connection }, { data: limits }] = await Promise.all([
+    supabase.from("revenue_connections").select("id, provider").eq("id", connectionId).neq("status", "revoked").maybeSingle(),
+    supabase.rpc("my_revenue_limits"),
+  ]);
+  if (!connection) return { ok: false as const, error: ERRORS.connection_not_found };
+  const adapter = ADAPTERS[connection.provider as ProviderCode];
+  if (mode === "reconstructed" && !adapter?.history) return { ok: false as const, error: "This provider doesn't keep history we can rebuild." };
+  const { error } = await supabase.rpc("revenue_set_history", { p_connection: connectionId, p_mode: mode });
+  if (error) return { ok: false as const, error: say(error.message) };
+  if (mode === "reconstructed") {
+    const days = (limits as { history_days?: number } | null)?.history_days ?? 0;
+    const service = createCommerceServiceClient();
+    const { data: key } = await service.rpc("revenue_connection_secret", { p_connection: connectionId });
+    try {
+      if (typeof key !== "string") throw new Error("no key");
+      const { rows, method } = await adapter!.history!(key, Math.min(12, Math.max(1, Math.floor(days / 30))));
+      await service.rpc("revenue_record_history", { p_connection: connectionId, p_rows: rows, p_method: method });
+    } catch {
+      refresh();
+      return { ok: false as const, error: "Saved, but we couldn't read the history from the provider. Switch it off and on to try again." };
+    }
+  }
+  refresh();
+  return { ok: true as const };
 }
 
 /** Destroys the stored key. History stays for the owner; nothing shows as verified anymore. */
