@@ -34,8 +34,9 @@ export function Examples() {
         <p className="mt-5 max-w-[34rem] text-[18px] leading-[1.5] text-ink/65">Ten Looks, each with its own phone and desktop composition. On a laptop your page is a full editorial spread, not a phone in the middle of the screen.</p>
         <ul className={`${nameFontClasses} mt-12 grid gap-6 lg:mt-16 lg:grid-cols-2`}>
           {EXAMPLES.map((example, index) => (
-            <li className={index === 0 ? "lg:col-span-2" : ""} key={example.slug}>
-              <Link className="group block rounded-[20px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral" href={MODE_PAGES[example.slug].path}>
+            <li className={`group relative ${index === 0 ? "lg:col-span-2" : ""}`} key={example.slug}>
+              {/* The drawing is a real page with its own links, so it is inert and the caption link covers the card. */}
+              <div inert>
                 <BrowserFrame className="transition-transform duration-300 group-hover:-translate-y-1" url={MODE_PAGES[example.slug].share}>
                   {/* One drawing per breakpoint keeps the page sharp at every width. */}
                   <div className="sm:hidden"><ModeDesktop scale={0.26} slug={example.slug} /></div>
@@ -45,8 +46,8 @@ export function Examples() {
                   <div className="hidden lg:block xl:hidden"><ModeDesktop scale={index === 0 ? 0.7 : 0.34} slug={example.slug} /></div>
                   <div className="hidden xl:block"><ModeDesktop scale={index === 0 ? 0.9 : 0.44} slug={example.slug} /></div>
                 </BrowserFrame>
-                <p className="mt-3 flex items-center justify-between text-[14px] text-ink/60"><span>{example.caption}</span><span className="font-semibold text-ink transition-transform group-hover:translate-x-0.5">{MODE_PAGES[example.slug].name} Mode →</span></p>
-              </Link>
+              </div>
+              <p className="mt-3 flex items-center justify-between text-[14px] text-ink/60"><span>{example.caption}</span><Link className="font-semibold text-ink transition-transform after:absolute after:inset-0 after:rounded-[20px] group-hover:translate-x-0.5 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-coral" href={MODE_PAGES[example.slug].path}>{MODE_PAGES[example.slug].name} Mode →</Link></p>
             </li>
           ))}
         </ul>

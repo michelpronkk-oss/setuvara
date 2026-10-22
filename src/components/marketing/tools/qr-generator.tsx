@@ -65,7 +65,7 @@ function QrDrawing({ id, value, style, accent, caption, size = 320 }: { id?: str
   const codeAt = framed ? pad + fieldPad : pad;
   return (
     <svg data-qr-style={style} height={height} id={id} role="img" viewBox={`0 0 ${width} ${height}`} width={width} xmlns="http://www.w3.org/2000/svg">
-      <title>QR code for {value}</title>
+      <title>{`QR code for ${value}`}</title>
       <rect fill={outer} height={height} rx={style === "rounded" ? 44 : 28} width={width} />
       {style === "standard" && <rect fill="none" height={height - 1} rx={27.5} stroke="#0D0D0D" strokeOpacity={0.12} width={width - 1} x={0.5} y={0.5} />}
       {style === "accent-frame" && <rect fill="none" height={height - 24} rx={20} stroke={accent} strokeWidth={8} width={width - 24} x={12} y={12} />}
