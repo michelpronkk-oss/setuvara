@@ -14,7 +14,7 @@ export function StudioHead({ title, sub, action, className = "" }: { title: stri
   return (
     <header className={`mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 md:mb-6 ${className}`}>
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="font-display text-[40px] font-bold leading-[0.95] tracking-[-0.05em] md:text-[52px]">{title}</h1>
+        <h1 className="font-display text-[34px] font-bold leading-[0.95] tracking-[-0.045em] md:text-[52px] md:tracking-[-0.05em]">{title}</h1>
         {sub && <p className="text-[15px] text-black/65 md:text-base">{sub}</p>}
       </div>
       {action}

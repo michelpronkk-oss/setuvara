@@ -153,15 +153,19 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
         </div>
       </div>
 
-      <nav aria-label="Editor sections" className="mt-4">
-        {SECTIONS.map((item, index) => (
-          <button className="flex min-h-[74px] w-full items-center gap-4 border-b border-black/10 px-1 text-left" key={item.id} onClick={() => api.go(item.id)} type="button">
-            <span className="font-label text-[11px] text-[#FF5A4F]">0{index + 1}</span>
-            <span className="min-w-0 flex-1"><span className="block font-display text-[1.45rem] font-bold leading-tight tracking-[-0.04em]">{item.title}</span><span className="block truncate text-[13px] text-black/55">{info[item.id]}</span></span>
-            <span aria-hidden="true" className="text-xl text-black/35">›</span>
-          </button>
-        ))}
-      </nav>
+      <section aria-labelledby="sv-mobile-page" className="mt-7">
+        <h2 className="px-1 font-display text-[1.3rem] font-bold tracking-[-0.04em]" id="sv-mobile-page">Your page</h2>
+        <ul className="mt-2 flex flex-col divide-y divide-black/10 rounded-[22px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
+          {SECTIONS.map((item) => (
+            <li key={item.id}>
+              <button className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left" onClick={() => api.go(item.id)} type="button">
+                <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold">{item.id === "settings" ? "Settings" : item.title}</span><span className="block truncate text-[13px] text-black/55">{info[item.id] || "Not set yet"}</span></span>
+                <span aria-hidden="true" className="text-lg text-black/35">›</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section aria-labelledby="sv-mobile-tools" className="mt-8">
         <h2 className="px-1 font-display text-[1.3rem] font-bold tracking-[-0.04em]" id="sv-mobile-tools">{modeMeta[slug].name} tools</h2>

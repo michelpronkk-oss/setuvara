@@ -124,7 +124,7 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
               <span className="font-label text-[11px] tracking-[0.16em] lg:text-[12px]">YOUR SIGNALS · {periodKicker(kind)}</span>
               <PlanPill className="flex lg:hidden" plan={plan} />
             </div>
-            <h1 className="max-w-[560px] font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.05em] [text-wrap:balance] lg:max-w-[900px] lg:text-[clamp(64px,5.8vw,84px)] lg:leading-[0.9] lg:tracking-[-0.055em]">{failed ? "Your signals" : pageTitle(shown)}</h1>
+            <h1 className="max-w-[560px] font-display text-[32px] font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-[44px] sm:leading-[0.95] sm:tracking-[-0.05em] [text-wrap:balance] lg:max-w-[900px] lg:text-[clamp(64px,5.8vw,84px)] lg:leading-[0.9] lg:tracking-[-0.055em]">{failed ? "Your signals" : pageTitle(shown)}</h1>
           </div>
           <div className="flex flex-col items-start gap-3 lg:items-end">
             <PlanPill className="hidden lg:flex" plan={plan} />
