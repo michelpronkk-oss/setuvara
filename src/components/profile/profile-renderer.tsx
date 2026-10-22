@@ -261,8 +261,9 @@ function Profile(props: ProfileProps) {
       // The cue marks the fold: the foot of the first screen (inside Social's card on phones).
       const inCard = look.id === "social" && !wide;
       const word = look.scrollCue === "swipe" ? (wide ? copy.cueScroll : copy.cueSwipe) : look.scrollCue === "credits" ? copy.cueMore : copy.cueScroll;
+      // Wide Clean centres the cue over its photo panel, so it reads light there.
       // Thumbnails (no sound) show the cue still, so ten pickers do not all move at once.
-      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={wide ? 22 : inCard ? 26 : 8} color={inCard ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
+      return <ScrollCue accent={look.accent} up={!wide} animated={look.scrollCueMotion && props.sound !== "off"} bottom={wide ? 22 : inCard ? 26 : 8} color={inCard || (wide && look.id === "clean") ? "#F5F4EF" : look.id === "film" ? "#F7E9B8" : theme.fg} cue={look.scrollCue} label={copy.scrollMore} text={word} />;
     },
   };
   const connect = theme.connect;
