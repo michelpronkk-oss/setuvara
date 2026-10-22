@@ -100,19 +100,26 @@ export function PageActions({ api }: { api: EditorApi }) {
           </SortableContext>
         </DndContext>
       ) : (
-        <p className="mb-1 px-1 text-[13.5px] leading-5 text-black/55">Give visitors something to do: a card on your page with its own form, in your Appearance.</p>
+        <Link className="group flex items-center gap-4 rounded-[20px] bg-[#0D0D0D] p-4 text-[#F5F4EF] transition hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 sm:p-5" data-create-first-action href={listHref(slug)}>
+          <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-[#FF5A4F] text-[22px] font-semibold leading-none text-[#0D0D0D]">+</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold">Create your first Action</span>
+            <span className="mt-0.5 block text-[13px] leading-5 text-[#F5F4EF]/65">A newsletter, a form, a giveaway: a card on your page with its own form, in your Appearance.</span>
+          </span>
+          <span aria-hidden="true" className="text-lg text-[#F5F4EF]/50 transition-transform group-hover:translate-x-0.5 group-hover:text-[#F5F4EF]">→</span>
+        </Link>
       )}
       {error && <p className="mt-2 text-[13px] font-medium text-[#B42318]" role="alert">{error}</p>}
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+      {rows !== null && rows.length > 0 && <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {kinds.map((kind) => (
           <Link className="inline-flex min-h-10 items-center gap-2 rounded-full border-[1.5px] border-dashed border-black/20 pl-1.5 pr-3.5 text-[13px] font-semibold text-black/75 transition hover:border-black/60 hover:text-black focus-visible:outline-2" href={newHref(slug, kind)} key={kind}>
             <KindTile kind={kind} size={28} />{ACTION_KIND_SHORT[kind]}
           </Link>
         ))}
         <Link className="inline-flex min-h-10 items-center px-2 text-[13px] font-semibold text-black/60 underline decoration-black/20 underline-offset-4 hover:text-black hover:decoration-black" href={newHref(slug)}>All kinds</Link>
-        {rows !== null && rows.length > 0 && <Link className="ml-auto inline-flex min-h-10 items-center text-[13px] font-semibold text-black/60 hover:text-black" href={listHref(slug)}>Responses →</Link>}
-      </div>
+        <Link className="ml-auto inline-flex min-h-10 items-center text-[13px] font-semibold text-black/60 hover:text-black" href={listHref(slug)}>Responses →</Link>
+      </div>}
     </section>
   );
 }

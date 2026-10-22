@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { z } from "zod";
 
 import { marketingFontClasses } from "@/app/(marketing)/fonts";
-import { MeetMark } from "@/components/marketing/brand";
 import type { BlockKind, ModeAppearance, ModeSlug, PhotoCropValue, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode } from "@/components/profile/types";
 import { NAME_FONT_NAMES } from "@/components/profile/name-type";
 import { APPEARANCE_NAMES, extraSlideLimit, introducedLockedFields, isModeLayout, isValidAppearance, lockedFields, resetAppearance as resetVisualAppearance, resolveAppearance, storedAppearance } from "@/components/profile/appearance";
@@ -31,9 +29,10 @@ import { FullPreview, PeekPreview, PreviewPane, type SoundIntro } from "./editor
 import { ContentSection } from "./editor-content";
 import { HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
 import { AppearancePlusSheet, AppearanceSection, pendingAppearanceKey, PhotoPreviews } from "./editor-appearance";
-import { MODE_SLUGS, SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PlusTrigger, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
+import { SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PlusTrigger, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
 import { modeMeta } from "./editor-ui";
-import { EditorSidebar, SectionIcon } from "./editor-sidebar";
+import { MobileModeHeader, MobileTabBar, sectionPlace } from "@/components/app/mobile-nav";
+import { EditorSidebar } from "./editor-sidebar";
 
 // Same Mode colours as the app sidebar.
 const MODE_DOT: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#AFCBFF", creator: "#E8A6FF" };
@@ -877,7 +876,6 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
 
   if (!mode) return <main className="grid min-h-dvh place-items-center p-8 text-sm">Your Modes are being prepared.</main>;
 
-  const sectionTitle = SECTIONS.find((item) => item.id === section)?.short ?? "Profile";
   const personalMode = modes.find((item) => item.slug === "personal");
   const publishButton = profile.is_published
     ? <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-black/[0.06] px-4 text-sm font-semibold text-black/70 transition hover:bg-black/10" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
@@ -934,22 +932,21 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
         </nav>
       </header>
 
-      {/* Mobile top bar: where you are, which Mode, preview and publish */}
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F5F4EF]/92 backdrop-blur-md lg:hidden">
-        <div className="flex h-14 items-center gap-2 px-3">
-          <Link aria-label="Back to Setuvara home" className="grid size-10 shrink-0 place-items-center rounded-full" href="/app"><MeetMark className="size-6" /></Link>
-          <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{section === "home" ? "Overview" : section === "settings" ? "Settings" : sectionTitle}</p>
-            <p aria-live="polite" className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50">{modeMeta[slug].name} Mode<span aria-hidden="true">·</span>{status === "error" ? <span className="text-[#B42318]">Not saved</span> : status === "saved" ? "Saved" : "Saving…"}</p>
-          </div>
-          <button aria-label="Full-screen preview" className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold shadow-[inset_0_0_0_1.5px_#0D0D0D] transition active:scale-[.97] max-[374px]:px-0" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg><span className="max-[374px]:hidden">Preview</span></button>
+      {/* Phone: the Mode (tap to switch), its sections and tools in one strip, preview and publish. */}
+      <MobileModeHeader
+        below={<MobileSaveLine justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />}
+        modes={modes.map((item) => ({ slug: item.slug, enabled: item.is_enabled }))}
+        onMode={(next) => go(section, next)}
+        onSection={(next) => go(next as Section)}
+        place={sectionPlace(section)}
+        right={<>
+          <button aria-label="Full-screen preview" className="grid size-10 shrink-0 place-items-center rounded-full shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.85)] transition active:scale-[.96]" onClick={() => setFullPreview(true)} type="button"><svg aria-hidden="true" className="size-[18px]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 5c5 0 8.6 4.2 9.8 6.4a1.3 1.3 0 0 1 0 1.2C20.6 14.8 17 19 12 19s-8.6-4.2-9.8-6.4a1.3 1.3 0 0 1 0-1.2C3.4 9.2 7 5 12 5Zm0 3.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /></svg></button>
           {profile.is_published
             ? <a aria-label="Your Setuvara is live. Open it." className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[13px] font-semibold text-black/70" href={publicUrl(slug)} rel="noreferrer" target="_blank"><span aria-hidden="true" className="size-2 rounded-full bg-[#2BB673]" />Live</a>
             : <button className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold" onClick={() => void setPublished(true)} type="button">Publish</button>}
-        </div>
-        <div className="px-3 pb-2.5"><MobileModeSwitch modes={modes} onPick={(next) => go(section, next)} slug={slug} /></div>
-        <MobileSaveLine justPublished={justPublished} message={statusMessage} onRetry={retry} status={status} />
-      </header>
+        </>}
+        slug={slug}
+      />
 
       <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(400px,38%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,38%)]">
         {/* Content */}
@@ -966,20 +963,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
         </aside>
       </div>
 
-      {/* Mobile tab bar: every section one thumb-tap away */}
-      <nav aria-label="Editor sections" className="fixed inset-x-0 bottom-0 z-40 rounded-t-[24px] bg-[#0D0D0D] pb-[env(safe-area-inset-bottom)] pt-1 text-[#F5F4EF] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] lg:hidden">
-        <div className="mx-auto grid h-16 max-w-md grid-cols-5 px-1.5">
-          {MOBILE_TABS.map((tab) => {
-            const active = section === tab.id;
-            return (
-              <button aria-current={active ? "page" : undefined} className={`flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition ${active ? "text-[#F5F4EF]" : "text-[#F5F4EF]/55"}`} key={tab.id} onClick={() => go(tab.id)} type="button">
-                <span className={`grid h-8 w-12 place-items-center rounded-full transition active:scale-90 ${active ? "bg-white/[0.1] text-[#FF5A4F]" : "text-[#F5F4EF]/65"}`}><SectionIcon name={tab.id} /></span>
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <MobileTabBar />
 
       {peekable && <PeekPreview api={api} onExpand={() => setFullPreview(true)} onToggle={() => peekStore.write(!peekOpen)} open={peekOpen} previewState={previewState} setPreviewState={setPreviewState} />}
       {fullPreview && <FullPreview api={api} onClose={() => setFullPreview(false)} previewState={previewState} setPreviewState={setPreviewState} soundIntro={soundIntro} />}
@@ -1052,23 +1036,6 @@ const MOBILE_TABS: { id: Section; label: string }[] = [
 /** Desktop tabs: the phone's sections plus the Mode's settings. */
 const PAGE_TABS: { id: Section; label: string }[] = [...MOBILE_TABS, { id: "settings", label: "Settings" }];
 
-function MobileModeSwitch({ modes, slug, onPick }: { modes: ProfileMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void }) {
-  // Same picker as Home on phones: ink for the Mode you are editing, a dimmed dot for a Mode that is off.
-  return (
-    <div aria-label="Mode" className="grid grid-cols-4 gap-1 rounded-[16px] bg-black/[0.06] p-1" role="tablist">
-      {MODE_SLUGS.map((item) => {
-        const on = item === slug;
-        const off = modes.find((entry) => entry.slug === item)?.is_enabled === false;
-        return (
-          <button aria-selected={on} className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-1 text-[13px] font-semibold transition-colors ${on ? "bg-[#0D0D0D] text-[#F5F4EF]" : "text-[#0D0D0D]/70"}`} key={item} onClick={() => onPick(item)} role="tab" type="button">
-            <span aria-hidden="true" className="size-[7px] shrink-0 rounded-full" style={{ background: MODE_DOT[item], opacity: off ? 0.35 : 1 }} />
-            <span className="truncate">{modeMeta[item].name}</span>{off && <span className="sr-only"> (off)</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function SaveChip({ status, message, justPublished, onRetry }: { status: SaveStatus; message: string; justPublished: boolean; onRetry: () => void }) {
   if (justPublished && status === "saved") return <span className="inline-flex min-h-9 items-center rounded-full bg-[#C7FF4A] px-3.5 text-sm font-semibold">Published · just now</span>;

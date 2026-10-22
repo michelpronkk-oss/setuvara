@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { EditorSidebar, EventsIcon, LeadsIcon, SectionIcon, StudioIcon, TeamIcon, TestimonialsIcon } from "@/app/app/identity/editor-sidebar";
-import { MeetMark } from "@/components/marketing/brand";
+import { EditorSidebar } from "@/app/app/identity/editor-sidebar";
+import { MOBILE_BAR_SPACE, MobileModeHeader, MobileTabBar } from "@/components/app/mobile-nav";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -66,53 +66,16 @@ export function ActionsShell({ children, page = "actions", slug, profile, modes,
         </div>
       </header>
 
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F5F4EF]/92 backdrop-blur-md lg:hidden">
-        <div className="flex h-14 items-center gap-2 px-3">
-          <Link aria-label={`Back to ${MODE_NAME[slug]} Mode`} className="flex h-10 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 transition hover:bg-black/[0.05]" href={editor()}><svg aria-hidden="true" className="size-4 text-black/45" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7" /></svg><MeetMark className="size-6" /></Link>
-          <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{title}</p>
-            <p className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50"><span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: MODE_DOT[slug] }} />{MODE_NAME[slug]} Mode</p>
-          </div>
-        </div>
-      </header>
+      <MobileModeHeader
+        modes={modes.map((item) => ({ slug: item.slug, enabled: item.is_enabled }))}
+        place={page}
+        right={<Link className="inline-flex min-h-10 shrink-0 items-center rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold text-[#0D0D0D]" href={editor("share")}>Share</Link>}
+        slug={slug}
+      />
 
-      <div className="pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-16">{children}</div>
+      <div className={`${MOBILE_BAR_SPACE} lg:pb-16`}>{children}</div>
 
-      <nav aria-label={`${MODE_NAME[slug]} Mode`} className="fixed inset-x-0 bottom-0 z-40 rounded-t-[24px] bg-[#0D0D0D] pb-[env(safe-area-inset-bottom)] pt-1 text-[#F5F4EF] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] lg:hidden">
-        <div className="mx-auto grid h-16 max-w-md grid-cols-4 px-1">
-          {([["home", "Overview"], ["profile", "Profile"], ["links", "Content"]] as const).map(([section, title]) => (
-            <Link className="flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]/55" href={editor(section)} key={section}>
-              <span className="grid h-8 w-11 place-items-center rounded-full text-[#F5F4EF]/65 [&_svg]:size-[20px]"><SectionIcon name={section} /></span>{title}
-            </Link>
-          ))}
-          {slug === "event" && page === "events" ? (
-            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/events">
-              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><EventsIcon /></span>Events
-            </Link>
-          ) : slug === "business" && page === "leads" ? (
-            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/leads">
-              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#AFCBFF] [&_svg]:size-[20px]"><LeadsIcon /></span>Leads
-            </Link>
-          ) : slug === "business" && page === "testimonials" ? (
-            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/testimonials">
-              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#FFE7B8] [&_svg]:size-[20px]"><TestimonialsIcon /></span>Testimonials
-            </Link>
-          ) : slug === "business" && page === "builder" ? (
-            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/builder?mode=business">
-              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><StudioIcon name="builder" /></span>Builder
-            </Link>
-          ) : slug === "business" && page === "team" ? (
-            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href="/app/identity/team">
-              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#C7FF4A] [&_svg]:size-[20px]"><TeamIcon /></span>Team
-            </Link>
-          ) : (
-            <Link aria-current="page" className="relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold text-[#F5F4EF]" href={`/app/identity/actions?mode=${slug}`}>
-              <span className="grid h-8 w-11 place-items-center rounded-full bg-white/[0.1] text-[#FF5A4F] [&_svg]:size-[20px]"><StudioIcon name="actions" /></span>Actions
-              {needsYou > 0 && <span className="absolute right-[calc(50%-24px)] top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF5A4F] px-1 text-[9px] font-bold text-[#0D0D0D]">{needsYou}</span>}
-            </Link>
-          )}
-        </div>
-      </nav>
+      <MobileTabBar />
     </div>
   );
 }

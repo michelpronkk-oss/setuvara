@@ -47,8 +47,8 @@ export function Head({ eyebrow, title, sub, action, back }: { eyebrow: React.Rea
       {back && <Link className="mb-4 inline-flex min-h-9 items-center gap-1.5 rounded-full text-[14px] font-semibold text-black/55 transition hover:text-black" href={back.href}><span aria-hidden="true">←</span>{back.label}</Link>}
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5 text-[14px] font-semibold text-black/55">{eyebrow}</div>
-          <h1 className="mt-2 text-balance font-display text-[40px] font-bold leading-[0.95] tracking-[-0.05em] md:text-[56px]">{title}</h1>
+          <div className="hidden items-center gap-2.5 text-[14px] font-semibold text-black/55 lg:flex">{eyebrow}</div>
+          <h1 className="text-balance font-display text-[34px] font-bold leading-[0.95] tracking-[-0.045em] md:text-[56px] md:tracking-[-0.05em] lg:mt-2">{title}</h1>
           {sub && <p className="mt-3 text-[15px] text-black/60 md:text-base">{sub}</p>}
         </div>
         {action}

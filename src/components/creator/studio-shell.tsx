@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { MeetMark } from "@/components/marketing/brand";
+import { MOBILE_BAR_SPACE, MobileModeHeader, MobileTabBar } from "@/components/app/mobile-nav";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
-import { EditorSidebar, STUDIO_PAGES, StudioIcon, type StudioPageId } from "@/app/app/identity/editor-sidebar";
+import { EditorSidebar, STUDIO_PAGES } from "@/app/app/identity/editor-sidebar";
 
 export function studioPageFor(pathname: string): (typeof STUDIO_PAGES)[number] {
   return STUDIO_PAGES.find((page) => pathname === page.href || pathname.startsWith(`${page.href}/`)) ?? STUDIO_PAGES[0];
@@ -68,42 +68,22 @@ export function StudioShell({ children, profile, modes, plan, liveUrl, shareUrl,
         </div>
       </header>
 
-      {/* Phone: back to the editor, the page, and every studio page one swipe away. */}
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-[#F5F4EF]/92 backdrop-blur-md lg:hidden print:hidden">
-        <div className="flex h-14 items-center gap-2 px-3">
-          <Link aria-label="Back to Creator Mode" className="flex h-10 shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 transition hover:bg-black/[0.05]" href="/app/identity?mode=creator"><svg aria-hidden="true" className="size-4 text-black/45" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7" /></svg><MeetMark className="size-6" /></Link>
-          <div className="min-w-0 flex-1 leading-none">
-            <p className="truncate font-display text-[1.25rem] font-bold tracking-[-0.04em]">{page.title}</p>
-            <p className="mt-1 flex items-center gap-1.5 truncate text-[11.5px] font-medium text-black/50"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#E8A6FF]" />Creator Mode{!enabled && <><span aria-hidden="true">·</span>Off</>}</p>
-          </div>
-          <Link aria-label="Share page" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold text-[#0D0D0D]" href="/app/identity?mode=creator&section=share"><StudioShareIcon />Share</Link>
-        </div>
-      </header>
+      {/* Phone: Creator Mode, every section and studio page in one strip, and Share. */}
+      <MobileModeHeader
+        modes={modes.map((item) => ({ slug: item.slug, enabled: item.is_enabled }))}
+        place={page.id}
+        right={<Link aria-label="Share page" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-[#FF5A4F] px-3.5 text-[13px] font-semibold text-[#0D0D0D]" href="/app/identity?mode=creator&section=share"><StudioShareIcon />Share</Link>}
+        slug="creator"
+      />
 
-      <div className="pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-16 print:p-0">{children}</div>
+      <div className={`${MOBILE_BAR_SPACE} lg:pb-16 print:p-0`}>{children}</div>
 
-      {/* Phone tab bar: the editor's dark bar, holding the studio pages. */}
-      <nav aria-label="Creator studio" className="fixed inset-x-0 bottom-0 z-40 rounded-t-[24px] bg-[#0D0D0D] pb-[env(safe-area-inset-bottom)] pt-1 text-[#F5F4EF] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] lg:hidden print:hidden">
-        <div className="mx-auto grid h-16 max-w-md grid-cols-6 px-1">
-          {/* Audience and Deals open from Actions on phones; six tabs is the bar's limit. */}
-          {STUDIO_PAGES.filter((item) => item.id !== "audience" && item.id !== "collabs" && item.id !== "builder").map((item) => <PhoneTab active={item.id === page.id || (item.id === "actions" && (page.id === "audience" || page.id === "collabs"))} badge={item.id === "actions" ? needsYou : 0} href={item.href} id={item.id} key={item.id} title={PHONE_LABEL[item.id]} />)}
-        </div>
-      </nav>
+      <MobileTabBar />
     </div>
   );
 }
 
-const PHONE_LABEL: Record<StudioPageId, string> = { work: "Work", commerce: "Shop", actions: "Actions", collabs: "Deals", builder: "Builder", audience: "Audience", kit: "Kit", insights: "Insights", settings: "Settings" };
 
-function PhoneTab({ id, title, href, active, badge }: { id: StudioPageId; title: string; href: string; active: boolean; badge: number }) {
-  return (
-    <Link aria-current={active ? "page" : undefined} className={`relative flex flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition ${active ? "text-[#F5F4EF]" : "text-[#F5F4EF]/55"}`} href={href}>
-      <span className={`grid h-8 w-11 place-items-center rounded-full transition active:scale-90 [&_svg]:size-[20px] ${active ? "bg-white/[0.1] text-[#E8A6FF]" : "text-[#F5F4EF]/65"}`}><StudioIcon name={id} /></span>
-      {title}
-      {badge > 0 && <span aria-label={`${badge} new`} className="absolute right-[calc(50%-24px)] top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#FF5A4F] px-1 text-[9px] font-bold text-[#0D0D0D]">{badge}</span>}
-    </Link>
-  );
-}
 
 function StudioShareIcon() {
   return <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13" /></svg>;

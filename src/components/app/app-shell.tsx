@@ -12,20 +12,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeedbackSheet } from "./feedback-sheet";
 import { HomeScreenRuntime, HomeScreenSheet, useStandalone } from "./home-screen";
-import { NavIcon } from "./nav-icons";
+import { MOBILE_BAR_SPACE, MobileTabBar } from "./mobile-nav";
 import { SettingsLink, SideNav, type GlobalPage } from "./side-nav";
 import { StatusBadge } from "./status-badge";
 
-const navigation = [
-  { href: "/app", labelKey: "home", shortKey: "home", icon: "home" },
-  { href: "/app/identity", labelKey: "identity", shortKey: "identity", icon: "identity" },
-  { href: "/app/wallet", labelKey: "wallet", shortKey: "wallet", icon: "wallet" },
-  { href: "/app/connections", labelKey: "connections", shortKey: "people", icon: "people" },
-  { href: "/app/passport", labelKey: "passport", shortKey: "passport", icon: "passport" },
-  { href: "/app/analytics", labelKey: "analytics", shortKey: "analytics", icon: "analytics" },
-] as const;
-
-type NavItem = (typeof navigation)[number];
 export type ShellMode = { slug: ModeSlug; enabled: boolean };
 
 
@@ -103,7 +93,6 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
     const timeout = window.setTimeout(() => setPending(null), 10000);
     return () => window.clearTimeout(timeout);
   }, [pendingPath]);
-  const visibleNavigation = walletPubliclyLaunched ? navigation : navigation.filter((item) => item.href !== "/app/wallet");
   const messagesSurface = pathname.startsWith("/app/connections/messages");
   // The identity editor is a full-screen workspace with its own navigation. The Creator studio
   // lives inside it and shares the editor's sidebar.
@@ -135,36 +124,15 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
       </header>
       {pendingPath && <span aria-hidden="true" className="sv-nav-progress pointer-events-none fixed inset-x-0 top-[58px] z-50 h-[2px] bg-[#ff5a4f] lg:left-[268px] lg:top-0" key={pendingPath} />}
 
-      <div className={`min-w-0 lg:pb-0 lg:pl-[268px] ${messagesSurface ? "" : "pb-[calc(78px+env(safe-area-inset-bottom))]"}`} id="app-main" tabIndex={-1}>{children}</div>
+      <div className={`min-w-0 lg:pb-0 lg:pl-[268px] ${messagesSurface ? "" : MOBILE_BAR_SPACE}`} id="app-main" tabIndex={-1}>{children}</div>
 
-      {!messagesSurface && <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 grid rounded-t-[24px] bg-[#0d0d0d] px-1.5 pb-[env(safe-area-inset-bottom)] pt-1 text-[#f5f4ef] shadow-[0_-14px_34px_-20px_rgba(13,13,13,.6)] sm:px-3 lg:hidden" style={{ gridTemplateColumns: `repeat(${visibleNavigation.length}, minmax(0, 1fr))` }}>
-        {visibleNavigation.map((item) => <TabLink item={item} key={item.href} pathname={pathname} pendingPath={pendingPath} unread={item.href === "/app/connections" ? unread : 0} />)}
-      </nav>}
+      {!messagesSurface && <MobileTabBar pendingPath={pendingPath} unread={unread} />}
     </div>
   );
 }
 
-function UnreadDot({ count, className }: { count: number; className: string }) {
-  if (!count) return null;
-  return <span aria-hidden="true" className={`pointer-events-none absolute grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#ff5a4f] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#0d0d0d] ${className}`}>{count > 99 ? "99+" : count}</span>;
-}
 
-function unreadText(unread: number) {
-  return unread ? `, ${unread} unread ${unread === 1 ? "message" : "messages"}` : "";
-}
 
-function TabLink({ item, pathname, pendingPath, unread = 0 }: { item: NavItem; pathname: string; pendingPath: string | null; unread?: number }) {
-  const { messages } = useI18n();
-  const unreadLabel = unreadText(unread);
-  // While a tab is loading it already reads as the current one.
-  const active = isActive(pendingPath ?? pathname, item.href);
-  return (
-    <Link aria-current={isActive(pathname, item.href) ? "page" : undefined} className={`flex min-h-[64px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[10.5px] leading-none tracking-[-0.005em] focus-visible:outline-2 sm:text-[12px] ${active ? "font-semibold text-[#f5f4ef]" : "font-medium text-[#f5f4ef]/55"}`} href={item.href}>
-      <span className={`relative grid h-8 w-12 place-items-center rounded-full transition-[background-color,color,transform] duration-200 ease-out active:scale-90 ${active ? "bg-white/[0.1] text-[#ff5a4f]" : "text-[#f5f4ef]/65"}`}><NavIcon name={item.icon} /><UnreadDot className="-right-0.5 -top-1" count={unread} /></span>
-      <span className="max-w-full truncate">{item.href === "/app/identity" ? "Modes" : messages.common[item.shortKey]}{unreadLabel && <span className="sr-only">{unreadLabel}</span>}</span>
-    </Link>
-  );
-}
 
 /** Which Setuvara-wide page the path belongs to, for the sidebar. */
 function globalPage(pathname: string): GlobalPage {
@@ -274,6 +242,3 @@ export function Avatar({ url, name, size, focus, ring = false }: { url: string |
   );
 }
 
-function isActive(pathname: string, href: string) {
-  return href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-}

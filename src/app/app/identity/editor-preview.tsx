@@ -185,7 +185,7 @@ export function PeekPreview({ api, open, previewState, setPreviewState, onExpand
   }, [open]);
   const icon = "grid size-10 place-items-center rounded-full text-black/70 transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2";
   return (
-    <section aria-label="Live preview" className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col overflow-hidden rounded-t-[22px] border-t border-black/10 bg-[#E9E7E0] shadow-[0_-18px_40px_-26px_rgba(13,13,13,.45)] transition-[height] duration-300 ease-out lg:hidden" data-preview-peek={open ? "open" : "folded"} style={{ height: "var(--editor-dock)" }}>
+    <section aria-label="Live preview" className="fixed inset-x-3 bottom-[calc(80px+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[440px] flex-col overflow-hidden rounded-[22px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] bg-[#E9E7E0] shadow-[0_-18px_40px_-26px_rgba(13,13,13,.45)] transition-[height] duration-300 ease-out lg:hidden" data-preview-peek={open ? "open" : "folded"} style={{ height: "var(--editor-dock)" }}>
       <div className="flex h-[52px] shrink-0 items-center justify-between gap-2 pl-2 pr-1.5">
         <button aria-expanded={open} className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full pl-2 text-left text-[13.5px] font-semibold" onClick={onToggle} type="button">
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[#2BB673] [animation:sound-breathe_2.4s_ease-in-out_infinite]" />
