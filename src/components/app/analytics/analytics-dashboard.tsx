@@ -32,7 +32,6 @@ import {
   type Format,
 } from "@/lib/analytics/view";
 import type { PlanCode } from "@/lib/billing/catalog";
-import { memberTierForPlan } from "@/lib/billing/member-badge";
 import { GrowthChart } from "./analytics-chart";
 import { AnalyticsPaywall, type PaywallTarget } from "./analytics-paywall";
 
@@ -120,14 +119,11 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
       <div className="mx-auto flex w-full max-w-[1312px] flex-col gap-11 lg:gap-14">
         <header className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-10">
           <div className="flex flex-col gap-4 lg:gap-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-label text-[11px] tracking-[0.16em] lg:text-[12px]">YOUR SIGNALS · {periodKicker(kind)}</span>
-              <PlanPill className="flex lg:hidden" plan={plan} />
-            </div>
-            <h1 className="max-w-[560px] font-display text-[32px] font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-[44px] sm:leading-[0.95] sm:tracking-[-0.05em] [text-wrap:balance] lg:max-w-[900px] lg:text-[clamp(64px,5.8vw,84px)] lg:leading-[0.9] lg:tracking-[-0.055em]">{failed ? "Your signals" : pageTitle(shown)}</h1>
+            <p className="font-label text-[11px] font-bold uppercase tracking-[0.18em] text-black/50">Your signals · {periodKicker(kind).toLowerCase()}</p>
+            <h1 className="-mt-2 font-display text-[34px] font-bold leading-none tracking-[-0.045em] md:text-[44px]">Analytics</h1>
+            <p className="-mt-1 max-w-xl text-[14.5px] leading-[1.5] text-black/60">{failed ? "Your signals" : pageTitle(shown)}</p>
           </div>
           <div className="flex flex-col items-start gap-3 lg:items-end">
-            <PlanPill className="hidden lg:flex" plan={plan} />
             <RangeControl
               available={capabilities.availableRanges}
               onCustom={() => (capabilities.customRange ? setCustomOpen((open) => !open) : setPaywall("pro"))}
@@ -162,18 +158,6 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
 
       {paywall && plan !== "pro" && !(paywall === "plus" && plan === "plus") && <AnalyticsPaywall onClose={closePaywall} plan={plan} target={paywall} />}
     </main>
-  );
-}
-
-function PlanPill({ plan, className = "" }: { plan: PlanCode; className?: string }) {
-  const tier = memberTierForPlan(plan);
-  const border = tier === "pro" ? "border-[#d6b25e]" : tier === "plus" ? "border-[#ff5a4f]" : "border-[#0d0d0d]";
-  const name = tier === "pro" ? "Setuvara Pro member" : tier === "plus" ? "Setuvara Plus member" : "Free plan";
-  return (
-    <span aria-label={`Your plan: ${name}`} className={`h-7 shrink-0 items-center gap-1.5 rounded-full border-[1.5px] font-label text-[11px] tracking-[0.12em] ${tier ? "pl-1.5 pr-2.5" : "px-2.5"} ${border} ${className}`} data-plan-pill={plan} role="img">
-      {tier && <MemberBadge decorative size={18} tier={tier} />}
-      <span aria-hidden="true">{tier === "pro" ? "PRO" : tier === "plus" ? "PLUS" : "FREE"}</span>
-    </span>
   );
 }
 
@@ -224,7 +208,7 @@ function RangeControl({ available, selected, onPick, onLocked, onCustom }: {
             type="button"
           >
             <span>{chip.label}</span>
-            {locked && chip.tag && <span aria-hidden="true" className={`rounded-[4px] px-[5px] py-0.5 font-label text-[9px] tracking-[0.1em] text-[#0d0d0d] ${chip.tag === "PRO" ? "bg-[#d6b25e]" : "bg-[#ff5a4f]"}`}>{chip.tag}</span>}
+            {locked && chip.tag && <span aria-hidden="true" className="font-label text-[9px] tracking-[0.1em] text-black/40">{chip.tag}</span>}
           </button>
         );
       })}
