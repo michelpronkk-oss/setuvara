@@ -68,15 +68,48 @@ export function resolveOrder(slug: ModeSlug, saved: readonly string[] | null | u
   return out;
 }
 
-/** Consecutive entries of one kind, so each kind renders with its own component. */
-export function pageRuns(order: readonly string[]): { kind: PageItemKind; ids: string[] }[] {
-  const runs: { kind: PageItemKind; ids: string[] }[] = [];
+/**
+ * How big an entry sits on the page. Wide is today's full row and the default; small pairs two
+ * side by side; hero runs a picture, video or featured link edge to edge on phones.
+ */
+export type TileSize = "small" | "wide" | "hero";
+export type PageSizes = Record<string, Exclude<TileSize, "wide">>;
+const HERO_BLOCKS = new Set(["image", "video", "feature"]);
+
+/** The sizes an entry can take. Projects and Mode sections stay wide. */
+export function allowedSizes(kind: PageItemKind, blockKind?: string): TileSize[] {
+  if (kind === "block") return HERO_BLOCKS.has(blockKind ?? "") ? ["small", "wide", "hero"] : ["small", "wide"];
+  if (kind === "link" || kind === "action") return ["small", "wide"];
+  return ["wide"];
+}
+
+/** Saved sizes, keeping only well-formed entries for keys on this page. */
+export function readSizes(value: unknown, order?: readonly string[]): PageSizes {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const keep = order ? new Set(order) : null;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key, size]) => (size === "small" || size === "hero") && PAGE_ORDER_PATTERN.test(key) && (!keep || keep.has(key)))) as PageSizes;
+}
+
+/** Entries switched off for the page. Only Actions, projects and Mode sections are hidden here. */
+export function readHidden(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((key): key is string => typeof key === "string" && /^((action|project):[0-9a-f-]{36}|section:(testimonials|creator|audience))$/.test(key)) : [];
+}
+
+export type PageRun = { kind: PageItemKind; ids: string[]; size: TileSize };
+
+/**
+ * Consecutive entries of one kind, so each kind renders with its own component. A sized entry
+ * (small or hero) is a run of its own; only wide entries join their neighbours, as before.
+ */
+export function pageRuns(order: readonly string[], sizes: PageSizes = {}): PageRun[] {
+  const runs: PageRun[] = [];
   for (const key of order) {
     const item = parseKey(key);
     if (!item) continue;
+    const size: TileSize = (sizes[key] as TileSize | undefined) ?? "wide";
     const last = runs[runs.length - 1];
-    if (last && last.kind === item.kind && item.kind !== "section") last.ids.push(item.id);
-    else runs.push({ kind: item.kind, ids: [item.id] });
+    if (size === "wide" && last && last.size === "wide" && last.kind === item.kind && item.kind !== "section") last.ids.push(item.id);
+    else runs.push({ kind: item.kind, ids: [item.id], size });
   }
   return runs;
 }

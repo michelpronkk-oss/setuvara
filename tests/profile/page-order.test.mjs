@@ -41,3 +41,19 @@ test("keys parse and the stored pattern rejects junk", () => {
   assert.equal(m.PAGE_ORDER_PATTERN.test("section:creator"), true);
   assert.equal(m.PAGE_ORDER_PATTERN.test("section:drop table"), false);
 });
+
+test("tile sizes: sized entries stand alone, wide entries still join", () => {
+  const order = [`block:${id(1)}`, `block:${id(2)}`, `block:${id(3)}`, `link:${id(4)}`, `link:${id(5)}`];
+  const runs = m.pageRuns(order, { [`block:${id(2)}`]: "small", [`link:${id(5)}`]: "small" });
+  assert.deepEqual(runs.map((r) => [r.kind, r.ids.length, r.size]), [["block", 1, "wide"], ["block", 1, "small"], ["block", 1, "wide"], ["link", 1, "wide"], ["link", 1, "small"]]);
+  assert.deepEqual(m.pageRuns(order).map((r) => r.ids.length), [3, 2]);
+});
+
+test("tile sizes: only well-formed sizes for this page are kept, and each kind has its own options", () => {
+  const order = [`block:${id(1)}`, `link:${id(2)}`];
+  assert.deepEqual(m.readSizes({ [`block:${id(1)}`]: "hero", [`link:${id(2)}`]: "giant", [`link:${id(9)}`]: "small", junk: "small" }, order), { [`block:${id(1)}`]: "hero" });
+  assert.deepEqual(m.readSizes(null), {});
+  assert.deepEqual(m.allowedSizes("block", "image"), ["small", "wide", "hero"]);
+  assert.deepEqual(m.allowedSizes("block", "services"), ["small", "wide"]);
+  assert.deepEqual(m.allowedSizes("project"), ["wide"]);
+});

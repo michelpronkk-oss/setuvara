@@ -3,7 +3,7 @@
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { ProviderMark } from "@/components/links/provider-mark";
 import { ProviderPicker } from "@/components/links/provider-picker";
@@ -13,6 +13,7 @@ import { SpeakerIcon } from "@/components/profile/soundtrack";
 import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
 import type { BlockKind, ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type LinkPreview } from "@/lib/blocks/media";
+import { allowedSizes } from "@/lib/profile/page-order";
 import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, validateBlock } from "@/lib/blocks/registry";
 import { removePendingContentMedia } from "@/lib/blocks/storage";
 import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, normalizeProviderValue, providerForLink, resolveStoredLink, type LinkProvider, type LinkProviderId } from "@/lib/links/providers";
@@ -21,9 +22,9 @@ import { AddLinkPanel, DragHandle, LinkRow, RowChevron } from "./editor-sections
 import { MODE_SLUGS, type EditorApi } from "./editor-types";
 import { ContentImageControl } from "./content-image-control";
 import { PageActions } from "./editor-page-actions";
-import { ActionPageRow, ProjectPageRow, SectionPageRow, usePageItems } from "./editor-page-order";
+import { ActionPageRow, ProjectPageRow, SectionPageRow, usePage } from "./editor-page-order";
 import { ContentVideoControl } from "./content-video-control";
-import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
+import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, SizeChip, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
 type SheetState =
   | { type: "add" }
@@ -46,7 +47,7 @@ export function ContentSection({ api }: { api: EditorApi }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const pageDnd = useId();
-  const page = usePageItems(api);
+  const page = usePage();
   const soundtracks = blocks.filter((block) => block.is_soundtrack);
   const builderHref = slug === "creator" ? "/app/identity/creator/builder" : "/app/identity/builder?mode=business";
   const booking = mode.links.find((link) => BOOKING_PROVIDERS.includes(providerForLink(link.link_type).id) && link.is_visible);
@@ -95,11 +96,16 @@ export function ContentSection({ api }: { api: EditorApi }) {
           <DndContext collisionDetection={closestCenter} id={pageDnd} onDragEnd={onPageDrag} sensors={sensors}>
             <SortableContext items={page.items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
               <ul className="grid grid-cols-1 gap-2">
-                {page.items.map((item) => item.kind === "block" ? <BlockRow api={api} block={item.block} key={item.key} onEdit={() => setSheet({ type: "block", kind: item.block.kind, block: item.block })} sortId={item.key} />
-                  : item.kind === "link" ? <LinkRow api={api} editing={editingLink === item.link.id} key={item.key} link={item.link} onEdit={(open) => setEditingLink(open ? item.link.id : null)} sortId={item.key} />
-                  : item.kind === "action" ? <ActionPageRow action={item.action} key={item.key} slug={slug} />
-                  : item.kind === "project" ? <ProjectPageRow href={`${builderHref}${builderHref.includes("?") ? "&" : "?"}project=${item.project.id}`} key={item.key} project={item.project} />
-                  : <SectionPageRow href={item.section === "creator" ? "/app/identity/creator/settings" : item.section === "testimonials" ? "/app/identity/testimonials" : undefined} key={item.key} section={item.section} />)}
+                {page.items.map((item) => {
+                  const options = allowedSizes(item.kind, item.kind === "block" ? item.block.kind : undefined);
+                  const name = item.kind === "block" ? BLOCKS[item.block.kind].name : item.kind === "link" ? item.link.title : item.kind === "action" ? item.action.title : "";
+                  const size = <SizeChip label={name} onChange={(next) => page.setSize(item.key, next)} options={options} value={page.sizes[item.key] ?? "wide"} />;
+                  return item.kind === "block" ? <BlockRow api={api} block={item.block} key={item.key} onEdit={() => setSheet({ type: "block", kind: item.block.kind, block: item.block })} size={size} sortId={item.key} />
+                  : item.kind === "link" ? <LinkRow api={api} editing={editingLink === item.link.id} key={item.key} link={item.link} onEdit={(open) => setEditingLink(open ? item.link.id : null)} size={size} sortId={item.key} />
+                  : item.kind === "action" ? <ActionPageRow action={item.action} hidden={page.hidden.includes(item.key)} key={item.key} onToggle={() => page.toggleHidden(item.key)} size={size} slug={slug} />
+                  : item.kind === "project" ? <ProjectPageRow hidden={page.hidden.includes(item.key)} href={`${builderHref}${builderHref.includes("?") ? "&" : "?"}project=${item.project.id}`} key={item.key} onToggle={() => page.toggleHidden(item.key)} project={item.project} />
+                  : <SectionPageRow hidden={page.hidden.includes(item.key)} href={item.section === "creator" ? "/app/identity/creator/settings" : item.section === "testimonials" ? "/app/identity/testimonials" : undefined} key={item.key} onToggle={() => page.toggleHidden(item.key)} section={item.section} />;
+                })}
               </ul>
             </SortableContext>
           </DndContext>
@@ -142,7 +148,7 @@ export function ContentSection({ api }: { api: EditorApi }) {
 
 // ---------------------------------------------------------------- Rows
 
-function BlockRow({ api, block, onEdit, sortId, fixed = false }: { api: EditorApi; block: ProfileBlock; onEdit: () => void; sortId?: string; fixed?: boolean }) {
+function BlockRow({ api, block, onEdit, sortId, fixed = false, size }: { api: EditorApi; block: ProfileBlock; onEdit: () => void; sortId?: string; fixed?: boolean; size?: ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortId ?? block.id, disabled: fixed });
   const meta = BLOCKS[block.kind];
   const soundtrack = Boolean(block.is_soundtrack);
@@ -157,6 +163,7 @@ function BlockRow({ api, block, onEdit, sortId, fixed = false }: { api: EditorAp
           <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{meta.name}</span>{soundtrack && <span className="shrink-0 rounded-full max-[389px]:hidden bg-[#0D0D0D] px-2 py-0.5 font-label text-[9px] tracking-[0.1em] text-[#F5F4EF]">SOUNDTRACK</span>}{!block.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
           <span className="block truncate text-[13px] text-black/55">{blockSummary(block)}</span>
         </button>
+        {size}
         <Toggle label={`${block.is_visible ? "Hide" : "Show"} ${meta.name}`} on={block.is_visible} onChange={() => api.toggleBlock(block)} />
         <RowChevron label={`Edit ${meta.name}`} onClick={onEdit} />
       </div>

@@ -1,5 +1,5 @@
 begin;
-select plan(6);
+select plan(10);
 
 create temporary table po(kind text primary key, id uuid);
 grant select on po to anon, authenticated;
@@ -16,6 +16,10 @@ set local role authenticated;
 select pg_temp.as_user('owner');
 select lives_ok($$insert into public.mode_page_order(mode_id, profile_id, items) values ((select id from po where kind='mode'), (select id from po where kind='owner'), array['section:creator', 'link:' || gen_random_uuid()::text])$$, 'the owner saves an order');
 select throws_ok($$update public.mode_page_order set items = array['link:x; drop table x'] where mode_id = (select id from po where kind='mode')$$, '23514', null, 'junk entries are refused');
+select lives_ok($$update public.mode_page_order set sizes = '{"section:creator": "small"}' where mode_id = (select id from po where kind='mode')$$, 'the owner sizes a tile');
+select throws_ok($$update public.mode_page_order set sizes = '{"section:creator": "giant"}' where mode_id = (select id from po where kind='mode')$$, '23514', null, 'unknown sizes are refused');
+select lives_ok($$update public.mode_page_order set hidden = array['section:creator'] where mode_id = (select id from po where kind='mode')$$, 'the owner hides a section');
+select throws_ok($$update public.mode_page_order set hidden = array['block:not-a-key'] where mode_id = (select id from po where kind='mode')$$, '23514', null, 'only Actions, projects and sections can be hidden here');
 select pg_temp.as_user('other');
 select is((select count(*)::int from public.mode_page_order), 0, 'others cannot read a draft page''s order');
 select throws_ok($$insert into public.mode_page_order(mode_id, profile_id, items) values ((select id from po where kind='mode'), (select id from po where kind='other'), '{}')$$, '42501', null, 'nobody orders someone else''s Mode');

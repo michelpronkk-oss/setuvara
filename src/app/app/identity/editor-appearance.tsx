@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode 
 
 import { MemberBadge } from "@/components/app/status-badge";
 import { ProfileRenderer } from "@/components/profile/profile-renderer";
+import { usePreviewPieces } from "./editor-preview-pieces";
 import {
   ACCENT_PRESETS, APPEARANCE_LINES, APPEARANCE_NAMES, APPEARANCES, EDITOR_ZOOMS, EDITOR_ZOOMS_WITH_OUT, ZOOM_OUT_APPEARANCES, MOTION_LEVELS, NAME_POSITIONS, NAME_SIZES, READABILITY, SOCIAL_STYLES, SOUND_PRESENTATIONS,
   APPEARANCE_CUES, SCROLL_CUE_CHOICES, capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
@@ -644,6 +645,8 @@ function usePreviewFit(tab: MobileTab, collapsed: boolean) {
 function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State; onMore: (key: MoreKey) => void }) {
   const { copy, look, previewing } = state;
   const connectLabel = useI18n().messages.profile.connect;
+  // The same page as the Content preview: real Actions, projects and sections, in page order.
+  const pieces = usePreviewPieces(api);
   const [tab, setTab] = useState<MobileTab>("choose");
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -659,7 +662,7 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
       <div aria-label={copy.previewLabel} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]" role="region" tabIndex={0}>
         <div className="mx-auto mt-1 overflow-hidden rounded-[22px] shadow-[0_0_0_1px_rgba(245,244,239,.12)]" data-studio-preview inert style={{ width: 390 * zoom }}>
           <div style={{ width: 390, zoom, "--profile-vh": "844px" } as CSSProperties}>
-            <ProfileRenderer attribution memberTier={api.memberTier} mode={api.mode} plan={api.plan} previewLook={previewing ? look : undefined} profile={api.profile} selectedRewards={api.selectedRewards} sound="preview" viewerState="visitor_unconnected" visitorAction={previewVisitorAction(api.mode, connectLabel)} />
+            <ProfileRenderer attribution memberTier={api.memberTier} mode={api.mode} pageOrder={api.pageOrder?.order ?? null} pageSizes={api.pageOrder?.sizes} pieces={pieces} plan={api.plan} previewLook={previewing ? look : undefined} profile={api.profile} selectedRewards={api.selectedRewards} sound="preview" viewerState="visitor_unconnected" visitorAction={previewVisitorAction(api.mode, connectLabel)} />
           </div>
         </div>
         <div style={{ height: sheetHeight }} />

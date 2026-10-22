@@ -177,3 +177,22 @@ export function PreviewConnect({ label, onClick }: { label: string; onClick?: ()
 export function previewVisitorAction(mode: ProfileMode, label: string, onClick?: () => void) {
   return (mode.connect_policy ?? "anyone") === "anyone" ? <PreviewConnect label={label} onClick={onClick} /> : undefined;
 }
+
+const SIZE_LABEL = { small: "Small", wide: "Wide", hero: "Hero" } as const;
+type Size = keyof typeof SIZE_LABEL;
+
+/** How big a tile sits on the page. Tapping steps through the sizes this entry allows. */
+export function SizeChip({ value, options, onChange, label }: { value: Size; options: readonly Size[]; onChange: (next: Size) => void; label: string }) {
+  if (options.length < 2) return null;
+  const next = options[(options.indexOf(value) + 1) % options.length];
+  return (
+    <button aria-label={`${label}: ${SIZE_LABEL[value]} tile. Change to ${SIZE_LABEL[next]}.`} className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 font-label text-[9.5px] uppercase tracking-[0.1em] transition focus-visible:outline-2 focus-visible:outline-offset-2 ${value === "wide" ? "text-black/55 shadow-[inset_0_0_0_1px_rgba(13,13,13,.18)] hover:text-black" : "bg-[#0D0D0D] text-[#F5F4EF]"}`} data-tile-size-chip={value} onClick={(event) => { event.stopPropagation(); onChange(next); }} type="button">
+      <svg aria-hidden="true" className="size-3" fill="currentColor" viewBox="0 0 12 12">
+        {value === "small" ? <><rect height="7" rx="1.2" width="4.6" x="0.5" y="2.5" /><rect height="7" opacity=".35" rx="1.2" width="4.6" x="6.9" y="2.5" /></>
+          : value === "hero" ? <rect height="11" rx="1.2" width="12" x="0" y="0.5" />
+          : <rect height="7" rx="1.2" width="11" x="0.5" y="2.5" />}
+      </svg>
+      {SIZE_LABEL[value]}
+    </button>
+  );
+}

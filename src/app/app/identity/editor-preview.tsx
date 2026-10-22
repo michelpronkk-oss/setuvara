@@ -65,6 +65,7 @@ function PreviewProfile({ api, state, setState, soundGate = false }: { api: Edit
       memberTier={api.memberTier}
       mode={mode}
       pageOrder={api.pageOrder?.order ?? null}
+      pageSizes={api.pageOrder?.sizes}
       pieces={pieces}
       profile={profile}
       plan={api.plan}

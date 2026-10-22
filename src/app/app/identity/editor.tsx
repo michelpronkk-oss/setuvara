@@ -27,6 +27,7 @@ import { createProviderLink, updateProviderLink } from "./actions";
 import { CropDialog, cropToBlob, originalToBlob } from "./editor-crop";
 import { FullPreview, PeekPreview, PreviewPane, type SoundIntro } from "./editor-preview";
 import { ContentSection } from "./editor-content";
+import { PageItemsProvider } from "./editor-page-order";
 import { HomeSection, MobileHome, ProfileSection, SettingsSection, ShareSection } from "./editor-sections";
 import { AppearancePlusSheet, AppearanceSection, pendingAppearanceKey, PhotoPreviews } from "./editor-appearance";
 import { SECTIONS, SETTING_KEYS, type EditableProfile, type EditorApi, type PlusTrigger, type PreviewState, type Section, type UsernameStatus } from "./editor-types";
@@ -905,6 +906,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   );
 
   return (
+    <PageItemsProvider api={api}>
     <div className={`${marketingFontClasses} min-h-dvh bg-[#F5F4EF] font-brand text-[#0D0D0D] lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pl-[268px]`} style={{ "--editor-dock": !peekable ? "0px" : peekOpen ? "min(46dvh, 420px)" : "52px" } as CSSProperties}>
       <EditorSidebar avatarFocus={personalMode ? modeFocus(personalMode) : undefined} avatarUrl={personalMode?.image_url ?? null} inPlace liveUrl={publicUrl(slug)} modes={modes} onGo={go} personalUrl={profile.username ? publicUrl("personal") : null} plan={plan} profile={profile} section={section} signOut={signOut} slug={slug} />
 
@@ -1013,6 +1015,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
       {plusSheet && <AppearancePlusSheet currentName={APPEARANCE_NAMES[resolveAppearance(mode, plan).id]} modeLabel={mode.label} onClose={() => setPlusSheet(null)} plan={plan} trigger={plusSheet} />}
       <CelebrationClient name={PASSPORT_REWARDS.find((reward) => reward.milestone === celebrationThreshold)?.name ?? (celebrationThreshold ? `${celebrationThreshold} Connections` : null)} threshold={celebrationThreshold} />
     </div>
+    </PageItemsProvider>
   );
 }
 

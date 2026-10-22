@@ -371,7 +371,7 @@ export function RowChevron({ label, onClick, open }: { label: string; onClick: (
   );
 }
 
-export function LinkRow({ api, link, editing, onEdit, sortId }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void; sortId?: string }) {
+export function LinkRow({ api, link, editing, onEdit, sortId, size }: { api: EditorApi; link: ProfileLink; editing: boolean; onEdit: (open: boolean) => void; sortId?: string; size?: ReactNode }) {
   const provider = providerForLink(link.link_type);
   const resolved = resolveStoredLink(provider.id, link.url);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sortId ?? link.id });
@@ -410,6 +410,7 @@ export function LinkRow({ api, link, editing, onEdit, sortId }: { api: EditorApi
           <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{editing ? "Editing link" : link.title}</span>{!link.is_visible && <span className="shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] tracking-[0.1em] shadow-[inset_0_0_0_1px_rgba(13,13,13,.35)]">HIDDEN</span>}</span>
           <span className="block truncate text-[13px] text-black/55">{editing ? provider.name : resolved?.displayValue ?? provider.name}</span>
         </button>
+        {size}
         <Toggle label={`${link.is_visible ? "Hide" : "Show"} ${link.title}`} on={link.is_visible} onChange={() => api.toggleLink(link)} />
         <RowChevron label={editing ? `Close ${link.title}` : `Edit ${link.title}`} onClick={toggleEditing} open={editing} />
       </div>

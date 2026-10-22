@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { resolveOrder } from "@/lib/profile/page-order";
+import { readHidden, readSizes, resolveOrder } from "@/lib/profile/page-order";
 import { freshPlatforms, type PublicPlatform } from "@/lib/social/model";
 import { nameType, nameTypeStyle } from "@/components/profile/name-type";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
@@ -363,16 +363,19 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
     : null;
 
   // The owner's page order across blocks, links, Actions, projects and Mode sections; no row keeps the default.
-  const { data: orderRow } = await supabase.from("mode_page_order").select("items").eq("mode_id", rawMode.id).maybeSingle();
+  const { data: orderRow } = await supabase.from("mode_page_order").select("items, sizes, hidden").eq("mode_id", rawMode.id).maybeSingle();
   const accent = resolveModeAccent(mode);
   const accentInk = inkOnAccent(accent);
-  const pageOrder = Array.isArray(orderRow?.items) && orderRow.items.length ? resolveOrder(slug as ModeSlug, orderRow.items as string[], {
+  const orderedAll = Array.isArray(orderRow?.items) && orderRow.items.length ? resolveOrder(slug as ModeSlug, orderRow.items as string[], {
     blocks: (mode.blocks ?? []).filter((block) => block.is_visible && !block.is_soundtrack).map((block) => block.id),
     links: mode.links.filter((link) => link.is_visible).map((link) => link.id),
     actions: creator ? [] : modeActions.map((item) => item.action.id),
     projects: projects.map((project) => project.id),
     sections: [...(testimonials.length ? ["testimonials" as const] : []), ...(creator ? ["creator" as const] : []), ...(creatorPlatforms.length ? ["audience" as const] : [])],
   }) : null;
+  // Entries the owner switched off for this page never reach visitors.
+  const hiddenKeys = new Set(readHidden(orderRow?.hidden));
+  const pageOrder = orderedAll ? orderedAll.filter((key) => !hiddenKeys.has(key)) : null;
   const pieces: Record<string, React.ReactNode> | undefined = pageOrder ? {
     ...Object.fromEntries((creator ? [] : modeActions).map((item) => [`action:${item.action.id}`, <ActionCards accent={accent} accentInk={accentInk} actionHref={actionHref} actions={[item]} key={item.action.id} />])),
     ...Object.fromEntries(projects.map((project) => [`project:${project.id}`, <PublicBuilder accent={accent} accentInk={accentInk} actionHref={actionHref} actions={modeActions.map((item) => item.action)} bare display={builderDisplay} images={blockImages} key={project.id} projects={[project]} viewer={builderViewer} />])),
@@ -392,6 +395,7 @@ export async function PublicProfilePage({ target, source: rawSource }: { target:
           className="min-h-dvh"
           edgeToEdge
           pageOrder={pageOrder}
+          pageSizes={pageOrder ? readSizes(orderRow?.sizes, pageOrder) : undefined}
           pieces={pieces}
           footer={pageOrder ? (sharedPassportStamp ? <PassportShare stamp={sharedPassportStamp} /> : undefined) : creator || creatorPlatforms.length || modeActions.length || testimonials.length || projects.length || sharedPassportStamp ? (<>
             {creator && <CreatorAudience accent={resolveModeAccent(mode)} display={builderDisplay} platforms={creatorPlatforms} />}

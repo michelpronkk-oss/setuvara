@@ -3,16 +3,16 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { KindTile } from "@/components/actions/kind-picker";
 import type { ModeSlug, ProfileBlock, ProfileLink } from "@/components/profile/types";
 import { ACTION_KIND_SHORT, ACTION_STATUS_LABEL, actionWindow, type ActionKind, type ProfileAction } from "@/lib/actions/model";
-import { PAGE_KINDS, PAGE_SECTIONS, SECTION_NAME, parseKey, resolveOrder, type PageInventory, type PageSection } from "@/lib/profile/page-order";
+import { PAGE_KINDS, PAGE_SECTIONS, SECTION_NAME, parseKey, readHidden, readSizes, resolveOrder, type PageInventory, type PageSection, type PageSizes, type TileSize } from "@/lib/profile/page-order";
 import { createClient } from "@/lib/supabase/client";
 import { DragHandle } from "./editor-sections";
 import type { EditorApi } from "./editor-types";
-import { BlockIcon } from "./editor-ui";
+import { BlockIcon, Toggle } from "./editor-ui";
 
 export type PageAction = Pick<ProfileAction, "id" | "kind" | "status" | "title" | "sort_order" | "starts_at" | "ends_at">;
 export type PageProject = { id: string; name: string; visibility: string; sort_order: number };
@@ -32,31 +32,42 @@ const actionsBase = (slug: ModeSlug) => (slug === "creator" ? "/app/identity/cre
  * the Mode's own sections, each Mode only what it can show. The soundtrack is not part of it; it
  * keeps its own place. Moving a row saves the page order and keeps each kind's own order in step.
  */
-export function usePageItems(api: EditorApi) {
+type Loaded = { modeId: string; saved: string[] | null; sizes: PageSizes; hidden: string[]; actions: PageAction[]; projects: PageProject[]; audience: boolean };
+
+function usePageItems(api: EditorApi) {
   const { mode, slug, profile } = api;
-  const [actions, setActions] = useState<PageAction[]>([]);
-  const [projects, setProjects] = useState<PageProject[]>([]);
-  const [audience, setAudience] = useState(false);
-  const [saved, setSaved] = useState<string[] | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  // Held per Mode: switching Modes never shows the last Mode's order for a moment.
+  const [data, setData] = useState<Loaded | null>(null);
   const [status, setStatus] = useState("");
+  const current = data?.modeId === mode.id ? data : null;
+  const loaded = Boolean(current);
+  const saved = current?.saved ?? null;
+  const actions = useMemo(() => current?.actions ?? [], [current]);
+  const projects = useMemo(() => current?.projects ?? [], [current]);
+  const audience = current?.audience ?? false;
+  const patch = (next: Partial<Loaded>) => setData((value) => (value && value.modeId === mode.id ? { ...value, ...next } : value));
 
   useEffect(() => {
     let live = true;
     const supabase = createClient();
     const kinds = PAGE_KINDS[slug];
     void Promise.all([
-      supabase.from("mode_page_order").select("items").eq("mode_id", mode.id).maybeSingle(),
+      supabase.from("mode_page_order").select("items, sizes, hidden").eq("mode_id", mode.id).maybeSingle(),
       kinds.includes("action") ? supabase.from("profile_actions").select("id, kind, status, title, sort_order, starts_at, ends_at").eq("mode_id", mode.id).neq("status", "archived").order("sort_order").order("created_at") : Promise.resolve({ data: [] }),
       kinds.includes("project") ? supabase.from("builder_projects").select("id, name, visibility, sort_order").eq("mode_id", mode.id).order("sort_order") : Promise.resolve({ data: [] }),
       slug === "creator" ? supabase.from("social_accounts").select("id", { count: "exact", head: true }).eq("profile_id", profile.id).eq("show_on_page", true) : Promise.resolve({ count: 0 }),
     ]).then(([order, actionRows, projectRows, social]) => {
       if (!live) return;
-      setSaved(Array.isArray(order.data?.items) ? order.data.items as string[] : null);
-      setActions((actionRows.data ?? []) as PageAction[]);
-      setProjects((projectRows.data ?? []) as PageProject[]);
-      setAudience(((social as { count?: number | null }).count ?? 0) > 0);
-      setLoaded(true);
+      const row = order.data as { items?: unknown; sizes?: unknown; hidden?: unknown } | null;
+      setData({
+        modeId: mode.id,
+        saved: Array.isArray(row?.items) ? row.items as string[] : null,
+        sizes: readSizes(row?.sizes),
+        hidden: readHidden(row?.hidden),
+        actions: (actionRows.data ?? []) as PageAction[],
+        projects: (projectRows.data ?? []) as PageProject[],
+        audience: ((social as { count?: number | null }).count ?? 0) > 0,
+      });
     });
     return () => { live = false; };
   }, [mode.id, profile.id, slug]);
@@ -65,6 +76,8 @@ export function usePageItems(api: EditorApi) {
   const sections: PageSection[] = PAGE_SECTIONS[slug].filter((name) => name !== "audience" || audience);
   const have: PageInventory = { blocks: blocks.map((b) => b.id), links: mode.links.map((l) => l.id), actions: actions.map((a) => a.id), projects: projects.map((p) => p.id), sections };
   const order = resolveOrder(slug, saved, have);
+  const sizes = readSizes(current?.sizes, order);
+  const hidden = (current?.hidden ?? []).filter((key) => order.includes(key));
 
   const items: PageItem[] = order.flatMap((key): PageItem[] => {
     const item = parseKey(key);
@@ -76,8 +89,9 @@ export function usePageItems(api: EditorApi) {
     return [{ key, kind: "section", section: item.id as PageSection }];
   });
 
-  // The preview follows this order, saved or default.
-  const orderKey = order.join(",");
+  // The preview follows this order, saved or default, without what's switched off.
+  const orderKey = order.filter((key) => !hidden.includes(key)).join(",");
+  const sizeKey = JSON.stringify(sizes);
   const labelKey = items.flatMap((row) => row.kind === "action" && row.action.status === "published" ? [`${row.key}=${row.action.title || "Untitled Action"}`]
     : row.kind === "project" && row.project.visibility === "public" ? [`${row.key}=${row.project.name}`]
     : row.kind === "section" ? [`${row.key}=${SECTION_NAME[row.section]}`] : []).join("|");
@@ -85,15 +99,15 @@ export function usePageItems(api: EditorApi) {
   useEffect(() => {
     if (!loaded) return;
     const labels = Object.fromEntries(labelKey ? labelKey.split("|").map((pair) => { const [key, ...title] = pair.split("="); return [key, { kind: key.slice(0, key.indexOf(":")), title: title.join("=") }]; }) : []);
-    setPageOrder(orderKey ? { order: orderKey.split(","), labels } : null);
-  }, [orderKey, labelKey, loaded, setPageOrder]);
+    setPageOrder(orderKey ? { order: orderKey.split(","), labels, sizes: JSON.parse(sizeKey) as PageSizes } : null);
+  }, [orderKey, labelKey, sizeKey, loaded, setPageOrder]);
 
-  async function save(next: string[] | null) {
-    setSaved(next);
+  async function save(next: string[] | null, nextSizes: PageSizes = next ? sizes : {}, nextHidden: string[] = next ? hidden : []) {
+    patch({ saved: next, sizes: nextSizes, hidden: nextHidden });
     setStatus("Saving…");
     const supabase = createClient();
     const result = next
-      ? await supabase.from("mode_page_order").upsert({ mode_id: mode.id, profile_id: profile.id, items: next }, { onConflict: "mode_id" })
+      ? await supabase.from("mode_page_order").upsert({ mode_id: mode.id, profile_id: profile.id, items: next, sizes: nextSizes, hidden: nextHidden }, { onConflict: "mode_id" })
       : await supabase.from("mode_page_order").delete().eq("mode_id", mode.id);
     if (result.error) { setStatus("That didn't save. Try again."); return; }
     setStatus(next ? "" : "Back to the default order.");
@@ -109,17 +123,45 @@ export function usePageItems(api: EditorApi) {
     if (linkIds.join() !== mode.links.map((l) => l.id).join()) api.reorderLinks(linkIds.flatMap((id) => mode.links.filter((l) => l.id === id)));
     const actionIds = ids("action");
     if (actionIds.join() !== actions.map((a) => a.id).join()) {
-      setActions(actionIds.flatMap((id, index) => actions.filter((a) => a.id === id).map((a) => ({ ...a, sort_order: index }))));
+      patch({ actions: actionIds.flatMap((id, index) => actions.filter((a) => a.id === id).map((a) => ({ ...a, sort_order: index }))) });
       await Promise.all(actionIds.map((id, index) => supabase.from("profile_actions").update({ sort_order: index }).eq("id", id).eq("profile_id", profile.id)));
     }
     const projectIds = ids("project");
     if (projectIds.join() !== projects.map((p) => p.id).join()) {
-      setProjects(projectIds.flatMap((id, index) => projects.filter((p) => p.id === id).map((p) => ({ ...p, sort_order: index }))));
+      patch({ projects: projectIds.flatMap((id, index) => projects.filter((p) => p.id === id).map((p) => ({ ...p, sort_order: index }))) });
       await Promise.all(projectIds.map((id, index) => supabase.from("builder_projects").update({ sort_order: index }).eq("id", id)));
     }
   }
 
-  return { items, order, saved, loaded, status, save, actionsCount: actions.length };
+  /** One tile's size; the order is saved with it, so the page follows both. */
+  function setSize(key: string, size: TileSize) {
+    const next = { ...sizes };
+    if (size === "wide") delete next[key];
+    else next[key] = size;
+    void save(order, next);
+  }
+
+  /** Switches an Action, project or section off for this page (or back on). */
+  function toggleHidden(key: string) {
+    void save(order, sizes, hidden.includes(key) ? hidden.filter((item) => item !== key) : [...hidden, key]);
+  }
+
+  return { items, order, saved, sizes, hidden, loaded, status, save, setSize, toggleHidden, actionsCount: actions.length };
+}
+
+export type PageItems = ReturnType<typeof usePageItems>;
+const PageItemsContext = createContext<PageItems | null>(null);
+
+/** Mounted once for the whole editor, so every tab and preview shows the same page. */
+export function PageItemsProvider({ api, children }: { api: EditorApi; children: ReactNode }) {
+  const page = usePageItems(api);
+  return <PageItemsContext.Provider value={page}>{children}</PageItemsContext.Provider>;
+}
+
+export function usePage(): PageItems {
+  const page = useContext(PageItemsContext);
+  if (!page) throw new Error("usePage needs PageItemsProvider");
+  return page;
 }
 
 /** Drag wiring shared by the rows below. */
@@ -134,7 +176,7 @@ function Tag({ children, tone = "line" }: { children: string; tone?: "line" | "l
   return <span className={`shrink-0 rounded-full px-2 py-0.5 font-label text-[9px] uppercase tracking-[0.1em] max-[389px]:hidden ${cls}`}>{children}</span>;
 }
 
-export function ActionPageRow({ action, slug }: { action: PageAction; slug: ModeSlug }) {
+export function ActionPageRow({ action, slug, hidden = false, onToggle, size }: { action: PageAction; slug: ModeSlug; hidden?: boolean; onToggle?: () => void; size?: ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `action:${action.id}` });
   const ended = action.status === "published" && actionWindow(action) === "ended";
   const live = action.status === "published" && !ended;
@@ -144,10 +186,12 @@ export function ActionPageRow({ action, slug }: { action: PageAction; slug: Mode
       <div className="flex min-h-[66px] items-center gap-1.5 py-2 pl-1 pr-1 sm:gap-2">
         <DragHandle {...attributes} {...listeners} />
         <KindTile kind={action.kind as ActionKind} size={40} />
-        <Link className={`min-w-0 flex-1 px-1.5 ${live ? "" : "opacity-55"}`} href={href}>
-          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{action.title || "Untitled Action"}</span><Tag tone={live ? "live" : "line"}>{ended ? "Ended" : ACTION_STATUS_LABEL[action.status]}</Tag></span>
+        <Link className={`min-w-0 flex-1 px-1.5 ${live && !hidden ? "" : "opacity-55"}`} href={href}>
+          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{action.title || "Untitled Action"}</span>{hidden ? <Tag>Hidden</Tag> : <Tag tone={live ? "live" : "line"}>{ended ? "Ended" : ACTION_STATUS_LABEL[action.status]}</Tag>}</span>
           <span className="block truncate text-[13px] text-black/55">Action · {ACTION_KIND_SHORT[action.kind as ActionKind]}{action.status === "draft" ? " · publish to show it" : ""}</span>
         </Link>
+        {size}
+        {onToggle && <Toggle label={`${hidden ? "Show" : "Hide"} ${action.title} on your page`} on={!hidden} onChange={onToggle} />}
         <Link aria-label={`Edit ${action.title}`} className="grid size-10 shrink-0 place-items-center rounded-full text-black/40 transition hover:bg-black/[0.05] hover:text-black" href={href}><Arrow /></Link>
       </div>
     </li>
@@ -155,7 +199,7 @@ export function ActionPageRow({ action, slug }: { action: PageAction; slug: Mode
 }
 
 const PROJECT_ICON = "M4 5h16v11H4zM8 20h8M12 16v4";
-export function ProjectPageRow({ project, href }: { project: PageProject; href: string }) {
+export function ProjectPageRow({ project, href, hidden = false, onToggle }: { project: PageProject; href: string; hidden?: boolean; onToggle?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `project:${project.id}` });
   const live = project.visibility === "public";
   return (
@@ -163,10 +207,11 @@ export function ProjectPageRow({ project, href }: { project: PageProject; href: 
       <div className="flex min-h-[66px] items-center gap-1.5 py-2 pl-1 pr-1 sm:gap-2">
         <DragHandle {...attributes} {...listeners} />
         <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#AFCBFF] text-[#0D0D0D]"><svg className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d={PROJECT_ICON} /></svg></span>
-        <Link className={`min-w-0 flex-1 px-1.5 ${live ? "" : "opacity-55"}`} href={href}>
-          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{project.name}</span>{!live && <Tag>Draft</Tag>}</span>
+        <Link className={`min-w-0 flex-1 px-1.5 ${live && !hidden ? "" : "opacity-55"}`} href={href}>
+          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{project.name}</span>{hidden && <Tag>Hidden</Tag>}{!live && <Tag>Draft</Tag>}</span>
           <span className="block truncate text-[13px] text-black/55">Builder project</span>
         </Link>
+        {onToggle && <Toggle label={`${hidden ? "Show" : "Hide"} ${project.name} on your page`} on={!hidden} onChange={onToggle} />}
         <Link aria-label={`Edit ${project.name}`} className="grid size-10 shrink-0 place-items-center rounded-full text-black/40 transition hover:bg-black/[0.05] hover:text-black" href={href}><Arrow /></Link>
       </div>
     </li>
@@ -183,17 +228,18 @@ const SECTION_NOTE: Record<PageSection, string> = {
   audience: "Your connected platforms and follower counts",
   creator: "Moves as one piece · order its parts in Creator settings",
 };
-export function SectionPageRow({ section, href }: { section: PageSection; href?: string }) {
+export function SectionPageRow({ section, href, hidden = false, onToggle }: { section: PageSection; href?: string; hidden?: boolean; onToggle?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `section:${section}` });
   return (
     <li className={rowClass(isDragging)} ref={setNodeRef} style={sortStyle(transform, transition)}>
       <div className="flex min-h-[66px] items-center gap-1.5 py-2 pl-1 pr-1 sm:gap-2">
         <DragHandle {...attributes} {...listeners} />
         <BlockIcon className="size-10 rounded-xl bg-[#0D0D0D] text-[#E8A6FF]" path={SECTION_ICON[section]} />
-        <span className="min-w-0 flex-1 px-1.5">
-          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{SECTION_NAME[section]}</span><Tag tone="ink">Section</Tag></span>
+        <span className={`min-w-0 flex-1 px-1.5 ${hidden ? "opacity-55" : ""}`}>
+          <span className="flex items-center gap-2"><span className="truncate text-[15px] font-semibold">{SECTION_NAME[section]}</span>{hidden ? <Tag>Hidden</Tag> : <Tag tone="ink">Section</Tag>}</span>
           <span className="block truncate text-[13px] text-black/55">{SECTION_NOTE[section]}</span>
         </span>
+        {onToggle && <Toggle label={`${hidden ? "Show" : "Hide"} ${SECTION_NAME[section]} on your page`} on={!hidden} onChange={onToggle} />}
         {href && <Link aria-label={`Edit ${SECTION_NAME[section]}`} className="grid size-10 shrink-0 place-items-center rounded-full text-black/40 transition hover:bg-black/[0.05] hover:text-black" href={href}><Arrow /></Link>}
       </div>
     </li>
