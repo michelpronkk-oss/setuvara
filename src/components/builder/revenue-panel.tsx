@@ -96,6 +96,10 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
         );
       })}
 
+      {limits.providers > 0 && used >= limits.providers && (
+        <p className="rounded-[16px] bg-black/[.04] p-4 text-[14px]">Your plan connects {limits.providers === 1 ? "one provider" : `${limits.providers} providers`} at a time: Stripe, Paddle, RevenueCat or Dodo Payments. Disconnect one to switch{limits.plan === "plus" ? <>, or <Link className="font-semibold underline" href="/app/upgrade">move to Pro</Link> for up to 3</> : ""}.</p>
+      )}
+
       {canAdd && (
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); start(async () => {
           const r = await connectRevenue(projectId, provider, provider === "revenuecat" ? `${projectRef.trim()}:${key.trim()}` : key);
