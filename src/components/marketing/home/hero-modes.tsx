@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 const labels = ["Personal", "Event", "Business", "Creator"] as const;
+const noop = () => () => {};
 
 /**
  * The hero's only interactive piece: the four Modes' server-rendered profiles fanned
@@ -12,6 +13,9 @@ const labels = ["Personal", "Event", "Business", "Creator"] as const;
 export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, ReactNode, ReactNode]; caption: string }) {
   const [active, setActive] = useState(1);
   const [held, setHeld] = useState(false);
+  // The card waiting behind the front one mounts after hydration, so it never competes with the
+  // first paint (its photos and name font); the first turn comes seconds later.
+  const hydrated = useSyncExternalStore(noop, () => true, () => false);
 
   useEffect(() => {
     if (held || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -62,7 +66,7 @@ export function HeroModes({ cards, caption }: { cards: [ReactNode, ReactNode, Re
                 opacity: front ? 1 : hidden ? 0 : 0.92,
               }}
             >
-              {card}
+              {hidden && !hydrated ? null : card}
             </div>
           );
         })}
