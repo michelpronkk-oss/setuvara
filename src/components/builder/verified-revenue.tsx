@@ -2,7 +2,7 @@ import type { PublicRevenue } from "@/lib/builder/model";
 
 const label = "font-label text-[10px] uppercase tracking-[0.2em]";
 const line = "color-mix(in srgb, currentColor 12%, transparent)";
-export const PROVIDER_LABEL: Record<PublicRevenue["provider"], string> = { stripe: "Stripe", revenuecat: "RevenueCat", dodo: "Dodo Payments" };
+export const PROVIDER_LABEL: Record<PublicRevenue["provider"], string> = { stripe: "Stripe", revenuecat: "RevenueCat", dodo: "Dodo Payments", paddle: "Paddle" };
 
 export function money(minor: number, currency: string) {
   return new Intl.NumberFormat("en", { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 0 }).format(minor / 100);

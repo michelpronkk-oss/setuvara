@@ -11,18 +11,20 @@ import { createClient } from "@/lib/supabase/client";
 
 import { money, PROVIDER_LABEL } from "./verified-revenue";
 
-export type RevenueConnection = { id: string; project_id: string; provider: "stripe" | "revenuecat" | "dodo"; environment: "live" | "test"; account_ref: string | null; key_hint: string; status: "active" | "error" | "revoked"; last_sync_at: string | null; last_sync_ok: boolean | null; last_error: string | null; history_mode: "daily" | "reconstructed" };
+export type RevenueConnection = { id: string; project_id: string; provider: "stripe" | "revenuecat" | "dodo" | "paddle"; environment: "live" | "test"; account_ref: string | null; key_hint: string; status: "active" | "error" | "revoked"; last_sync_at: string | null; last_sync_ok: boolean | null; last_error: string | null; history_mode: "daily" | "reconstructed" };
 export type RevenueSnapshot = { connection_id: string; day: string; currency: string; mrr_minor: number; paying_customers: number; active_subscriptions: number; reconstructed: boolean };
 export type RevenueLimits = { plan: "free" | "plus" | "pro"; providers: number; history_days: number };
 
 const card = "rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
 const field = "min-h-12 w-full rounded-[16px] bg-white px-4 text-[16px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none focus:shadow-[inset_0_0_0_1.5px_#0D0D0D]";
-const AVAILABLE = ["stripe", "revenuecat"] as const;
+const AVAILABLE = ["stripe", "paddle", "revenuecat", "dodo"] as const;
 const KEY_HELP: Record<string, string> = {
   stripe: "In Stripe, Developers → API keys → Create restricted key. Set Subscriptions, Customers and Prices to Read, everything else to None.",
   revenuecat: "In RevenueCat, Project settings → API keys → New secret API key, version 2. Set Charts & metrics to Read only, everything else to No access. MRR and active subscriptions come from RevenueCat's own overview, in USD.",
+  paddle: "In Paddle, Developer tools → Authentication → API keys → New API key. Give it Subscriptions: Read only. A sandbox key connects as test data, which is never shown publicly.",
+  dodo: "In Dodo Payments, Developer → API Keys → Create key. Give it Subscriptions: Read only. A test-mode key connects as test data, which is never shown publicly.",
 };
-const PLACEHOLDER: Record<string, string> = { stripe: "rk_live_…", revenuecat: "sk_…" };
+const PLACEHOLDER: Record<string, string> = { stripe: "rk_live_…", revenuecat: "sk_…", dodo: "Dodo Payments API key", paddle: "pdl_live_apikey_…" };
 const VISIBILITY: { value: RevenueVisibility; label: string; note: string }[] = [
   { value: "hidden", label: "Hidden", note: "Only you see it." },
   { value: "exact", label: "Exact", note: "MRR, ARR and paying customers." },
@@ -94,6 +96,10 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
         );
       })}
 
+      {limits.providers > 0 && used >= limits.providers && (
+        <p className="rounded-[16px] bg-black/[.04] p-4 text-[14px]">Your plan connects {limits.providers === 1 ? "one provider" : `${limits.providers} providers`} at a time: Stripe, Paddle, RevenueCat or Dodo Payments. Disconnect one to switch{limits.plan === "plus" ? <>, or <Link className="font-semibold underline" href="/app/upgrade">move to Pro</Link> for up to 3</> : ""}.</p>
+      )}
+
       {canAdd && (
         <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); start(async () => {
           const r = await connectRevenue(projectId, provider, provider === "revenuecat" ? `${projectRef.trim()}:${key.trim()}` : key);
@@ -104,8 +110,9 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
           <label className="grid gap-1.5 text-[14px] font-semibold">Provider
             <select className={field} onChange={(e) => { setProvider(e.target.value as typeof provider); setKey(""); }} value={provider}>
               <option disabled={connected("stripe")} value="stripe">Stripe</option>
+              <option disabled={connected("paddle")} value="paddle">Paddle</option>
               <option disabled={connected("revenuecat")} value="revenuecat">RevenueCat</option>
-              <option disabled value="dodo">Dodo Payments (coming soon)</option>
+              <option disabled={connected("dodo")} value="dodo">Dodo Payments</option>
             </select>
           </label>
           {provider === "revenuecat" && (
