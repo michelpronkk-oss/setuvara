@@ -47,12 +47,21 @@ function isoDay(offset = 0) {
   return date.toISOString().slice(0, 10);
 }
 
-function requestParams(request: RangeRequest) {
+type ModeFilter = "personal" | "event" | "business" | "creator";
+const MODE_FILTERS: { value: ModeFilter; label: string; color: string }[] = [
+  { value: "personal", label: "Personal", color: "#FF5A4F" },
+  { value: "event", label: "Event", color: "#C7FF4A" },
+  { value: "business", label: "Business", color: "#AFCBFF" },
+  { value: "creator", label: "Creator", color: "#E8A6FF" },
+];
+
+function requestParams(request: RangeRequest, mode: ModeFilter | null = null) {
   const params = new URLSearchParams({ range: request.kind });
   if (request.kind === "custom") {
     params.set("from", request.from);
     params.set("to", request.to);
   }
+  if (mode) params.set("mode", mode);
   return params.toString();
 }
 
@@ -71,11 +80,12 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
   const [reload, setReload] = useState(0);
   const [paywall, setPaywall] = useState<PaywallTarget | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  const [mode, setMode] = useState<ModeFilter | null>(null);
   const fmt = useMemo<Format>(() => {
     const formatter = new Intl.NumberFormat("en-US");
     return (value) => formatter.format(value);
   }, []);
-  const key = requestParams(request);
+  const key = requestParams(request, mode);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,10 +110,17 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
   const closePaywall = useCallback(() => setPaywall(null), []);
 
   const choose = (next: RangeRequest) => {
-    if (requestParams(next) === key) return;
+    if (requestParams(next, mode) === key) return;
     setLoading(true);
     setFailed(false);
     setRequest(next);
+  };
+  const chooseMode = (next: ModeFilter | null) => {
+    if (next && !capabilities.modeBreakdown) { setPaywall("plus"); return; }
+    if (next === mode) return;
+    setLoading(true);
+    setFailed(false);
+    setMode(next);
   };
   const retry = () => { setLoading(true); setFailed(false); setReload((value) => value + 1); };
 
@@ -141,6 +158,7 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
               onCancel={() => setCustomOpen(false)}
             />
           )}
+          <ModeFilterBar locked={!capabilities.modeBreakdown} onPick={chooseMode} selected={mode} />
           {loading && shown && <p aria-live="polite" className="font-label text-[11px] tracking-[0.1em] text-black/65 lg:col-span-2" role="status">Updating your signals…</p>}
         </header>
 
@@ -158,6 +176,26 @@ export function AnalyticsDashboard({ initialPlan, shareUrl, shareMode, walletLau
 
       {paywall && plan !== "pro" && !(paywall === "plus" && plan === "plus") && <AnalyticsPaywall onClose={closePaywall} plan={plan} target={paywall} />}
     </main>
+  );
+}
+
+/** One Mode at a time across the whole page; Plus. Free sees the choices and what they unlock. */
+function ModeFilterBar({ selected, locked, onPick }: { selected: ModeFilter | null; locked: boolean; onPick: (mode: ModeFilter | null) => void }) {
+  const chip = "flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#ff5a4f]";
+  return (
+    <div aria-label="Mode" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] lg:col-span-2" data-mode-filter role="group">
+      <button aria-pressed={selected === null} className={`${chip} ${selected === null ? "bg-[#0d0d0d] text-[#f5f4ef]" : "shadow-[inset_0_0_0_1px_#0d0d0d26] hover:bg-[#0d0d0d]/[0.05]"}`} onClick={() => onPick(null)} type="button">All Modes</button>
+      {MODE_FILTERS.map((item) => {
+        const on = selected === item.value;
+        return (
+          <button aria-haspopup={locked ? "dialog" : undefined} aria-pressed={locked ? undefined : on} className={`${chip} ${on ? "bg-[#0d0d0d] text-[#f5f4ef]" : "shadow-[inset_0_0_0_1px_#0d0d0d26] hover:bg-[#0d0d0d]/[0.05]"}`} data-locked={locked ? "plus" : undefined} key={item.value} onClick={() => onPick(item.value)} type="button">
+            <span aria-hidden="true" className="size-2 rounded-full" style={{ background: item.color }} />
+            {item.label}
+            {locked && <span aria-hidden="true" className="font-label text-[9px] tracking-[0.1em] text-black/40">PLUS</span>}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
