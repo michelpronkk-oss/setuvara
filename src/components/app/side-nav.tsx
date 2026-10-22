@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { MeetMark } from "@/components/marketing/brand";
 import type { ModeSlug } from "@/components/profile/types";
@@ -75,6 +75,20 @@ export function SideNav({ place, modes, published, unread = 0, needsYou = 0, wal
   const pageKey = "page" in place ? place.page : place.global;
   // A tall sidebar scrolls; keep the open page in view.
   useEffect(() => { scroller.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" }); }, [openMode, pageKey]);
+  // Fade the edge where the list carries on, so a cut-off row reads as "scroll for more".
+  const [edges, setEdges] = useState({ top: false, bottom: false });
+  useEffect(() => {
+    const node = scroller.current;
+    if (!node) return;
+    const measure = () => setEdges({ top: node.scrollTop > 2, bottom: node.scrollTop + node.clientHeight < node.scrollHeight - 2 });
+    measure();
+    node.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    for (const child of node.children) observer.observe(child);
+    return () => { node.removeEventListener("scroll", measure); observer.disconnect(); };
+  }, []);
+  const fade = `linear-gradient(to bottom, ${edges.top ? "transparent, #000 20px" : "#000, #000"}, ${edges.bottom ? "#000 calc(100% - 36px), transparent" : "#000"})`;
   const items = wallet ? [...GLOBAL, WALLET] : GLOBAL;
   const inPlace = (slug: ModeSlug) => (event: MouseEvent) => {
     if (!onModeGo || event.metaKey || event.ctrlKey || event.shiftKey) return;
@@ -89,7 +103,7 @@ export function SideNav({ place, modes, published, unread = 0, needsYou = 0, wal
         <span className="font-display text-[22px] font-bold tracking-[-0.04em]">setuvara</span>
       </Link>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-4 pt-2 [scrollbar-width:none]" ref={scroller}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-4 pt-2 [scrollbar-width:none]" ref={scroller} style={{ maskImage: fade, WebkitMaskImage: fade }}>
         <nav aria-label="Setuvara" className="flex flex-col gap-0.5">
           {items.map((item) => {
             const current = "global" in place && place.global === item.id;

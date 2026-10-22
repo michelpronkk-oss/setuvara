@@ -35,8 +35,8 @@ export default async function CommerceOverviewPage() {
       <StudioHead creator action={<Link className={coralButton} href="/app/identity/creator/commerce/products?new=1">+ New product</Link>} sub="Last 30 days" title="Commerce" />
 
       {state !== "payments_enabled" && (
-        <Link className="flex flex-wrap items-center gap-3 rounded-[22px] bg-[#0D0D0D] px-5 py-4 text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2 md:px-6" href="/app/identity/creator/commerce/payments">
-          <StateBadge className="!bg-[#F5F4EF] !text-[#0D0D0D]" state={state} />
+        <Link className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 rounded-[22px] bg-[#0D0D0D] px-5 py-4 text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2 md:flex md:px-6" href="/app/identity/creator/commerce/payments">
+          <StateBadge className="col-span-2 justify-self-start !bg-[#F5F4EF] !text-[#0D0D0D]" state={state} />
           <span className="min-w-0 flex-1 text-[15px]">{SELLER_STATE_COPY[state].line}</span>
           <span aria-hidden="true" className="text-[20px]">→</span>
         </Link>

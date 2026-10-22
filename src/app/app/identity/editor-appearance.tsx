@@ -217,11 +217,11 @@ function DesktopControls({ api, state, onMore }: { api: EditorApi; state: State;
 
 function ModeSwitch({ api, dark = false }: { api: EditorApi; dark?: boolean }) {
   return (
-    <div aria-label="Mode" className={`flex gap-1 rounded-full p-1 ${dark ? "bg-[#F5F4EF]/10" : "bg-[#0D0D0D]/[0.06]"}`} role="tablist">
+    <div aria-label="Mode" className={`flex min-w-0 gap-1 overflow-x-auto rounded-full p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${dark ? "bg-[#F5F4EF]/10" : "bg-[#0D0D0D]/[0.06]"}`} role="tablist">
       {MODE_SLUGS.map((slug) => {
         const on = slug === api.slug;
         return (
-          <button aria-selected={on} className={`${hitArea} flex min-h-[34px] items-center rounded-full px-2.5 text-[12.5px] font-semibold min-[375px]:px-3.5 min-[375px]:text-[13px] ${focusRing}`} key={slug} onClick={() => api.go("appearance", slug)} role="tab" style={{ background: on ? (dark ? "#F5F4EF" : "#0D0D0D") : "transparent", color: on ? (dark ? "#0D0D0D" : "#F5F4EF") : dark ? "#F5F4EF" : "#0D0D0D" }} type="button">{modeMeta[slug].name}</button>
+          <button aria-selected={on} className={`${hitArea} flex min-h-[34px] shrink-0 items-center rounded-full px-2 text-[12.5px] font-semibold min-[375px]:px-3 min-[375px]:text-[13px] ${focusRing}`} key={slug} onClick={() => api.go("appearance", slug)} role="tab" style={{ background: on ? (dark ? "#F5F4EF" : "#0D0D0D") : "transparent", color: on ? (dark ? "#0D0D0D" : "#F5F4EF") : dark ? "#F5F4EF" : "#0D0D0D" }} type="button">{modeMeta[slug].name}</button>
         );
       })}
     </div>
@@ -653,7 +653,7 @@ function MobileAppearance({ api, state, onMore }: { api: EditorApi; state: State
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-[#0D0D0D] text-[#0D0D0D] lg:hidden" data-appearance-editor="mobile">
       <div className="flex h-[52px] shrink-0 items-center justify-between gap-2 px-3 pt-[env(safe-area-inset-top)] text-[#F5F4EF]">
-        <button className="flex min-h-11 min-w-11 shrink-0 items-center gap-1 rounded-full px-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5F4EF]" onClick={() => api.go("home")} type="button"><span aria-hidden="true">‹</span><span className="max-[359px]:sr-only">{copy.title}</span></button>
+        <button className="flex min-h-11 min-w-11 shrink-0 items-center gap-1 rounded-full px-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5F4EF]" onClick={() => api.go("home")} type="button"><span aria-hidden="true">‹</span><span className="max-[439px]:sr-only">{copy.title}</span></button>
         <ModeSwitch api={api} dark />
       </div>
       <div aria-label={copy.previewLabel} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]" role="region" tabIndex={0}>
