@@ -8,11 +8,12 @@ import { reviewBuilderSuggestion } from "@/lib/builder/actions";
 import { builderError, insightsCsv, parseStack, projectSlug, PROJECT_STATUS_LABEL, PROJECT_STATUSES, ROADMAP_STAGE_LABEL, ROADMAP_STAGES, type BuilderInsights, type BuilderLimits, type BuilderProject, type BuilderSuggestion, type ProjectStatus, type ProjectUpdate, type RoadmapItem, type RoadmapStage } from "@/lib/builder/model";
 import { createClient } from "@/lib/supabase/client";
 
+import { ProjectMark } from "./project-mark";
 import { RevenuePanel, type RevenueConnection, type RevenueLimits, type RevenueSnapshot } from "./revenue-panel";
 
 const field = "min-h-12 w-full rounded-[16px] bg-white px-4 text-[16px] shadow-[inset_0_0_0_1px_rgba(13,13,13,.14)] outline-none focus:shadow-[inset_0_0_0_1.5px_#0D0D0D]";
 const area = `${field} min-h-28 py-3`;
-const card = "rounded-[24px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
+const card = "rounded-[28px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08),0_30px_60px_-50px_#0D0D0D] md:p-7";
 
 type Props = {
   slug: "creator" | "business";
@@ -51,6 +52,8 @@ export function BuilderStudio(props: Props) {
   const [saved, setSaved] = useState("");
   const [pending, start] = useTransition();
   const publicCount = props.projects.filter((p) => p.visibility === "public").length;
+  const tone = props.slug === "creator" ? "#E8A6FF" : "#AFCBFF";
+  const copy = STUDIO_COPY[props.slug];
 
   const pick = (id: string | null) => { const next = props.projects.find((p) => p.id === id) ?? null; setCreating(id === null); setCurrent(id); setDraft(toDraft(next)); setError(""); setSaved(""); };
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => { setDraft((prev) => ({ ...prev, [key]: value, ...(key === "name" && !project ? { slug: projectSlug(String(value)) } : {}) })); setError(""); setSaved(""); };
@@ -81,56 +84,94 @@ export function BuilderStudio(props: Props) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
-      <nav aria-label="Projects" className="flex flex-col gap-2">
-        {props.projects.map((p) => (
-          <button className={`flex min-h-12 items-center justify-between gap-2 rounded-[16px] px-4 text-left text-[15px] font-semibold transition ${!creating && current === p.id ? "bg-[#0D0D0D] text-white" : "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]"}`} key={p.id} onClick={() => pick(p.id)} type="button">
-            <span className="truncate">{p.name}</span><span className="shrink-0 text-[12px] font-normal opacity-60">{p.visibility === "public" ? PROJECT_STATUS_LABEL[p.status] : "Draft"}</span>
-          </button>
-        ))}
-        <button className={lineButton} onClick={() => pick(null)} type="button"><span aria-hidden="true">+</span>New project</button>
-        <p className="px-1 text-[13px] text-black/55">{publicCount} of {props.limits.public_projects} public on {props.limits.plan === "free" ? "Free" : props.limits.plan === "plus" ? "Plus" : "Pro"}</p>
+      <nav aria-label="Projects" className="flex flex-col gap-2 lg:sticky lg:top-24 lg:self-start">
+        <Mono className="px-1 text-black/45">Your projects</Mono>
+        {props.projects.map((p) => {
+          const on = !creating && current === p.id;
+          return (
+            <button className={`group flex min-h-[64px] items-center gap-3 rounded-[18px] p-2.5 pr-3.5 text-left transition ${on ? "bg-[#0D0D0D] text-[#F5F4EF] shadow-[0_18px_34px_-22px_#0D0D0D]" : "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] hover:-translate-y-px hover:shadow-[inset_0_0_0_1px_rgba(13,13,13,.16),0_14px_28px_-24px_#0D0D0D]"}`} key={p.id} onClick={() => pick(p.id)} type="button">
+              <ProjectMark accent={tone} accentInk="#0D0D0D" name={p.name} size={42} url={p.url} />
+              <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold">{p.name}</span>
+                <span className={`flex items-center gap-1.5 text-[12px] ${on ? "text-[#F5F4EF]/60" : "text-black/50"}`}><span aria-hidden="true" className={`size-1.5 rounded-full ${p.visibility === "public" ? "bg-[#3BD17A]" : "bg-current opacity-50"}`} />{p.visibility === "public" ? `Public · ${PROJECT_STATUS_LABEL[p.status]}` : "Draft"}</span></span>
+            </button>
+          );
+        })}
+        <button className={`flex min-h-[56px] items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-dashed text-[14.5px] font-semibold transition ${creating ? "border-[#0D0D0D] bg-white" : "border-black/15 text-black/60 hover:border-black/40 hover:text-black"}`} onClick={() => pick(null)} type="button"><span aria-hidden="true" className="text-[18px] leading-none">+</span>New project</button>
+        <div className="mt-1 px-1">
+          <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.07]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, (publicCount / Math.max(1, props.limits.public_projects)) * 100)}%`, background: tone }} /></div>
+          <p className="mt-1.5 text-[12.5px] text-black/50">{publicCount} of {props.limits.public_projects} public on {props.limits.plan === "free" ? "Free" : props.limits.plan === "plus" ? "Plus" : "Pro"}</p>
+        </div>
       </nav>
 
       <div className="grid content-start gap-6">
-        <section aria-label="Project" className={`${card} grid gap-4`}>
-          <Mono className="text-black/55">{project ? "Project" : "New project"}</Mono>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2"><span className="text-[14px] font-semibold">Name</span><input className={field} maxLength={80} onChange={(e) => set("name", e.target.value)} placeholder="My SaaS" value={draft.name} /></label>
-            <label className="grid gap-2"><span className="text-[14px] font-semibold">Status</span>
-              <select className={field} onChange={(e) => set("status", e.target.value as ProjectStatus)} value={draft.status}>{PROJECT_STATUSES.map((s) => <option key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</option>)}</select></label>
-          </div>
-          <label className="grid gap-2"><span className="text-[14px] font-semibold">One line pitch</span><input className={field} maxLength={140} onChange={(e) => set("tagline", e.target.value)} placeholder="Invoices that chase themselves" value={draft.tagline} /></label>
-          <label className="grid gap-2"><span className="text-[14px] font-semibold">About</span><textarea className={area} maxLength={2000} onChange={(e) => set("description", e.target.value)} value={draft.description} /></label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2"><span className="text-[14px] font-semibold">Website</span><input className={field} inputMode="url" maxLength={300} onChange={(e) => set("url", e.target.value)} placeholder="https://mysaas.com" value={draft.url} /></label>
-            <label className="grid gap-2"><span className="text-[14px] font-semibold">Category</span><input className={field} maxLength={40} onChange={(e) => set("category", e.target.value)} placeholder="Fintech · B2B SaaS" value={draft.category} /></label>
-            <label className="grid gap-2"><span className="text-[14px] font-semibold">Built with</span><input className={field} onChange={(e) => set("stack", e.target.value)} placeholder="Next.js, Postgres, Stripe" value={draft.stack} /></label>
-            <label className="grid gap-2"><span className="text-[14px] font-semibold">Launched</span><input className={field} onChange={(e) => set("launched_on", e.target.value)} type="date" value={draft.launched_on} /></label>
-          </div>
-          {props.images.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {(["logo_block_id", "cover_block_id"] as const).map((key) => (
-                <label className="grid gap-2" key={key}><span className="text-[14px] font-semibold">{key === "logo_block_id" ? "Logo" : "Cover"}</span>
-                  <select className={field} onChange={(e) => set(key, e.target.value)} value={draft[key]}><option value="">None</option>{props.images.map((image) => <option key={image.id} value={image.id}>{image.title}</option>)}</select></label>
-              ))}
-              <p className="text-[13px] text-black/55 md:col-span-2">Images come from this Mode&apos;s pictures.</p>
+        <section aria-label="Project" className="overflow-hidden rounded-[28px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08),0_30px_60px_-50px_#0D0D0D]">
+          {/* Live preview: what visitors see at the top of the card, as you type. */}
+          <div className="relative isolate overflow-hidden bg-[#0D0D0D] px-5 py-6 text-[#F5F4EF] md:px-7" data-builder-preview>
+            <span aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 -z-10 size-80 rounded-full opacity-70 blur-2xl" style={{ background: `radial-gradient(circle, ${tone}70, transparent 65%)` }} />
+            <div className="flex items-center gap-4">
+              <ProjectMark accent={tone} accentInk="#0D0D0D" name={draft.name || "?"} size={60} url={draft.url ? (draft.url.startsWith("http") ? draft.url : `https://${draft.url}`) : null} />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate font-display text-[28px] font-bold leading-none tracking-[-0.045em] md:text-[34px]">{draft.name || "Untitled project"}</p>
+                  <span className="rounded-full px-2 py-0.5 font-label text-[9.5px] uppercase tracking-[0.16em] shadow-[inset_0_0_0_1px_rgba(245,244,239,.25)]">{PROJECT_STATUS_LABEL[draft.status]}</span>
+                </div>
+                <p className="mt-1.5 truncate text-[14.5px] text-[#F5F4EF]/65">{draft.tagline || "Your one line pitch shows here."}</p>
+              </div>
+              <span className={`ml-auto hidden shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold sm:flex ${draft.visibility === "public" ? "bg-[#3BD17A]/15 text-[#7BE8A6]" : "bg-[#F5F4EF]/10 text-[#F5F4EF]/60"}`}><span aria-hidden="true" className={`size-1.5 rounded-full ${draft.visibility === "public" ? "bg-[#3BD17A]" : "bg-[#F5F4EF]/50"}`} />{draft.visibility === "public" ? "On your page" : "Draft"}</span>
             </div>
-          )}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <label className="flex items-center gap-3 text-[15px]"><input checked={draft.visibility === "public"} className="size-5 accent-[#0D0D0D]" onChange={(e) => set("visibility", e.target.checked ? "public" : "draft")} type="checkbox" />Show on my page</label>
-            <label className="flex items-center gap-3 text-[15px]"><input checked={draft.roadmap_public} className="size-5 accent-[#0D0D0D]" onChange={(e) => set("roadmap_public", e.target.checked)} type="checkbox" />Public roadmap</label>
-            <label className="flex items-center gap-3 text-[15px]"><input checked={draft.voting_enabled} className="size-5 accent-[#0D0D0D]" onChange={(e) => set("voting_enabled", e.target.checked)} type="checkbox" />Voting</label>
-            <label className={`flex items-center gap-3 text-[15px] ${props.limits.suggestions ? "" : "opacity-55"}`}><input checked={draft.suggestions_enabled && Boolean(props.limits.suggestions)} className="size-5 accent-[#0D0D0D]" disabled={!props.limits.suggestions} onChange={(e) => set("suggestions_enabled", e.target.checked)} type="checkbox" />Suggestions{!props.limits.suggestions && <span className="text-[13px]">· Plus</span>}</label>
           </div>
-          {error && <p className="rounded-[14px] bg-[#FFE9E7] px-4 py-3 text-[14px] text-[#B4231A]" role="alert">{error === "That didn't save. Try again." && !draft.name.trim() ? "Give the project a name." : error}</p>}
-          <div className="flex flex-wrap items-center gap-3">
-            <button className={coralButton} disabled={pending} onClick={save} type="button">{pending ? "Saving…" : project ? "Save" : "Create project"}</button>
-            {project && <button className={lineButton} disabled={pending} onClick={() => { if (window.confirm(`Delete ${project.name}, its roadmap and updates?`)) run(async () => { const r = await supabase.from("builder_projects").delete().eq("id", project.id); if (!r.error) pick(props.projects.find((p) => p.id !== project.id)?.id ?? null); return r; }, "Deleted."); }} type="button">Delete</button>}
-            {saved && <span className="text-[14px] text-black/60" role="status">{saved}</span>}
+
+          <div className="grid gap-7 p-5 md:p-7">
+            <Group title="The basics">
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                <Field label="Name"><input className={field} maxLength={80} onChange={(e) => set("name", e.target.value)} placeholder={copy.name} value={draft.name} /></Field>
+                <Field label="Status"><select className={field} onChange={(e) => set("status", e.target.value as ProjectStatus)} value={draft.status}>{PROJECT_STATUSES.map((s) => <option key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</option>)}</select></Field>
+              </div>
+              <Field label="One line pitch" hint={`${draft.tagline.length}/140`}><input className={field} maxLength={140} onChange={(e) => set("tagline", e.target.value)} placeholder={copy.pitch} value={draft.tagline} /></Field>
+              <Field label="About"><textarea className={area} maxLength={2000} onChange={(e) => set("description", e.target.value)} placeholder={copy.about} value={draft.description} /></Field>
+            </Group>
+
+            <Group title="Details">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Website" hint="Its icon becomes the logo"><input className={field} inputMode="url" maxLength={300} onChange={(e) => set("url", e.target.value)} placeholder={copy.url} value={draft.url} /></Field>
+                <Field label="Category"><input className={field} maxLength={40} onChange={(e) => set("category", e.target.value)} placeholder={copy.category} value={draft.category} /></Field>
+                <Field label={copy.stackLabel}><input className={field} onChange={(e) => set("stack", e.target.value)} placeholder={copy.stack} value={draft.stack} /></Field>
+                <Field label={copy.launchedLabel}><input className={field} onChange={(e) => set("launched_on", e.target.value)} type="date" value={draft.launched_on} /></Field>
+              </div>
+              {parseStack(draft.stack).length > 0 && <ul aria-label="Built with" className="flex flex-wrap gap-1.5">{parseStack(draft.stack).map((tech) => <li className="rounded-full bg-[#F5F4EF] px-3 py-1 text-[12.5px] font-semibold" key={tech}>{tech}</li>)}</ul>}
+            </Group>
+
+            {props.images.length > 0 && (
+              <Group title="Images" note="From this Mode's pictures.">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {(["logo_block_id", "cover_block_id"] as const).map((key) => (
+                    <Field key={key} label={key === "logo_block_id" ? "Logo" : "Cover"}>
+                      <select className={field} onChange={(e) => set(key, e.target.value)} value={draft[key]}><option value="">{key === "logo_block_id" ? "Website icon" : "None"}</option>{props.images.map((image) => <option key={image.id} value={image.id}>{image.title}</option>)}</select>
+                    </Field>
+                  ))}
+                </div>
+              </Group>
+            )}
+
+            <Group title="On your page">
+              <div className="grid gap-2 md:grid-cols-2">
+                <Switch checked={draft.visibility === "public"} label="Show on my page" note="Visitors see this project" onChange={(on) => set("visibility", on ? "public" : "draft")} />
+                <Switch checked={draft.roadmap_public} label="Public roadmap" note="Planned, in progress and shipped" onChange={(on) => set("roadmap_public", on)} />
+                <Switch checked={draft.voting_enabled} label="Voting" note="Members vote on what's next" onChange={(on) => set("voting_enabled", on)} />
+                <Switch checked={draft.suggestions_enabled && Boolean(props.limits.suggestions)} disabled={!props.limits.suggestions} label="Suggestions" note={props.limits.suggestions ? "Members send ideas you approve" : "Part of Plus"} onChange={(on) => set("suggestions_enabled", on)} />
+              </div>
+            </Group>
+
+            {error && <p className="rounded-[14px] bg-[#FFE9E7] px-4 py-3 text-[14px] text-[#B4231A]" role="alert">{error === "That didn't save. Try again." && !draft.name.trim() ? "Give the project a name." : error}</p>}
+          </div>
+          <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-black/[0.07] bg-white/90 px-5 py-4 backdrop-blur md:px-7">
+            <button className={coralButton} disabled={pending} onClick={save} type="button">{pending ? "Saving…" : project ? "Save changes" : "Create project"}</button>
+            {saved && <span className="flex items-center gap-1.5 text-[14px] text-black/60" role="status"><span aria-hidden="true" className="text-[#3BD17A]">●</span>{saved}</span>}
+            {project && <button className="ml-auto text-[14px] font-semibold text-black/45 transition hover:text-[#B4231A]" disabled={pending} onClick={() => { if (window.confirm(`Delete ${project.name}, its roadmap and updates?`)) run(async () => { const r = await supabase.from("builder_projects").delete().eq("id", project.id); if (!r.error) pick(props.projects.find((p) => p.id !== project.id)?.id ?? null); return r; }, "Deleted."); }} type="button">Delete project</button>}
           </div>
         </section>
 
-        {project && <Roadmap items={items} limit={props.limits.roadmap_items} onRun={run} ownerId={props.ownerId} pending={pending} projectId={project.id} supabase={supabase} />}
+        {project && <Roadmap items={items} placeholder={copy.next} limit={props.limits.roadmap_items} onRun={run} ownerId={props.ownerId} pending={pending} projectId={project.id} supabase={supabase} />}
         {project && <Inbox onRun={run} pending={pending} suggestions={props.suggestions.filter((item) => item.project_id === project.id)} />}
         {project && props.insights[project.id] && <Insights data={props.insights[project.id]!} projectName={project.name} />}
         {project && <RevenuePanel connections={props.revenue.connections} limits={props.revenue.limits} projectId={project.id} snapshots={props.revenue.snapshots} visibility={project.revenue_visibility ?? "hidden"} />}
@@ -154,22 +195,52 @@ export function BuilderStudio(props: Props) {
   );
 }
 
+/** Examples that fit the Mode: a creator builds shows, courses and drops; a business builds products. */
+const STUDIO_COPY = {
+  creator: { name: "My podcast", pitch: "A weekly show about cities and food", about: "What you're making, who it's for, and where it's headed.", url: "https://myshow.com", category: "Podcast · Course · Newsletter", stackLabel: "Made with", stack: "Riverside, Notion, Figma", launchedLabel: "Started", next: "Next up: season two" },
+  business: { name: "My SaaS", pitch: "Invoices that chase themselves", about: "What it does, who it's for, and why you're building it.", url: "https://mysaas.com", category: "Fintech · B2B SaaS", stackLabel: "Built with", stack: "Next.js, Postgres, Stripe", launchedLabel: "Launched", next: "Next up: Stripe sync" },
+} as const;
+
+const STAGE_DOT: Record<RoadmapStage, string> = { planned: "#B8B4AA", in_progress: "#FF5A4F", shipped: "#7AD14A" };
+
+function Group({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="grid gap-4">
+      <legend className="mb-3 flex w-full items-baseline justify-between gap-3"><span className="font-display text-[19px] font-bold tracking-[-0.03em]">{title}</span>{note && <span className="text-[12.5px] text-black/50">{note}</span>}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return <label className="grid gap-1.5"><span className="flex items-baseline justify-between gap-2 text-[13px] font-semibold text-black/75">{label}{hint && <span className="text-[11.5px] font-normal text-black/45">{hint}</span>}</span>{children}</label>;
+}
+
+function Switch({ checked, label, note, onChange, disabled = false }: { checked: boolean; label: string; note: string; onChange: (on: boolean) => void; disabled?: boolean }) {
+  return (
+    <button aria-checked={checked} className={`flex min-h-[60px] items-center justify-between gap-3 rounded-[16px] bg-[#F5F4EF] px-4 text-left transition ${disabled ? "opacity-55" : "hover:bg-[#EEEDE7]"}`} disabled={disabled} onClick={() => onChange(!checked)} role="switch" type="button">
+      <span className="min-w-0"><span className="block text-[14.5px] font-semibold">{label}</span><span className="block truncate text-[12.5px] text-black/55">{note}</span></span>
+      <span aria-hidden="true" className={`relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors ${checked ? "bg-[#0D0D0D]" : "bg-black/15"}`}><span className={`absolute top-[3px] size-5 rounded-full bg-white shadow-[0_1px_3px_#0D0D0D40] transition-[left] ${checked ? "left-[21px]" : "left-[3px]"}`} /></span>
+    </button>
+  );
+}
+
 type Run = (work: () => Promise<{ error: { message: string } | null } | void>, done?: string) => void;
 type Client = ReturnType<typeof createClient>;
 
-function Roadmap({ items, projectId, ownerId, supabase, onRun, pending, limit }: { items: (RoadmapItem & { project_id: string })[]; projectId: string; ownerId: string; supabase: Client; onRun: Run; pending: boolean; limit: number }) {
+function Roadmap({ items, projectId, ownerId, supabase, onRun, pending, limit, placeholder }: { items: (RoadmapItem & { project_id: string })[]; projectId: string; ownerId: string; supabase: Client; onRun: Run; pending: boolean; limit: number; placeholder: string }) {
   const [title, setTitle] = useState("");
   const [stage, setStage] = useState<RoadmapStage>("planned");
   const add = () => { if (!title.trim()) return; onRun(async () => { const r = await supabase.from("builder_roadmap_items").insert({ project_id: projectId, owner_user_id: ownerId, title: title.trim().slice(0, 100), stage, sort_order: items.length }); if (!r.error) setTitle(""); return r; }, "Added."); };
   return (
     <section aria-label="Roadmap" className={`${card} grid gap-4`}>
-      <div className="flex items-baseline justify-between"><Mono className="text-black/55">Roadmap</Mono><span className="text-[13px] text-black/50">{items.length} of {limit}</span></div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="flex items-end justify-between gap-3"><div><Mono className="text-black/45">Roadmap</Mono><h2 className="mt-1 font-display text-[26px] font-bold tracking-[-0.04em]">What&apos;s next</h2></div><span className="text-[13px] text-black/50">{items.length} of {limit}</span></div>
+      <div className="grid gap-3 md:grid-cols-3">
         {ROADMAP_STAGES.map((s) => (
-          <div className="grid content-start gap-2 rounded-[18px] bg-[#F5F4EF] p-3" key={s}>
-            <Mono className="text-black/55">{ROADMAP_STAGE_LABEL[s]}</Mono>
+          <div className="grid min-h-[140px] content-start gap-2 rounded-[20px] bg-[#F5F4EF] p-3" key={s}>
+            <div className="flex items-center justify-between px-1 py-0.5"><span className="flex items-center gap-2"><span aria-hidden="true" className="size-2 rounded-full" style={{ background: STAGE_DOT[s] }} /><span className="text-[13px] font-semibold">{ROADMAP_STAGE_LABEL[s]}</span></span><span className="font-label text-[11px] text-black/45">{items.filter((item) => item.stage === s).length}</span></div>
             {items.filter((item) => item.stage === s).map((item) => (
-              <div className="grid gap-2 rounded-[14px] bg-white p-3" key={item.id}>
+              <div className="grid gap-2 rounded-[16px] bg-white p-3.5 shadow-[0_1px_0_rgba(13,13,13,.04),0_10px_24px_-20px_#0D0D0D]" key={item.id}>
                 <p className="text-[14.5px] font-semibold">{item.title}</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <select aria-label="Stage" className="min-h-9 rounded-full bg-[#F5F4EF] px-3 text-[13px]" disabled={pending} onChange={(e) => onRun(async () => supabase.from("builder_roadmap_items").update({ stage: e.target.value }).eq("id", item.id))} value={item.stage}>{ROADMAP_STAGES.map((x) => <option key={x} value={x}>{ROADMAP_STAGE_LABEL[x]}</option>)}</select>
@@ -182,9 +253,9 @@ function Roadmap({ items, projectId, ownerId, supabase, onRun, pending, limit }:
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2">
-        <input aria-label="New roadmap item" className={`${field} flex-1`} maxLength={100} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Next up: Stripe sync" value={title} />
-        <select aria-label="Stage for the new item" className={`${field} w-auto`} onChange={(e) => setStage(e.target.value as RoadmapStage)} value={stage}>{ROADMAP_STAGES.map((x) => <option key={x} value={x}>{ROADMAP_STAGE_LABEL[x]}</option>)}</select>
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_auto]">
+        <input aria-label="New roadmap item" className={field} maxLength={100} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder={placeholder} value={title} />
+        <select aria-label="Stage for the new item" className={field} onChange={(e) => setStage(e.target.value as RoadmapStage)} value={stage}>{ROADMAP_STAGES.map((x) => <option key={x} value={x}>{ROADMAP_STAGE_LABEL[x]}</option>)}</select>
         <button className={inkButton} disabled={pending || !title.trim()} onClick={add} type="button">Add</button>
       </div>
       <p className="text-[13px] text-black/55">Shipped items form the project&apos;s changelog, newest first.</p>
@@ -198,7 +269,7 @@ function Updates({ posts, projectId, ownerId, supabase, onRun, pending }: { post
   const post = () => { if (!title.trim()) return; onRun(async () => { const r = await supabase.from("builder_project_updates").insert({ project_id: projectId, owner_user_id: ownerId, title: title.trim().slice(0, 100), body: body.trim().slice(0, 4000) }); if (!r.error) { setTitle(""); setBody(""); } return r; }, "Posted."); };
   return (
     <section aria-label="Updates" className={`${card} grid gap-3`}>
-      <Mono className="text-black/55">Updates</Mono>
+      <div><Mono className="text-black/45">Updates</Mono><h2 className="mt-1 font-display text-[26px] font-bold tracking-[-0.04em]">Tell people what changed</h2></div>
       <input aria-label="Update title" className={field} maxLength={100} onChange={(e) => setTitle(e.target.value)} placeholder="Beta is open" value={title} />
       <textarea aria-label="Update" className={area} maxLength={4000} onChange={(e) => setBody(e.target.value)} placeholder="What changed, in a few lines." value={body} />
       <div><button className={inkButton} disabled={pending || !title.trim()} onClick={post} type="button">Post update</button></div>
@@ -235,7 +306,7 @@ function Insights({ data, projectName }: { data: BuilderInsights; projectName: s
   const download = () => { const blob = new Blob([insightsCsv(projectName, data)], { type: "text/csv" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${projectSlug(projectName)}-votes.csv`; a.click(); URL.revokeObjectURL(url); };
   return (
     <section aria-label="Voting insights" className={`${card} grid gap-3`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2"><Mono className="text-black/55">Voting</Mono><span className="text-[13px] text-black/55">{data.voters} {data.voters === 1 ? "person" : "people"} voted · {data.approved} ideas approved</span></div>
+      <div className="flex flex-wrap items-end justify-between gap-2"><div><Mono className="text-black/45">Voting</Mono><h2 className="mt-1 font-display text-[26px] font-bold tracking-[-0.04em]">What people want</h2></div><span className="text-[13px] text-black/55">{data.voters} {data.voters === 1 ? "person" : "people"} voted · {data.approved} ideas approved</span></div>
       {top.length ? <ol className="grid gap-2">{top.map((item) => (
         <li className="grid gap-1" key={item.id}><div className="flex justify-between gap-3 text-[14px]"><span className="truncate font-semibold">{item.title}</span><span className="shrink-0 tabular-nums text-black/60">{item.votes}{item.votes_30d ? ` · +${item.votes_30d} this month` : ""}</span></div>
           <div className="h-1.5 overflow-hidden rounded-full bg-[#F5F4EF]"><div className="h-full rounded-full bg-[#0D0D0D]" style={{ width: `${Math.max(4, Math.round((item.votes / top[0].votes) * 100))}%` }} /></div></li>
