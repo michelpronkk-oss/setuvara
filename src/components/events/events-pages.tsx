@@ -186,7 +186,7 @@ export async function EventDetail({ id }: { id: string }) {
         ) : undefined}
         back={{ href: "/app/identity/events", label: "Events" }}
         eyebrow={<>{eyebrow}<span aria-hidden="true" className="text-black/25">/</span><PhasePill phase={phase} /></>}
-        sub={<>{when.date} {when.year} · {when.time}{phase === "upcoming" || phase === "live" ? ` · RSVPs ${rsvp === "open" ? "open" : rsvp === "soon" ? "open later" : "closed"}` : ""}</>}
+        sub={<><span className="mb-2 flex lg:hidden"><PhasePill phase={phase} /></span>{when.date} {when.year} · {when.time}{phase === "upcoming" || phase === "live" ? ` · RSVPs ${rsvp === "open" ? "open" : rsvp === "soon" ? "open later" : "closed"}` : ""}</>}
         title={event.title}
       />
       {!eventsEnabled() && offNote}
