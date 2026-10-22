@@ -9,7 +9,7 @@ const ICON: Record<SocialProvider, { icon: SimpleIcon; bg: string }> = {
   youtube: { icon: siYoutube, bg: "#FF0000" },
   twitch: { icon: siTwitch, bg: "#9146FF" },
 };
-const label = "font-label text-[10px] uppercase tracking-[0.2em]";
+const label = "font-label text-[10px] uppercase tracking-[0.2em] @min-[1100px]/profile:text-[11.5px] @min-[1100px]/profile:tracking-[0.24em]";
 const line = "color-mix(in srgb, currentColor 12%, transparent)";
 
 /**

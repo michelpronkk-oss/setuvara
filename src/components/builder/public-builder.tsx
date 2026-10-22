@@ -6,7 +6,7 @@ import { VerifiedRevenue } from "./verified-revenue";
 import { ctaFor, type PublicAction } from "@/lib/actions/model";
 
 const BOARD_ORDER: RoadmapStage[] = ["in_progress", "planned", "shipped"];
-const label = "font-label text-[10.5px] uppercase tracking-[0.18em]";
+const label = "font-label text-[10.5px] uppercase tracking-[0.18em] @min-[1100px]/profile:text-[11.5px] @min-[1100px]/profile:tracking-[0.24em]";
 const line = "color-mix(in srgb, currentColor 14%, transparent)";
 const soft = "color-mix(in srgb, currentColor 6%, transparent)";
 const month = (iso: string) => new Date(iso).toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" });

@@ -397,21 +397,23 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
   const hasBlocks = Boolean(mode.blocks?.some((block) => block.is_visible && !block.is_soundtrack));
   // On desktop the first paragraph sits in the hero; the page keeps what the hero does not show.
   const earned = Boolean(rewards.profile_mark === "signal_50_mark" || rewards.profile_mark === "thousand_mark");
-  const spread = paragraphs.length > 1 || hasBlocks || earned || Boolean(order);
+  const spread = paragraphs.length > 1 || hasBlocks || earned || Boolean(order) || Boolean(footer);
+  // Whether the story column shows anything on desktop; if not, the modules start at the top.
+  const story = paragraphs.length > 1 || hasBlocks || earned || Boolean(order) || (mode.slug === "event" && !spread);
   const shownLinks = look.socialPlacement === "name" ? links.filter((item) => !scene.socials.includes(item)) : links;
   // The owner's order: one stream in the story column, each run drawn by its own component.
   const stream = order ? pageRuns(order).map((run, index) => {
     const key = `${run.kind}-${run.ids[0]}-${index}`;
     if (run.kind === "block") {
       const blocks = run.ids.map((id) => mode.blocks?.find((block) => block.id === id)).filter((block): block is NonNullable<typeof block> => Boolean(block));
-      return <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={blocks} className="@min-[1100px]/profile:gap-6" gallery key={key} mediaLayout={look.mediaLayout} tone={blockTone} />;
+      return <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={blocks} className="@min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" gallery key={key} mediaLayout={look.mediaLayout} tone={blockTone} />;
     }
     if (run.kind === "link") {
       const runLinks = run.ids.map((id) => shownLinks.find((item) => item.link.id === id)).filter((item): item is ResolvedLink => Boolean(item));
       return runLinks.length ? <Links copy={copy} key={key} links={runLinks} scene={scene} /> : null;
     }
     const nodes = run.ids.map((id) => pieces?.[`${run.kind}:${id}`]).filter(Boolean);
-    return nodes.length ? <div className="flex flex-col gap-4" key={key}>{nodes.map((node, at) => <Fragment key={`${key}-${at}`}>{node}</Fragment>)}</div> : null;
+    return nodes.length ? <div className={`flex flex-col gap-4 ${run.kind === "action" && nodes.length > 1 ? "@min-[1100px]/profile:grid @min-[1100px]/profile:grid-cols-2 @min-[1100px]/profile:gap-5" : ""}`} key={key}>{nodes.map((node, at) => <Fragment key={`${key}-${at}`}>{node}</Fragment>)}</div> : null;
   }) : null;
   const label = "hidden font-label text-[10.5px] uppercase tracking-[0.2em] @min-[1100px]/profile:block";
   // Phones and tablets: one column, exactly as before (the two groups dissolve into it).
@@ -421,8 +423,8 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
     <div className="relative z-[3]" data-appearance-page style={{ background: theme.base }}>
     {/* Phones end the hero mid-pixel; the page reaches up under the fade so no hairline of the photo shows. */}
     {theme.atmosphere.on && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[3px] h-[3px]" data-hero-seam style={{ background: theme.base }} />}
-    <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10 @min-[1100px]/profile:grid @min-[1100px]/profile:items-start @min-[1100px]/profile:gap-x-[clamp(48px,5cqw,88px)] @min-[1100px]/profile:px-12 @min-[1100px]/profile:pb-28 @min-[1100px]/profile:pt-16 ${spread ? "@min-[1100px]/profile:max-w-[1240px] @min-[1100px]/profile:grid-cols-[minmax(0,1fr)_360px]" : "@min-[1100px]/profile:max-w-[640px] @min-[1100px]/profile:grid-cols-1"}`} data-appearance-content data-spread={spread ? "split" : "single"}>
-      <div className="contents @min-[1100px]/profile:col-start-1 @min-[1100px]/profile:row-start-1 @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6" data-profile-story>
+    <div className={`mx-auto flex w-full max-w-[720px] flex-col gap-3.5 px-4 pb-[120px] pt-1.5 @min-[700px]/profile:px-8 @min-[700px]/profile:pt-10 @min-[1100px]/profile:grid @min-[1100px]/profile:items-start @min-[1100px]/profile:gap-x-[clamp(64px,7cqw,128px)] @min-[1100px]/profile:gap-y-0 @min-[1100px]/profile:px-[clamp(48px,5cqw,96px)] @min-[1100px]/profile:pb-36 @min-[1100px]/profile:pt-[clamp(64px,6cqw,112px)] ${spread ? "@min-[1100px]/profile:max-w-[1440px] @min-[1100px]/profile:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]" : "@min-[1100px]/profile:max-w-[760px] @min-[1100px]/profile:grid-cols-1"}`} data-appearance-content data-spread={spread ? "split" : "single"} style={{ "--sv-name-family": scene.type.family, "--sv-name-weight": scene.type.weight, "--sv-name-style": scene.type.italic ? "italic" : "normal" } as CSSProperties}>
+      <div className="contents @min-[1100px]/profile:col-start-1 @min-[1100px]/profile:row-start-1 @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" data-profile-story>
         {paragraphs.length > 0 && (
           <section aria-label={copy.about} className={`mb-2 flex flex-col gap-3 @min-[1100px]/profile:mb-6 @min-[1100px]/profile:gap-4 ${paragraphs.length === 1 ? "@min-[900px]/profile:hidden" : ""}`} data-profile-about>
             <h2 className={label} style={{ color: theme.muted, textAlign: theme.bioAlign }}>{copy.about}</h2>
@@ -433,7 +435,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
         )}
         <EarnedMark copy={copy} rewards={rewards} theme={theme} />
         {mode.slug === "event" && setting(mode, "eventName") && <EventCard className={spread ? "@min-[1100px]/profile:hidden" : ""} copy={copy} mode={mode} theme={theme} />}
-        {stream ?? <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-6" gallery mediaLayout={look.mediaLayout} tone={blockTone} />}
+        {stream ?? <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" gallery mediaLayout={look.mediaLayout} tone={blockTone} />}
       </div>
       <div className={`contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6 ${spread ? "@min-[1100px]/profile:sticky @min-[1100px]/profile:top-8 @min-[1100px]/profile:col-start-2 @min-[1100px]/profile:row-span-2 @min-[1100px]/profile:row-start-1" : ""}`} data-profile-aside>
         {spread && card}
@@ -444,7 +446,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
             spread, where they get the room instead of the narrow side column. */}
         {footer && (spread ? null : footer)}
       </div>
-      {spread && footer && <div className="contents @min-[1100px]/profile:col-start-1 @min-[1100px]/profile:row-start-2 @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6" data-profile-more>{footer}</div>}
+      {spread && footer && <div className={`contents ${story ? "@min-[1100px]/profile:mt-[clamp(40px,3.6cqw,64px)]" : ""} @min-[1100px]/profile:col-start-1 @min-[1100px]/profile:row-start-2 @min-[1100px]/profile:flex @min-[1100px]/profile:min-w-0 @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]`} data-profile-more>{footer}</div>}
       {attribution && branded && <div className={`contents ${spread ? "@min-[1100px]/profile:col-start-2 @min-[1100px]/profile:row-start-3 @min-[1100px]/profile:block" : ""}`}>
           <footer className="mt-10 flex flex-col items-center gap-3.5 @min-[1100px]/profile:mt-4" data-attribution="setuvara">
             <span aria-hidden="true" className="h-px w-16" style={{ background: `linear-gradient(90deg,transparent,${theme.card.edge},transparent)` }} />
