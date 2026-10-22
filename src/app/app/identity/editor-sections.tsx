@@ -23,6 +23,7 @@ import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { isModeHandleSlug } from "@/lib/handles/mode-handle";
+import { modeTools, type ModePage } from "@/components/app/side-nav";
 import { PublicLinkCard } from "./editor-public-link";
 import { MODE_SLUGS, SECTIONS, type EditorApi, type Section } from "./editor-types";
 import { Card, Counter, Field, MonoLabel, Pill, PlusTag, SectionHeader, Segmented, TextArea, TextInput, Toggle, coral, cutCorner, ink, modeMeta, paper, previewVisitorAction } from "./editor-ui";
@@ -58,41 +59,74 @@ function summaries(api: EditorApi): Record<Exclude<Section, "home">, string> {
 
 // ---------------------------------------------------------------- Home
 
+/** What each Mode tool is for, shown on the Mode's Overview. */
+const TOOL_NOTES: Partial<Record<ModePage, string>> = {
+  events: "Create events, take RSVPs, check guests in.",
+  leads: "Bookings, enquiries and pitches from your page.",
+  testimonials: "Collect client quotes and choose which show.",
+  builder: "Products, roadmap and verified revenue.",
+  team: "Invite people to work your leads with you.",
+  actions: "Giveaways, questions and sign-ups on your page.",
+  audience: "Everyone who joined through your Actions.",
+  work: "The films, photos and series your page leads with.",
+  commerce: "Products, orders, customers and payouts.",
+  collabs: "Brand deals and collaborations, start to paid.",
+  kit: "A one-page media kit to send to brands.",
+  insights: "Reach and growth across your platforms.",
+  settings: "Studio defaults and connected platforms.",
+};
+
 export function HomeSection({ api }: { api: EditorApi }) {
   const { mode, slug } = api;
   const info = summaries(api);
+  const tools = modeTools(slug).flat();
   return (
     <div>
       <p className="max-w-[560px] text-[16px] leading-7 text-black/62">{modeIntro[slug]}{info.share ? <> It lives at <span className="font-medium text-black">{info.share}</span>.</> : null}</p>
 
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        <button className="group relative row-span-2 flex min-h-[290px] flex-col justify-end overflow-hidden rounded-[22px] bg-[#0D0D0D] p-6 text-left text-[#F5F4EF]" onClick={() => api.go("profile")} type="button">
-          {mode.image_url && <>
-            <FocusedPhoto alt="" className="opacity-55 transition duration-500 group-hover:scale-[1.03]" focus={modeFocus(mode)} sizes="320px" src={mode.image_url} />
-            <span className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D] via-[#0D0D0D]/50 to-transparent" />
-          </>}
-          <CardHead index={1} light />
-          <p className="relative mt-3 font-display text-[1.75rem] font-bold tracking-[-0.04em]">Profile</p>
-          <p className="relative mt-2 text-sm text-white/75">{info.profile}</p>
-        </button>
-        {(["links", "appearance", "settings", "share"] as const).map((id) => {
-          const index = SECTIONS.findIndex((item) => item.id === id) + 1;
-          return (
-            <button className="flex min-h-[137px] flex-col rounded-[22px] bg-white p-6 text-left shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" key={id} onClick={() => api.go(id)} type="button">
-              <CardHead index={index} />
-              <p className="mt-3 font-display text-[1.6rem] font-bold leading-none tracking-[-0.04em]">{SECTIONS[index - 1].title}</p>
-              <p className="mt-2.5 truncate text-sm text-black/60">{info[id]}</p>
-            </button>
-          );
-        })}
-      </div>
+      <section aria-labelledby="sv-mode-page" className="mt-8">
+        <h2 className="font-display text-[20px] font-bold tracking-[-0.03em]" id="sv-mode-page">Your page</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
+          <button className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-[22px] bg-[#0D0D0D] p-5 text-left text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => api.go("profile")} type="button">
+            {mode.image_url && <>
+              <FocusedPhoto alt="" className="opacity-60 transition duration-500 group-hover:scale-[1.03]" focus={modeFocus(mode)} sizes="240px" src={mode.image_url} />
+              <span className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D] via-[#0D0D0D]/45 to-transparent" />
+            </>}
+            <span className="relative font-display text-[22px] font-bold tracking-[-0.035em]">Profile</span>
+            <span className="relative mt-1 line-clamp-2 text-[13px] text-white/75">{info.profile}</span>
+          </button>
+          <ul className="flex flex-col divide-y divide-black/[0.07] rounded-[22px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
+            {(["links", "appearance", "share", "settings"] as const).map((id) => (
+              <li key={id}>
+                <button className="group flex min-h-[55px] w-full items-center gap-4 px-5 py-2.5 text-left transition-colors hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:outline-offset-[-2px]" onClick={() => api.go(id)} type="button">
+                  <span className="w-[104px] shrink-0 text-[15px] font-semibold">{id === "settings" ? "Settings" : SECTIONS.find((item) => item.id === id)?.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] text-black/55">{info[id]}</span>
+                  <span aria-hidden="true" className="text-black/35 transition-transform group-hover:translate-x-0.5 group-hover:text-black">→</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
+      <section aria-labelledby="sv-mode-tools" className="mt-10">
+        <h2 className="font-display text-[20px] font-bold tracking-[-0.03em]" id="sv-mode-tools">{modeMeta[slug].name} tools</h2>
+        <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+          {tools.map((tool) => (
+            <li key={tool.id}>
+              <Link className="group flex h-full items-start gap-3.5 rounded-[20px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] transition-shadow hover:shadow-[inset_0_0_0_1.5px_#0D0D0D] focus-visible:outline-2 focus-visible:outline-offset-2 [&_svg]:size-[19px]" href={tool.href}>
+                <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#F5F4EF]">{tool.icon}</span>
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-semibold">{tool.label}</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-black/55">{TOOL_NOTES[tool.id]}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
-}
-
-function CardHead({ index, light = false }: { index: number; light?: boolean }) {
-  return <div className="relative flex w-full items-center justify-between"><span className="font-label text-xs text-[#FF5A4F]">0{index}</span><span className={`text-sm font-semibold ${light ? "text-white" : ""}`}>Edit <span aria-hidden="true">→</span></span></div>;
 }
 
 export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () => void }) {
@@ -127,28 +161,22 @@ export function MobileHome({ api, onPreview }: { api: EditorApi; onPreview: () =
             <span aria-hidden="true" className="text-xl text-black/35">›</span>
           </button>
         ))}
-        {slug === "creator" && (
-          <Link className="mt-4 flex min-h-[74px] items-center gap-4 rounded-[22px] bg-[#0D0D0D] px-4 text-[#F5F4EF]" href="/app/identity/creator/work">
-            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#E8A6FF]/15 text-[#E8A6FF]"><svg className="size-[19px]" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 3.5c.6 4.4 2.7 6.6 7.5 8.5-4.8 1.9-6.9 4.1-7.5 8.5-.6-4.4-2.7-6.6-7.5-8.5 4.8-1.9 6.9-4.1 7.5-8.5Z" /></svg></span>
-            <span className="min-w-0 flex-1"><span className="block font-display text-[1.3rem] font-bold leading-tight tracking-[-0.04em]">Creator studio</span><span className="block truncate text-[13px] text-white/55">Work, Commerce, Actions, Media kit, Insights</span></span>
-            <span aria-hidden="true" className="text-xl text-white/40">›</span>
-          </Link>
-        )}
-        {slug === "business" && (
-          <Link className="mt-4 flex min-h-[74px] items-center gap-4 rounded-[22px] bg-[#0D0D0D] px-4 text-[#F5F4EF]" href="/app/identity/builder?mode=business">
-            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#AFCBFF]/15 text-[#AFCBFF]"><svg className="size-[19px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4.5 19.5h15M6.5 19.5V9.5l5.5-5 5.5 5v10" /><path d="M10 19.5v-5h4v5" /></svg></span>
-            <span className="min-w-0 flex-1"><span className="block font-display text-[1.3rem] font-bold leading-tight tracking-[-0.04em]">Builder</span><span className="block truncate text-[13px] text-white/55">Products, roadmap and verified revenue</span></span>
-            <span aria-hidden="true" className="text-xl text-white/40">›</span>
-          </Link>
-        )}
-        {slug === "event" && (
-          <Link className="mt-4 flex min-h-[74px] items-center gap-4 rounded-[22px] bg-[#0D0D0D] px-4 text-[#F5F4EF]" href="/app/identity/events">
-            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#C7FF4A]/15 text-[#C7FF4A]"><svg className="size-[19px]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><rect height="15.5" rx="2.4" width="17" x="3.5" y="5" /><path d="M3.5 10h17M8 3.5v3M16 3.5v3M8 14h3" /></svg></span>
-            <span className="min-w-0 flex-1"><span className="block font-display text-[1.3rem] font-bold leading-tight tracking-[-0.04em]">Events</span><span className="block truncate text-[13px] text-white/55">Your events, RSVPs and guest lists</span></span>
-            <span aria-hidden="true" className="text-xl text-white/40">›</span>
-          </Link>
-        )}
       </nav>
+
+      <section aria-labelledby="sv-mobile-tools" className="mt-8">
+        <h2 className="px-1 font-display text-[1.3rem] font-bold tracking-[-0.04em]" id="sv-mobile-tools">{modeMeta[slug].name} tools</h2>
+        <ul className="mt-2 flex flex-col divide-y divide-black/10 rounded-[22px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
+          {modeTools(slug).flat().map((tool) => (
+            <li key={tool.id}>
+              <Link className="flex min-h-[64px] items-center gap-3.5 px-4 py-2.5 [&_svg]:size-[19px]" href={tool.href}>
+                <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[#F5F4EF]">{tool.icon}</span>
+                <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold">{tool.label}</span><span className="block truncate text-[13px] text-black/55">{TOOL_NOTES[tool.id]}</span></span>
+                <span aria-hidden="true" className="text-lg text-black/35">›</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <Link className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-black/60 underline underline-offset-4" href="/app">Back to Setuvara home</Link>
     </div>

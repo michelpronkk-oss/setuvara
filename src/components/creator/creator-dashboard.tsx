@@ -317,7 +317,7 @@ export function FirstRun({ steps, done, cta = true }: { steps: Step[]; done: num
   const next = steps.find((step) => !step.done);
   return (
     <section aria-labelledby="first-run">
-      <Mono className="flex items-center gap-2 text-black/60"><span aria-hidden="true" className="size-[7px] rounded-full bg-[#B79CFF]" />CREATOR MODE IS ON</Mono>
+      <Mono className="flex items-center gap-2 text-black/60"><span aria-hidden="true" className="size-[7px] rounded-full bg-[#B79CFF]" />GETTING STARTED</Mono>
       <h2 className="mt-3 font-display text-[40px] font-bold leading-[0.95] tracking-[-0.06em] md:text-[48px]" id="first-run">Your page starts with one link.</h2>
       <p className="mt-3 max-w-[44ch] text-[16px] leading-[1.5] text-black/70">Four steps. Only the first one is required, and you can publish at any point.</p>
       <div className="mt-5 flex items-center gap-3">

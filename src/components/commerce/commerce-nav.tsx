@@ -16,7 +16,7 @@ const TABS = [
 export function CommerceNav({ attention }: { attention: Partial<Record<(typeof TABS)[number]["label"], number>> }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Commerce" className="-mx-4 mb-6 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:mb-8 [&::-webkit-scrollbar]:hidden">
+    <nav aria-label="Commerce" className="-mx-3.5 mb-6 overflow-x-auto px-3.5 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:mb-8 [&::-webkit-scrollbar]:hidden">
       <div className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] p-1">
       {TABS.map((tab) => {
         const on = tab.href === "/app/identity/creator/commerce" ? pathname === tab.href : pathname.startsWith(tab.href);
