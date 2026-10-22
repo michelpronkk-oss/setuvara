@@ -15,9 +15,9 @@ const confirm = (type: string) => `${site}/auth/confirm?next=%2Fapp%2Fidentity&t
 
 const fixtures: [string, EmailContent][] = [
   ["signup", contentForAuth({ template: "signup", url: confirm("email"), handle: "aanya" })],
-  ["signup-no-handle", contentForAuth({ template: "signup", url: confirm("email") })],
-  ["invite", contentForAuth({ template: "invite", url: confirm("invite") })],
-  ["magiclink", contentForAuth({ template: "magiclink", url: confirm("magiclink") })],
+  ["signup-no-handle", contentForAuth({ template: "signup", url: confirm("email"), email: "aanya@lumenlabs.example" })],
+  ["invite", contentForAuth({ template: "invite", url: confirm("invite"), email: "aanya@lumenlabs.example" })],
+  ["magiclink", contentForAuth({ template: "magiclink", url: confirm("magiclink"), email: "aanya@lumenlabs.example" })],
   ["recovery", contentForAuth({ template: "recovery", url: confirm("recovery"), email: "aanya@lumenlabs.example" })],
   ["email_change", contentForAuth({ template: "email_change", url: confirm("email_change"), email: "aanya@lumenlabs.example" })],
   ["reauthentication", contentForAuth({ template: "reauthentication", code: "482913" })],
