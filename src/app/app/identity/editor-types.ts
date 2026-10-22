@@ -93,6 +93,9 @@ export type EditorApi = {
   equipReward: (category: RewardCategory, rewardId: string) => Promise<void>;
   go: (section: Section, slug?: ModeSlug) => void;
   toast: (text: string, action?: { label: string; run: () => void }) => void;
+  /** This Mode's saved page order and labels for the pieces the preview can't draw itself; null keeps the default. */
+  pageOrder: { order: string[]; labels: Record<string, { kind: string; title: string }> } | null;
+  setPageOrder: (value: { order: string[]; labels: Record<string, { kind: string; title: string }> } | null) => void;
   publicUrl: (slug: ModeSlug, source?: string) => string;
   /** Rotates an Event or Business share link. Resolves false if it could not. */
   regenerateShareLink: (slug: ModeSlug) => Promise<boolean>;

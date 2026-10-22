@@ -75,6 +75,16 @@ export function PageOrder({ api }: { api: EditorApi }) {
     return [{ key, kind: "section", title: SECTION_NAME[item.id as PageSection] ?? item.id, note: item.id === "creator" ? "Creator sections · order them in Creator settings" : "Shows when it has something", hidden: false }];
   });
 
+  // The preview follows the saved order as it changes; labels stand in for what it can't draw.
+  const orderKey = saved ? order.join(",") : "";
+  const labelKey = rows.filter((row) => !row.hidden && !["block", "link"].includes(row.kind)).map((row) => `${row.key}=${row.title}`).join("|");
+  const { setPageOrder } = api;
+  useEffect(() => {
+    if (!extra.loaded) return;
+    const labels = Object.fromEntries(labelKey ? labelKey.split("|").map((pair) => { const [key, ...title] = pair.split("="); return [key, { kind: key.slice(0, key.indexOf(":")), title: title.join("=") }]; }) : []);
+    setPageOrder(orderKey ? { order: orderKey.split(","), labels } : null);
+  }, [orderKey, labelKey, extra.loaded, setPageOrder]);
+
   async function save(next: string[] | null) {
     setSaved(next);
     setStatus("Saving…");
