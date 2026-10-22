@@ -7,12 +7,23 @@ type Context = {
   delivery: { id: string; key: string; recipientUserId: string; category: string; template: EmailTemplateKey };
   recipient: { email: string | null; confirmed: boolean };
   profile: { username: string; displayName: string } | null;
-  preferences: { connectionEmails: boolean; connectionRecaps: boolean; passportMilestones: boolean; passportStamps: boolean; lifecycleEmails: boolean };
+  preferences: { connectionEmails: boolean; connectionRecaps: boolean; passportMilestones: boolean; passportStamps: boolean; lifecycleEmails: boolean; weeklyDigest?: boolean };
   events: { sourceId: string | null; eventKey: string; createdAt: string }[];
   encounters: { otherName: string; otherRole: string | null; otherCompany: string | null; eventName: string | null; city: string | null; dateLabel: string | null; createdAt: string }[];
   claimedProfile: { displayName: string; username: string } | null;
   milestone: { threshold: number; unlockedAt: string } | null;
   stamps: { title: string; subtitle: string | null; type: string; earnedAt: string }[];
+};
+type Week = { views: number; scans: number; connections: number };
+type Digest = {
+  weekStart: string;
+  weekEnd: string;
+  now: Week;
+  before: Week;
+  topMode: string | null;
+  bestDay: string | null;
+  topLink: { title: string; taps: number } | null;
+  people: string[];
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")?.replace(/\/$/, "");
@@ -67,6 +78,7 @@ function preferencesAllow(context: Context): boolean {
     case "passport_milestone": return context.preferences.passportMilestones;
     case "passport_stamp": return context.preferences.passportStamps;
     case "welcome": return context.preferences.lifecycleEmails;
+    case "weekly_digest": return context.preferences.weeklyDigest === true;
     default: return false;
   }
 }
@@ -112,6 +124,24 @@ function notificationDetails(context: Context) {
   }
 }
 
+const MODE_NAMES: Record<string, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
+
+// The digest's numbers as template details. Nothing to show means nothing to send.
+function digestDetails(digest: Digest | null) {
+  if (!digest?.now || !digest.before) return undefined;
+  const { now, before } = digest;
+  if (now.views + now.scans + now.connections === 0 && !digest.topLink) return undefined;
+  const weekday = digest.bestDay ? new Date(`${digest.bestDay}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" }) : null;
+  return [
+    { label: "week", value: dateRange([`${digest.weekStart}T12:00:00Z`, `${digest.weekEnd}T12:00:00Z`]) },
+    ...(["views", "scans", "connections"] as const).flatMap((key) => [{ label: key, value: String(now[key]) }, { label: `${key}_before`, value: String(before[key]) }]),
+    ...(digest.topMode && MODE_NAMES[digest.topMode] ? [{ label: "mode", value: MODE_NAMES[digest.topMode] }] : []),
+    ...(weekday && now.views > 1 ? [{ label: "best_day", value: weekday }] : []),
+    ...(digest.topLink?.title ? [{ label: "top_link", value: digest.topLink.title }, { label: "top_link_taps", value: String(digest.topLink.taps) }] : []),
+    ...digest.people.slice(0, 5).map((name) => ({ label: "person", value: name })),
+  ];
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // "08–09 Oct 2026" style range (en dash) for recap emails; display only.
 function dateRange(values: string[]): string {
@@ -131,6 +161,7 @@ function unsubscribeCategory(template: EmailTemplateKey): string {
   if (template === "connection_recap") return "connection_recaps";
   if (template === "passport_milestone") return "passport_milestones";
   if (template === "passport_stamp") return "passport_stamps";
+  if (template === "weekly_digest") return "weekly_digest";
   return "product_updates";
 }
 
@@ -145,6 +176,14 @@ async function deliver(delivery: Delivery): Promise<boolean> {
     return true;
   }
 
+  const details = context.delivery.template === "weekly_digest"
+    ? digestDetails(await rpc<Digest | null>("get_weekly_digest", { p_delivery_id: delivery.id }))
+    : notificationDetails(context);
+  if (context.delivery.template === "weekly_digest" && !details) {
+    await rpc("suppress_email_delivery", { p_delivery_id: delivery.id });
+    return true;
+  }
+
   const siteUrl = getSiteUrl();
   const preferencesUrl = `${siteUrl}/app/settings/notifications`;
   const unsubscribeUrl = await createUnsubscribeUrl(context.delivery.recipientUserId, unsubscribeCategory(context.delivery.template), siteUrl);
@@ -152,7 +191,7 @@ async function deliver(delivery: Delivery): Promise<boolean> {
     template: context.delivery.template,
     userName: context.profile.displayName,
     profileUrl: siteUrl,
-    details: notificationDetails(context),
+    details,
     unsubscribeUrl,
     preferencesUrl,
   });

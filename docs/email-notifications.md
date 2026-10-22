@@ -38,7 +38,11 @@ Preview-only URLs and names are fixtures. They are not written to application ta
 
 Owners manage optional email preferences at `/app/settings/notifications`. Security messages stay enabled. Confirmed signups enqueue one welcome email. Registered connection encounters enqueue up to three individual messages per recipient in a rolling hour; further encounters join a single recap scheduled one hour after the first event in that recap. Guest email entry alone produces no email. A guest-claim event can notify only the already-registered Setuvara member whose connection was claimed. Passport milestone and non-milestone stamp events are separately deduplicated.
 
-The only currently dispatched product templates are lifecycle, connection, and Passport notifications. Creator and Business templates are preview fixtures only.
+The dispatched product templates are lifecycle, connection, Passport and the weekly digest. Creator and Business templates are preview fixtures only.
+
+### Weekly digest
+
+The `setuvara-weekly-digest` pg_cron job runs `private.enqueue_weekly_digests()` on Mondays at 07:47 UTC. It queues one `weekly_digest` delivery per confirmed member whose page had a view, a scan, a link tap or a connection in the previous Monday to Sunday (UTC). The delivery key, `weekly-digest:<user>:<monday>`, holds the week, so a second run never sends twice. At send time the dispatcher reads `public.get_weekly_digest(delivery)` (service role only): views, scans and connections against the week before, the most viewed Mode, the busiest day, the most tapped link and up to five people met. A week with nothing to show is suppressed. The digest is on by default (`notification_preferences.weekly_digest`); members turn it off in settings or with the one-click unsubscribe, which is scoped to the digest alone.
 
 ## Visual system
 
