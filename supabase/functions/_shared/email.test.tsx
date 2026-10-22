@@ -4,7 +4,7 @@ import { MILESTONES, PASSPORT_REWARDS } from "../../../src/lib/passport/rewards.
 const site = "https://setuvara.com";
 const footer = { unsubscribeUrl: `${site}/api/email/unsubscribe?token=preview-only-token`, preferencesUrl: `${site}/app/settings/notifications` };
 const authTemplates = ["signup", "invite", "magiclink", "recovery", "email_change", "reauthentication", "account_notice"] as const;
-const notificationTemplates = ["welcome", "new_connection", "connection_recap", "guest_claimed", "passport_milestone", "passport_stamp", "creator_application", "creator_approved", "creator_collaboration", "business_action"] as const;
+const notificationTemplates = ["welcome", "new_connection", "connection_recap", "guest_claimed", "passport_milestone", "passport_stamp", "creator_application", "creator_approved", "creator_collaboration", "business_action", "weekly_digest"] as const;
 const richDetails = [
   ["name", "Marco Silva"], ["event", "Slush"], ["city", "Helsinki"], ["date", "09 Oct 2026"], ["role", "Head of Sales"], ["company", "Northlight"],
   ["count", "12"], ["dates", "08–09 Oct 2026"], ["person 1", "Marco Silva"], ["person 2", "Noah Chen"], ["more", "+10"],
@@ -98,4 +98,19 @@ Deno.test("email templates render without tracking pixels or em dashes", async (
     if (prose.includes("—") || rendered.html.includes("—") || rendered.text.includes("—")) throw new Error(`${name} contains an em dash`);
     if (/width=["']?1["']?[^>]*height=["']?1/i.test(rendered.html)) throw new Error(`${name} contains a tracking pixel`);
   }
+});
+
+Deno.test("weekly digest shows the week against the one before, without inventing numbers", async () => {
+  const d = (pairs: [string, string][]) => pairs.map(([label, value]) => ({ label, value }));
+  const busy = contentForNotification({ template: "weekly_digest", userName: "Aanya Rao", profileUrl: site, ...footer, details: d([["week", "12–18 Oct 2026"], ["views", "294"], ["views_before", "37"], ["scans", "0"], ["scans_before", "4"], ["connections", "2"], ["connections_before", "0"], ["mode", "Business"], ["person", "Marco Silva"], ["person", "Noah Chen"]]) });
+  if (busy.object?.kind !== "digest") throw new Error("digest object missing");
+  const [views, scans, connections] = busy.object.stats;
+  if (views.value !== "294" || views.change !== "Up 695%") throw new Error(`views ${JSON.stringify(views)}`);
+  if (scans.change !== "Down 100%" || connections.change !== "New") throw new Error("changes against the week before are wrong");
+  if (!busy.subject.includes("2 new connections") || busy.category !== "product") throw new Error(busy.subject);
+  if (!busy.support?.[0].includes("Marco and Noah")) throw new Error("people line missing");
+  const quiet = contentForNotification({ template: "weekly_digest", userName: "Aanya Rao", profileUrl: site, ...footer, details: d([["views", "0"], ["views_before", "0"], ["scans", "0"], ["scans_before", "0"], ["connections", "0"], ["connections_before", "0"]]) });
+  if (quiet.object?.kind !== "digest" || quiet.object.stats.some((stat) => stat.change)) throw new Error("an empty week must not show a change");
+  const rendered = await renderEmail(busy);
+  if (!rendered.html.includes("/app/analytics") || /—/.test(rendered.html + rendered.text)) throw new Error("digest render");
 });

@@ -9,6 +9,7 @@ type Preferences = {
   passport_milestones: boolean;
   passport_stamps: boolean;
   lifecycle_emails: boolean;
+  weekly_digest: boolean;
   product_updates: boolean;
 };
 
@@ -18,10 +19,12 @@ const defaults: Preferences = {
   passport_milestones: true,
   passport_stamps: true,
   lifecycle_emails: true,
+  weekly_digest: true,
   product_updates: false,
 };
 
 const controls: { key: keyof Preferences; label: string; description: string }[] = [
+  { key: "weekly_digest", label: "Your week", description: "Monday: your views, scans and people from last week." },
   { key: "connection_emails", label: "New connections", description: "Someone you met joins your network." },
   { key: "connection_recaps", label: "Connection recaps", description: "One note for several new people." },
   { key: "passport_milestones", label: "Passport milestones", description: "You reach a new Passport milestone." },
@@ -36,7 +39,7 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
   const userId = typeof claims?.claims?.sub === "string" ? claims.claims.sub : null;
   if (authError || !userId) redirect("/login?next=/app/settings/notifications");
 
-  const { data } = await supabase.from("notification_preferences").select("connection_emails,connection_recaps,passport_milestones,passport_stamps,lifecycle_emails,product_updates").eq("user_id", userId).maybeSingle();
+  const { data } = await supabase.from("notification_preferences").select("connection_emails,connection_recaps,passport_milestones,passport_stamps,lifecycle_emails,weekly_digest,product_updates").eq("user_id", userId).maybeSingle();
   const preferences = { ...defaults, ...(data ?? {}) };
 
   return <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">

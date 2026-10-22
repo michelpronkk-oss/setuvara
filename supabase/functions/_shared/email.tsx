@@ -30,7 +30,8 @@ export type EmailTemplateKey =
   | "creator_application"
   | "creator_approved"
   | "creator_collaboration"
-  | "business_action";
+  | "business_action"
+  | "weekly_digest";
 
 type Fact = { label: string; value: string };
 
@@ -46,7 +47,8 @@ export type EmailObject =
   | { kind: "steps"; handle?: string; steps: { title: string; line: string }[] }
   | { kind: "creator"; handle: string; niche?: string; platforms?: string; status: "review" | "approved" }
   | { kind: "collab"; rows: Fact[]; message?: string }
-  | { kind: "actions"; rows: { who: string; what: string; when?: string }[] };
+  | { kind: "actions"; rows: { who: string; what: string; when?: string }[] }
+  | { kind: "digest"; week: string; stats: { label: string; value: string; change?: string; up?: boolean }[]; facts: Fact[]; people: string[] };
 
 export type EmailContent = {
   category: EmailCategory;
@@ -469,6 +471,32 @@ function ObjectView({ object }: { object: EmailObject }) {
           ) : null}
         </>
       );
+    case "digest":
+      return (
+        <SetuvaraObject>
+          <Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.6}>{object.week}</Mono>
+          <Table style={{ marginTop: 6 }}>
+            <tr>
+              {object.stats.map((stat, index) => (
+                <td key={stat.label} valign="top" width={`${Math.floor(100 / object.stats.length)}%`} style={{ paddingTop: 14, paddingRight: index < object.stats.length - 1 ? 10 : 0 }}>
+                  <span className="sv-object-text" style={{ display: "block", fontFamily: font.display, fontSize: stat.value.length > 5 ? 26 : stat.value.length > 3 ? 32 : 44, lineHeight: "48px", fontWeight: 800, letterSpacing: stat.value.length > 3 ? "-1.4px" : "-2px", color: c.paper, whiteSpace: "nowrap" }}>{stat.value}</span>
+                  <Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.6} style={{ display: "block", marginTop: 6 }}>{stat.label}</Mono>
+                  {stat.change ? <span style={{ display: "inline-block", marginTop: 10, padding: "4px 9px", borderRadius: 999, backgroundColor: stat.up ? c.lime : c.objectLine, color: stat.up ? c.ink : c.paper, fontFamily: font.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "0.6px" }}>{stat.change}</span> : null}
+                </td>
+              ))}
+            </tr>
+          </Table>
+          {object.people.length ? (
+            <Table style={{ marginTop: 22 }}>
+              <tr>
+                {object.people.map((person, index) => <td key={`${person}:${index}`} width={46} style={{ width: 46 }}><Avatar fill={[c.coral, c.blue, c.lime, c.paper, c.coral][index % 5]} name={person} size={38} /></td>)}
+                <td />
+              </tr>
+            </Table>
+          ) : null}
+          {object.facts.length ? <><div style={{ height: 22, lineHeight: "22px", fontSize: 0 }}>&nbsp;</div><ObjectFacts facts={object.facts} /></> : null}
+        </SetuvaraObject>
+      );
     case "actions":
       return (
         <Surface padding="4px 20px">
@@ -638,6 +666,14 @@ function listNames(names: string[], more = 0) {
   return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
+/** "Up 24%", "Down 8%", "New" or "Level" against the week before; nothing when both weeks are empty. */
+export function weekChange(now: number, before: number): { text: string; up: boolean } | undefined {
+  if (before === 0) return now === 0 ? undefined : { text: "New", up: true };
+  const pct = Math.round(((now - before) / before) * 100);
+  if (pct === 0) return { text: "Level", up: false };
+  return { text: `${pct > 0 ? "Up" : "Down"} ${Math.abs(pct)}%`, up: pct > 0 };
+}
+
 const welcomeSteps = [
   { title: "Build your identity", line: "Your name, photo and links, in one place." },
   { title: "Choose your Mode", line: "Personal, Event or Business. Show what fits the moment." },
@@ -767,6 +803,34 @@ export function contentForNotification(input: { template: EmailTemplateKey; user
       });
       const count = rows.length || Number(get("count") ?? 0);
       return { category: "product", subject: `${count} new ${count === 1 ? "action" : "actions"} on your Business Mode`, preview: rows.map((row) => `${row.who} ${row.what}`).join(", ") || "New activity on your Business Mode.", eyebrow: "Business Mode", headline: `${count} new\n${count === 1 ? "action" : "actions"}.`, paragraphs: [], object: rows.length ? { kind: "actions", rows } : undefined, action: { label: "Open Business Mode", url: to("/app/identity") }, ...footer };
+    }
+    case "weekly_digest": {
+      const count = (label: string) => Number((get(label) ?? "0").replace(/\D/g, "")) || 0;
+      const metrics = [["views", "Views"], ["scans", "Scans"], ["connections", "Connections"]] as const;
+      const stats = metrics.map(([key, label]) => {
+        const change = weekChange(count(key), count(`${key}_before`));
+        return { label, value: count(key).toLocaleString("en-US"), change: change?.text, up: change?.up };
+      });
+      const views = count("views");
+      const connections = count("connections");
+      const viewChange = weekChange(views, count("views_before"));
+      const people = all("person").slice(0, 5);
+      const mode = get("mode");
+      const link = get("top_link");
+      const facts = [mode && { label: "Top Mode", value: mode }, get("best_day") && { label: "Busiest day", value: get("best_day")! }, link && { label: "Top link", value: `${link}${get("top_link_taps") ? ` · ${get("top_link_taps")} taps` : ""}` }].filter(Boolean) as Fact[];
+      const headline = connections > 0 ? `${connections} new\n${connections === 1 ? "connection" : "connections"}.` : views > 0 ? `${views.toLocaleString("en-US")} ${views === 1 ? "view" : "views"}\nlast week.` : "Your week\non Setuvara.";
+      return {
+        category: "product",
+        subject: connections > 0 ? `Your week: ${connections} new ${connections === 1 ? "connection" : "connections"}, ${views.toLocaleString("en-US")} views` : `Your week: ${views.toLocaleString("en-US")} ${views === 1 ? "view" : "views"} on your Setuvara`,
+        preview: [viewChange?.text === "New" ? "Your first views." : viewChange ? `Views ${viewChange.text.toLowerCase()} on the week before.` : "", mode ? `${mode} Mode led.` : ""].filter(Boolean).join(" ") || "Your numbers from last week.",
+        eyebrow: "Your week",
+        headline,
+        paragraphs: [],
+        object: { kind: "digest", week: get("week") ?? "Last week", stats, facts, people },
+        support: people.length ? [`You met ${listNames(people.map(firstName))}. Add a note while you still remember.`] : ["Share your page again this week to keep it moving."],
+        action: { label: "Open Analytics", url: to("/app/analytics") },
+        ...footer,
+      };
     }
     default: {
       const handle = (get("username") ?? "").replace(/^setuvara\.com\//, "");

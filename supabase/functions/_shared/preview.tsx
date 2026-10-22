@@ -32,6 +32,8 @@ const fixtures: [string, EmailContent][] = [
   ["creator_application", note("creator_application", [["handle", "meyvor"], ["niche", "Music · Live streams"], ["platforms", "Twitch · YouTube"]])],
   ["creator_approved", note("creator_approved", [["handle", "meyvor"], ["niche", "Music · Live streams"], ["platforms", "Twitch · YouTube"]])],
   ["creator_collaboration", note("creator_collaboration", [["brand", "Northwind Audio"], ["project", "Spring launch stream"], ["budget", "€2,000–€3,500"], ["format", "2 live segments"], ["timing", "March 2027"], ["message", "We love your late-night sets. Want to build the launch stream with us?"]])],
+  ["weekly_digest", note("weekly_digest", [["week", "12–18 Oct 2026"], ["views", "1294"], ["views_before", "37"], ["scans", "18"], ["scans_before", "21"], ["connections", "3"], ["connections_before", "1"], ["mode", "Business"], ["best_day", "Tuesday"], ["top_link", "Book a call"], ["top_link_taps", "41"], ["person", "Marco Silva"], ["person", "Noah Chen"], ["person", "Priya Nair"]])],
+  ["weekly_digest-quiet", note("weekly_digest", [["week", "12–18 Oct 2026"], ["views", "4"], ["views_before", "0"], ["scans", "0"], ["scans_before", "0"], ["connections", "0"], ["connections_before", "0"], ["mode", "Personal"]])],
   ["business_action", note("business_action", [["action", "Lena|left a review|2 hours ago"], ["action", "Tom|booked a call for Thursday|Yesterday"], ["action", "Priya|asked for a quote|Yesterday"]])],
 
   // Stress cases.

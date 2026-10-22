@@ -18,6 +18,7 @@ export async function saveNotificationPreferences(formData: FormData) {
     passport_milestones: formData.get("passport_milestones") === "on",
     passport_stamps: formData.get("passport_stamps") === "on",
     lifecycle_emails: formData.get("lifecycle_emails") === "on",
+    weekly_digest: formData.get("weekly_digest") === "on",
     product_updates: formData.get("product_updates") === "on",
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
