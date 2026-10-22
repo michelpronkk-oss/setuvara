@@ -52,7 +52,7 @@ export function PaymentsStudio({ seller, state, open, notice, payoutsHref }: { s
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
       <div className="min-w-0">
-        <StudioHead title="Payments" />
+        <StudioHead creator title="Payments" />
         {notice && NOTICE[notice] && <p className="mb-4 rounded-2xl bg-[#FFE7B8] px-4 py-3 text-[15px]" role="status">{NOTICE[notice]}</p>}
 
         <section className="rounded-[26px] bg-white p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:p-7" data-payments-state={state}>

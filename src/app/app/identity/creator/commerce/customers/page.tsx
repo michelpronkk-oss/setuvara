@@ -14,7 +14,7 @@ export default async function CommerceCustomersPage() {
   const customers = customersOf(commerce.orders);
   return (
     <div>
-      <StudioHead sub={`${customers.length} ${customers.length === 1 ? "person" : "people"}`} title="Customers" />
+      <StudioHead creator sub={`${customers.length} ${customers.length === 1 ? "person" : "people"}`} title="Customers" />
       {customers.length === 0 ? <EmptyState body="Buyers and free-download claims show here with what they got from you." title="No customers yet." /> : (
         <div className="overflow-x-auto rounded-[22px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]">
           <table className="w-full min-w-[640px] text-left text-[15px]" data-customers>

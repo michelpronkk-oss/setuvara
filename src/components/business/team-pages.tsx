@@ -40,7 +40,12 @@ export async function TeamIndex() {
 
   return (
     <StudioPage className="max-w-[1180px]">
-      <Head tone="#AFCBFF" eyebrow={eyebrow} sub={`${used} of ${team.seats} seats · ${team.members.filter((member) => member.status === "active").length} joined`} title="Team" />
+      <Head tone="#AFCBFF" eyebrow={eyebrow} sub="The people who work your leads with you." title="Team" stats={[
+        { label: "Seats used", value: `${used}`, note: `of ${team.seats} on Pro` },
+        { label: "Joined", value: `${team.members.filter((member) => member.status === "active").length}`, note: "working your leads" },
+        { label: "Invited", value: `${team.members.filter((member) => member.status === "invited").length}`, note: "waiting to join", hot: team.members.some((member) => member.status === "invited") },
+        { label: "Seats left", value: `${Math.max(0, team.seats - used)}`, note: "invite by email" },
+      ]} />
       <TeamBoard business={data.profile.display_name} ownerEmail={data.email} owner={data.profile.display_name} team={team} />
     </StudioPage>
   );

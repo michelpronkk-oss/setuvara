@@ -232,7 +232,7 @@ export function ProductsStudio({ userId, products, canSell, open, sales, views, 
 
   return (
     <div>
-      <StudioHead action={products.length ? add : undefined} sub={products.length ? `${products.filter((product) => product.status === "active").length} live` : undefined} title="Products" />
+      <StudioHead creator action={products.length ? add : undefined} sub={products.length ? `${products.filter((product) => product.status === "active").length} live` : undefined} title="Products" />
       {!open && <p className="mb-4 rounded-2xl bg-[#FFE7B8] px-4 py-3 text-[15px]">Only shop links show on your page until payments open on Setuvara. Everything else saves and waits.</p>}
       {products.length === 0 ? (
         <EmptyState action={add} body="Start with one thing: a preset pack, a guide, a session. Free downloads work without payments; paid ones need Stripe." title="Sell one thing well." />

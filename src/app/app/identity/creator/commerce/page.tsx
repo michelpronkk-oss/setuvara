@@ -32,7 +32,7 @@ export default async function CommerceOverviewPage() {
 
   return (
     <div className="grid gap-6">
-      <StudioHead action={<Link className={coralButton} href="/app/identity/creator/commerce/products?new=1">+ New product</Link>} sub="Last 30 days" title="Commerce" />
+      <StudioHead creator action={<Link className={coralButton} href="/app/identity/creator/commerce/products?new=1">+ New product</Link>} sub="Last 30 days" title="Commerce" />
 
       {state !== "payments_enabled" && (
         <Link className="flex flex-wrap items-center gap-3 rounded-[22px] bg-[#0D0D0D] px-5 py-4 text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2 md:px-6" href="/app/identity/creator/commerce/payments">

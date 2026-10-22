@@ -34,7 +34,7 @@ export function OrdersStudio({ orders, refunds, disputes, initialOrder }: { orde
 
   return (
     <div>
-      <StudioHead sub={`${orders.filter((order) => order.paid_at).length} completed`} title="Orders" />
+      <StudioHead creator sub={`${orders.filter((order) => order.paid_at).length} completed`} title="Orders" />
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="-mx-3.5 flex gap-2 overflow-x-auto px-3.5 [scrollbar-width:none] md:mx-0 md:px-0">{FILTERS.map((item) => <FilterPill count={orders.filter(item.match).length} key={item.key} label={item.label} on={filter === item.key} onClick={() => setFilter(item.key)} />)}</div>
         <TextInput aria-label="Search orders" className="md:ml-auto md:max-w-[280px]" onChange={(event) => setQuery(event.target.value)} placeholder="Search email or product" value={query} />

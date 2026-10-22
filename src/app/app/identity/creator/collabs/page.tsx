@@ -15,14 +15,14 @@ export default async function CreatorDealsPage() {
   const { data, error } = await studio.supabase.from("creator_deals").select(DEAL_COLUMNS).order("last_activity_at", { ascending: false }).limit(1000);
   // The plan as the database decides it (private.member_plan), so the page and the rule agree.
   const plan = studio.limits.plan;
-  if (error) return <StudioPage><StudioHead title="Deals" /><EmptyState body="Deals need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
+  if (error) return <StudioPage><StudioHead creator title="Deals" /><EmptyState body="Deals need a database update that hasn't reached this site yet." title="Not ready yet." /></StudioPage>;
   const deals = (data ?? []) as Deal[];
   const open = deals.filter((deal) => ["new", "talking", "booked", "completed"].includes(deal.stage)).length;
   const fresh = deals.filter((deal) => deal.stage === "new").length;
   const totals = dealTotals(deals);
   return (
     <StudioPage className="max-w-[1180px]">
-      <StudioHead sub={deals.length ? `${open} open · ${fresh} new` : "Every Collab request on your Creator page becomes a deal here."} title="Deals" />
+      <StudioHead creator sub={deals.length ? `${open} open · ${fresh} new` : "Every Collab request on your Creator page becomes a deal here."} title="Deals" />
       {deals.length === 0 ? (
         <EmptyState action={<Link className={coralButton} href="/app/identity/creator/actions/new?kind=collab">Add a Collab Action</Link>} body="When a brand asks through your Collab Action, it lands here as a deal you can move from New to Paid." title="No deals yet." />
       ) : (
