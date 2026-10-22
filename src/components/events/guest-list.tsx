@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -33,8 +34,8 @@ export function GuestList({ eventId, guests, canEdit, canCheckIn }: { eventId: s
       .filter((guest) => !needle || guest.name.toLowerCase().includes(needle) || guest.email.toLowerCase().includes(needle));
   }, [guests, query, filter]);
 
-  function remove(guest: Guest) {
-    if (!window.confirm(`Take ${guest.name} off the list? ${guest.status === "confirmed" ? "Their spot goes to the next person on the waitlist." : ""}`)) return;
+  async function remove(guest: Guest) {
+    if (!(await confirmDialog({ title: `Take ${guest.name} off the list?`, body: guest.status === "confirmed" ? "Their spot goes to the next person on the waitlist." : undefined, action: "Remove", tone: "danger" }))) return;
     setBusyId(guest.id);
     setError(null);
     start(async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -94,7 +95,7 @@ export function RevenuePanel({ projectId, visibility, connections, snapshots, li
             {currencies.map((currency) => <Trend currency={currency} key={currency} rows={rows.filter((r) => r.currency === currency)} />)}
             <div className="flex flex-wrap gap-2">
             <button className={lineButton} disabled={pending} onClick={() => start(async () => { const r = await syncRevenueNow(c.id); setMessage(r.ok ? "Synced." : r.error); router.refresh(); })} type="button">{pending ? "Syncing…" : "Sync now"}</button>
-            <button className={lineButton} disabled={pending} onClick={() => { if (window.confirm(`Disconnect ${PROVIDER_LABEL[c.provider]}? The key is deleted; past snapshots stay visible to you only.`)) start(async () => { const r = await disconnectRevenue(c.id); setMessage(r.ok ? "Disconnected. Also delete the key in your provider's dashboard." : r.error); router.refresh(); }); }} type="button">Disconnect</button>
+            <button className={lineButton} disabled={pending} onClick={async () => { if (await confirmDialog({ title: `Disconnect ${PROVIDER_LABEL[c.provider]}?`, body: "The key is deleted. Past snapshots stay visible to you only.", action: "Disconnect", tone: "danger" })) start(async () => { const r = await disconnectRevenue(c.id); setMessage(r.ok ? "Disconnected. Also delete the key in your provider's dashboard." : r.error); router.refresh(); }); }} type="button">Disconnect</button>
             </div>
           </div>
         );

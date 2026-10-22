@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -46,7 +47,7 @@ export function GiveawayDraw({ actionId, submissions }: { actionId: string; subm
 
   async function draw() {
     const again = Boolean(draws?.length);
-    if (!window.confirm(again ? "Draw again? Earlier winners are left out, and this draw is kept with your reason." : `Draw ${winners} winner${winners === 1 ? "" : "s"} now? The result is final and kept on record.`)) return;
+    if (!(await confirmDialog(again ? { title: "Draw again?", body: "Earlier winners are left out, and this draw is kept with your reason.", action: "Draw again" } : { title: `Draw ${winners} winner${winners === 1 ? "" : "s"} now?`, body: "The result is final and kept on record.", action: "Draw" }))) return;
     setBusy(true); setError(null);
     const { error: drawError } = await createClient().rpc("draw_giveaway_winners", { p_action_id: actionId, p_winners: winners, p_reason: again ? reason : null });
     setBusy(false);

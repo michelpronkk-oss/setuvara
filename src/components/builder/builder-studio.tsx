@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -167,7 +168,7 @@ export function BuilderStudio(props: Props) {
           <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-black/[0.07] bg-white/90 px-5 py-4 backdrop-blur md:px-7">
             <button className={coralButton} disabled={pending} onClick={save} type="button">{pending ? "Saving…" : project ? "Save changes" : "Create project"}</button>
             {saved && <span className="flex items-center gap-1.5 text-[14px] text-black/60" role="status"><span aria-hidden="true" className="text-[#3BD17A]">●</span>{saved}</span>}
-            {project && <button className="ml-auto text-[14px] font-semibold text-black/45 transition hover:text-[#B4231A]" disabled={pending} onClick={() => { if (window.confirm(`Delete ${project.name}, its roadmap and updates?`)) run(async () => { const r = await supabase.from("builder_projects").delete().eq("id", project.id); if (!r.error) pick(props.projects.find((p) => p.id !== project.id)?.id ?? null); return r; }, "Deleted."); }} type="button">Delete project</button>}
+            {project && <button className="ml-auto text-[14px] font-semibold text-black/45 transition hover:text-[#B4231A]" disabled={pending} onClick={async () => { if (await confirmDialog({ title: `Delete ${project.name}?`, body: "Its roadmap and updates go too.", action: "Delete", tone: "danger" })) run(async () => { const r = await supabase.from("builder_projects").delete().eq("id", project.id); if (!r.error) pick(props.projects.find((p) => p.id !== project.id)?.id ?? null); return r; }, "Deleted."); }} type="button">Delete project</button>}
           </div>
         </section>
 

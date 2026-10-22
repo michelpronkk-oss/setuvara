@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -99,7 +100,7 @@ export function TeamBoard({ team, owner, ownerEmail, business }: { team: Team; o
           </li>
           {team.members.map((member) => (
             <MemberRow busy={pending} key={member.id} member={member}
-              onRemove={() => { if (window.confirm(member.status === "invited" ? `Cancel the invite for ${member.email}?` : `Remove ${memberName(member)}? They lose access now.`)) run(() => removeTeammate(member.id)); }}
+              onRemove={async () => { if (await confirmDialog(member.status === "invited" ? { title: "Cancel this invite?", body: `${member.email} won't be able to join with it.`, action: "Cancel invite", cancel: "Keep it", tone: "danger" } : { title: `Remove ${memberName(member)}?`, body: "They lose access now.", action: "Remove", tone: "danger" })) run(() => removeTeammate(member.id)); }}
               onRole={(next) => { if (next !== member.role) run(() => setTeammateRole(member.id, next)); }} />
           ))}
         </ul>

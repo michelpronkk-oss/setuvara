@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -117,7 +118,7 @@ export function EventEditor({ event, profileId, modeId, modeLive, ended = false 
   }
 
   async function cancelEvent() {
-    if (!event || !window.confirm(guests ? `Cancel this event? ${guests} ${guests === 1 ? "guest stays" : "guests stay"} on the record, and the page shows it's cancelled. This can't be undone.` : "Cancel this event? This can't be undone.")) return;
+    if (!event || !(await confirmDialog({ title: "Cancel this event?", body: guests ? `${guests} ${guests === 1 ? "guest stays" : "guests stay"} on the record, and the page shows it's cancelled. This can't be undone.` : "This can't be undone.", action: "Cancel event", cancel: "Keep it", tone: "danger" }))) return;
     setBusy(true);
     const { error: cancelError } = await createClient().from("events").update({ status: "cancelled" }).eq("id", event.id).eq("profile_id", profileId);
     setBusy(false);
@@ -129,7 +130,7 @@ export function EventEditor({ event, profileId, modeId, modeLive, ended = false 
     if (!event) return;
     const what = event.status === "draft" ? "this draft" : "this event";
     const note = guests || locked || ended ? " Its page, guest list and check-ins go with it. Connections made at the door stay." : "";
-    if (!window.confirm(`Delete ${what}?${note} This can't be undone.`)) return;
+    if (!(await confirmDialog({ title: `Delete ${what}?`, body: `${note.trim()} This can't be undone.`.trim(), action: "Delete", tone: "danger" }))) return;
     setBusy(true);
     const { data: gone, error: deleteError } = await createClient().from("events").delete().eq("id", event.id).eq("profile_id", profileId).select("id");
     setBusy(false);

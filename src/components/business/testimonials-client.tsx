@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -124,7 +125,7 @@ export function TestimonialsBoard({ testimonials, requests, shown, plan, owner }
                 <p className="flex items-center gap-2 text-[13px] text-black/50">{group.key === "approved" && approved > shown && <PlusTag />}{group.note}</p>
               </div>
               <ul className="grid gap-3 md:grid-cols-2">
-                {items.map((item) => <Card busy={pending} item={item} key={item.id} onDelete={() => { if (window.confirm("Delete this testimonial for good?")) run(() => deleteTestimonial(item.id)); }} onStatus={(status) => run(() => setTestimonialStatus(item.id, status))} />)}
+                {items.map((item) => <Card busy={pending} item={item} key={item.id} onDelete={async () => { if (await confirmDialog({ title: "Delete this testimonial?", body: "It's gone for good.", action: "Delete", tone: "danger" })) run(() => deleteTestimonial(item.id)); }} onStatus={(status) => run(() => setTestimonialStatus(item.id, status))} />)}
               </ul>
             </section>
           );

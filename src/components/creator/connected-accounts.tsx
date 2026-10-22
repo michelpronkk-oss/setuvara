@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -100,7 +101,7 @@ export function ConnectedAccounts({ accounts, ready, links, profileId, notice }:
                       {state === "needs_reauth" && ready[provider]
                         ? <a className="inline-flex min-h-11 items-center rounded-full bg-[#0D0D0D] px-4 text-sm font-semibold text-[#F5F4EF]" href={`/api/social/${provider}/start`}>Sign in again</a>
                         : ready[provider] && <button className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={() => void post(provider, "refresh")} type="button">{busy === `${provider}:refresh` ? "Checking…" : "Refresh"}</button>}
-                      <button className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={() => { if (window.confirm(`Disconnect ${SOCIAL_NAME[provider]}? Setuvara deletes its numbers and sign-in.`)) void post(provider, "disconnect"); }} type="button">Disconnect</button>
+                      <button className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-black/70 hover:bg-black/[0.04] disabled:opacity-50" disabled={busy !== null} onClick={async () => { if (await confirmDialog({ title: `Disconnect ${SOCIAL_NAME[provider]}?`, body: "Setuvara deletes its numbers and sign-in.", action: "Disconnect", tone: "danger" })) void post(provider, "disconnect"); }} type="button">Disconnect</button>
                     </>
                   ) : ready[provider]
                     ? <a className="inline-flex min-h-11 items-center rounded-full bg-[#0D0D0D] px-4 text-sm font-semibold text-[#F5F4EF] focus-visible:outline-2 focus-visible:outline-offset-2" href={`/api/social/${provider}/start`}>Connect {SOCIAL_NAME[provider]}</a>

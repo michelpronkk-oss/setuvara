@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -76,9 +77,9 @@ function OrderSheet({ order, refunds, dispute, onClose, onChanged }: { order: Co
     setMessage({ ok: true, text: label === "resend" ? "A new download link is on its way." : result?.refund === "succeeded" ? "Refunded." : "Refund sent to Stripe. It updates here when Stripe confirms." });
     onChanged();
   }
-  function refund(amount?: number) {
+  async function refund(amount?: number) {
     const value = amount ?? max;
-    if (!window.confirm(`Refund ${formatAmount(value, order.currency)} to ${order.buyer_email}? It comes out of your Stripe balance.`)) return;
+    if (!(await confirmDialog({ title: `Refund ${formatAmount(value, order.currency)}?`, body: `It goes back to ${order.buyer_email} and comes out of your Stripe balance.`, action: "Refund", tone: "danger" }))) return;
     void post(`/api/commerce/orders/${order.id}/refund`, { amountMinor: value, idempotencyKey: `${key}${value}` }, "refund");
   }
 
