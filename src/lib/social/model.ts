@@ -49,6 +49,10 @@ export function accountState(account: Pick<SocialAccount, "status" | "last_synce
   if (!account.last_synced_at || now - new Date(account.last_synced_at).getTime() > STALE_AFTER_MS) return "outdated";
   return "synced";
 }
+/** Public platforms with a count synced in the last 48 hours: older numbers are not shown as verified. */
+export function freshPlatforms<T extends Pick<PublicPlatform, "audience_count" | "last_synced_at">>(platforms: T[], now = Date.now()) {
+  return platforms.filter((item) => item.audience_count !== null && item.last_synced_at !== null && now - new Date(item.last_synced_at).getTime() <= STALE_AFTER_MS);
+}
 export const ACCOUNT_STATE_LABEL: Record<AccountState, string> = { synced: "Verified", outdated: "Outdated", needs_reauth: "Sign in again", error: "Sync failed" };
 
 /** 284K, 61.4K, 1.2M. Never rounds up past what the platform gave. */
