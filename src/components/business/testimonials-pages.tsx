@@ -5,7 +5,7 @@ import { EmptyState, StudioPage } from "@/components/creator/studio-ui";
 import { loadTestimonials } from "@/lib/business/studio-server";
 import { TestimonialsBoard } from "./testimonials-client";
 
-const eyebrow = <><span aria-hidden="true" className="size-2 rounded-full bg-[#FFE7B8] shadow-[inset_0_0_0_1px_rgba(13,13,13,.2)]" />Business Mode</>;
+const eyebrow = <><span aria-hidden="true" className="size-2 rounded-full bg-[#AFCBFF]" />Business Mode</>;
 
 /** Business Mode's testimonials: ask a client with a private link, then choose what shows on the page. */
 export async function TestimonialsIndex() {

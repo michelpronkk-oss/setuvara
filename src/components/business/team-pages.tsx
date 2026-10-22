@@ -8,7 +8,7 @@ import { loadTeam } from "@/lib/business/studio-server";
 import { ROLE_LABEL, ROLE_NOTE, seatCount, TEAM_ROLES } from "@/lib/business/team";
 import { TeamBoard } from "./team-client";
 
-const eyebrow = <><span aria-hidden="true" className="size-2 rounded-full bg-[#C7FF4A] shadow-[inset_0_0_0_1px_rgba(13,13,13,.25)]" />Business Mode</>;
+const eyebrow = <><span aria-hidden="true" className="size-2 rounded-full bg-[#AFCBFF]" />Business Mode</>;
 
 /** Business Mode's team: who works the leads with the owner, and the seats Pro gives. */
 export async function TeamIndex() {

@@ -44,7 +44,9 @@ async function loadTimes(supabase: ModeActions["supabase"], id: string) {
  * The page head of every Mode tool: a dark stage with a soft glow, the Mode, a big title, one
  * line, and the main button. Shared by Actions, Leads, Testimonials, Team, Events and Audience.
  */
-export function Head({ eyebrow, title, sub, action, back, tone = "#FF5A4F" }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string }; tone?: string }) {
+export type HeadStat = { label: string; value: string; note?: React.ReactNode; hot?: boolean };
+
+export function Head({ eyebrow, title, sub, action, back, tone = "#FF5A4F", stats }: { eyebrow: React.ReactNode; title: string; sub?: React.ReactNode; action?: React.ReactNode; back?: { href: string; label: string }; tone?: string; /** Figures on the stage under the title. */ stats?: HeadStat[] }) {
   return (
     <div className="mb-6 md:mb-8">
       {back && <Link className="mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-full text-[14px] font-semibold text-black/55 transition hover:text-black" href={back.href}><span aria-hidden="true">←</span>{back.label}</Link>}
@@ -60,6 +62,17 @@ export function Head({ eyebrow, title, sub, action, back, tone = "#FF5A4F" }: { 
           </div>
           {action && <div className="flex flex-wrap items-center gap-2.5">{action}</div>}
         </div>
+        {stats && stats.length > 0 && (
+          <dl className="mt-7 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-[#F5F4EF]/10 pt-6 md:grid-cols-4" data-head-stats>
+            {stats.map((stat) => (
+              <div className="relative min-w-0" key={stat.label}>
+                <dt className="font-label text-[10.5px] uppercase tracking-[0.16em] text-[#F5F4EF]/50">{stat.label}</dt>
+                <dd className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.05em] tabular-nums md:text-[48px]" style={stat.hot ? { color: tone } : undefined}>{stat.value}</dd>
+                {stat.note && <dd className="mt-1.5 text-[12.5px] text-[#F5F4EF]/55">{stat.note}</dd>}
+              </div>
+            ))}
+          </dl>
+        )}
       </header>
     </div>
   );
@@ -106,6 +119,8 @@ export async function ActionsIndex({ slug }: { slug: ModeSlug }) {
   return (
     <StudioPage className="max-w-[1180px] pb-12">
       <Head
+        tone={accent}
+        stats={actions.length ? cards.map((card) => ({ label: card.label, value: card.value, hot: card.hot, note: card.label === "Subscribers" ? <Link className="font-semibold text-[#F5F4EF] underline-offset-4 hover:underline" href={audienceHref(slug)}>Open Audience →</Link> : card.note })) : undefined}
         action={actions.length ? <div className="flex flex-wrap gap-2">{slug === "creator" && <Link className={lineButton} href="/app/identity/creator/collabs">Deals</Link>}<Link className={lineButton} href={`/app/identity/goals?mode=${slug}`}>Start from a goal</Link><Link className={coralButton} href={newActionHref(slug)}><span aria-hidden="true">+</span>New Action</Link></div> : undefined}
         eyebrow={<><span aria-hidden="true" className="size-2 rounded-full" style={{ background: accent }} />{MODE_NAME[slug]} Mode</>}
         sub={actions.length ? `${live} live${needs ? ` · ${needs} new` : ""}` : undefined}
@@ -114,18 +129,6 @@ export async function ActionsIndex({ slug }: { slug: ModeSlug }) {
       {!creatorActionsEnabled() && <ActionsOffNote />}
       {actions.length ? (
         <>
-          <dl className="mb-10 grid grid-cols-2 overflow-hidden rounded-[24px] bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:grid-cols-4">
-            {cards.map((card, index) => {
-              const audience = card.label === "Subscribers";
-              return (
-                <div className={`relative p-5 md:p-6 ${index % 2 ? "border-l border-black/[0.07]" : ""} ${index > 1 ? "border-t border-black/[0.07] md:border-t-0" : ""} ${index === 2 ? "md:border-l" : ""} ${audience ? "transition-colors has-[a:hover]:bg-black/[0.02]" : ""}`} key={card.label}>
-                  <dt className="text-[13px] font-medium text-black/55">{card.label}</dt>
-                  <dd className={`mt-2 font-display text-[36px] font-bold leading-none tracking-[-0.05em] tabular-nums md:text-[42px] ${card.hot ? "text-[#FF5A4F]" : ""}`}>{card.value}</dd>
-                  <dd className="mt-1.5 text-[13px] text-black/55">{audience ? <Link className="font-semibold text-[#0D0D0D] after:absolute after:inset-0" href={audienceHref(slug)}>Open Audience →</Link> : card.note}</dd>
-                </div>
-              );
-            })}
-          </dl>
           <section aria-labelledby="sv-actions-list">
             <h2 className="mb-3 px-1 font-display text-[22px] font-bold tracking-[-0.035em]" id="sv-actions-list">On your page</h2>
             <div className="rounded-[24px] bg-white px-4 py-1 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] md:px-5">
