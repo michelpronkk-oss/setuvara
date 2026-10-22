@@ -37,7 +37,8 @@ type Fact = { label: string; value: string };
 
 /** The one product artifact an email carries. Everything is live HTML, never an image. */
 export type EmailObject =
-  | { kind: "identity"; label: string; handle: string }
+  | { kind: "identity"; label: string; handle: string; chip?: string }
+  | { kind: "access"; chip: string; title: string; facts: Fact[] }
   | { kind: "code"; code: string }
   | { kind: "details"; rows: Fact[] }
   | { kind: "connection"; name: string; line?: string; facts: Fact[]; chip?: string }
@@ -46,7 +47,7 @@ export type EmailObject =
   | { kind: "stamp"; title: string; subtitle?: string; type: string; date?: string; extra?: number }
   | { kind: "steps"; handle?: string; steps: { title: string; line: string }[] }
   | { kind: "creator"; handle: string; niche?: string; platforms?: string; status: "review" | "approved" }
-  | { kind: "collab"; rows: Fact[]; message?: string }
+  | { kind: "collab"; brand: string; rows: Fact[]; message?: string }
   | { kind: "actions"; rows: { who: string; what: string; when?: string }[] }
   | { kind: "digest"; week: string; stats: { label: string; value: string; change?: string; up?: boolean }[]; facts: Fact[]; people: string[] };
 
@@ -145,6 +146,7 @@ const styles = `
     .sv-cut-light { display: none !important; }
     .sv-cut-dark { display: block !important; }
     .sv-cta-ink { background-color: ${c.paper} !important; color: ${c.ink} !important; }
+    .sv-chip-paper { background-color: ${c.ink} !important; color: ${c.paper} !important; }
   }
   @media only screen and (max-width: 480px) {
     .sv-gutter { padding-left: 22px !important; padding-right: 22px !important; }
@@ -271,6 +273,25 @@ function Avatar({ name, size = 52, fill = c.coral }: { name: string; size?: numb
   );
 }
 
+function Chip({ children, fill = c.lime }: { children: string; fill?: string }) {
+  return <span className={fill === c.paper ? "sv-chip-paper" : undefined} style={{ display: "inline-block", padding: "6px 11px", borderRadius: 999, backgroundColor: fill, color: c.ink, fontFamily: font.mono, fontSize: 11, lineHeight: "14px", letterSpacing: "1.4px" }}>{children.toUpperCase()}</span>;
+}
+
+/** The Modes a Setuvara carries, as the app shows them: a coloured dot and a name. */
+function ModeLine() {
+  const modes: [string, string][] = [["Personal", c.coral], ["Event", c.lime], ["Business", c.blue]];
+  return (
+    <table role="presentation" cellPadding={0} cellSpacing={0} border={0} style={{ borderCollapse: "collapse" }}><tbody><tr>
+      {modes.map(([name, fill]) => (
+        <React.Fragment key={name}>
+          <td valign="middle" style={{ width: 8, paddingRight: 7 }} width={8}><div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: fill, fontSize: 0, lineHeight: 0 }}>&nbsp;</div></td>
+          <td valign="middle" style={{ paddingRight: 16 }}><Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.4}>{name}</Mono></td>
+        </React.Fragment>
+      ))}
+    </tr></tbody></table>
+  );
+}
+
 function ObjectFacts({ facts }: { facts: Fact[] }) {
   if (!facts.length) return null;
   const width = `${Math.floor(100 / facts.length)}%`;
@@ -316,17 +337,35 @@ function ObjectView({ object }: { object: EmailObject }) {
   switch (object.kind) {
     case "identity":
       return (
-        <Surface>
-          <Mono size={11}>{object.label}</Mono><br />
-          <span className="sv-primary" style={{ display: "block", marginTop: 6, fontFamily: font.mono, fontSize: 18, lineHeight: "26px", color: c.ink, wordBreak: "break-all" }}>setuvara.com/<strong style={{ fontWeight: 600 }}>{object.handle}</strong></span>
-        </Surface>
+        <SetuvaraObject>
+          <Table>
+            <tr>
+              <td><Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.6}>{object.label}</Mono></td>
+              <td align="right">{object.chip ? <Chip>{object.chip}</Chip> : null}</td>
+            </tr>
+          </Table>
+          <span className="sv-object-text" style={{ display: "block", marginTop: 22, fontFamily: font.mono, fontSize: 15, lineHeight: "20px", color: c.objectMuted, wordBreak: "break-all" }}>setuvara.com/<strong className="sv-object-text sv-object-name" style={{ display: "block", marginTop: 2, fontFamily: font.display, fontSize: object.handle.length > 14 ? 30 : 40, lineHeight: "44px", fontWeight: 800, letterSpacing: "-1.6px", color: c.paper }}>{object.handle}</strong></span>
+          <div style={{ width: 56, height: 6, marginTop: 18, backgroundColor: c.coral, fontSize: 0, lineHeight: 0 }}>&nbsp;</div>
+          <div style={{ height: 20, lineHeight: "20px", fontSize: 0 }}>&nbsp;</div>
+          <ModeLine />
+        </SetuvaraObject>
+      );
+    case "access":
+      return (
+        <SetuvaraObject>
+          <Chip fill={c.paper}>{object.chip}</Chip>
+          <span className="sv-object-text sv-object-name" style={{ display: "block", marginTop: 18, fontFamily: font.display, fontSize: 32, lineHeight: "34px", fontWeight: 800, letterSpacing: "-1.2px", color: c.paper, wordBreak: "break-word" }}>{object.title.split("\n").map((line, index) => <React.Fragment key={index}>{index ? <br /> : null}{line}</React.Fragment>)}</span>
+          {object.facts.length ? <><div style={{ height: 22, lineHeight: "22px", fontSize: 0 }}>&nbsp;</div><ObjectFacts facts={object.facts} /></> : null}
+        </SetuvaraObject>
       );
     case "code":
       return (
-        <Surface padding="22px 20px">
-          <Mono size={11}>Verification code</Mono><br />
-          <span className="sv-primary" style={{ display: "block", marginTop: 8, fontFamily: font.mono, fontSize: 38, lineHeight: "44px", letterSpacing: "10px", fontWeight: 500, color: c.ink }}>{object.code}</span>
-        </Surface>
+        <SetuvaraObject>
+          <Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.6}>Verification code</Mono>
+          <span className="sv-object-text" style={{ display: "block", marginTop: 14, fontFamily: font.mono, fontSize: 46, lineHeight: "52px", letterSpacing: "12px", fontWeight: 500, color: c.paper, whiteSpace: "nowrap" }}>{object.code}</span>
+          <div style={{ width: 56, height: 6, marginTop: 18, backgroundColor: c.coral, fontSize: 0, lineHeight: 0 }}>&nbsp;</div>
+          <Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.4} style={{ display: "block", marginTop: 16 }}>Only you should see this code</Mono>
+        </SetuvaraObject>
       );
     case "details":
       return <DetailRows rows={object.rows} />;
@@ -435,7 +474,7 @@ function ObjectView({ object }: { object: EmailObject }) {
           <Table className="sv-line" style={{ borderTop: `1.5px solid ${c.ink}` }}>
             {object.steps.map((step, index) => (
               <tr key={step.title}>
-                <td valign="top" width={46} className="sv-line" style={{ width: 46, padding: "16px 0", borderBottom: `1px solid ${c.hairline}` }}><Mono size={12} spacing={1.2}>{String(index + 1).padStart(2, "0")}</Mono></td>
+                <td valign="top" width={52} className="sv-line" style={{ width: 52, padding: "13px 0 16px", borderBottom: `1px solid ${c.hairline}` }}><span style={{ fontFamily: font.display, fontSize: 24, lineHeight: "28px", fontWeight: 800, letterSpacing: "-0.8px", color: c.coral }}>{String(index + 1).padStart(2, "0")}</span></td>
                 <td valign="top" className="sv-line" style={{ padding: "14px 0 16px", borderBottom: `1px solid ${c.hairline}` }}>
                   <span className="sv-primary" style={{ display: "block", fontFamily: font.display, fontSize: 22, lineHeight: "26px", fontWeight: 700, letterSpacing: "-0.6px", color: c.ink }}>{step.title}</span>
                   <span className="sv-body" style={{ display: "block", marginTop: 4, fontFamily: font.text, fontSize: 15, lineHeight: "22px", color: c.body }}>{step.line}</span>
@@ -458,18 +497,33 @@ function ObjectView({ object }: { object: EmailObject }) {
     }
     case "collab":
       return (
-        <>
-          <DetailRows rows={object.rows} />
+        <SetuvaraObject>
+          <Table>
+            <tr>
+              <td width={68} valign="middle" style={{ width: 68 }}><Avatar fill={c.blue} name={object.brand} /></td>
+              <td valign="middle">
+                <span className="sv-object-text sv-object-name" style={{ display: "block", fontFamily: font.display, fontSize: 32, lineHeight: "33px", fontWeight: 700, letterSpacing: "-1.1px", color: c.paper, wordBreak: "break-word" }}>{object.brand}</span>
+                <span style={{ display: "block", marginTop: 8 }}><Chip>Collab request</Chip></span>
+              </td>
+            </tr>
+          </Table>
           {object.message ? (
-            <>
-              <div style={{ height: 16, lineHeight: "16px", fontSize: 0 }}>&nbsp;</div>
-              <Table><tr>
-                <td style={{ width: 3, backgroundColor: c.coral, fontSize: 0, lineHeight: 0 }} width={3}>&nbsp;</td>
-                <td className="sv-body" style={{ padding: "4px 0 4px 16px", fontFamily: font.text, fontSize: 16, lineHeight: "25px", color: c.body }}>“{object.message}”</td>
-              </tr></Table>
-            </>
+            <Table style={{ marginTop: 22 }}><tr>
+              <td style={{ width: 3, backgroundColor: c.coral, fontSize: 0, lineHeight: 0 }} width={3}>&nbsp;</td>
+              <td className="sv-object-text" style={{ padding: "2px 8px 2px 16px", fontFamily: font.text, fontSize: 16, lineHeight: "25px", color: c.paper }}>“{object.message}”</td>
+            </tr></Table>
           ) : null}
-        </>
+          {object.rows.length ? (
+            <Table className="sv-object-line" style={{ marginTop: 22, borderTop: `1px solid ${c.objectLine}` }}>
+              {object.rows.map((row, index) => (
+                <tr key={row.label}>
+                  <td valign="top" width={110} style={{ width: 110, padding: "14px 12px 0 0" }}><Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.6}>{row.label}</Mono></td>
+                  <td valign="top" className="sv-object-text" style={{ padding: `${index ? 12 : 13}px 8px 0 0`, fontFamily: font.text, fontSize: 16, lineHeight: "22px", fontWeight: 600, color: c.paper, wordBreak: "break-word" }}>{row.value}</td>
+                </tr>
+              ))}
+            </Table>
+          ) : null}
+        </SetuvaraObject>
       );
     case "digest":
       return (
@@ -499,19 +553,20 @@ function ObjectView({ object }: { object: EmailObject }) {
       );
     case "actions":
       return (
-        <Surface padding="4px 20px">
-          <Table>
+        <SetuvaraObject>
+          <Mono className="sv-object-muted" color={c.objectMuted} size={11} spacing={1.6}>Business Mode · New</Mono>
+          <Table style={{ marginTop: 8 }}>
             {object.rows.map((row, index) => (
               <tr key={`${row.who}:${index}`}>
-                <td valign="middle" width={52} className={index ? "sv-line" : undefined} style={{ width: 52, padding: "14px 0", borderTop: index ? `1px solid ${c.hairline}` : undefined }}><Avatar fill={[c.coral, c.blue, c.lime][index % 3]} name={row.who} size={38} /></td>
-                <td valign="middle" className={index ? "sv-line" : undefined} style={{ padding: "14px 0", borderTop: index ? `1px solid ${c.hairline}` : undefined }}>
-                  <span className="sv-primary" style={{ display: "block", fontFamily: font.text, fontSize: 15, lineHeight: "21px", color: c.ink }}><strong>{row.who}</strong> {row.what}</span>
-                  {row.when ? <Mono size={10} spacing={1.4} style={{ display: "block", marginTop: 3 }}>{row.when}</Mono> : null}
+                <td valign="middle" width={54} className={index ? "sv-object-line" : undefined} style={{ width: 54, padding: "14px 0", borderTop: index ? `1px solid ${c.objectLine}` : undefined }}><Avatar fill={[c.coral, c.blue, c.lime][index % 3]} name={row.who} size={40} /></td>
+                <td valign="middle" className={index ? "sv-object-line" : undefined} style={{ padding: "14px 8px 14px 0", borderTop: index ? `1px solid ${c.objectLine}` : undefined }}>
+                  <span className="sv-object-text" style={{ display: "block", fontFamily: font.text, fontSize: 16, lineHeight: "22px", color: c.paper }}><strong>{row.who}</strong> {row.what}</span>
+                  {row.when ? <Mono className="sv-object-muted" color={c.objectMuted} size={10} spacing={1.4} style={{ display: "block", marginTop: 4 }}>{row.when}</Mono> : null}
                 </td>
               </tr>
             ))}
           </Table>
-        </Surface>
+        </SetuvaraObject>
       );
   }
 }
@@ -613,14 +668,14 @@ export function contentForAuth(input: { template: EmailTemplateKey; url?: string
         eyebrow: "Confirm your email",
         headline: "One more step.",
         paragraphs: [handle ? "Confirm your email and it’s yours." : "Confirm your email to finish creating your Setuvara."],
-        object: handle ? { kind: "identity", label: "Your Setuvara", handle } : undefined,
+        object: handle ? { kind: "identity", label: "Your Setuvara", handle, chip: "Reserved" } : input.email ? { kind: "access", chip: "Confirm", title: "Your Setuvara\nstarts here.", facts: [{ label: "Account", value: input.email }] } : undefined,
         action: action("Confirm my email"),
         note: "Didn’t create a Setuvara? You can ignore this email.",
       };
     case "invite":
-      return { ...base, subject: "You’re invited to Setuvara", preview: "Accept your invitation and claim your name.", eyebrow: "Your invitation", headline: "Your Setuvara\nis waiting.", paragraphs: ["Accept your invitation to create your identity."], action: action("Accept invitation"), note: "Not expecting this? You can ignore this email." };
+      return { ...base, subject: "You’re invited to Setuvara", preview: "Accept your invitation and claim your name.", eyebrow: "Your invitation", headline: "Your Setuvara\nis waiting.", paragraphs: ["Accept your invitation to create your identity."], object: { kind: "access", chip: "Invitation", title: "One identity.\nEvery room.", facts: input.email ? [{ label: "For", value: input.email }] : [] }, action: action("Accept invitation"), note: "Not expecting this? You can ignore this email." };
     case "magiclink":
-      return { ...base, subject: "Your Setuvara sign-in link", preview: "One tap and you’re back in.", eyebrow: "Sign in", headline: "Back to your\nSetuvara.", paragraphs: ["Use this link to sign in. It works once."], action: action("Sign in"), note: "Didn’t try to sign in? You can ignore this email." };
+      return { ...base, subject: "Your Setuvara sign-in link", preview: "One tap and you’re back in.", eyebrow: "Sign in", headline: "Back to your\nSetuvara.", paragraphs: ["Use this link to sign in. It works once."], object: { kind: "access", chip: "Sign-in link", title: "One tap\nand you’re in.", facts: input.email ? [{ label: "Account", value: input.email }] : [] }, action: action("Sign in"), note: "Didn’t try to sign in? You can ignore this email." };
     case "recovery":
       return {
         ...base,
@@ -629,16 +684,16 @@ export function contentForAuth(input: { template: EmailTemplateKey; url?: string
         eyebrow: "Password reset",
         headline: "Reset your\npassword.",
         paragraphs: ["Choose a new password for your Setuvara. This link works once."],
-        object: input.email ? { kind: "details", rows: [{ label: "Account", value: input.email }] } : undefined,
+        object: { kind: "access", chip: "Password reset", title: "A new password,\nin one step.", facts: input.email ? [{ label: "Account", value: input.email }] : [] },
         action: action("Reset password"),
         note: "Didn’t ask for this? Ignore this email and your password stays the same.",
       };
     case "email_change":
-      return { ...base, subject: "Confirm your new email", preview: "Confirm the change to your Setuvara email.", eyebrow: "Email change", headline: "Confirm your\nnew email.", paragraphs: ["Confirm this address to finish changing the email on your Setuvara."], object: input.email ? { kind: "details", rows: [{ label: "Account", value: input.email }] } : undefined, action: action("Confirm email change"), note: "Didn’t ask for this? Ignore this email. Nothing changes until you confirm." };
+      return { ...base, subject: "Confirm your new email", preview: "Confirm the change to your Setuvara email.", eyebrow: "Email change", headline: "Confirm your\nnew email.", paragraphs: ["Confirm this address to finish changing the email on your Setuvara."], object: input.email ? { kind: "access", chip: "Email change", title: "Your new\naddress.", facts: [{ label: "New email", value: input.email }] } : undefined, action: action("Confirm email change"), note: "Didn’t ask for this? Ignore this email. Nothing changes until you confirm." };
     case "reauthentication":
       return { ...base, subject: "Your Setuvara verification code", preview: "Enter this code to confirm it’s you.", eyebrow: "Security check", headline: "Confirm it’s you.", paragraphs: ["Enter this code in Setuvara to continue."], object: input.code ? { kind: "code", code: input.code } : undefined, note: "Didn’t ask for a code? Someone may know your password. Change it in Setuvara." };
     default:
-      return { ...base, subject: "Your Setuvara account was updated", preview: "A security update on your account.", eyebrow: "Account security", headline: "Your account\nwas updated.", paragraphs: ["A security setting on your Setuvara changed. If this wasn’t you, reset your password right away."] };
+      return { ...base, subject: "Your Setuvara account was updated", preview: "A security update on your account.", eyebrow: "Account security", headline: "Your account\nwas updated.", paragraphs: ["A security setting on your Setuvara changed."], object: { kind: "access", chip: "Security", title: "Wasn’t you?", facts: [{ label: "Next step", value: "Reset your password" }] } };
   }
 }
 
@@ -794,7 +849,7 @@ export function contentForNotification(input: { template: EmailTemplateKey; user
     case "creator_collaboration": {
       const brand = get("brand") ?? "A brand";
       const rows = (["project", "budget", "format", "timing"] as const).map((key) => get(key) && { label: key, value: get(key)! }).filter(Boolean) as Fact[];
-      return { category: "connection", subject: `Collab request from ${brand}`, preview: [get("budget"), get("format"), get("timing")].filter(Boolean).join(" · ") || "A new collaboration request.", eyebrow: "Collab request", headline: `${brand}\nwants to collab.`, paragraphs: [], object: { kind: "collab", rows: [{ label: "From", value: brand }, ...rows], message: get("message") }, action: { label: "Review request", url: to("/app") }, ...footer };
+      return { category: "connection", subject: `Collab request from ${brand}`, preview: [get("budget"), get("format"), get("timing")].filter(Boolean).join(" · ") || "A new collaboration request.", eyebrow: "Collab request", headline: `${brand}\nwants to collab.`, paragraphs: [], object: { kind: "collab", brand, rows, message: get("message") }, action: { label: "Review request", url: to("/app") }, ...footer };
     }
     case "business_action": {
       const rows = all("action").map((value) => {
