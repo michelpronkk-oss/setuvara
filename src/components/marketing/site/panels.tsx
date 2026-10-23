@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { DEMO_PEOPLE } from "../home/mode-phone";
+import { BrandMark } from "./brand-mark";
 
 /**
  * Product moments for the Mode pages: each tool drawn as the working panel it is in the app,
@@ -230,7 +231,7 @@ export function MediaKitCard() {
   return (
     <div className="rounded-[20px] bg-paper p-5">
       <div className="flex items-center gap-3"><Avatar size={44} who={DEMO_PEOPLE.sena} /><div className="min-w-0"><p className="text-[16px] font-semibold">Sena Okafor</p><p className="truncate text-[13px] text-ink/55">Music · Lagos</p></div></div>
-      <ul className="mt-4 grid grid-cols-3 gap-2">{[["48K", "YouTube"], ["31K", "Instagram"], ["120K", "TikTok"]].map(([n, p]) => <li className="min-w-0 rounded-[12px] bg-white px-1.5 py-2.5 text-center sm:p-3 sm:text-left" key={p}><p className="font-display text-[19px] font-extrabold leading-none tracking-[-0.05em] sm:text-[22px]">{n}</p><p className="mt-1 text-[10px] font-semibold tracking-[-0.01em] sm:text-[11px]">{p}</p></li>)}</ul>
+      <ul className="mt-4 grid grid-cols-3 gap-2">{([["48K", "youtube", "YouTube"], ["31K", "instagram", "Instagram"], ["120K", "tiktok", "TikTok"]] as const).map(([n, brand, label]) => <li className="flex min-w-0 flex-col items-center gap-2 rounded-[12px] bg-white px-1.5 py-3 sm:items-start sm:p-3" key={brand}><BrandMark brand={brand} plain size={20} /><p className="font-display text-[19px] font-extrabold leading-none tracking-[-0.05em] sm:text-[22px]"><span className="sr-only">{label}: </span>{n}</p></li>)}</ul>
       <p className={`mt-4 ${mono} text-ink/45 max-sm:hidden`}>Example numbers · shared by link</p>
     </div>
   );

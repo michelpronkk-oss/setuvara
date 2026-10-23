@@ -6,6 +6,7 @@ import { PRICES } from "@/lib/marketing/facts";
 import { findTemplate } from "@/lib/marketing/templates-content";
 
 import { CAST, CastPhone, DEMO_PEOPLE, ModePhone } from "../home/mode-phone";
+import { BrandMark } from "./brand-mark";
 import { FitCanvas } from "./fit-canvas";
 import { QrArt } from "./qr-art";
 
@@ -162,7 +163,7 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
         <Card className={box} dark={dark}>
           {head("Media kit", <span className="text-[19px] font-semibold opacity-55">Updated today</span>)}
           <div className="grid grid-cols-3 gap-3">
-            {[["48k", "Instagram"], ["21k", "TikTok"], ["9k", "YouTube"]].map(([n, l]) => <div className="rounded-[22px] bg-ink/[0.04] p-5" key={l}><p className={`${display} text-[54px] leading-none`}>{n}</p><p className="mt-2 text-[19px] opacity-55">{l}</p></div>)}
+            {([["48k", "instagram"], ["21k", "tiktok"], ["9k", "youtube"]] as const).map(([n, brand]) => <div className="rounded-[22px] bg-ink/[0.04] p-5" key={brand}><BrandMark brand={brand} plain size={34} /><p className={`${display} mt-4 text-[54px] leading-none`}>{n}</p></div>)}
           </div>
           <p className="mt-5 flex items-center justify-between rounded-[20px] bg-ink px-5 py-4 text-[21px] font-semibold text-paper">Work with Sena<span className="text-coral">→</span></p>
         </Card>
@@ -194,9 +195,9 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
         <Card className={box} dark={dark}>
           {head("For friends")}
           <div className="space-y-3">
-            {[["Instagram", "@aanya", "#E1306C"], ["Spotify", "Sunday run mix", "#1DB954"], ["WhatsApp", "Message me", "#25D366"]].map(([name, sub, color]) => (
+            {([["Instagram", "@aanya", "instagram"], ["Spotify", "Sunday run mix", "spotify"], ["WhatsApp", "Message me", "whatsapp"]] as const).map(([name, sub, brand]) => (
               <div className="flex items-center gap-5 rounded-[22px] bg-ink/[0.04] p-4" key={name}>
-                <span className="size-[62px] shrink-0 rounded-[18px]" style={{ background: color }} />
+                <BrandMark brand={brand} size={34} />
                 <div className="min-w-0 flex-1"><p className="text-[25px] font-semibold leading-tight">{name}</p><p className="mt-1 text-[19px] opacity-55">{sub}</p></div>
                 <span className="text-[26px] opacity-40">→</span>
               </div>
