@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { BlockKind, ModeSlug, ProfileBlock, ProfileMode } from "@/components/profile/types";
+import { EMBED_HINT, EMBED_PROVIDERS, parseEmbed } from "./embeds";
 import { parseMusic, parseVideo } from "./media";
 
 /**
@@ -102,6 +103,10 @@ export const blockSchemas = {
     cta: text(30).optional(),
     url: z.union([z.literal(""), z.string().trim().max(1000).regex(/^https:\/\//i, "Use a full link starting with https://")]).optional(),
   }),
+  embed: z.object({
+    url: z.string().trim().max(500).refine((value) => Boolean(parseEmbed(value)), EMBED_HINT),
+    title: text(80).optional(),
+  }),
 } satisfies Record<BlockKind, z.ZodType>;
 
 export type BlockData<K extends BlockKind = BlockKind> = z.infer<(typeof blockSchemas)[K]>;
@@ -120,14 +125,18 @@ export const BLOCKS: Record<BlockKind, BlockMeta> = {
   faq: { kind: "faq", name: "FAQ", hint: "Questions people ask, answered", icon: "M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Zm0 12.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4ZM12 6.5c-2 0-3.4 1.2-3.5 3h2c.1-.7.6-1.1 1.5-1.1s1.4.4 1.4 1.1c0 .6-.3.9-1.2 1.4-1 .6-1.5 1.3-1.4 2.6h1.9c0-.8.2-1.1 1.1-1.6 1-.6 1.6-1.4 1.6-2.5 0-1.7-1.4-2.9-3.4-2.9Z" },
   location: { kind: "location", name: "Location", hint: "Address, opening hours and a map link", icon: "M12 2.5a7 7 0 0 1 7 7c0 5.2-7 12-7 12s-7-6.8-7-12a7 7 0 0 1 7-7Zm0 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" },
   countdown: { kind: "countdown", name: "Countdown", hint: "A launch, a drop or a date to count down to", icon: "M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Zm-1 4v6l5 3 1-1.7-4-2.4V7h-2Z" },
+  embed: { kind: "embed", name: "Embed", hint: "Calendly, Cal.com, Typeform, Tally, Substack", icon: "M8.6 7.4 4 12l4.6 4.6 1.4-1.4L6.8 12 10 8.8 8.6 7.4Zm6.8 0L14 8.8l3.2 3.2-3.2 3.2 1.4 1.4L20 12l-4.6-4.6Z" },
   testimonial: { kind: "testimonial", name: "Testimonial", hint: "A quote from a client or partner", icon: "M5 17.5c0-4.3 1.9-7.5 5.2-9.5l1 1.6c-1.8 1.3-2.8 2.7-3 4.4H11V19H5v-1.5Zm8 0c0-4.3 1.9-7.5 5.2-9.5l1 1.6c-1.8 1.3-2.8 2.7-3 4.4H19V19h-6v-1.5Z" },
 };
+
+/** Blocks that need a Plus or Pro membership to add. A saved one stays after a downgrade. */
+export const PLUS_BLOCKS: readonly BlockKind[] = ["embed"];
 
 /** Which blocks each Mode offers first; the rest stay available under "More". */
 export const MODE_BLOCKS: Record<ModeSlug, BlockKind[]> = {
   personal: ["text", "video", "music", "feature"],
   event: ["text", "countdown", "feature", "video", "highlights"],
-  business: ["text", "services", "faq", "location", "testimonial", "highlights"],
+  business: ["text", "services", "faq", "location", "embed", "testimonial", "highlights"],
   creator: ["video", "music", "image", "countdown", "text", "feature"],
 };
 
@@ -155,6 +164,7 @@ export function emptyBlock(kind: BlockKind): Record<string, unknown> {
     case "faq": return { heading: "", items: [{ q: "", a: "" }] };
     case "location": return { name: "", address: "", hours: [{ days: "", time: "" }], note: "" };
     case "countdown": return { title: "", ends_at: "", after: "", cta: "", url: "" };
+    case "embed": return { url: "", title: "" };
     default: return { url: "", title: "" };
   }
 }
@@ -178,6 +188,10 @@ export function validateBlock(kind: BlockKind, data: unknown): { ok: true; data:
   }
   if (kind === "music") {
     const media = parseMusic(String(clean.url));
+    if (media) clean.url = media.url;
+  }
+  if (kind === "embed") {
+    const media = parseEmbed(String(clean.url));
     if (media) clean.url = media.url;
   }
   return { ok: true, data: clean };
@@ -218,5 +232,6 @@ export function blockSummary(block: Pick<ProfileBlock, "kind" | "data">): string
     case "faq": { const count = (data.items as unknown[] | undefined)?.length ?? 0; return str(data.heading) || `${count} question${count === 1 ? "" : "s"}`; }
     case "location": return str(data.name) || str(data.address) || "Location";
     case "countdown": return str(data.title) || "Countdown";
+    case "embed": { const media = parseEmbed(str(data.url)); return str(data.title) || (media ? `${EMBED_PROVIDERS[media.provider].name} ${EMBED_PROVIDERS[media.provider].kind.toLowerCase()}` : "Embed"); }
   }
 }

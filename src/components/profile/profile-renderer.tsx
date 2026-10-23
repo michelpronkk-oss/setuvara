@@ -285,6 +285,7 @@ function Profile(props: ProfileProps) {
   };
   const blockTone: BlockTone = { bg: theme.base, ink: theme.fg, sub: theme.muted, chip: theme.card.bg, line: theme.card.edge, dark: !theme.light };
   const branded = !hasCapability(props.plan ?? "free", "identity.remove_attribution");
+  const embeds = hasCapability(props.plan ?? "free", "blocks.embeds");
   const soundTop = look.id === "clean" || look.id === "social" ? 28 : 18;
   const soundRight = look.id === "clean" || look.id === "social" ? 28 : 16;
   const floating = !owner && !connected && Boolean(props.visitorAction);
@@ -331,7 +332,7 @@ function Profile(props: ProfileProps) {
         <WideHero scene={scene} />
       </div>
 
-      <AppearanceContent order={pageOrder} pieces={pieces} sizes={pageSizes} attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
+      <AppearanceContent embeds={embeds} order={pageOrder} pieces={pieces} sizes={pageSizes} attribution={attribution} blockTone={blockTone} card={<IdentityCard actions={cardActions} copy={copy} scene={scene} />} copy={copy} footer={footer} links={links} owner={owner} branded={branded} profile={profile} rewards={selectedRewards} scene={scene} />
       {floating && <FloatingConnect dot={connect.dot} label={copy.connect} style={{ background: connect.bg, color: connect.fg, boxShadow: [connect.edge !== "none" ? connect.edge : "", "0 14px 34px -12px #0D0D0D99"].filter(Boolean).join(","), outlineColor: theme.identity.fg }} />}
     </article>
   );
@@ -396,7 +397,7 @@ function aboutParagraphs(scene: Scene, bio = "") {
   return [modeText, bio].filter((text, index, list) => text && list.indexOf(text) === index);
 }
 
-function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card, order, pieces, sizes }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode; order?: string[] | null; pieces?: Record<string, ReactNode>; sizes?: PageSizes }) {
+function AppearanceContent({ scene, profile, links, owner, footer, attribution, branded, rewards, blockTone, copy, card, order, pieces, sizes, embeds }: { scene: Scene; profile: ProfileIdentity; links: ResolvedLink[]; owner: boolean; footer?: ReactNode; attribution: boolean; branded: boolean; rewards: Partial<Record<string, string>>; blockTone: BlockTone; copy: Copy; card?: ReactNode; order?: string[] | null; pieces?: Record<string, ReactNode>; sizes?: PageSizes; embeds: boolean }) {
   const { theme, mode, look } = scene;
   const bio = profile.bio?.trim() ?? "";
   const paragraphs = aboutParagraphs(scene, bio);
@@ -423,7 +424,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
     const key = `${run.kind}-${run.ids[0]}-${index}`;
     if (run.kind === "block") {
       const blocks = run.ids.map((id) => mode.blocks?.find((block) => block.id === id)).filter((block): block is NonNullable<typeof block> => Boolean(block));
-      return <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={blocks} className="@min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" gallery key={key} mediaLayout={look.mediaLayout} tone={blockTone} />;
+      return <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={blocks} className="@min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" gallery key={key} embeds={embeds} mediaLayout={look.mediaLayout} tone={blockTone} />;
     }
     if (run.kind === "link") {
       const runLinks = run.ids.map((id) => shownLinks.find((item) => item.link.id === id)).filter((item): item is ResolvedLink => Boolean(item));
@@ -465,7 +466,7 @@ function AppearanceContent({ scene, profile, links, owner, footer, attribution, 
         )}
         <EarnedMark copy={copy} rewards={rewards} theme={theme} />
         {mode.slug === "event" && setting(mode, "eventName") && <EventCard className={spread ? "@min-[1100px]/profile:hidden" : ""} copy={copy} mode={mode} theme={theme} />}
-        {stream ?? <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" gallery mediaLayout={look.mediaLayout} tone={blockTone} />}
+        {stream ?? <ProfileBlocks accent={look.accent} accentInk={inkOn(look.accent)} blocks={mode.blocks} className="@min-[1100px]/profile:gap-[clamp(40px,3.6cqw,64px)]" gallery embeds={embeds} mediaLayout={look.mediaLayout} tone={blockTone} />}
       </div>
       <div className={`contents @min-[1100px]/profile:flex @min-[1100px]/profile:flex-col @min-[1100px]/profile:gap-6 ${spread ? "@min-[1100px]/profile:sticky @min-[1100px]/profile:top-8 @min-[1100px]/profile:col-start-2 @min-[1100px]/profile:row-span-2 @min-[1100px]/profile:row-start-1" : ""}`} data-profile-aside>
         {spread && card}

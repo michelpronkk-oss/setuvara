@@ -772,9 +772,10 @@ export function AppearancePlusSheet({ trigger, plan, modeLabel, currentName, onC
   }, [onClose]);
 
   const name = trigger.appearance ? APPEARANCE_NAMES[trigger.appearance] : "";
-  const title = trigger.kind === "type" && trigger.name ? copy.sheetTitleType.replace("{name}", trigger.name)
+  const title = trigger.kind === "embed" ? copy.sheetTitleEmbed
+    : trigger.kind === "type" && trigger.name ? copy.sheetTitleType.replace("{name}", trigger.name)
     : name && trigger.kind !== "qr" ? copy.sheetTitle.replace("{name}", name).replace("{mode}", modeLabel) : copy.sheetTitleGeneric;
-  const body = trigger.kind === "restore" ? copy.sheetRestore : copy.sheetBody;
+  const body = trigger.kind === "restore" ? copy.sheetRestore : trigger.kind === "embed" ? copy.sheetBodyEmbed : copy.sheetBody;
   const monthly = price(offer.monthlyPriceMinor);
   const yearly = price(offer.yearlyPriceMinor);
 

@@ -19,6 +19,7 @@ const ESSENTIAL = [
 ];
 
 const PLAYERS = ["Spotify", "SoundCloud", "Apple Music", "Deezer", "YouTube"];
+const EMBEDS = ["Calendly", "Cal.com", "Typeform", "Tally", "Google Forms", "Substack"];
 
 const button = "inline-flex min-h-12 items-center rounded-full bg-ink px-6 text-[15px] font-semibold text-paper hover:bg-[#262626] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink";
 
@@ -29,7 +30,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>Setuvara only sets cookies it needs to work. We don’t use advertising cookies, cross-site trackers or third-party analytics. Our own Analytics don’t use cookies at all.</p>
-        <p>The one choice you have is about other companies’ media players. When someone adds Spotify, SoundCloud, Apple Music, Deezer or YouTube to their identity, those players can set cookies of their own. They only load when you allow it.</p>
+        <p>The one choice you have is about other companies’ media players. When someone adds Spotify, SoundCloud, Apple Music, Deezer or YouTube, or embeds a Calendly, Cal.com, Typeform, Tally, Google Forms or Substack page, those providers can set cookies of their own. They only load when you allow it.</p>
         <p><CookieSettingsButton className={button} /></p>
       </>
     ),
@@ -68,7 +69,7 @@ const sections: LegalSection[] = [
     title: "Media players",
     body: (
       <>
-        <p>Profiles can include music and video from {PLAYERS.join(", ")}. Until you allow media players, music shows a <b>Load player</b> button instead, and videos load only when you press play. Turning on a profile’s sound also loads its player.</p>
+        <p>Profiles can include music and video from {PLAYERS.join(", ")}. Until you allow media players, music shows a <b>Load player</b> button instead, and videos load only when you press play. Turning on a profile’s sound also loads its player. Booking pages, forms and sign-ups embedded from {EMBEDS.join(", ")} wait the same way, behind a <b>Show it here</b> button.</p>
         <p>Once a player loads, its provider may set cookies under its own policy. YouTube videos use YouTube’s privacy-enhanced mode.</p>
       </>
     ),

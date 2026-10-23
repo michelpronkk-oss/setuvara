@@ -75,6 +75,7 @@ export const PLAN_MATRIX = {
   "analytics.csv_export": { label: "Analytics CSV export", requiredPlan: "pro", availability: "live", enforcement: "server-plan", surface: "Analytics export API", pricing: { id: "analytics-export", label: "Download analytics as CSV" }, downgrade: "restrict-access-keep-data" },
   "analytics.advanced_filters": { label: "Advanced analytics filters", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Analytics", pricing: null, downgrade: "future-unavailable" },
   "appearance.advanced_controls": { label: "Accent intensity, surfaces and link styles", requiredPlan: "plus", availability: "live", enforcement: "server-derived-presentation", surface: "Identity editor and shared ProfileRenderer", pricing: { id: "premium-presentation", label: "Premium themes and layouts, QR presentation, Passport finish, and soundtrack presentation" }, downgrade: "preserve-config-fallback" },
+  "blocks.embeds": { label: "Embeds: booking pages, forms and newsletter sign-ups", requiredPlan: "plus", availability: "live", enforcement: "server-plan", surface: "Identity editor and public profile", pricing: { id: "embeds", label: "Embed Calendly, Cal.com, Typeform, Tally and Substack on your page" }, downgrade: "preserve-config-fallback" },
   "domain.custom": { label: "Use a domain you own", requiredPlan: "pro", availability: "future", enforcement: "not-shipped", surface: "Public profile", pricing: null, downgrade: "future-unavailable" },
   // Actions and Leads are live on every plan; their per-plan limits live in the database
   // (private.action_plan_limits, private.business_plan_limits) and lib/marketing/facts.ts.
@@ -161,7 +162,7 @@ export function listAvailableCapabilities(plan: PlanCode): CapabilityKey[] {
 export function getPricingFeatureGroups(plan: PlanCode): PricingFeature[] {
   const order = [
     "profile", "modes", "share", "network", "soundtrack", "analytics-basic", "plus-badge",
-    "no-attribution", "premium-presentation", "analytics-history", "analytics-breakdowns", "analytics-conversion",
+    "no-attribution", "premium-presentation", "embeds", "analytics-history", "analytics-breakdowns", "analytics-conversion",
     "pro-badge", "analytics-custom-range", "analytics-funnel", "analytics-devices", "analytics-export",
   ];
   const groups = new Map<string, { feature: PricingFeature; keys: CapabilityKey[] }>();
