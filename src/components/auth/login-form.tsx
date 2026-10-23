@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { CharacterAvatar } from "@/components/avatar/character-avatar";
 import { createClient } from "@/lib/supabase/client";
 
 import { AuthHeading, AuthLayout, fieldClass, Spinner } from "./auth-layout";
@@ -64,9 +63,10 @@ function LoginAside() {
       <div aria-hidden="true" className="flex max-w-[380px] flex-col gap-3">
         <p className="font-label text-[11px] uppercase tracking-[0.14em] text-paper/55">Inside your Setuvara</p>
         <div className="flex items-center gap-3.5 rounded-[22px] bg-[#1a1a1a] p-5 shadow-[inset_0_0_0_1px_rgba(245,244,239,.08)]">
-          <CharacterAvatar className="size-11 shrink-0 rounded-full" seed="Marco Silva" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- static example portrait */}
+          <img alt="" className="size-11 shrink-0 rounded-full object-cover" src="/pricing/noor-close.webp" />
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-3"><span className="font-display text-[20px] font-bold tracking-[-0.03em]">Marco Silva</span><span className="font-label text-[10px] uppercase tracking-[0.12em] text-coral">Business</span></div>
+            <div className="flex items-baseline justify-between gap-3"><span className="font-display text-[20px] font-bold tracking-[-0.03em]">Noor Haddad</span><span className="font-label text-[10px] uppercase tracking-[0.12em] text-coral">Business</span></div>
             <p className="mt-0.5 truncate text-[13px] text-paper/65">You met at TNW Conference · Amsterdam</p>
           </div>
         </div>
