@@ -84,6 +84,8 @@ export function SoundtrackTry() {
     if (!media) return;
     if (player.current) { await player.current.play(); setStatus("playing"); return; }
     setStatus("loading");
+    // Some tracks can't be embedded: if nothing has started after a while, offer the service instead.
+    window.setTimeout(() => setStatus((value) => (value === "loading" ? "error" : value)), 15000);
     try {
       let created: Player;
       if (media.provider === "apple_music" || media.provider === "deezer") {
@@ -161,6 +163,7 @@ export function SoundtrackTry() {
             </div>
           </div>
         </div>
+        {status === "error" && media && <a className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-full bg-paper px-4 text-[13px] font-semibold text-ink" href={media.url} rel="noopener noreferrer" target="_blank">Open in {NAME[media.provider]}<span aria-hidden="true">↗</span></a>}
         <p className="mt-4 text-[12px] text-paper/50">Plays through {media ? NAME[media.provider] : "the service"}&apos;s own player, as on a member&apos;s page. Never autoplays.</p>
         {/* The provider's player lives off-screen: the card above is the control. */}
         <div aria-hidden="true" className="pointer-events-none fixed -left-[10000px] top-0 h-[360px] w-[320px] overflow-hidden" ref={host} />

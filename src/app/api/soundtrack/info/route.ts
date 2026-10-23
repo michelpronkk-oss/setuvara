@@ -40,7 +40,10 @@ async function oembed(url: string): Promise<SoundtrackInfo | null> {
   const data = endpoint ? await json(endpoint) : null;
   if (!data) return null;
   // YouTube and SoundCloud put the artist in author_name; Spotify's title is the whole name.
-  return { title: text(data.title), artist: text(data.author_name), artwork: https(data.thumbnail_url) };
+  // YouTube's auto-generated artist channels end in " - Topic"; SoundCloud titles end in " by <artist>".
+  const artist = text(data.author_name)?.replace(/ - Topic$/, "") ?? null;
+  const title = text(data.title);
+  return { title: artist && title?.endsWith(` by ${artist}`) ? title.slice(0, -(artist.length + 4)) : title, artist, artwork: https(data.thumbnail_url) };
 }
 
 async function apple(type: string, id: string, url: string): Promise<SoundtrackInfo | null> {
