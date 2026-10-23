@@ -200,7 +200,7 @@ export function BuilderStudio(props: Props) {
 /** Examples that fit the Mode: a creator builds shows, courses and drops; a business builds products. */
 const STUDIO_COPY = {
   creator: { name: "My podcast", pitch: "A weekly show about cities and food", about: "What you're making, who it's for, and where it's headed.", url: "https://myshow.com", category: "Podcast · Course · Newsletter", stackLabel: "Made with", stack: "Riverside, Notion, Figma", launchedLabel: "Started", next: "Next up: season two" },
-  business: { name: "My SaaS", pitch: "Invoices that chase themselves", about: "What it does, who it's for, and why you're building it.", url: "https://mysaas.com", category: "Fintech · B2B SaaS", stackLabel: "Built with", stack: "Next.js, Postgres, Stripe", launchedLabel: "Launched", next: "Next up: Stripe sync" },
+  business: { name: "My project", pitch: "Invoices that chase themselves", about: "What it does, who it's for, and why you're building it.", url: "https://myproject.com", category: "Fintech · B2B", stackLabel: "Built with", stack: "Next.js, Postgres, Stripe", launchedLabel: "Launched", next: "Next up: Stripe sync" },
 } as const;
 
 const STAGE_DOT: Record<RoadmapStage, string> = { planned: "#B8B4AA", in_progress: "#FF5A4F", shipped: "#7AD14A" };
