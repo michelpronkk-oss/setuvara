@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   applicationName: "Setuvara",
   creator: "Setuvara",
   publisher: "Setuvara",
+  // Bing Webmaster Tools ownership (also public/BingSiteAuth.xml).
+  verification: { other: { "msvalidate.01": "9AE559261E5A29AD35E28021E833EBF9" } },
   openGraph: {
     type: "website",
     siteName: "Setuvara",
