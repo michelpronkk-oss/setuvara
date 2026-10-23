@@ -19,6 +19,7 @@ const GROUPS: Group[] = [
   { name: "Identity", color: "text-ink/65", rows: [
     { label: "Personal, Event, Business and Creator Modes", cells: [true, true, true] },
     { label: "Public profile, links and content blocks", cells: [true, true, true] },
+    { label: "Embeds: Calendly, Cal.com, Typeform, Tally, Google Forms, Substack", cells: [false, true, true] },
     { label: "Profile soundtrack", cells: [true, true, true] },
     { label: "Connect: everyone, in person only, or off", cells: [true, true, true] },
     { label: "Member badge", cells: [false, "Plus", "Pro"] },
@@ -29,6 +30,8 @@ const GROUPS: Group[] = [
     { label: "Appearances", cells: [m("Immersive and Clean"), `All ${PLAN_COUNTS.appearances}`, `All ${PLAN_COUNTS.appearances}`] },
     { label: "Name fonts", cells: [m(String(PLAN_COUNTS.freeNameFonts)), String(PLAN_COUNTS.nameFonts), String(PLAN_COUNTS.nameFonts)] },
     { label: "Accent intensity, cards, links and scroll cues", cells: [m("Core"), "Full", "Full"] },
+    { label: "Card styles", cells: [m("Solid"), "Solid, Glass, Outline", "Solid, Glass, Outline"] },
+    { label: "Text fonts", cells: [m("Sans"), "Sans, Serif, Mono", "Sans, Serif, Mono"] },
     { label: "Soundtrack presentation", cells: [m("Standard"), "Premium", "Premium"] },
     { label: "Profile flair from your Passport", cells: [false, true, true] },
   ] },
