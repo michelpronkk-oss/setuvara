@@ -5,6 +5,7 @@ import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { MarketingProfilePreview } from "@/components/marketing/profile-preview";
 import type { AppearanceId, ModeSlug, ProfileBlock, ProfileIdentity, ProfileLink, ProfileMode, PublicLiveContext } from "@/components/profile/types";
 
+import { FitCanvas } from "../site/fit-canvas";
 import { person, type DemoMode } from "./demo";
 
 /**
@@ -144,11 +145,19 @@ const DESKTOP = { width: 1280, height: 800 };
  * gives Tailwind classes that set --z per breakpoint, so one drawing serves every width. Its photos
  * never preload: drawings sit below the fold or only show on wide screens.
  */
-export function ModeDesktop({ slug, who, look: override, live, scale = 0.5, scales, label }: { slug: DemoMode["slug"]; who?: Person; look?: Look; live?: PublicLiveContext; scale?: number; scales?: string; label?: string }) {
+export function ModeDesktop({ slug, who, look: override, live, scale = 0.5, scales, label, fit = false }: { slug: DemoMode["slug"]; who?: Person; look?: Look; live?: PublicLiveContext; scale?: number; scales?: string; label?: string; /** Fill the container's width exactly, at any size. */ fit?: boolean }) {
   const cast = CAST[slug];
   const person = who ?? cast.who;
   const { profile, mode } = demo(slug, person, override ?? cast.look);
   const look = previewAppearance(mode);
+  const page = <MarketingProfilePreview liveContext={live ?? cast.live} marketingMediaPriority="normal" nameAs="p" memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />;
+  if (fit) {
+    return (
+      <div aria-label={label ?? `${person.name}'s ${slug} page on a desktop`} className="w-full" role="img" style={{ background: appearanceTheme(look.id, look.accent).base }}>
+        <FitCanvas height={DESKTOP.height} width={DESKTOP.width}><div className="pointer-events-none [&_[data-floating-connect]]:hidden" style={{ width: DESKTOP.width, "--profile-vh": `${DESKTOP.height}px` } as CSSProperties}>{page}</div></FitCanvas>
+      </div>
+    );
+  }
   return (
     <div aria-label={label ?? `${person.name}'s ${slug} page on a desktop`} className={`relative overflow-hidden ${scales ?? ""}`} role="img" style={{ ...(scales ? { width: `calc(${DESKTOP.width}px * var(--z))`, height: `calc(${DESKTOP.height}px * var(--z))` } : { width: DESKTOP.width * scale, height: DESKTOP.height * scale }), background: appearanceTheme(look.id, look.accent).base }}>
       <div aria-hidden="true" className="pointer-events-none [&_[data-floating-connect]]:hidden" inert style={{ width: DESKTOP.width, zoom: scales ? "var(--z)" : scale, "--profile-vh": `${DESKTOP.height}px` } as CSSProperties}>

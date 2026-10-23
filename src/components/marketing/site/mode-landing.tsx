@@ -126,7 +126,7 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow="What visitors see" id={`${slug}-shows`} lede={`On a laptop your page is a full editorial spread, not a phone in the middle of the screen. They see ${page.name} only, never your other Modes.`} title="One page, made for this part of your life." />
           <div className={`${nameFontClasses} mx-auto mt-12 max-w-[1168px] lg:mt-[72px]`}>
-            <BrowserFrame url={page.share}><ModeDesktop scales="[--z:.26] sm:[--z:.44] md:[--z:.52] lg:[--z:.7] xl:[--z:.9]" slug={slug} /></BrowserFrame>
+            <BrowserFrame url={page.share}><ModeDesktop fit slug={slug} /></BrowserFrame>
           </div>
           <ol className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
             {page.shows.map((item, index) => (

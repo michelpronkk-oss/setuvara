@@ -18,7 +18,7 @@ export function ArticleStage({ slug, url }: { slug: ModeSlug; url: string }) {
   return (
     <Stage className={`${nameFontClasses} aspect-[4/3] sm:aspect-[16/9] lg:aspect-[1328/700]`} slug={slug}>
       <div className="absolute left-[11%] top-[11%] hidden w-[66%] sm:block">
-        <BrowserFrame url={url}><ModeDesktop scales="[--z:.32] md:[--z:.37] lg:[--z:.48] xl:[--z:.62] min-[1440px]:[--z:.68]" slug={slug} /></BrowserFrame>
+        <BrowserFrame url={url}><ModeDesktop fit slug={slug} /></BrowserFrame>
       </div>
       <div aria-hidden="true" className="absolute left-1/2 top-[8%] origin-top -translate-x-1/2 scale-[.5] sm:left-auto sm:right-[11%] sm:top-[20%] sm:translate-x-0 sm:origin-top-right sm:scale-[.62] lg:scale-[.78] xl:scale-[.95]" inert>
         <div className="rounded-[46px] shadow-[0_50px_80px_-30px_rgba(13,13,13,.6)]"><CastPhone slug={slug} /></div>

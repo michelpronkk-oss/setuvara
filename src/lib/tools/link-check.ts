@@ -10,7 +10,7 @@ export type Check = { id: string; label: string; status: CheckStatus; detail: st
 
 export const MAX_BYTES = 600_000;
 
-function metaContent(head: string, key: string) {
+export function metaContent(head: string, key: string) {
   for (const tag of head.match(/<meta\b[^>]*>/gi) ?? []) {
     const name = (tagAttr(tag, "name") ?? tagAttr(tag, "property") ?? "").toLowerCase();
     if (name === key) return tagAttr(tag, "content") ?? "";
