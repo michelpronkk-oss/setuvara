@@ -167,8 +167,8 @@ export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId,
  * next one peeking), so a section reads as one idea instead of a long stack. From md up the
  * caller's grid takes over. Pair RAIL on the list with RAIL_ITEM on each child.
  */
-export const RAIL = "max-md:-mx-5 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:gap-3 max-md:overflow-x-auto max-md:scroll-px-5 max-md:px-5 max-md:pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-md:-mx-8 sm:max-md:scroll-px-8 sm:max-md:px-8";
-export const RAIL_ITEM = "max-md:w-[80%] max-md:max-w-[340px] max-md:shrink-0 max-md:snap-start";
+export const RAIL = "max-md:-mx-5 max-md:flex max-md:flex-nowrap max-md:snap-x max-md:snap-mandatory max-md:gap-3 max-md:overflow-x-auto max-md:scroll-px-5 max-md:px-5 max-md:pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-md:-mx-8 sm:max-md:scroll-px-8 sm:max-md:px-8";
+export const RAIL_ITEM = "max-md:w-[80%] max-md:max-w-[340px] max-md:flex-none max-md:snap-start";
 
 /** Phones: items after the first few fold behind a toggle; wider screens show them all. CSS only. */
 export function MoreOnPhone({ id, label, children, rest }: { id: string; label: string; children: ReactNode; rest: ReactNode }) {

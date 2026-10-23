@@ -39,7 +39,7 @@ export function Share() {
             <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="share-title">The right version, instantly.</span></Display>
             <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Pick a Mode. Share it. They see only that version. Try your colour.</p>
           </div>
-          <ul className="border-t border-ink/15">
+          <ul className="border-t border-ink/15 max-md:hidden">
             {channels.map((channel) => (
               <li className={`flex items-center justify-between gap-4 border-b border-ink/15 py-3 sm:py-4 ${channel.live ? "" : "text-ink/55"}`} key={channel.name}>
                 <span className="min-w-0">

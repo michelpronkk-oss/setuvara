@@ -2,6 +2,7 @@ import { MemberBadge } from "@/components/app/status-badge";
 import { MeetMark } from "@/components/marketing/brand";
 import { PLAN_COUNTS } from "@/lib/billing/plan-copy";
 
+import { RAIL, RAIL_ITEM } from "../site/kit";
 import { BadgedName, Lede, Mono, SECTION, SECTION_PAD, SectionHead, SoonPill } from "./shared";
 
 const CARD = "flex min-w-0 flex-col gap-6 rounded-[28px] p-[clamp(22px,2.6vw,36px)]";
@@ -17,8 +18,8 @@ export function ProShowcase() {
           </div>
         </SectionHead>
 
-        <div className="flex flex-wrap gap-5">
-          <article className={`${CARD} flex-[1_1_520px] bg-[#1a1a1a]`}>
+        <div className={`flex flex-wrap gap-5 ${RAIL}`}>
+          <article className={`${CARD} flex-[1_1_520px] bg-[#1a1a1a] ${RAIL_ITEM}`}>
             <Mono className="text-paper/65">07 · Photo slideshow</Mono>
             <div className="grid grid-cols-[minmax(0,1fr)] items-stretch gap-4 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
               <Slideshow />
@@ -40,7 +41,7 @@ export function ProShowcase() {
             <div className="flex flex-col gap-2 border-t border-paper/15 pt-5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Show the work, not just the face.</h3><p className="m-0 text-[14px] leading-[1.5] text-paper/70">{`${PLAN_COUNTS.proSlides} photos per Mode, at your pace.`}</p></div>
           </article>
 
-          <article className={`${CARD} flex-[1_1_480px] bg-[#1a1a1a]`}>
+          <article className={`${CARD} flex-[1_1_480px] bg-[#1a1a1a] ${RAIL_ITEM}`}>
             <Mono className="text-paper/65">08 · Your numbers, your files</Mono>
             <div className="flex flex-col overflow-hidden rounded-3xl bg-ink shadow-[inset_0_0_0_1px_rgba(245,244,239,.1)]">
               <div className="flex items-center gap-3 border-b border-paper/10 px-[18px] py-3.5"><span aria-hidden="true" className="flex shrink-0 gap-1.5">{[0, 1, 2].map((dot) => <span className="size-2 rounded-full bg-paper/20" key={dot} />)}</span><span className="min-w-0 flex-1 truncate font-label text-[12px] text-paper/85">setuvara-analytics-2026-10-07-2026-10-10.csv</span><Mono className="shrink-0 rounded-full bg-[#d6b25e]/15 px-2 py-0.5 text-[9px] text-[#e8d28a]">CSV</Mono></div>
@@ -59,7 +60,7 @@ export function ProShowcase() {
             <div className="flex flex-col gap-2 border-t border-paper/15 pt-5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Take the numbers with you.</h3><p className="m-0 text-[14px] leading-[1.5] text-paper/70">Any period, as CSV.</p></div>
           </article>
 
-          <article className={`${CARD} flex-[1_1_100%] bg-paper text-ink`}>
+          <article className={`${CARD} flex-[1_1_100%] bg-paper text-ink ${RAIL_ITEM}`}>
             <Mono className="text-ink/65">09 · Pro at work</Mono>
             <div className="grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 md:grid-cols-3">
               <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-5">

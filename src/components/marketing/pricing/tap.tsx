@@ -2,6 +2,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { MeetMark, Wordmark } from "@/components/marketing/brand";
 
+import { RAIL, RAIL_ITEM } from "../site/kit";
 import { H2, Lede, Mono, PlusInkBadge, SECTION, SECTION_PAD, SectionHead, SoonPill } from "./shared";
 
 function Status({ live }: { live: boolean }) {
@@ -20,13 +21,13 @@ export function Tap() {
       <div className={`${SECTION} ${SECTION_PAD} gap-[clamp(36px,4vw,56px)]`}>
         <SectionHead lede={<Lede>Equip a Mode once. Quick QR follows today, your card and Wallet pass when they launch.</Lede>}>
           <div className="flex flex-col gap-5">
-            <div className="flex flex-wrap items-center gap-3"><Mono className="text-coral">Setuvara Tap</Mono><SoonPill>Wallet pass coming soon</SoonPill></div>
+            <div className={`flex flex-wrap items-center gap-3 ${RAIL}`}><Mono className="text-coral">Setuvara Tap</Mono><SoonPill>Wallet pass coming soon</SoonPill></div>
             <H2 id="tap-title">Your identity,<br />off the screen.</H2>
           </div>
         </SectionHead>
 
-        <div className="flex flex-wrap gap-5">
-          <article className="flex min-w-0 flex-[1_1_320px] flex-col gap-[18px] rounded-[28px] bg-ink p-[clamp(24px,3vw,36px)] text-paper">
+        <div className={`flex flex-wrap gap-5 ${RAIL}`}>
+          <article className={`flex min-w-0 flex-[1_1_320px] flex-col gap-[18px] rounded-[28px] bg-ink p-[clamp(24px,3vw,36px)] text-paper ${RAIL_ITEM}`}>
             <Mono className="flex items-center gap-2 text-lime"><span className="size-2 rounded-full bg-lime" />Equipped</Mono>
             <div className="flex flex-col gap-1.5"><span className="font-display text-[clamp(40px,4vw,52px)] font-extrabold leading-[0.88] tracking-[-0.055em]">Personal</span><span className="text-lg font-semibold text-coral">Connect in person</span></div>
             <div className="mt-auto flex flex-col">
@@ -37,7 +38,7 @@ export function Tap() {
             <span className="text-[13px] text-paper/60">Change it once. Everything follows.</span>
           </article>
 
-          <article className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[28px] bg-[#e6e4dc] p-[clamp(24px,3vw,36px)]">
+          <article className={`flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[28px] bg-[#e6e4dc] p-[clamp(24px,3vw,36px)] ${RAIL_ITEM}`}>
             <Mono className="text-ink/65">NFC card · Concept</Mono>
             <div className="flex min-h-[240px] flex-1 items-center justify-center">
               <div className="relative aspect-[1.586] w-[min(360px,100%)] -rotate-[4deg] overflow-hidden rounded-[20px] bg-ink shadow-[0_36px_50px_-26px_rgba(13,13,13,.7),inset_0_0_0_1px_rgba(245,244,239,.12)]">
@@ -50,7 +51,7 @@ export function Tap() {
             <div className="flex flex-col gap-1.5"><h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">Nothing printed but the mark.</h3><p className="m-0 text-[14px] leading-[1.5] text-ink/65">Tap a phone. Your Mode opens.</p></div>
           </article>
 
-          <article className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[28px] bg-white p-[clamp(24px,3vw,36px)]">
+          <article className={`flex min-w-0 flex-[1_1_420px] flex-col gap-6 rounded-[28px] bg-white p-[clamp(24px,3vw,36px)] ${RAIL_ITEM}`}>
             <Mono className="text-ink/65">Wallet pass · Standard vs Plus</Mono>
             <div className="grid grid-cols-2 items-end gap-3.5">
               <div className="flex flex-col gap-2.5">
