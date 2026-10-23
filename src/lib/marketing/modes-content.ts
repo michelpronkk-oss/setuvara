@@ -68,7 +68,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
     slug: "event",
     name: "Event",
     path: "/event",
-    metaTitle: "Event Mode: event networking that remembers who you met | Setuvara",
+    metaTitle: "Event Mode: networking that remembers who you met | Setuvara",
     metaDescription: "Go Live at a conference or meetup: the event, your role and who you're here to meet on one page. People connect in one scan; the event is saved with each connection.",
     eyebrow: "Event Mode",
     title: "The you that belongs in this room.",

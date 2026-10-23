@@ -9,7 +9,7 @@ import { marketingMetadata } from "@/lib/marketing/metadata";
 const PATH = "/product";
 
 export const metadata = marketingMetadata({
-  title: "Setuvara, the product: Looks, content, soundtrack and more | Setuvara",
+  title: "The product: Looks, content and your soundtrack | Setuvara",
   description: `Everything you can change on a Setuvara page: content, ${LOOKS.total} Looks, accent, name style, scroll cue and a profile soundtrack. Free to start, with all four Modes.`,
   path: PATH,
 });

@@ -5,6 +5,8 @@ const supabaseStorageHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  // When this deployment was built; the daily IndexNow ping resubmits marketing pages after a deploy.
+  env: { SETUVARA_BUILT_AT: new Date().toISOString() },
   images: {
     deviceSizes: [320, 360, 384, 480, 640, 720, 900, 1080, 1200, 1440, 1920, 2560],
     imageSizes: [48, 96, 120, 160, 240],
@@ -20,6 +22,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: 1,
+    // Next.js only nudges coding agents about security upgrades.
+    agentUpgrade: "security",
   },
   async redirects() {
     return [

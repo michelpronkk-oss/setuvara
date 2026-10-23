@@ -143,3 +143,8 @@ export function isReservedUsername(value: string) {
 export function isAllowedUsername(value: string) {
   return usernamePattern.test(value) && !isReservedUsername(value);
 }
+
+/** Accounts the end-to-end tests publish (e2e as a word in the name): live, but kept out of search. */
+export function isTestUsername(value: string) {
+  return /(^|_)e2e(_|$)/i.test(value);
+}

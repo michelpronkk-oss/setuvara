@@ -512,7 +512,8 @@ export function WideHero({ scene }: { scene: Scene }) {
               {eyebrow}
             </p>
           )}
-          <scene.nameAs className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></scene.nameAs>
+          {/* The phone layout carries the page's one <h1>; this copy is a heading only for assistive tech. */}
+          <p aria-level={scene.nameAs === "h1" ? 1 : undefined} role={scene.nameAs === "h1" ? "heading" : undefined} className="max-w-full break-words [overflow-wrap:anywhere] [text-wrap:balance]" data-name data-name-font={look.nameFont} style={{ ...nameTypeStyle(scene.type), lineHeight: scene.type.leading - 0.02, fontSize: nameSize, textShadow: theme.identity.shadow ?? undefined }}>{who.name}<NameBadge size={30} tier={scene.memberTier} /></p>
           {meta && <p className="text-[clamp(15px,1.18cqw,18px)]" data-wide-meta style={{ color: theme.muted }}>{meta}</p>}
           {scene.sound === "featured" && <SceneFeaturedSound scene={scene} accent={look.accent} color={theme.muted} still={scene.still} title={scene.soundTitle} />}
           <WideBio scene={scene} />
