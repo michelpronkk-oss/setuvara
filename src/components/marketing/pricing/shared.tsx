@@ -30,7 +30,7 @@ export function Lede({ children, className = "" }: { children: ReactNode; classN
 
 /** Two-column section head: heading left, lede right, bottom aligned. */
 export function SectionHead({ children, lede }: { children: ReactNode; lede: ReactNode }) {
-  return <div className="grid grid-cols-[minmax(0,1fr)] items-end gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">{children}{lede}</div>;
+  return <div className="grid grid-cols-[minmax(0,1fr)] items-end gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">{children}<div className="max-sm:hidden">{lede}</div></div>;
 }
 
 export function Check({ className = "" }: { className?: string }) {

@@ -20,7 +20,7 @@ export function Loop() {
             <Label className="text-coral">How it works</Label>
             <Display className="mt-4 text-[clamp(40px,5vw,80px)] leading-[0.92]"><span id="loop-title">Meet once.<br />Stay connected.</span></Display>
           </div>
-          <p className="max-w-[28rem] text-[18px] leading-[1.5] text-paper/70 sm:text-[20px]">Five steps, and the last one leads back to the first: every connection is a reason to share again.</p>
+          <p className="max-w-[28rem] text-[18px] max-sm:hidden leading-[1.5] text-paper/70 sm:text-[20px]">Five steps, and the last one leads back to the first: every connection is a reason to share again.</p>
         </div>
         <ol className="mt-12 grid gap-px overflow-hidden rounded-[26px] bg-paper/10 sm:grid-cols-2 lg:mt-16 lg:grid-cols-5">
           {STEPS.map((step, index) => (

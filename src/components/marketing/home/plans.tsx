@@ -20,7 +20,7 @@ export function Plans() {
             <Label className="text-coral">Plus and Pro</Label>
             <Display className="mt-4 text-[clamp(40px,4.4vw,72px)] leading-[0.92]"><span id="plans-title">Free to start.<br />More when you want it.</span></Display>
           </div>
-          <p className="max-w-[28rem] text-[18px] leading-[1.5] text-ink/70 sm:text-[20px]">Free is complete for meeting people. Plus makes it yours; Pro is for the work around it.</p>
+          <p className="max-w-[28rem] text-[18px] max-sm:hidden leading-[1.5] text-ink/70 sm:text-[20px]">Free is complete for meeting people. Plus makes it yours; Pro is for the work around it.</p>
         </div>
         <ul className="mt-12 grid gap-4 lg:mt-16 lg:grid-cols-3">
           {PLANS.map((plan) => (

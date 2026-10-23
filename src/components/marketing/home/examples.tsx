@@ -31,7 +31,7 @@ export function Examples() {
             <Link className="inline-flex min-h-12 items-center rounded-full px-5 text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.2)] hover:shadow-[inset_0_0_0_1.5px_#0D0D0D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" href="/templates">Browse templates</Link>
           </div>
         </div>
-        <p className="mt-5 max-w-[34rem] text-[18px] leading-[1.5] text-ink/65">Ten Looks, each with its own phone and desktop composition. On a laptop your page is a full editorial spread, not a phone in the middle of the screen.</p>
+        <p className="mt-5 max-w-[34rem] text-[18px] max-sm:hidden leading-[1.5] text-ink/65">Ten Looks, each with its own phone and desktop composition. On a laptop your page is a full editorial spread, not a phone in the middle of the screen.</p>
         <ul className={`${nameFontClasses} mx-auto mt-12 grid max-w-[1168px] gap-6 lg:mt-16 lg:grid-cols-2`}>
           {EXAMPLES.map((example, index) => (
             <li className={`group relative ${index === 0 ? "lg:col-span-2" : ""}`} key={example.slug}>

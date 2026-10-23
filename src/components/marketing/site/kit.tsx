@@ -75,7 +75,7 @@ export function SectionHead({ id, eyebrow, title, lede, tone = "paper", as: Tag 
         {eyebrow ? <Label className={tone === "coral" ? "" : "text-coral"}>{eyebrow}</Label> : null}
         <Display as={Tag} className="mt-4 text-[clamp(40px,5vw,72px)] leading-[0.98] sm:mt-5 sm:leading-[0.9]"><span id={id ? `${id}-title` : undefined}>{title}</span></Display>
       </div>
-      {lede ? <div className={`text-[17px] leading-[1.6] lg:col-span-4 lg:col-start-9 sm:text-[18px] ${muted}`}>{lede}</div> : null}
+      {lede ? <div className={`text-[17px] leading-[1.6] max-sm:hidden lg:col-span-4 lg:col-start-9 sm:text-[18px] ${muted}`}>{lede}</div> : null}
     </div>
   );
 }
