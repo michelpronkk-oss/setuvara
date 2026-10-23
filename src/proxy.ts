@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { ADMIN_ROUTE_PREFIX, isAdminHost } from "@/lib/admin/host";
+import { crawlerFor, crawlerSection, recordCrawlerVisit } from "@/lib/analytics/crawlers";
 import { updateSession } from "@/lib/supabase/proxy";
 import { isReservedUsername } from "@/lib/usernames";
 
@@ -46,11 +47,16 @@ async function adminProxy(request: NextRequest) {
   return response;
 }
 
-export async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest, event: NextFetchEvent) {
   const pathname = request.nextUrl.pathname;
 
   if (isAdminHost(request.headers.get("host"))) return adminProxy(request);
   if (isAdminPath(pathname)) return notFound();
+
+  // Search and AI crawlers: one daily counter per bot and section, written after the response.
+  const bot = crawlerFor(request.headers.get("user-agent"));
+  const section = bot ? crawlerSection(pathname) : null;
+  if (bot && section) event.waitUntil(recordCrawlerVisit(bot, section));
 
   // setuvara.com/@aanya is an alias of the canonical setuvara.com/aanya.
   const handleAlias = /^\/(?:@|%40)([A-Za-z0-9_]{3,24})\/?$/.exec(pathname);
