@@ -3,7 +3,8 @@ import { FEATURE_PAGES, planRowsFor, type FeatureSlug } from "@/lib/marketing/fe
 
 import { Shell } from "../home/primitives";
 import { CapabilityGrid } from "./capability-visuals";
-import { ButtonLink, CtaBand, FaqSection, RAIL, RAIL_ITEM, PageHero, RelatedLinks, Section, SectionHead } from "./kit";
+import { ButtonLink, CtaBand, FaqSection, RAIL, RAIL_ITEM, PageHero, Section, SectionHead } from "./kit";
+import { RelatedLinks } from "./link-cards";
 import { FeatureVisual } from "./visuals";
 
 const COLUMNS = [

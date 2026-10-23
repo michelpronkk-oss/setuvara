@@ -1,5 +1,6 @@
 import { ModeScreens } from "@/components/marketing/site/mode-landing";
-import { CtaBand, FeatureGrid, PageHero, Section } from "@/components/marketing/site/kit";
+import { CtaBand, PageHero, Section } from "@/components/marketing/site/kit";
+import { LinkCards } from "@/components/marketing/site/link-cards";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import { USE_CASE_ORDER, USE_CASES } from "@/lib/marketing/use-cases-content";
 
@@ -14,7 +15,7 @@ export default function UseCasesIndex() {
     <>
       <PageHero ledeShort="One account, four Modes, many uses." claimId="use-cases-claim" crumbs={[{ name: "Use cases", path: "/use-cases" }]} eyebrow="Use cases" lede="One account, four Modes. Here is what people do with them." title="What people use Setuvara for." visual={<ModeScreens slug="business" />} />
       <Section id="use-cases" title="Pick yours." tone="white">
-        <FeatureGrid items={USE_CASE_ORDER.map((slug) => ({ title: USE_CASES[slug].name, body: USE_CASES[slug].lede, href: `/use-cases/${slug}` }))} />
+        <LinkCards items={USE_CASE_ORDER.map((slug) => ({ title: USE_CASES[slug].name, line: USE_CASES[slug].ledeShort ?? USE_CASES[slug].lede, href: `/use-cases/${slug}` }))} />
       </Section>
       <CtaBand claimId="use-cases-cta" line="Free to start, with all four Modes." secondary={{ href: "/compare", label: "Compare Setuvara" }} title="Start with your name." />
     </>
