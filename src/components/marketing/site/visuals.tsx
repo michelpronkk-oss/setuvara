@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { nameFontClasses } from "@/components/profile/name-fonts";
 
 import { CastPhone } from "../home/mode-phone";
+import { FitCanvas } from "./fit-canvas";
 import { QrArt } from "./qr-art";
 
 /**
@@ -253,4 +254,10 @@ export function FeatureVisual({ name, className = "" }: { name: VisualKey; class
       </div>
     </div>
   );
+}
+
+/** The same visual filling a 3:2 banner exactly (blog cards and article heads). */
+export function BannerVisual({ name, className = "" }: { name: VisualKey; className?: string }) {
+  const Visual = VISUALS[name];
+  return <FitCanvas className={`rounded-[24px] sm:rounded-[32px] ${className}`}><Visual /></FitCanvas>;
 }

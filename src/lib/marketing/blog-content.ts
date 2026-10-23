@@ -16,6 +16,8 @@ export type BlogPost = {
   updated?: string;
   readingMinutes: number;
   topic: string;
+  /** The product visual on the post’s banner (a key of FeatureVisual). */
+  visual: "actions" | "builder" | "analytics" | "qr-and-tap";
   blocks: BlogBlock[];
   related: { href: string; label: string; line: string }[];
 };
@@ -23,7 +25,8 @@ export type BlogPost = {
 export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "how-to-network-at-a-conference",
-    title: "How to network at a conference without a stack of business cards",
+    title: "Conference networking, without the business cards",
+    visual: "qr-and-tap",
     metaTitle: "How to network at a conference without business cards",
     description: "A practical playbook for meeting the right people at a conference and actually remembering them afterwards: before, during and after the event.",
     published: "2026-10-22",
@@ -53,7 +56,8 @@ export const BLOG_POSTS: BlogPost[] = [
   },
   {
     slug: "share-startup-revenue-publicly",
-    title: "How to share your startup’s revenue publicly (and why verified beats screenshots)",
+    title: "Share your revenue publicly. Verified.",
+    visual: "builder",
     metaTitle: "How to share your startup’s revenue publicly, verified",
     description: "Building in public works when people trust the numbers. How to share revenue safely, what to show, and how to verify it straight from Stripe or another provider.",
     published: "2026-10-22",
