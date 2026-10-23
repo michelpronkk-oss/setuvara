@@ -83,7 +83,7 @@ export function ModeScreens({ slug }: { slug: ModeSlugPage }) {
         <div className="absolute right-[4.5%] top-[10%] hidden w-[75%] sm:block">
           <BrowserFrame url={MODE_PAGES[slug].share}><div className="flex justify-end [&>*]:shrink-0"><ModeDesktop scales="[--z:.32] md:[--z:.4] lg:[--z:.3] xl:[--z:.4]" slug={slug} /></div></BrowserFrame>
         </div>
-        <div className="absolute bottom-[-14%] left-1/2 origin-top -translate-x-1/2 scale-[.78] sm:bottom-[4.5%] sm:left-[7.5%] sm:translate-x-0 sm:origin-bottom-left sm:scale-[.62] lg:scale-[.55] xl:scale-[.7]">
+        <div className="absolute left-1/2 top-[27%] origin-top -translate-x-1/2 scale-[.78] sm:top-auto sm:bottom-[4.5%] sm:left-[7.5%] sm:translate-x-0 sm:origin-bottom-left sm:scale-[.62] lg:scale-[.55] xl:scale-[.7]">
           <div className="rounded-[46px] shadow-[0_50px_80px_-30px_rgba(13,13,13,.6)]"><CastPhone mediaPriority="high" slug={slug} /></div>
         </div>
         <div className="absolute inset-x-4 top-4 sm:inset-x-auto sm:bottom-[20%] sm:right-[5%] sm:top-auto sm:w-[46%]">{toast}</div>
