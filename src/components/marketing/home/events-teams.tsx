@@ -58,7 +58,7 @@ export function Events() {
           </li>
         </ol>
 
-        <Link className="inline-flex min-h-11 items-center gap-2 self-start text-[16px] font-semibold underline decoration-[1.5px] underline-offset-[6px] hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink" href="/events">Setuvara for Events <span aria-hidden="true">→</span></Link>
+        <Link className="inline-flex min-h-11 items-center gap-2 self-start text-[16px] font-semibold underline decoration-[1.5px] underline-offset-[6px] hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink" href="/event">Event Mode <span aria-hidden="true">→</span></Link>
       </Shell>
     </section>
   );

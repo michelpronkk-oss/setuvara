@@ -125,7 +125,7 @@ export const USE_CASES: Record<string, UseCase> = {
     related: [
       { href: "/event", label: "Event Mode", line: "Everything Event Mode does." },
       { href: "/use-cases/qr-business-card", label: "QR business card", line: "Print a code that opens the right page." },
-      { href: "/events", label: "Setuvara for events", line: "For organisers and attendees." },
+      { href: "/event", label: "Event Mode", line: "For organisers and attendees." },
     ],
   },
   "qr-business-card": {

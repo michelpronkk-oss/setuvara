@@ -22,7 +22,6 @@ export function SiteFooter() {
       { href: "/event", label: "Event" },
       { href: "/business", label: "Business" },
       { href: "/creator", label: "Creator" },
-      { href: "/events", label: copy.events },
       { href: "/teams", label: copy.teams },
     ] },
     { title: "Resources", links: [
