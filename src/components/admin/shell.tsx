@@ -12,6 +12,8 @@ import { createClient } from "@/lib/supabase/client";
 const NAV: { area: AdminArea; href: string; label: string; icon: ReactNode }[] = [
   { area: "overview", href: "/", label: "Overview", icon: <path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /> },
   { area: "members", href: "/members", label: "Members", icon: <><circle cx="9" cy="8.4" r="3.2" /><path d="M3.4 19.4c.7-3.1 2.9-4.9 5.6-4.9s4.9 1.8 5.6 4.9" /><path d="M15.4 5.4a3 3 0 0 1 0 5.9M17.2 14.6c1.8.5 3 2 3.4 4.4" /></> },
+  { area: "product", href: "/product", label: "Product", icon: <><rect height="7" rx="1.5" width="7" x="3.5" y="3.5" /><rect height="7" rx="1.5" width="7" x="13.5" y="3.5" /><rect height="7" rx="1.5" width="7" x="3.5" y="13.5" /><path d="M17 13.5v7M13.5 17h7" /></> },
+  { area: "growth", href: "/growth", label: "Search & AI", icon: <><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5M10.5 7.5v6M7.5 10.5h6" /></> },
   { area: "billing", href: "/billing", label: "Billing", icon: <><rect height="14" rx="2.5" width="18" x="3" y="5" /><path d="M3 9.5h18M7 15h4" /></> },
   { area: "commerce", href: "/commerce", label: "Commerce", icon: <><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8Z" /><path d="M9 10V7a3 3 0 0 1 6 0v3" /></> },
   { area: "feedback", href: "/feedback", label: "Support", icon: <path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4.5 3.2V17H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" /> },

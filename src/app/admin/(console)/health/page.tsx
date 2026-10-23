@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Badge, Notice, PageHeader, Panel, focusRing, type Tone } from "@/components/admin/ui";
+import { Badge, Notice, PageHeader, Panel, Table, Td, Th, focusRing, type Tone } from "@/components/admin/ui";
 import { requireAdminPage, roleCanOpen } from "@/lib/admin/auth";
-import { getHealth } from "@/lib/admin/data";
+import { getHealth, getJobs } from "@/lib/admin/data";
 import { formatCount, formatDateTime, formatRelative, plural, titleCase } from "@/lib/admin/format";
 
 export const metadata: Metadata = { title: "Health" };
@@ -30,9 +30,18 @@ function Card({ check }: { check: Check }) {
 
 const HOUR = 3_600_000;
 
+/** What each scheduled job does, in words. */
+const JOB_NAMES: Record<string, string> = {
+  "setuvara-notification-dispatch": "Emails and notifications",
+  "setuvara-commerce-reconcile": "Store reconciliation",
+  "setuvara-revenue-sync": "Verified revenue sync",
+  "setuvara-weekly-digest": "Weekly digest",
+  "setuvara-indexnow": "IndexNow ping",
+};
+
 export default async function HealthPage() {
   const session = await requireAdminPage("health");
-  const health = await getHealth();
+  const [health, jobs] = await Promise.all([getHealth(), getJobs()]);
   const now = Date.parse(health.checked_at);
   const age = (value: string | null) => value ? now - Date.parse(value) : Infinity;
 
@@ -99,6 +108,23 @@ export default async function HealthPage() {
     },
   ];
 
+  if (jobs) {
+    const failedNow = jobs.cron.filter((job) => job.last_status === "failed");
+    const failedWeek = jobs.cron.reduce((sum, job) => sum + job.failed_7d, 0) + jobs.app_jobs.reduce((sum, job) => sum + job.failed_7d, 0);
+    checks.push({
+      title: "Scheduled jobs",
+      // The email dispatcher runs every minute, so an odd failed run that recovered is noise.
+      tone: failedNow.length ? "bad" : failedWeek >= 5 ? "warn" : "good",
+      state: failedNow.length ? "Failing" : failedWeek >= 5 ? "Recovered" : "Healthy",
+      lines: [
+        <>{plural(jobs.cron.filter((job) => job.active).length, "job")} scheduled, {formatCount(failedNow.length)} failing on the last run</>,
+        <>{formatCount(failedWeek)} failed runs in 7 days</>,
+        <>IndexNow last ran {jobs.indexnow_last ? formatRelative(jobs.indexnow_last.ran_at, now) : "—"}</>,
+      ],
+      href: "#jobs",
+    });
+  }
+
   const attention = checks.filter((check) => check.tone === "bad" || check.tone === "warn");
 
   return (
@@ -145,6 +171,27 @@ export default async function HealthPage() {
           )}
         </Panel>
       </div>
+
+      {jobs ? (
+        <div className="mt-3 scroll-mt-24 sm:mt-4" id="jobs">
+          <Panel description="Supabase Cron runs these on a schedule; the last run and any failures in the past week." padded={false} title="Scheduled jobs">
+            <Table minWidth={640}>
+              <thead><tr><Th>Job</Th><Th>Schedule (UTC)</Th><Th>Last run</Th><Th align="right">Failed, 7 days</Th><Th align="right">Status</Th></tr></thead>
+              <tbody>
+                {jobs.cron.map((job) => (
+                  <tr className="border-t border-ink/[0.06]" key={job.name}>
+                    <Td><span className="font-semibold">{JOB_NAMES[job.name] ?? job.name}</span><span className="mt-0.5 block font-label text-[10.5px] text-ink/40">{job.name}</span></Td>
+                    <Td><code className="font-label text-[12px]">{job.schedule}</code></Td>
+                    <Td>{job.last_started_at ? formatRelative(job.last_started_at, now) : "Not yet"}</Td>
+                    <Td align="right">{formatCount(job.failed_7d)}</Td>
+                    <Td align="right"><Badge dot tone={!job.active ? "neutral" : job.last_status === "failed" ? "bad" : job.last_status ? "good" : "neutral"}>{!job.active ? "Paused" : job.last_status === "failed" ? "Failed" : job.last_status ? "OK" : "Waiting"}</Badge></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Panel>
+        </div>
+      ) : null}
 
       <div className="mt-6">
         <Notice>

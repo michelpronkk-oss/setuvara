@@ -114,3 +114,42 @@ export function FeedbackStatusActions({ id, status }: { id: string; status: Feed
     </div>
   );
 }
+
+/** One off-site checklist item, ticked on or off in place. */
+export function ChecklistToggle({ itemKey, done, label, canEdit }: { itemKey: string; done: boolean; label: string; canEdit: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function toggle() {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const response = await fetch(`/api/admin/growth/${itemKey}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ done: !done }),
+      });
+      if (!response.ok) throw new Error("update_failed");
+      router.refresh();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      aria-label={`${label}: ${done ? "done" : "not done"}`}
+      aria-pressed={done}
+      className={`grid size-7 shrink-0 place-items-center rounded-full text-[13px] font-bold transition-colors disabled:cursor-default ${done ? "bg-ink text-lime" : failed ? "shadow-[inset_0_0_0_1.5px_#b32a1f]" : "shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.2)] hover:shadow-[inset_0_0_0_1.5px_#0d0d0d]"}`}
+      disabled={!canEdit || busy}
+      onClick={() => void toggle()}
+      title={failed ? "Couldn’t save. Try again." : undefined}
+      type="button"
+    >
+      {done ? "✓" : busy ? "·" : ""}
+    </button>
+  );
+}

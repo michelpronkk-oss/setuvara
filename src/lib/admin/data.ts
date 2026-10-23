@@ -320,3 +320,52 @@ export async function getCommerceOverview(days: AdminRange) {
   ]);
   return { from, to, commerce, subscriptionRunRateMinor: billing.plans.listRunRateMinor };
 }
+
+/* Search & AI */
+
+export type Growth = {
+  recording_since: string | null;
+  totals: { visits: number; visits_previous: number; search: number; search_previous: number; ai: number; ai_previous: number; social: number; direct: number };
+  daily: { date: string; search: number; ai: number; other: number }[];
+  referrers: { referrer: string; kind: "search" | "ai" | "social" | "direct" | "other"; count: number }[];
+  landing: { path: string; section: string; visits: number; search: number; ai: number }[];
+  crawlers: { bot: string; kind: "search" | "ai_answer" | "ai_training" | "seo_tool" | "other"; hits: number; llms: number; sitemap: number; pages: number; last_seen_at: string }[];
+  crawler_daily: { date: string; search: number; ai: number }[];
+  crawler_sections: { section: string; hits: number }[];
+  indexnow: { ran_at: string; submitted: number; status: number }[];
+  checklist: Record<string, { done: boolean; updated_at: string }>;
+};
+
+export async function getGrowth(days: AdminRange) {
+  const { from, to } = rangeDates(days);
+  return { from, to, growth: await rpc<Growth>("admin_growth", { p_from: from, p_to: to }), checkedAt: Date.now() };
+}
+
+/* Product */
+
+export type ProductUsage = {
+  actions: { live: number; members: number; by_kind: Record<string, number>; submissions: number; submissions_total: number; subscribers: number };
+  business: { leads: number; leads_total: number; by_stage: Record<string, number>; bookings: number; bookings_total: number; testimonials: number; testimonial_requests: number; team_members: number };
+  builder: { projects: number; builders: number; roadmap_items: number; shipped: number; votes: number; votes_in_range: number; suggestions: number; revenue_connections: number; revenue_failing: number; revenue_by_provider: Record<string, number>; last_sync_at: string | null };
+  creator: { offers: number; sellers: number; orders: number; test_orders: number; gross: Record<string, number>; media_kits: number; deals: number; deals_total: number; campaigns_sent: number; emails_sent: number };
+  events: { events: number; upcoming: number; registrations: number; check_ins: number; live_contexts: number };
+  sharing: { tap_devices: number; taps: number; gallery_listings: number; mode_handles: number; messages: number; stamps: number };
+  pages: { looks: Record<string, number>; name_fonts: Record<string, number>; blocks: Record<string, number>; soundtracks: number; links: number };
+};
+
+export async function getProduct(days: AdminRange) {
+  const { from, to } = rangeDates(days);
+  return { from, to, product: await rpc<ProductUsage>("admin_product", { p_from: from, p_to: to }) };
+}
+
+/* Scheduled jobs */
+
+export type Jobs = {
+  cron: { name: string; schedule: string; active: boolean; last_status: string | null; last_started_at: string | null; last_finished_at: string | null; failed_7d: number }[];
+  app_jobs: { job: string; last_started_at: string | null; last_ok: boolean | null; failed_7d: number }[];
+  indexnow_last: { ran_at: string; submitted: number; status: number } | null;
+};
+
+export async function getJobs() {
+  return rpc<Jobs>("admin_jobs").catch(() => null);
+}

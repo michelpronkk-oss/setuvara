@@ -229,6 +229,57 @@ export function DailyBars({ label, points, tone = "light" }: { label: string; po
   );
 }
 
+/**
+ * Daily bars of two series stacked (e.g. search and AI), with a legend. Same grammar as DailyBars:
+ * hover a day for its values, and a table underneath for screen readers.
+ */
+export function StackedBars({ label, points, series }: {
+  label: string;
+  points: { date: string; values: [number, number] }[];
+  series: [{ label: string; className: string }, { label: string; className: string }];
+}) {
+  const totals = points.map((point) => point.values[0] + point.values[1]);
+  const max = Math.max(1, ...totals);
+  const sums = [0, 1].map((index) => points.reduce((sum, point) => sum + point.values[index], 0));
+  const last = points.length - 1;
+  const ticks = [0, Math.floor(last / 2), last].filter((index, position, list) => list.indexOf(index) === position);
+  return (
+    <figure className="min-w-0">
+      <figcaption className="flex flex-wrap items-end justify-between gap-3">
+        <span className="font-label text-[10px] font-medium uppercase tracking-[0.16em] text-ink/45">{label}</span>
+        <span className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
+          {series.map((item, index) => (
+            <span className="flex items-center gap-2" key={item.label}><span aria-hidden="true" className={`size-2.5 rounded-full ${item.className}`} /><span className="text-ink/55">{item.label}</span><b className="tabular-nums">{formatCount(sums[index])}</b></span>
+          ))}
+        </span>
+      </figcaption>
+      <div aria-hidden="true" className="relative mt-4 h-[150px] border-b border-ink/15">
+        <div className="pointer-events-none absolute inset-x-0 top-0 border-t border-dashed border-ink/[0.08]" />
+        <div className="absolute inset-0 flex items-end gap-[2px]">
+          {points.map((point, index) => (
+            <div className="group relative flex h-full min-w-0 flex-1 flex-col justify-end" key={point.date}>
+              {totals[index] ? <>
+                <div className={`w-full rounded-t-[4px] ${series[1].className}`} style={{ height: `${(point.values[1] / max) * 100}%` }} />
+                <div className={`w-full ${point.values[1] ? "" : "rounded-t-[4px]"} ${series[0].className}`} style={{ height: `${(point.values[0] / max) * 100}%` }} />
+              </> : <div className="h-[2px] w-full bg-ink/[0.07]" />}
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold text-paper shadow-lg group-hover:block">
+                {formatDay(point.date, true)} · {series[0].label} {formatCount(point.values[0])} · {series[1].label} {formatCount(point.values[1])}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div aria-hidden="true" className="mt-2 flex justify-between font-label text-[10px] uppercase tracking-[0.08em] tabular-nums text-ink/40">
+        {ticks.map((index) => <span key={index}>{index === last ? "Today" : formatDay(points[index]?.date, true)}</span>)}
+      </div>
+      <table className="sr-only">
+        <caption>{label}</caption>
+        <tbody>{points.map((point) => <tr key={point.date}><th>{point.date}</th><td>{series[0].label} {point.values[0]}</td><td>{series[1].label} {point.values[1]}</td></tr>)}</tbody>
+      </table>
+    </figure>
+  );
+}
+
 /** The homepage's Mode switch: an ink pill with the current choice on paper. */
 export function Segmented({ options, current, label = "Range" }: { options: { label: string; href: string; value: string }[]; current: string; label?: string }) {
   return (
