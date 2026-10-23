@@ -1,6 +1,6 @@
 import { FinalCta } from "@/components/marketing/home/closing";
 import { Examples } from "@/components/marketing/home/examples";
-import { HomeHero } from "@/components/marketing/home/home-hero";
+import { Hero } from "@/components/marketing/home/hero";
 import { FaqSection } from "@/components/marketing/site/kit";
 import { Loop } from "@/components/marketing/home/loop";
 import { Memory } from "@/components/marketing/home/memory";
@@ -58,7 +58,7 @@ export default function HomePage() {
     <>
       <JsonLd data={homeStructuredData} />
       {/* Product first: the four Modes, then the loop (share, connect, remember), example pages, Looks and plans. */}
-      <HomeHero />
+      <Hero />
       <Modes />
       <Loop />
       <Share />
