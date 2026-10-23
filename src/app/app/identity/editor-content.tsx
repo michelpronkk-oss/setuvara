@@ -485,6 +485,54 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
             <Field hint="Optional" htmlFor="block-role" label="Their role"><TextInput id="block-role" maxLength={80} onChange={(event) => set("role", event.target.value)} placeholder="COO, Northwind" value={str("role")} /></Field>
           </div>
         </>}
+        {kind === "text" && <>
+          <Field hint="Optional" htmlFor="block-text-heading" label="Heading"><TextInput id="block-text-heading" maxLength={80} onChange={(event) => set("heading", event.target.value)} placeholder="About" value={str("heading")} /></Field>
+          <Field hint="A blank line starts a new paragraph" htmlFor="block-text-body" label="Text"><TextArea autoFocus className="min-h-[160px]" id="block-text-body" maxLength={1200} onChange={(event) => set("body", event.target.value)} placeholder="I design calm software for teams that move fast. Before that I spent eight years in fintech…" value={str("body")} /></Field>
+        </>}
+        {kind === "section" && <>
+          <Field htmlFor="block-section-title" label="Section title"><TextInput autoFocus id="block-section-title" maxLength={40} onChange={(event) => set("title", event.target.value)} placeholder="Work" value={str("title")} /></Field>
+          <Field hint="Optional, shown small on the right" htmlFor="block-section-kicker" label="Side note"><TextInput id="block-section-kicker" maxLength={40} onChange={(event) => set("kicker", event.target.value)} placeholder="2024–2026" value={str("kicker")} /></Field>
+        </>}
+        {kind === "faq" && <>
+          <Field hint="Optional" htmlFor="block-faq-heading" label="Heading"><TextInput id="block-faq-heading" maxLength={60} onChange={(event) => set("heading", event.target.value)} placeholder="Questions" value={str("heading")} /></Field>
+          {((merged.items as Item[] | undefined) ?? []).map((item, index, all) => (
+            <div className="grid gap-2 rounded-2xl bg-white p-3.5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]" key={index}>
+              <div className="flex items-center justify-between"><MonoLabel className="text-black/45">Question {index + 1}</MonoLabel>{all.length > 1 && <button className="min-h-9 px-2 text-[13px] font-semibold text-black/50 hover:text-[#B42318]" onClick={() => set("items", all.filter((_, position) => position !== index))} type="button">Remove</button>}</div>
+              <TextInput aria-label={`Question ${index + 1}`} maxLength={140} onChange={(event) => setItem(index, "q", event.target.value)} placeholder="How long does a project take?" value={item.q ?? ""} />
+              <TextArea aria-label={`Answer ${index + 1}`} className="min-h-[80px]" maxLength={600} onChange={(event) => setItem(index, "a", event.target.value)} placeholder="Most projects take two to four weeks, from first call to handover." value={item.a ?? ""} />
+            </div>
+          ))}
+          {items.length < 8 && <Pill className="justify-self-start" onClick={() => set("items", [...items, { q: "", a: "" }])}>+ Add question</Pill>}
+        </>}
+        {kind === "location" && (() => {
+          const hours = (merged.hours as Item[] | undefined) ?? [];
+          const setHour = (index: number, key: string, value: string) => set("hours", hours.map((row, position) => position === index ? { ...row, [key]: value } : row));
+          return <>
+            <Field hint="Optional" htmlFor="block-location-name" label="Place name"><TextInput id="block-location-name" maxLength={80} onChange={(event) => set("name", event.target.value)} placeholder="Northwind Studio" value={str("name")} /></Field>
+            <Field htmlFor="block-location-address" label="Address"><TextArea className="min-h-[72px]" id="block-location-address" maxLength={200} onChange={(event) => set("address", event.target.value)} placeholder={"Rua das Flores 12\n1200-195 Lisbon"} value={str("address")} /></Field>
+            <div className="grid gap-2">
+              <MonoLabel className="text-black/45">Opening hours · optional</MonoLabel>
+              {hours.map((row, index) => (
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2" key={index}>
+                  <TextInput aria-label={`Days ${index + 1}`} maxLength={30} onChange={(event) => setHour(index, "days", event.target.value)} placeholder={index ? "Saturday" : "Mon–Fri"} value={row.days ?? ""} />
+                  <TextInput aria-label={`Hours ${index + 1}`} maxLength={40} onChange={(event) => setHour(index, "time", event.target.value)} placeholder={index ? "10:00–14:00" : "09:00–18:00"} value={row.time ?? ""} />
+                  <button aria-label={`Remove hours ${index + 1}`} className="grid size-10 place-items-center rounded-full text-lg text-black/40 hover:bg-black/5" onClick={() => set("hours", hours.filter((_, position) => position !== index))} type="button">×</button>
+                </div>
+              ))}
+              {hours.length < 7 && <Pill className="justify-self-start" onClick={() => set("hours", [...hours, { days: "", time: "" }])}>+ Add hours</Pill>}
+            </div>
+            <Field hint="Optional" htmlFor="block-location-note" label="Note"><TextInput id="block-location-note" maxLength={140} onChange={(event) => set("note", event.target.value)} placeholder="Entrance on the side street, second floor" value={str("note")} /></Field>
+          </>;
+        })()}
+        {kind === "countdown" && <>
+          <Field htmlFor="block-countdown-title" label="What’s happening"><TextInput autoFocus id="block-countdown-title" maxLength={80} onChange={(event) => set("title", event.target.value)} placeholder="New collection drops" value={str("title")} /></Field>
+          <Field hint="In your time zone" htmlFor="block-countdown-when" label="Date and time"><TextInput id="block-countdown-when" onChange={(event) => set("ends_at", event.target.value ? new Date(event.target.value).toISOString() : "")} type="datetime-local" value={localDateTime(str("ends_at"))} /></Field>
+          <Field hint="Optional, replaces the title when the time comes" htmlFor="block-countdown-after" label="Afterwards, say"><TextInput id="block-countdown-after" maxLength={80} onChange={(event) => set("after", event.target.value)} placeholder="The collection is live" value={str("after")} /></Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field hint="Optional" htmlFor="block-countdown-url" label="Button link"><TextInput autoCapitalize="none" id="block-countdown-url" inputMode="url" onChange={(event) => set("url", event.target.value.trim() && !/^https?:\/\//i.test(event.target.value.trim()) ? `https://${event.target.value.trim()}` : event.target.value)} placeholder="https://" spellCheck={false} value={str("url")} /></Field>
+            <Field hint="Optional" htmlFor="block-countdown-cta" label="Button text"><TextInput id="block-countdown-cta" maxLength={30} onChange={(event) => set("cta", event.target.value)} placeholder="Get notified" value={str("cta")} /></Field>
+          </div>
+        </>}
         <button className="hidden" type="submit">Save</button>
       </form>
 
@@ -533,4 +581,13 @@ function PictureLayout({ api }: { api: EditorApi }) {
       </div>
     </fieldset>
   );
+}
+
+/** An ISO time as the value a datetime-local input expects, in the owner's own time zone. */
+function localDateTime(iso: string) {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return "";
+  const date = new Date(time);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }

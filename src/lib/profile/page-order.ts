@@ -75,10 +75,12 @@ export function resolveOrder(slug: ModeSlug, saved: readonly string[] | null | u
 export type TileSize = "small" | "wide" | "hero";
 export type PageSizes = Record<string, Exclude<TileSize, "wide">>;
 const HERO_BLOCKS = new Set(["image", "video", "feature"]);
+/** Blocks that read as a column of text: always the full width. */
+const WIDE_BLOCKS = new Set(["text", "section", "faq"]);
 
 /** The sizes an entry can take. Projects and Mode sections stay wide. */
 export function allowedSizes(kind: PageItemKind, blockKind?: string): TileSize[] {
-  if (kind === "block") return HERO_BLOCKS.has(blockKind ?? "") ? ["small", "wide", "hero"] : ["small", "wide"];
+  if (kind === "block") return HERO_BLOCKS.has(blockKind ?? "") ? ["small", "wide", "hero"] : WIDE_BLOCKS.has(blockKind ?? "") ? ["wide"] : ["small", "wide"];
   if (kind === "link" || kind === "action") return ["small", "wide"];
   return ["wide"];
 }
