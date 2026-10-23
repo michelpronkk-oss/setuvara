@@ -1,15 +1,14 @@
 import { CapabilityGrid } from "@/components/marketing/site/capability-visuals";
 import { CtaBand, FaqSection, PageHero, Section } from "@/components/marketing/site/kit";
-import { ProfilePlayground } from "@/components/marketing/tools/profile-playground";
-import { JsonLd } from "@/components/seo/json-ld";
+import { ModeScreens } from "@/components/marketing/site/mode-landing";
 import { LOOKS } from "@/lib/marketing/facts";
-import { marketingMetadata, SETUVARA_ORGANIZATION_ID, SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
+import { marketingMetadata } from "@/lib/marketing/metadata";
 
 const PATH = "/product";
 
 export const metadata = marketingMetadata({
-  title: "Try Setuvara: design a profile page live, no sign-up | Setuvara",
-  description: `Change the Look, name style, accent, scroll cue and profile soundtrack on a live Setuvara page. All ${LOOKS.total} Looks to try, no account and nothing to pay.`,
+  title: "Setuvara, the product: Looks, content, soundtrack and more | Setuvara",
+  description: `Everything you can change on a Setuvara page: content, ${LOOKS.total} Looks, accent, name style, scroll cue and a profile soundtrack. Free to start, with all four Modes.`,
   path: PATH,
 });
 
@@ -23,7 +22,7 @@ const PARTS = [
 ];
 
 const FAQ = [
-  { q: "Do I need an account to try this?", a: "No. The playground runs in your browser and nothing is saved or sent. When you like a look, claim your name and set it up for real." },
+  { q: "Can I try it for free?", a: "Yes. The Free plan has all four Modes, two Looks, any accent colour and a profile soundtrack, with no card and no time limit. Claim your name and set it up for real." },
   { q: "Which choices are free?", a: `All four Modes, the ${LOOKS.free.join(" and ")} Looks, two name styles, any accent colour, the Look’s own scroll cue, and a profile soundtrack in the Ambient or Minimal style. Choices marked Plus need the Plus or Pro plan.` },
   { q: "What is a profile soundtrack?", a: "A song or playlist you pick, played from your page when a visitor turns sound on. It shows as a small sound button, a minimal strip or a featured player, and it never autoplays." },
   { q: "Can each Mode look different?", a: "Yes. Every Mode has its own Look, accent, name style, cue and soundtrack, so your Event page can look nothing like your Personal one." },
@@ -32,15 +31,11 @@ const FAQ = [
 export default function ProductPage() {
   return (
     <>
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "WebApplication", name: "Setuvara profile playground", url: `${SETUVARA_ORIGIN}${PATH}`, applicationCategory: "DesignApplication", operatingSystem: "Any", isAccessibleForFree: true, offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, publisher: { "@id": SETUVARA_ORGANIZATION_ID } }} />
-      <PageHero crumbs={[{ name: "Try it", path: PATH }]} eyebrow="Profile playground" lede="Change the Look, name style, accent, scroll cue and soundtrack, and watch a real Setuvara page change with you. No account, nothing to pay." title={<>Make it yours.<br />Live.</>} />
-      <section aria-label="Profile playground" className="scroll-mt-16" id="playground">
-        <div className="mx-auto w-full max-w-[1440px] px-5 pb-20 sm:px-8 sm:pb-28 lg:px-14"><ProfilePlayground /></div>
-      </section>
+      <PageHero claimId="product-hero-claim" crumbs={[{ name: "Product", path: PATH }]} eyebrow="The product" lede="Content, Looks, accent, name style, scroll cue and a profile soundtrack. Change any of it, Mode by Mode, and your page follows." note="Free · All four Modes · No card" title={<>Make it yours.</>} visual={<ModeScreens slug="creator" />} />
       <Section eyebrow="What you can change" id="parts" title="Every part of your page." tone="paper">
         <CapabilityGrid items={PARTS} />
       </Section>
-      <FaqSection items={FAQ} title="The playground, answered." />
+      <FaqSection items={FAQ} title="Your page, answered." />
       <CtaBand claimId="product-cta" line="Free to start, with all four Modes." secondary={{ href: "/pricing", label: "See what Plus adds" }} title="Keep this look." />
     </>
   );

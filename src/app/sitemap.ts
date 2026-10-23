@@ -25,6 +25,7 @@ type SitemapProfileMode = {
 const marketingUrls: MetadataRoute.Sitemap = [
   { url: `${SETUVARA_ORIGIN}/`, changeFrequency: "weekly", priority: 1 },
   { url: `${SETUVARA_ORIGIN}/pricing`, changeFrequency: "monthly", priority: 0.8 },
+  { url: `${SETUVARA_ORIGIN}/product`, changeFrequency: "monthly", priority: 0.7 },
   { url: `${SETUVARA_ORIGIN}/teams`, changeFrequency: "monthly", priority: 0.7 },
   { url: `${SETUVARA_ORIGIN}/roadmap`, changeFrequency: "monthly", priority: 0.7 },
   { url: `${SETUVARA_ORIGIN}/privacy`, changeFrequency: "yearly", priority: 0.3 },
