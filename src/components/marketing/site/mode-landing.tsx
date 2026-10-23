@@ -9,7 +9,7 @@ import { SETUVARA_ORIGIN, SETUVARA_ORGANIZATION_ID } from "@/lib/marketing/metad
 
 import { CAST, CastPhone, DEMO_PEOPLE, ModeDesktop } from "../home/mode-phone";
 import { Display, Label, Shell } from "../home/primitives";
-import { BrowserFrame, CtaBand, FaqSection, ModeSwitch, PageHero, SectionHead, Stage } from "./kit";
+import { BrowserFrame, CtaBand, FaqSection, ModeSwitch, PageHero, RAIL, RAIL_ITEM, SectionHead, Stage } from "./kit";
 import { AudienceRows, Avatar, BookingCard, ConnectionRows, DealStages, EventCard, LeadsList, LivePill, MediaKitCard, NewsletterCard, Quote, RevenueCard, RoadmapRows, Stamps, StoreList, ToolPanel } from "./panels";
 
 type Person = (typeof DEMO_PEOPLE)[keyof typeof DEMO_PEOPLE];
@@ -143,11 +143,11 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
       <section aria-labelledby={`${slug}-tools-title`} className="bg-paper">
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow={`Tools in ${page.name} Mode`} id={`${slug}-tools`} lede={`Each Mode has its own tools in the app, beside its page. These are the ones built for ${page.name}.`} title="What you work with." />
-          <div className="mt-12 grid gap-6 lg:mt-[72px] lg:grid-cols-12">
-            <div className="flex lg:col-span-7 [&>*]:flex-1">{a}</div>
-            <div className="flex lg:col-span-5 [&>*]:flex-1">{b}</div>
-            <div className="flex min-h-[360px] lg:col-span-5 [&>*]:flex-1">{c}</div>
-            <div className="flex lg:col-span-7 [&>*]:flex-1">{d}</div>
+          <div className={`mt-12 grid gap-6 lg:mt-[72px] lg:grid-cols-12 ${RAIL}`}>
+            <div className={`flex lg:col-span-7 [&>*]:flex-1 ${RAIL_ITEM}`}>{a}</div>
+            <div className={`flex lg:col-span-5 [&>*]:flex-1 ${RAIL_ITEM}`}>{b}</div>
+            <div className={`flex lg:col-span-5 lg:min-h-[360px] [&>*]:flex-1 ${RAIL_ITEM}`}>{c}</div>
+            <div className={`flex lg:col-span-7 [&>*]:flex-1 ${RAIL_ITEM}`}>{d}</div>
           </div>
         </Shell>
       </section>

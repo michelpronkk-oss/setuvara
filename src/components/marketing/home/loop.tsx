@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { RAIL, RAIL_ITEM } from "../site/kit";
 import { Display, Label, Shell } from "./primitives";
 
 /** Setuvara in one line of five steps; each step links to the page that goes deeper. */
@@ -22,9 +23,9 @@ export function Loop() {
           </div>
           <p className="max-w-[28rem] text-[18px] max-sm:hidden leading-[1.5] text-paper/70 sm:text-[20px]">Five steps, and the last one leads back to the first: every connection is a reason to share again.</p>
         </div>
-        <ol className="mt-12 grid gap-px overflow-hidden rounded-[26px] bg-paper/10 sm:grid-cols-2 lg:mt-16 lg:grid-cols-5">
+        <ol className={`mt-12 grid gap-px rounded-[26px] md:overflow-hidden md:bg-paper/10 sm:grid-cols-2 lg:mt-16 lg:grid-cols-5 ${RAIL}`}>
           {STEPS.map((step, index) => (
-            <li className="flex flex-col bg-ink p-6 sm:p-7" key={step.title}>
+            <li className={`flex flex-col bg-ink p-6 max-md:rounded-[22px] max-md:bg-[#1B1B1B] sm:p-7 ${RAIL_ITEM}`} key={step.title}>
               <span className="font-label text-[11px] tracking-[0.16em] text-coral">0{index + 1}</span>
               <h3 className="mt-5 font-display text-[28px] font-bold leading-none tracking-[-0.045em]">{step.title}</h3>
               <p className="mt-3 text-[15px] leading-[1.55] text-paper/65">{step.line}</p>

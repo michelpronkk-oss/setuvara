@@ -22,6 +22,7 @@ const FAQ: readonly [string, string][] = [
 
 export function Faq() {
   const [open, setOpen] = useState(0);
+  const [more, setMore] = useState(false);
   const base = useId();
   return (
     <section aria-labelledby="faq-title" className="scroll-mt-16 bg-paper" id="faq">
@@ -36,7 +37,7 @@ export function Faq() {
             const isOpen = open === index;
             const panel = `${base}-faq-${index}`;
             return (
-              <div className="border-b border-ink/15" key={question}>
+              <div className={`border-b border-ink/15 ${index >= 3 && !more ? "max-sm:hidden" : ""}`} key={question}>
                 <h3 className="m-0">
                   <button aria-controls={panel} aria-expanded={isOpen} className="flex w-full items-center justify-between gap-6 py-5 text-left font-display text-[clamp(17px,1.4vw,20px)] font-bold tracking-[-0.025em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" onClick={() => setOpen(isOpen ? -1 : index)} type="button">
                     {question}
@@ -47,6 +48,7 @@ export function Faq() {
               </div>
             );
           })}
+          {more ? null : <button className="mt-6 min-h-12 rounded-full text-[14px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.18)] sm:hidden" onClick={() => setMore(true)} type="button">{FAQ.length - 3} more questions</button>}
         </div>
       </div>
     </section>

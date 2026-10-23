@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { MemberBadge } from "@/components/app/status-badge";
 import { getPublicPlan } from "@/lib/billing/catalog";
 import { formatPrice, PLAN_COUNTS } from "@/lib/billing/plan-copy";
@@ -99,6 +101,7 @@ function CellView({ cell, plan }: { cell: Cell; plan: number }) {
 
 export function Compare() {
   const { interval } = usePricing();
+  const [all, setAll] = useState(false);
   // One line on phones: "$6.99/mo"; the unit spells out from sm up.
   const short = (plan: "plus" | "pro") => {
     const yearly = interval === "yearly";
@@ -118,8 +121,8 @@ export function Compare() {
             <div className="flex flex-col gap-0.5" role="columnheader"><span className="flex items-center gap-1.5 font-display text-[clamp(18px,2vw,24px)] font-bold tracking-[-0.03em]">Plus<MemberBadge decorative size={16} tier="plus" /></span><span className="text-[13px] text-ink/70">{short("plus")}</span></div>
             <div className="flex flex-col gap-0.5" role="columnheader"><span className="flex items-center gap-1.5 font-display text-[clamp(18px,2vw,24px)] font-bold tracking-[-0.03em]">Pro<MemberBadge decorative size={16} tier="pro" /></span><span className="text-[13px] text-ink/70">{short("pro")}</span></div>
           </div>
-          {GROUPS.map((group) => (
-            <div className="flex flex-col" key={group.name} role="rowgroup">
+          {GROUPS.map((group, groupIndex) => (
+            <div className={`flex flex-col ${groupIndex >= 2 && !all ? "max-sm:hidden" : ""}`} key={group.name} role="rowgroup">
               <div role="row"><span className={`block pb-2.5 pt-8 font-label text-[11px] uppercase tracking-[0.14em] ${group.color}`} role="rowheader">{group.name}</span></div>
               {group.rows.map((row) => (
                 <div className={`${grid} items-center border-b border-ink/[0.08] py-3 text-[14px]`} key={row.label} role="row">
@@ -130,6 +133,7 @@ export function Compare() {
             </div>
           ))}
         </div>
+        {all ? null : <button className="min-h-12 rounded-full text-[14px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.18)] sm:hidden" onClick={() => setAll(true)} type="button">See every line ({GROUPS.length - 2} more groups)</button>}
       </div>
     </section>
   );
