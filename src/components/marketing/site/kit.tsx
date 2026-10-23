@@ -33,7 +33,7 @@ export function Breadcrumbs({ trail, className = "" }: { trail: Crumb[]; classNa
           {items.map((item, index) => (
             <li className="flex items-center gap-2" key={item.path}>
               {index > 0 && <span aria-hidden="true">/</span>}
-              {index === items.length - 1 ? <span aria-current="page" className="text-ink">{item.name}</span> : <Link className="rounded-sm hover:text-ink focus-visible:outline-2 focus-visible:outline-coral" href={item.path}>{item.name}</Link>}
+              {index === items.length - 1 ? <span aria-current="page" className="text-ink">{item.name}</span> : <Link className="-my-3 inline-block rounded-sm py-3 hover:text-ink focus-visible:outline-2 focus-visible:outline-coral" href={item.path}>{item.name}</Link>}
             </li>
           ))}
         </ol>
