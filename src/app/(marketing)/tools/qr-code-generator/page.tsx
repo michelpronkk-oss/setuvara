@@ -1,7 +1,8 @@
-import { CtaBand, FaqSection, PageHero, RelatedLinks, Section } from "@/components/marketing/site/kit";
+import { CtaBand, FaqSection, PageHero, RelatedLinks, Section, Stage } from "@/components/marketing/site/kit";
 import { QrGenerator } from "@/components/marketing/tools/qr-generator";
 import { JsonLd } from "@/components/seo/json-ld";
 import { marketingMetadata, SETUVARA_ORGANIZATION_ID, SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
+import { MODE_ORDER, MODE_PAGES } from "@/lib/marketing/modes-content";
 
 const PATH = "/tools/qr-code-generator";
 
@@ -17,6 +18,14 @@ const STEPS = [
   { name: "Check it on a card or poster", text: "Preview the code on a business card or a poster before you print." },
   { name: "Download PNG or SVG", text: "A 2048 px PNG for screens and print shops, or a vector SVG that stays sharp at any size." },
 ];
+
+/** Where the same printed Setuvara code can point, Mode by Mode. */
+const MODE_MOMENTS: Record<string, string> = {
+  personal: "With friends and new people",
+  event: "At the conference, for one weekend",
+  business: "At work, with clients",
+  creator: "With brands and your audience",
+};
 
 const FAQ = [
   { q: "Is this QR code generator really free?", a: "Yes. No sign-up, no watermark and no limit on how many codes you make. The code is generated in your browser and the link never leaves the page." },
@@ -54,17 +63,29 @@ export default function QrCodeGeneratorPage() {
 
       <section aria-label="Make your QR code" className="scroll-mt-16" id="generator">
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-16 sm:px-8 sm:pb-24 lg:px-14">
-          <QrGenerator />
+          <QrGenerator stage={<Stage className="!rounded-none" slug="business" />} />
         </div>
       </section>
 
-      <Section eyebrow="How it works" id="how" title="Four steps, one minute." tone="white">
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, index) => (
-            <li className="rounded-[24px] bg-paper p-6" key={step.name}>
+      <Section eyebrow="Static vs Setuvara" id="modes" lede="A plain code opens one link forever. A Setuvara code opens your page, and you pick which Mode it shows, so the same card works everywhere you go." title="A code that can change its mind." tone="ink">
+        <ul className="border-t border-paper/15">
+          {MODE_ORDER.map((slug, index) => (
+            <li className="grid grid-cols-[40px_minmax(0,1fr)] items-baseline gap-x-4 border-b border-paper/15 py-6 sm:grid-cols-[64px_minmax(0,1fr)_minmax(0,1fr)]" key={slug}>
               <span className="font-label text-[11px] tracking-[0.16em] text-coral">0{index + 1}</span>
-              <h3 className="mt-4 font-display text-[22px] font-bold leading-tight tracking-[-0.04em]">{step.name}</h3>
-              <p className="mt-2 text-[15px] leading-[1.55] text-ink/65">{step.text}</p>
+              <span className="font-display text-[clamp(32px,4vw,56px)] font-extrabold leading-none tracking-[-0.055em]">{MODE_PAGES[slug].name}</span>
+              <span className="col-start-2 mt-2 text-[17px] text-paper/65 sm:col-start-3 sm:mt-0 sm:text-right">{MODE_MOMENTS[slug]}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section eyebrow="How it works" id="how" title="Four steps, one minute." tone="white">
+        <ol className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((step, index) => (
+            <li className="border-t-[1.5px] border-ink pt-6" key={step.name}>
+              <span className="font-label text-[11px] tracking-[0.16em] text-coral">0{index + 1}</span>
+              <h3 className="mt-3 font-display text-[28px] font-extrabold leading-[1] tracking-[-0.05em]">{step.name}</h3>
+              <p className="mt-3 text-[16px] leading-[1.6] text-ink/62">{step.text}</p>
             </li>
           ))}
         </ol>
