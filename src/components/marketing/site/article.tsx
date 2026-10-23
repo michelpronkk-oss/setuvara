@@ -64,7 +64,7 @@ export function ArticleLayout({ crumbs, kicker, title, lede, date, minutes, hero
         <div className="sr-only"><Breadcrumbs trail={crumbs} /></div>
         <div className="mx-auto flex max-w-[60rem] flex-col items-center text-center">
           <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/50">{crumbs.slice(0, -1).map((crumb) => <Link className="hover:text-ink" href={crumb.path} key={crumb.path}>{crumb.name} / </Link>)}<span className="text-coral">{kicker}</span></p>
-          <Display as="h1" className="mt-8 text-[clamp(48px,7.4vw,112px)] leading-[0.88]">{title}</Display>
+          <Display as="h1" className="mt-8 max-w-[14ch] text-[clamp(44px,6vw,88px)] leading-[0.9]">{title}</Display>
           <p className="mt-7 max-w-[46rem] text-[18px] leading-[1.6] text-ink/65 sm:text-[22px]">{lede}</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <span className="flex items-center gap-3 text-[15px] font-semibold"><span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-ink"><MeetMark className="size-5 text-coral" /></span>The Setuvara team</span>

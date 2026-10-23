@@ -7,10 +7,10 @@ import { BLOG_POSTS, type BlogBlock, type BlogPost } from "@/lib/marketing/blog-
 import { SETUVARA_ORGANIZATION_ID, SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 import { MODE_PAGES } from "@/lib/marketing/modes-content";
 
-import { CastPhone } from "../home/mode-phone";
 import { Label } from "../home/primitives";
-import { ArticleLayout, ArticleStage, articleDate, KeepReading, proseH2, proseP } from "./article";
-import { CtaBand, PageHero, Section, Stage } from "./kit";
+import { BannerVisual } from "./visuals";
+import { ArticleLayout, articleDate, KeepReading, proseH2, proseP } from "./article";
+import { CtaBand, PageHero, Section } from "./kit";
 
 type ModeSlug = "personal" | "event" | "business" | "creator";
 
@@ -45,9 +45,7 @@ export function BlogIndex() {
         <ul className={`${nameFontClasses} grid gap-8 md:grid-cols-2`}>
           {BLOG_POSTS.map((post) => (
             <li className="group relative" key={post.slug}>
-              <Stage className="h-[300px]" slug={modeFor(post)}>
-                <div aria-hidden="true" className="absolute left-1/2 top-[12%] origin-top -translate-x-1/2 scale-[.74] transition-transform duration-500 group-hover:-translate-y-2" inert><CastPhone slug={modeFor(post)} /></div>
-              </Stage>
+              <BannerVisual className="transition-transform duration-500 group-hover:-translate-y-1" name={post.visual} />
               <Label className="mt-6 text-coral">{post.topic} · <time dateTime={post.published}>{articleDate(post.published)}</time> · {post.readingMinutes} min</Label>
               <Link className="mt-3 block font-display text-[clamp(28px,2.6vw,36px)] font-extrabold leading-[0.98] tracking-[-0.05em] after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-coral" href={`/blog/${post.slug}`}>{post.title}</Link>
               <p className="mt-3 text-[16px] leading-[1.6] text-ink/62">{post.description}</p>
@@ -84,7 +82,7 @@ export function BlogArticle({ post }: { post: BlogPost }) {
         aside={{ title: `Your ${MODE_PAGES[mode].name} page, free.`, cta: "Claim your name", href: "/signup" }}
         crumbs={[{ name: "Blog", path: "/blog" }, { name: post.title, path: `/blog/${post.slug}` }]}
         date={post.published}
-        hero={<ArticleStage slug={mode} url={MODE_PAGES[mode].share} />}
+        hero={<BannerVisual className="mx-auto max-w-[1200px]" name={post.visual} />}
         kicker={post.topic}
         lede={post.description}
         minutes={post.readingMinutes}

@@ -2,7 +2,8 @@ import { PRICES } from "@/lib/marketing/facts";
 import { FEATURE_PAGES, planRowsFor, type FeatureSlug } from "@/lib/marketing/features-content";
 
 import { Shell } from "../home/primitives";
-import { ButtonLink, CtaBand, FaqSection, FeatureGrid, PageHero, RelatedLinks, Section, SectionHead } from "./kit";
+import { CapabilityGrid } from "./capability-visuals";
+import { ButtonLink, CtaBand, FaqSection, PageHero, RelatedLinks, Section, SectionHead } from "./kit";
 import { FeatureVisual } from "./visuals";
 
 const COLUMNS = [
@@ -11,47 +12,48 @@ const COLUMNS = [
   { code: "pro", name: "Pro", price: PRICES.pro.monthly, note: `a month, or ${PRICES.pro.yearly} a year`, cta: { href: "/pricing", label: "See Pro", tone: "paper" as const } },
 ] as const;
 
-const mark = (value: string) => (value === "Yes" ? "✓" : value === "—" ? "—" : value);
+const mark = (value: string) => (value === "Yes" ? "✓" : value);
 
-/** One group of limits from facts.ts as a priced table: Plus tinted coral, Pro in ink. */
+/** One group of limits from facts.ts as three plan cards: Free on white, Plus on coral, Pro in ink. */
 export function PlanTable({ group }: { group: string }) {
   const table = planRowsFor(group);
   if (!table) return null;
-  const tint = { free: "", plus: "bg-[#FFF1EF]", pro: "bg-ink text-paper" } as const;
+  const skin = {
+    free: { card: "bg-white text-ink", muted: "text-ink/50", rule: "border-ink/10", off: "text-ink/30" },
+    plus: { card: "bg-coral text-ink", muted: "text-ink/65", rule: "border-ink/15", off: "text-ink/35" },
+    pro: { card: "bg-ink text-paper", muted: "text-paper/55", rule: "border-paper/12", off: "text-paper/30" },
+  } as const;
   return (
-    <div className="overflow-x-auto rounded-[24px] bg-white p-3 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] sm:rounded-[28px] sm:p-4">
-      <table className="w-full min-w-[620px] border-separate border-spacing-0 text-left text-[15px]">
-        <caption className="px-5 pb-2 pt-4 text-left font-label text-[10px] uppercase tracking-[0.16em] text-ink/50">{group} limits by plan · prices in USD</caption>
-        <thead>
-          <tr>
-            <th className="w-[38%] p-5" scope="col"><span className="sr-only">{group}</span></th>
-            {COLUMNS.map((column) => (
-              <th className={`p-5 align-bottom font-normal ${tint[column.code]} ${column.code === "plus" ? "rounded-t-[18px] shadow-[inset_0_2px_0_#FF5A4F]" : column.code === "pro" ? "rounded-t-[18px]" : ""}`} key={column.code} scope="col">
-                <span className={`font-label text-[10px] uppercase tracking-[0.16em] ${column.code === "plus" ? "text-coral" : column.code === "pro" ? "text-paper/55" : "text-ink/50"}`}>{column.name}</span>
-                <span className="mt-2 block font-display text-[clamp(30px,3.4vw,44px)] font-extrabold leading-none tracking-[-0.055em]">{column.price}</span>
-                <span className={`mt-1.5 block text-[12.5px] ${column.code === "pro" ? "text-paper/55" : "text-ink/50"}`}>{column.note}</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row) => (
-            <tr key={row.label}>
-              <th className="border-t border-ink/[0.08] px-5 py-4 font-medium" scope="row">{row.label}</th>
-              {COLUMNS.map((column) => {
-                const value = row[column.code];
-                return <td className={`px-5 py-4 tabular-nums ${tint[column.code]} ${column.code === "free" ? "border-t border-ink/[0.08]" : ""} ${value === "—" ? (column.code === "pro" ? "text-paper/35" : "text-ink/35") : "font-semibold"}`} key={column.code}>{mark(value)}</td>;
-              })}
-            </tr>
-          ))}
-          <tr>
-            <td className="p-5" />
-            {COLUMNS.map((column) => (
-              <td className={`px-5 pb-5 pt-3 ${tint[column.code]} ${column.code === "free" ? "" : "rounded-b-[18px]"}`} key={column.code}><ButtonLink className="w-full !min-h-11" href={column.cta.href} tone={column.cta.tone}>{column.cta.label}</ButtonLink></td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+    <div>
+      <p className="font-label text-[10px] uppercase tracking-[0.16em] text-ink/50">{group} limits by plan · prices in USD</p>
+      <ul className="mt-5 grid gap-4 lg:grid-cols-3 lg:gap-6">
+        {COLUMNS.map((column) => {
+          const tone = skin[column.code];
+          return (
+            <li className={`relative flex flex-col overflow-hidden rounded-[28px] p-7 shadow-[0_40px_80px_-50px_rgba(13,13,13,.55)] sm:p-9 ${tone.card}`} key={column.code}>
+              {column.code === "plus" ? <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[#FFB3AC] opacity-70 blur-[60px]" /> : null}
+              {column.code === "pro" ? <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-coral opacity-25 blur-[70px]" /> : null}
+              <div className="relative flex items-center justify-between">
+                <span className={`font-label text-[11px] uppercase tracking-[0.16em] ${tone.muted}`}>{column.name}</span>
+              </div>
+              <p className="relative mt-6 font-display text-[64px] font-extrabold leading-[0.85] tracking-[-0.06em]">{column.price}</p>
+              <p className={`relative mt-2 text-[14px] ${tone.muted}`}>{column.note}</p>
+              <ul className={`relative mt-7 flex-1 border-t ${tone.rule}`}>
+                {table.rows.map((row) => {
+                  const value = row[column.code];
+                  return (
+                    <li className={`flex items-baseline justify-between gap-4 border-b py-3.5 text-[15px] ${tone.rule}`} key={row.label}>
+                      <span className={value === "—" ? tone.off : ""}>{row.label}</span>
+                      <span className={`shrink-0 text-right font-semibold tabular-nums ${value === "—" ? tone.off : ""}`}>{mark(value)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <ButtonLink className="relative mt-8 w-full" href={column.cta.href} tone={column.cta.tone === "coral" ? "ink" : column.cta.tone}>{column.cta.label}</ButtonLink>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -100,7 +102,7 @@ export function FeatureLanding({ slug }: { slug: FeatureSlug }) {
       </section>
 
       <Section eyebrow={page.name} id={`${slug}-what`} lede={page.status === "coming" ? "What the pass will do. Until then, Quick QR and Tap cover it." : "Every line here is live in the app, with the plan it needs."} title="What’s in it." tone="paper">
-        <FeatureGrid items={page.capabilities} />
+        <CapabilityGrid items={page.capabilities} />
       </Section>
 
       {page.planGroup ? (
