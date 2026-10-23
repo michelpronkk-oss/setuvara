@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { recordProfileShare } from "@/lib/analytics/client";
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { claimLaunch, HomeScreenSheet, launchModeOnDevice, useStandalone } from "@/components/app/home-screen";
 import { MeetActions } from "@/components/app/home/meet-sheet";
@@ -36,12 +36,12 @@ const NOTES: Record<ModeSlug, string> = {
 const markDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#FF5A4F"/><g transform="translate(17 17) scale(.66)" fill="#0D0D0D"><path d="${meetMarkTop}"/><path d="${meetMarkBottom}"/></g></svg>`)}`;
 const noSubscription = () => () => {};
 
-export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode, launch = false, creatorHref = null }: {
+export function IdentityStage({ displayName, username, plan, isPublished, publicOrigin, modeShareUrls, modes, initialMode, hasRequestedMode, launch = false, creatorStudioHref = null }: {
   displayName: string; username: string; plan: PlanCode; isPublished: boolean; publicOrigin: string; modeShareUrls: Partial<Record<ModeSlug, string | null>>; modes: StageMode[]; initialMode: ModeSlug; hasRequestedMode: boolean;
   /** Opened from the Home Screen: the Share sheet is already open on the launch Mode. */
   launch?: boolean;
-  /** Creator Mode has its own dashboard; the picker links there when Creator is on. */
-  creatorHref?: string | null;
+  /** Creator Mode's studio (store, Deals, Audience): a link on the stage while Creator is shown. */
+  creatorStudioHref?: string | null;
 }) {
   const saved = useSyncExternalStore(subscribeHomeMode, rememberedHomeMode, () => null);
   const [selected, setSelected] = useState<ModeSlug | null>(null);
@@ -54,6 +54,9 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   const hasMemberBadge = hasCapability(plan, "identity.plus_badge") || hasCapability(plan, "identity.pro_badge");
   const live = isPublished && mode.enabled;
   const hasPhoto = Boolean(mode.imageUrl && mode.imageUrl !== failedImage);
+  // The name never breaks inside a word: its longest word sets a size that fits the column.
+  const longestWord = Math.max(4, ...displayName.trim().split(/\s+/).map((word) => word.length));
+  const nameFit = { "--name-fit": `${(100 / (longestWord * 0.62)).toFixed(1)}cqw` } as CSSProperties;
   // Same URLs as the Identity editor: username for Personal, opaque /s/ links otherwise.
   const publicUrl = useCallback((target: ModeSlug, source?: string) => publicModeUrl({ origin: publicOrigin, username, shareUrls: modeShareUrls, mode: target, source }), [publicOrigin, username, modeShareUrls]);
 
@@ -109,14 +112,15 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <span className="hidden lg:inline">{NAMES[slug].toUpperCase()} MODE · </span>{live ? "LIVE" : isPublished ? "MODE OFF" : "PRIVATE"}
           </span>
           <div className="flex shrink-0 items-center gap-2">
+            {slug === "creator" && creatorStudioHref && <Link className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#E8A6FF] px-3 text-xs font-semibold text-[#0d0d0d] focus-visible:outline-2 lg:px-4 lg:text-sm" href={creatorStudioHref}>Creator studio<span aria-hidden="true">→</span></Link>}
             {live && <a className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#0d0d0d]/70 px-3 text-xs font-semibold focus-visible:outline-2 lg:px-4 lg:text-sm" href={publicUrl(slug)} rel="noreferrer" target="_blank">View profile<span aria-hidden="true">↗</span></a>}
           </div>
         </div>
 
         <div className="absolute inset-x-5 bottom-6 flex flex-col gap-6 lg:inset-x-9 lg:bottom-8 lg:gap-[26px]">
-          <div className={`flex max-w-[820px] flex-col gap-2 pr-5 lg:gap-3 ${hasPhoto ? "lg:max-w-[44%] lg:pb-4" : ""}`}>
+          <div className={`flex max-w-[820px] flex-col gap-2 pr-5 [container-type:inline-size] lg:gap-3 ${hasPhoto ? "lg:max-w-[46%] lg:pb-4" : ""}`}>
             <p className="font-label text-[10px] tracking-[0.14em] text-[#f5f4ef]/80 lg:hidden">{NAMES[slug].toUpperCase()} MODE</p>
-            <p className="break-words font-display text-[clamp(36px,11vw,48px)] font-bold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] lg:text-[clamp(52px,4.4vw,96px)] lg:leading-[0.9]">
+            <p className="font-display font-bold leading-[0.92] tracking-[-0.05em] [overflow-wrap:normal] [text-wrap:balance] [word-break:keep-all] text-[min(clamp(36px,11vw,48px),var(--name-fit))] lg:text-[min(clamp(52px,4.4vw,96px),var(--name-fit))] lg:leading-[0.9]" style={nameFit}>
               {displayName}
               {hasMemberBadge && <span className="ml-[0.16em] inline-block align-[0.08em]"><StatusBadge className="size-5 lg:size-[30px]" plan={plan} size={20} /></span>}
             </p>
@@ -124,7 +128,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
             <p className="hidden truncate font-label text-[13px] text-[#f5f4ef]/70 lg:block">{publicUrl(slug).replace(/^https?:\/\//, "")}</p>
           </div>
           <div className="hidden flex-wrap items-end justify-between gap-5 pr-7 lg:flex">
-            <ModePicker creatorHref={creatorHref} modes={modes} onPick={pick} slug={slug} variant="stage" />
+            <ModePicker modes={modes} onPick={pick} slug={slug} variant="stage" />
             <div className="flex gap-2.5">
               <MeetActions variant="stage" />
               <Link className="inline-flex min-h-[54px] items-center rounded-full px-[22px] text-[15px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.45)] hover:bg-white/10 focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>Edit</Link>
@@ -137,7 +141,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       </section>
 
       <div className="mt-3 flex flex-col gap-3 lg:hidden">
-        <ModePicker creatorHref={creatorHref} isPublished={isPublished} modes={modes} onPick={pick} slug={slug} variant="bar" />
+        <ModePicker isPublished={isPublished} modes={modes} onPick={pick} slug={slug} variant="bar" />
         <div className="flex gap-2">
           <button className="min-h-14 flex-1 rounded-full bg-[#ff5a4f] text-base font-semibold text-[#0d0d0d] focus-visible:outline-2 focus-visible:outline-offset-2" onClick={openShare} type="button">Share {NAMES[slug]} Mode</button>
           <Link aria-label={`Edit ${NAMES[slug]} Mode`} className="grid size-14 place-items-center rounded-full shadow-[inset_0_0_0_1.5px_#0d0d0d] focus-visible:outline-2" href={`/app/identity?mode=${slug}&section=profile`}>
@@ -154,7 +158,7 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
   );
 }
 
-function ModePicker({ modes, slug, onPick, variant, creatorHref = null, isPublished = true }: { modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; variant: "stage" | "bar" | "sheet"; creatorHref?: string | null; isPublished?: boolean }) {
+function ModePicker({ modes, slug, onPick, variant, isPublished = true }: { modes: StageMode[]; slug: ModeSlug; onPick: (slug: ModeSlug) => void; variant: "stage" | "bar" | "sheet"; isPublished?: boolean }) {
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
@@ -166,27 +170,21 @@ function ModePicker({ modes, slug, onPick, variant, creatorHref = null, isPublis
   };
   if (variant === "stage") {
     return (
-      <div aria-label="Choose a Mode" className="flex gap-1.5 rounded-[20px] bg-[#0d0d0d]/70 p-[5px] shadow-[inset_0_0_0_1px_rgba(245,244,239,.12)]" onKeyDown={onKeyDown} role="radiogroup">
+      <div aria-label="Choose a Mode" className="flex min-w-0 max-w-full gap-1.5 rounded-[20px] bg-[#0d0d0d]/70 p-[5px] shadow-[inset_0_0_0_1px_rgba(245,244,239,.12)]" onKeyDown={onKeyDown} role="radiogroup">
         {modes.map((item) => {
           const on = item.slug === slug;
           return (
-            <button aria-checked={on} className={`flex min-h-[58px] min-w-[132px] flex-col items-start justify-center gap-[3px] rounded-[15px] px-4 text-left focus-visible:outline-2 ${on ? "bg-[#f5f4ef] text-[#0d0d0d]" : "text-[#f5f4ef] hover:bg-white/10"}`} data-mode={item.slug} key={item.slug} onClick={() => onPick(item.slug)} role="radio" tabIndex={on ? 0 : -1} type="button">
+            <button aria-checked={on} className={`flex min-h-[58px] min-w-0 flex-1 flex-col items-start xl:min-w-[132px] xl:flex-none justify-center gap-[3px] rounded-[15px] px-4 text-left focus-visible:outline-2 ${on ? "bg-[#f5f4ef] text-[#0d0d0d]" : "text-[#f5f4ef] hover:bg-white/10"}`} data-mode={item.slug} key={item.slug} onClick={() => onPick(item.slug)} role="radio" tabIndex={on ? 0 : -1} type="button">
               <span className="flex items-center gap-[7px] text-[15px] font-semibold"><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT[item.slug] }} />{NAMES[item.slug]}</span>
-              <span className="max-w-[180px] truncate text-xs opacity-75">{item.enabled ? item.sub : "Off"}</span>
+              <span className="max-w-full truncate text-xs opacity-75 xl:max-w-[180px]">{item.enabled ? item.sub : "Off"}</span>
             </button>
           );
         })}
-        {creatorHref && (
-          <Link className="flex min-h-[58px] min-w-[132px] flex-col items-start justify-center gap-[3px] rounded-[15px] px-4 text-left text-[#f5f4ef] hover:bg-white/10 focus-visible:outline-2" href={creatorHref}>
-            <span className="flex items-center gap-[7px] text-[15px] font-semibold"><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT.creator }} />{NAMES.creator}</span>
-            <span className="text-xs opacity-75">Dashboard ↗</span>
-          </Link>
-        )}
       </div>
     );
   }
   return (
-    <div aria-label={variant === "sheet" ? "Mode to share" : "Choose a Mode"} className={`grid ${creatorHref ? "grid-cols-4" : "grid-cols-3"} gap-1 rounded-[18px] bg-black/[0.06] p-1`} onKeyDown={onKeyDown} role="radiogroup">
+    <div aria-label={variant === "sheet" ? "Mode to share" : "Choose a Mode"} className={`grid ${modes.length > 3 ? "grid-cols-4" : "grid-cols-3"} gap-1 rounded-[18px] bg-black/[0.06] p-1`} onKeyDown={onKeyDown} role="radiogroup">
       {modes.map((item) => {
         const on = item.slug === slug;
         return (
@@ -197,12 +195,6 @@ function ModePicker({ modes, slug, onPick, variant, creatorHref = null, isPublis
           </button>
         );
       })}
-      {creatorHref && (
-        <Link className={`flex min-h-12 flex-col items-center justify-center gap-[3px] rounded-[14px] text-sm font-semibold text-[#0d0d0d] focus-visible:outline-2 ${variant === "bar" ? "min-h-[54px]" : ""}`} href={creatorHref}>
-          <span className="flex items-center gap-1.5"><span aria-hidden="true" className="size-[7px] rounded-full" style={{ background: DOT.creator }} />{NAMES.creator}</span>
-          {variant === "bar" && <span className="font-label text-[9.5px] uppercase leading-none tracking-[0.12em] text-black/45">Studio</span>}
-        </Link>
-      )}
     </div>
   );
 }
