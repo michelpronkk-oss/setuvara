@@ -31,6 +31,7 @@ export function SiteFooter() {
       { href: "/compare", label: "Compare" },
       { href: "/use-cases", label: "Use cases" },
       { href: "/tools/qr-code-generator", label: "QR code generator" },
+      { href: "/tools", label: "Free tools" },
       { href: "/blog", label: "Blog" },
     ] },
     { title: copy.account, links: [
