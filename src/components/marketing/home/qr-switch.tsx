@@ -16,8 +16,8 @@ export function QrModeSwitch() {
   return (
     <div className={nameFontClasses}>
       <QrSwitch
-        labels={SCREENS.map(({ name, where }) => ({ name, where }))}
-        qr={<QrArt size={168} value="https://setuvara.com/aanya" />}
+        labels={SCREENS.map(({ slug, name, where }) => ({ slug, name, where }))}
+        qr={<QrArt size={192} value="https://setuvara.com/aanya" />}
         screens={SCREENS.map((screen) => <ModePhone key={screen.slug} label={`Aanya Rao, ${screen.name} Mode`} look={screen.look} slug={screen.slug} who={DEMO_PEOPLE.aanya} />)}
       />
     </div>

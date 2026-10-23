@@ -61,7 +61,7 @@ export default function HomePage() {
       {/* Product first: the four Modes, then the loop (share, connect, remember), example pages, Looks and plans. */}
       <Hero />
       <Modes />
-      <Section eyebrow="One code, every Mode" id="one-code" lede="Your Quick QR and Setuvara Tap open the Mode you choose. Switch it in a tap: the same code shows your Event page at Slush and your Personal page with friends. A link in bio can’t do that." title="Same code. Different you." tone="ink">
+      <Section className="overflow-hidden" eyebrow="One code, every Mode" id="one-code" lede="Your Quick QR and Setuvara Tap open the Mode you choose. Switch it in a tap: the same code shows your Event page at Slush and your Personal page with friends. A link in bio can’t do that." shellClassName="pt-20 pb-12 sm:pt-24 sm:pb-16 lg:pt-32 lg:pb-20" title="Same code. Different you." tone="ink">
         <QrModeSwitch />
       </Section>
       <Loop />

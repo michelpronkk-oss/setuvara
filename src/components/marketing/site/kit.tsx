@@ -68,7 +68,7 @@ export function Stage({ slug, children, className = "" }: { slug: ModeSlug; chil
 
 /** Title left (7 of 12 columns), lede right from column 9, bottom-aligned: the head of every section. */
 export function SectionHead({ id, eyebrow, title, lede, tone = "paper", as: Tag = "h2" }: { id?: string; eyebrow?: string; title: ReactNode; lede?: ReactNode; tone?: "paper" | "ink" | "coral"; as?: "h1" | "h2" }) {
-  const muted = tone === "ink" ? "text-paper/60" : "text-ink/65";
+  const muted = tone === "ink" ? "text-paper/75" : "text-ink/65";
   return (
     <div className="grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-6">
       <div className="lg:col-span-7">
@@ -83,10 +83,10 @@ export function SectionHead({ id, eyebrow, title, lede, tone = "paper", as: Tag 
 const grounds = { paper: "bg-paper", white: "bg-white", ink: "bg-ink text-paper", sand: "bg-[#EDEBE4]", coral: "bg-coral" } as const;
 
 /** A section: eyebrow, heading and lede in the shared head, content below. */
-export function Section({ id, eyebrow, title, lede, children, tone = "paper", className = "" }: { id?: string; eyebrow?: string; title?: ReactNode; lede?: ReactNode; children?: ReactNode; tone?: keyof typeof grounds; className?: string }) {
+export function Section({ id, eyebrow, title, lede, children, tone = "paper", className = "", shellClassName = "py-20 sm:py-24 lg:py-32" }: { id?: string; eyebrow?: string; title?: ReactNode; lede?: ReactNode; children?: ReactNode; tone?: keyof typeof grounds; className?: string; shellClassName?: string }) {
   return (
     <section aria-labelledby={id && title ? `${id}-title` : undefined} className={`scroll-mt-16 ${grounds[tone]} ${className}`} id={id}>
-      <Shell className="py-20 sm:py-24 lg:py-32">
+      <Shell className={shellClassName}>
         {title ? <SectionHead eyebrow={eyebrow} id={id} lede={lede} title={title} tone={tone === "ink" ? "ink" : tone === "coral" ? "coral" : "paper"} /> : null}
         {children ? <div className={title ? "mt-12 lg:mt-[72px]" : ""}>{children}</div> : null}
       </Shell>
