@@ -22,6 +22,8 @@ type ModeSlug = DemoMode["slug"];
 
 /** Visible breadcrumbs plus their BreadcrumbList structured data. */
 export function Breadcrumbs({ trail, className = "" }: { trail: Crumb[]; className?: string }) {
+  // The homepage is the root of every trail; it shows none.
+  if (!trail.length) return null;
   const items = [{ name: "Setuvara", path: "/" }, ...trail];
   return (
     <>
@@ -272,7 +274,7 @@ export function RelatedLinks({ title = "Keep exploring", items }: { title?: stri
 }
 
 /** The four Modes as a dark segmented switch; each opens that Mode's page. */
-export function ModeSwitch({ current }: { current: ModeSlug }) {
+export function ModeSwitch({ current }: { current?: ModeSlug }) {
   const modes: { slug: ModeSlug; name: string; dot: string }[] = [
     { slug: "personal", name: "Personal", dot: "#FF5A4F" },
     { slug: "event", name: "Event", dot: "#C7FF4A" },
