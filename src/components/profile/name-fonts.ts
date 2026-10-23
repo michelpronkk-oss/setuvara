@@ -1,4 +1,4 @@
-import { Kanit, Manrope, Nunito, Oswald, Playfair_Display } from "next/font/google";
+import { Kanit, Manrope, Newsreader, Nunito, Oswald, Playfair_Display } from "next/font/google";
 
 /**
  * Faces for the curated name styles (see name-type.ts), self-hosted by next/font at build time:
@@ -12,6 +12,8 @@ const editorial = Playfair_Display({ subsets: ["latin"], variable: "--font-name-
 const condensed = Oswald({ subsets: ["latin"], variable: "--font-name-condensed", display: "swap", weight: "600", preload: false });
 const impact = Kanit({ subsets: ["latin"], variable: "--font-name-impact", display: "swap", weight: "800", style: "italic", preload: false });
 const soft = Nunito({ subsets: ["latin"], variable: "--font-name-soft", display: "swap", weight: "800", preload: false });
+/** The serif body face (Plus body font), in two weights for text and its bold. */
+const bodySerif = Newsreader({ subsets: ["latin"], variable: "--font-body-serif", display: "swap", weight: ["400", "600"], preload: false });
 
 /** Put on any surface that renders a profile (public page, editor, app). */
-export const nameFontClasses = [modern, editorial, condensed, impact, soft].map((font) => font.variable).join(" ");
+export const nameFontClasses = [modern, editorial, condensed, impact, soft, bodySerif].map((font) => font.variable).join(" ");

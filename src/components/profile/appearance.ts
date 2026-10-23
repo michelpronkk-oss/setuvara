@@ -91,6 +91,12 @@ export type SocialPlacement = (typeof SOCIAL_PLACEMENTS)[number];
 export const IDENTITY_ALIGNS = ["auto", "left", "center"] as const;
 export type IdentityAlign = (typeof IDENTITY_ALIGNS)[number];
 export const MOTION_LEVELS = ["off", "subtle", "full"] as const;
+/** Card variants every Look can wear; solid is the Look's own. */
+export const CARD_VARIANTS = ["solid", "glass", "outline"] as const;
+export type CardVariant = (typeof CARD_VARIANTS)[number];
+/** Body text faces; sans is the Look's own. */
+export const BODY_FONTS = ["sans", "serif", "mono"] as const;
+export type BodyFont = (typeof BODY_FONTS)[number];
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 export const SOUND_PRESENTATIONS = ["ambient", "minimal", "featured"] as const;
 export const SLIDE_SPEEDS = ["slow", "medium", "fast"] as const;
@@ -164,6 +170,8 @@ export type ResolvedAppearance = {
   mediaLayout: MediaLayout;
   /** Display style of the name; a Plus style renders Setuvara without Plus. */
   nameFont: NameFont;
+  cardStyle: CardVariant;
+  bodyFont: BodyFont;
   /** The cue at the hero's foot; null when the member turned it off. */
   scrollCue: ScrollCue | null;
   /** Whether the cue loops its animation (Plus, with motion on). Free shows it still. */
@@ -234,6 +242,8 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
     case "qrStyle": return value === "standard" ? null : "share.qr_premium";
     case "nameFont": return isNameFont(value) && isFreeNameFont(value) ? null : "appearance.premium";
     case "scrollCue": return value === "auto" || value === "off" ? null : "appearance.premium";
+    case "cardStyle": return value === "solid" ? null : "appearance.advanced_controls";
+    case "bodyFont": return value === "sans" ? null : "appearance.advanced_controls";
     default: return null;
   }
 }
@@ -243,6 +253,7 @@ export const PREMIUM_FIELDS = [
   "theme", "layout", "portraitZoom", "portraitNameSize", "portraitShowUsername",
   "namePosition", "readability", "socialStyle", "motion", "soundtrackPresentation",
   "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle", "nameFont", "scrollCue",
+  "cardStyle", "bodyFont",
 ] as const;
 export type PremiumField = (typeof PREMIUM_FIELDS)[number];
 
@@ -317,6 +328,8 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     slideSpeed: includes(SLIDE_SPEEDS, saved.slideSpeed) ? saved.slideSpeed : "medium",
     mediaLayout: includes(MEDIA_LAYOUTS, saved.mediaLayout) ? saved.mediaLayout : "featured",
     nameFont: isNameFont(saved.nameFont) && (isFreeNameFont(saved.nameFont) || can("appearance.premium")) ? saved.nameFont : "setuvara",
+    cardStyle: includes(CARD_VARIANTS, saved.cardStyle) && advanced ? saved.cardStyle : "solid",
+    bodyFont: includes(BODY_FONTS, saved.bodyFont) && advanced ? saved.bodyFont : "sans",
     // A chosen cue needs Plus; without it the look's own shows. Off is always honoured.
     scrollCue: cueChoice === "off" ? null : cueChoice === "auto" || !premium ? APPEARANCE_CUES[id] : cueChoice,
     scrollCueMotion: premium && motion !== "off",
@@ -339,6 +352,7 @@ export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
   "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "nameFont", "scrollCue", "motion", "soundtrackPresentation",
+  "cardStyle", "bodyFont",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -395,7 +409,9 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.nameFont, NAME_FONTS)
     && optional(appearance.scrollCue, SCROLL_CUE_CHOICES)
     && optional(appearance.motion, MOTION_LEVELS)
-    && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS);
+    && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS)
+    && optional(appearance.cardStyle, CARD_VARIANTS)
+    && optional(appearance.bodyFont, BODY_FONTS);
 }
 
 /** Validate an untrusted ?appearance= hint. A hint only pre-selects a preview; it grants nothing. */

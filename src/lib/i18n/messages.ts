@@ -60,6 +60,8 @@ const messages = {
       readability: "Readability", readabilities: { auto: "Auto", soft: "Soft", deep: "Deep" },
       alignment: "Alignment", alignments: { left: "Left", center: "Center" }, socials: "Social icons", socialPlacements: { name: "Under name", links: "In links", both: "Both" }, socialStyle: "Icon style", socialStyles: { rail: "Rail", row: "Row", compact: "Compact", hidden: "Hidden" },
       motion: "Motion", motions: { off: "Off", subtle: "Subtle", full: "Full" },
+      cardStyle: "Cards", cardStyles: { solid: "Solid", glass: "Glass", outline: "Outline" },
+      bodyFont: "Text font", bodyFonts: { sans: "Sans", serif: "Serif", mono: "Mono" },
       soundtrack: "Soundtrack", soundPresentations: { ambient: "Ambient", minimal: "Minimal", featured: "Featured" },
       noSoundtrack: "Add a soundtrack in Content to choose how it appears.",
       zoom: "Photo zoom", slideSpeed: "Slideshow speed", slideSpeeds: { slow: "Slow", medium: "Medium", fast: "Fast" }, adjustFocus: "Adjust crop and face point", noPhoto: "No photo yet. Initials sit on your accent.",
