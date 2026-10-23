@@ -14,7 +14,9 @@ import { BOOKING_PROVIDERS } from "@/components/profile/profile-renderer";
 import type { BlockKind, ProfileBlock } from "@/components/profile/types";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type LinkPreview } from "@/lib/blocks/media";
 import { allowedSizes } from "@/lib/profile/page-order";
-import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, validateBlock } from "@/lib/blocks/registry";
+import { EMBED_HINT, EMBED_PROVIDERS, parseEmbed } from "@/lib/blocks/embeds";
+import { BLOCK_LIMIT, BLOCKS, blockSummary, emptyBlock, MODE_BLOCKS, PLUS_BLOCKS, validateBlock } from "@/lib/blocks/registry";
+import { hasCapability } from "@/lib/billing/capabilities";
 import { removePendingContentMedia } from "@/lib/blocks/storage";
 import { detectProvider, linkProviderById, MODE_LINK_SUGGESTIONS, normalizeProviderValue, providerForLink, resolveStoredLink, type LinkProvider, type LinkProviderId } from "@/lib/links/providers";
 import { createClient } from "@/lib/supabase/client";
@@ -24,7 +26,7 @@ import { ContentImageControl } from "./content-image-control";
 import { PageActions } from "./editor-page-actions";
 import { ActionPageRow, ProjectPageRow, SectionPageRow, usePage } from "./editor-page-order";
 import { ContentVideoControl } from "./content-video-control";
-import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, SectionHeader, Sheet, SizeChip, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
+import { BlockIcon, Card, Field, GroupHead, MonoLabel, Pill, PlusTag, SectionHeader, Sheet, SizeChip, TextArea, TextInput, Toggle, modeMeta } from "./editor-ui";
 
 type SheetState =
   | { type: "add" }
@@ -187,12 +189,14 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
   const full = blocks.length >= BLOCK_LIMIT;
   const first = MODE_BLOCKS[api.slug];
   const rest = (Object.keys(BLOCKS) as BlockKind[]).filter((kind) => !first.includes(kind));
+  const locked = (kind: BlockKind) => PLUS_BLOCKS.includes(kind) && !hasCapability(api.plan, "blocks.embeds");
   const quickLinks = MODE_LINK_SUGGESTIONS[api.slug].slice(0, 6).map((id) => linkProviderById[id]).filter(Boolean);
 
   const value = paste.trim();
   const video = value ? parseVideo(value) : null;
   const music = !video && value ? parseMusic(value) : null;
   const detected = !video && !music && value ? detectProvider(value) : null;
+  const embed = !video && !music && value ? parseEmbed(value) : null;
   const generic = detected && ["website", "company_website", "url"].includes(detected.provider.id);
   // A bare username: ask which app it belongs to instead of guessing.
   const handleApps = !video && !music && (!detected || generic) && /^@?[A-Za-z0-9_][A-Za-z0-9_.-]{0,59}$/.test(value)
@@ -212,6 +216,7 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
           {video && <Suggestion disabled={full} icon={BLOCKS.video.icon} label={`Add ${VIDEO_PROVIDER_NAMES[video.provider]} video`} note="Plays right on your profile" onClick={() => onPick({ type: "block", kind: "video", seed: { url: value } })} primary />}
           {music && <Suggestion disabled={full} icon={BLOCKS.music.icon} label={`Add ${MUSIC_PROVIDER_NAMES[music.provider]} player`} note="Visitors can listen without leaving" onClick={() => onPick({ type: "block", kind: "music", seed: { url: value } })} primary />}
           {(video || music) && <Suggestion icon={LINK_ICON} label="Add as a plain link instead" note={value} onClick={() => { const found = detectProvider(value); onPick({ type: "link", provider: found?.provider ?? linkProviderById.url, value: found?.value ?? value }); }} />}
+          {embed && <Suggestion disabled={full} icon={BLOCKS.embed.icon} label={`Show ${EMBED_PROVIDERS[embed.provider].name} on your page`} note={locked("embed") ? "Plus · people use it without leaving" : "People use it without leaving"} onClick={() => locked("embed") ? api.openPlusSheet({ kind: "embed" }) : onPick({ type: "block", kind: "embed", seed: { url: embed.url } })} primary />}
           {detected && !generic && <Suggestion label={`Add ${detected.provider.name} link`} mark={detected.provider} note={detected.value} onClick={() => onPick({ type: "link", provider: detected.provider, value: detected.value })} primary />}
           {detected && generic && <>
             <Suggestion disabled={full} icon={BLOCKS.feature.icon} label="Feature it as a card" note="Big card with the page’s image and title" onClick={() => onPick({ type: "block", kind: "feature", seed: { url: /^https?:\/\//i.test(value) ? value : `https://${value}` } })} primary />
@@ -238,8 +243,8 @@ function AddSheet({ api, onClose, onPick }: { api: EditorApi; onClose: () => voi
       {full && <p className="mb-2 text-[13px] text-[#B42318]">This Mode has {BLOCK_LIMIT} blocks. Remove one to add more.</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[...first, ...rest].map((kind, index) => (
-          <button className={`flex min-h-[86px] flex-col items-start justify-between gap-2 rounded-2xl p-3.5 text-left transition disabled:opacity-40 ${index < first.length ? "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" : "bg-black/[0.035] hover:bg-black/[0.06]"}`} disabled={full} key={kind} onClick={() => onPick({ type: "block", kind })} type="button">
-            <BlockIcon className="size-8 rounded-lg bg-[#0D0D0D] text-[#F5F4EF]" path={BLOCKS[kind].icon} />
+          <button aria-label={locked(kind) ? `${BLOCKS[kind].name} · Plus` : undefined} className={`flex min-h-[86px] flex-col items-start justify-between gap-2 rounded-2xl p-3.5 text-left transition disabled:opacity-40 ${index < first.length ? "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]" : "bg-black/[0.035] hover:bg-black/[0.06]"}`} disabled={full} key={kind} onClick={() => locked(kind) ? api.openPlusSheet({ kind: "embed" }) : onPick({ type: "block", kind })} type="button">
+            <span className="flex w-full items-start justify-between gap-2"><BlockIcon className="size-8 rounded-lg bg-[#0D0D0D] text-[#F5F4EF]" path={BLOCKS[kind].icon} />{PLUS_BLOCKS.includes(kind) && <PlusTag variant={locked(kind) ? "tag" : "mark"} />}</span>
             <span><span className="block text-[14px] font-semibold leading-tight">{BLOCKS[kind].name}</span><span className="mt-0.5 line-clamp-1 block text-[12px] text-black/50">{BLOCKS[kind].hint}</span></span>
           </button>
         ))}
@@ -533,6 +538,14 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
             <Field hint="Optional" htmlFor="block-countdown-cta" label="Button text"><TextInput id="block-countdown-cta" maxLength={30} onChange={(event) => set("cta", event.target.value)} placeholder="Get notified" value={str("cta")} /></Field>
           </div>
         </>}
+        {kind === "embed" && (() => {
+          const embed = parseEmbed(url);
+          return <>
+            <Field hint={embed ? `${EMBED_PROVIDERS[embed.provider].name} ${EMBED_PROVIDERS[embed.provider].kind.toLowerCase()}` : EMBED_HINT} htmlFor="block-embed-url" label="Link"><TextInput autoCapitalize="none" autoFocus id="block-embed-url" inputMode="url" onChange={(event) => set("url", event.target.value)} placeholder="calendly.com/you/intro-call" spellCheck={false} value={str("url")} /></Field>
+            <Field hint="Optional, shown above it" htmlFor="block-embed-title" label="Title"><TextInput id="block-embed-title" maxLength={80} onChange={(event) => set("title", event.target.value)} placeholder="Book a 20-minute intro" value={str("title")} /></Field>
+            <p className="text-[12.5px] leading-5 text-black/50">Visitors see it once they allow embedded content, since the provider may set its own cookies. Without Plus it shows as a link card.</p>
+          </>;
+        })()}
         <button className="hidden" type="submit">Save</button>
       </form>
 
@@ -541,7 +554,7 @@ function BlockSheet({ api, kind, block, seed, onClose }: { api: EditorApi; kind:
       <div className="mt-6 rounded-[22px] bg-[#E9E7E0] p-3.5 sm:p-4">
         <MonoLabel className="mb-2.5 text-black/45">Preview</MonoLabel>
         <div className="rounded-[18px] bg-white p-3">
-          {previewBlock ? <ProfileBlocks accent="#FF5A4F" accentInk="#0D0D0D" blocks={[previewBlock]} className="" tone={previewTone} /> : <p className="px-1 py-6 text-center text-[13px] text-black/45">{loading ? "Fetching details…" : "Fill in the fields to see it here."}</p>}
+          {previewBlock ? <ProfileBlocks accent="#FF5A4F" accentInk="#0D0D0D" blocks={[previewBlock]} className="" embeds tone={previewTone} /> : <p className="px-1 py-6 text-center text-[13px] text-black/45">{loading ? "Fetching details…" : "Fill in the fields to see it here."}</p>}
         </div>
       </div>
     </Sheet>

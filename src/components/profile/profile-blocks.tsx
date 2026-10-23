@@ -6,6 +6,7 @@ import { ProfileImage } from "@/components/profile/profile-image";
 import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
 import type { ProfileBlock } from "@/components/profile/types";
 import type { MediaLayout } from "@/components/profile/appearance";
+import { EMBED_PROVIDERS, parseEmbed, type EmbedMedia } from "@/lib/blocks/embeds";
 import { MUSIC_PROVIDER_NAMES, parseMusic, parseVideo, VIDEO_PROVIDER_NAMES, type MusicMedia, type VideoMedia } from "@/lib/blocks/media";
 import { allowMediaForSession, setConsent, useConsent } from "@/lib/consent";
 import { mediaFocus } from "@/lib/soundtrack/focus";
@@ -16,7 +17,7 @@ export type BlockTone = { bg: string; ink: string; sub: string; chip: string; li
 const str = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /** Renders a Mode's content blocks inside any profile layout. */
-export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7", gallery = false, mediaLayout = "featured" }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string; /** Appearance continuation: a run of images shows in the chosen picture layout. Order is kept. */ gallery?: boolean; mediaLayout?: MediaLayout }) {
+export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt-7", gallery = false, mediaLayout = "featured", embeds = false }: { blocks?: ProfileBlock[]; tone: BlockTone; accent: string; accentInk: string; className?: string; /** Appearance continuation: a run of images shows in the chosen picture layout. Order is kept. */ gallery?: boolean; mediaLayout?: MediaLayout; /** The owner's plan shows Embed blocks in place; otherwise they're link cards. */ embeds?: boolean }) {
   const visible = (blocks ?? []).filter((block) => block.is_visible && !block.is_soundtrack);
   if (!visible.length) return null;
   if (gallery) {
@@ -30,13 +31,13 @@ export function ProfileBlocks({ blocks, tone, accent, accentInk, className = "mt
       <div className={`grid gap-3.5 text-left ${className}`}>
         {runs.map((run) => run[0].kind === "image"
           ? <ImageRun blocks={run} key={run[0].id} layout={mediaLayout} tone={tone} />
-          : <Block accent={accent} accentInk={accentInk} block={run[0]} compact key={run[0].id} tone={tone} />)}
+          : <Block accent={accent} accentInk={accentInk} block={run[0]} compact embeds={embeds} key={run[0].id} tone={tone} />)}
       </div>
     );
   }
   return (
     <div className={`grid gap-3 text-left ${className}`}>
-      {visible.map((block) => <Block accent={accent} accentInk={accentInk} block={block} key={block.id} tone={tone} />)}
+      {visible.map((block) => <Block accent={accent} accentInk={accentInk} block={block} embeds={embeds} key={block.id} tone={tone} />)}
     </div>
   );
 }
@@ -128,7 +129,7 @@ function FeaturedImage({ url, alt, tone, onError }: { url: string; alt: string; 
   );
 }
 
-function Block({ block, tone, accent, accentInk, compact = false }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string; /** Appearance content: link previews read as a compact row. */ compact?: boolean }) {
+function Block({ block, tone, accent, accentInk, compact = false, embeds = false }: { block: ProfileBlock; tone: BlockTone; accent: string; accentInk: string; /** Appearance content: link previews read as a compact row. */ compact?: boolean; embeds?: boolean }) {
   const data = block.data;
   const surface = { background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` };
   switch (block.kind) {
@@ -202,6 +203,7 @@ function Block({ block, tone, accent, accentInk, compact = false }: { block: Pro
     }
     case "location": return <LocationBlock data={data} surface={surface} tone={tone} />;
     case "countdown": return <CountdownBlock accent={accent} accentInk={accentInk} data={data} surface={surface} tone={tone} />;
+    case "embed": return <EmbedBlock accent={accent} accentInk={accentInk} data={data} inPlace={embeds} tone={tone} />;
     case "testimonial":
       return (
         <figure className="rounded-[var(--sv-card-r,16px)] px-5 pb-5 pt-4 @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!pb-0 @min-[1100px]/profile:!pt-0 @min-[1100px]/profile:!shadow-none" style={surface}>
@@ -598,6 +600,61 @@ function CountdownBlock({ data, tone, accent, accentInk, surface }: { data: Reco
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px]" style={{ color: tone.sub }} suppressHydrationWarning>{Number.isNaN(ends) ? "" : now === null ? new Date(ends).toISOString().slice(0, 10) : DATE_LABEL.format(ends)}</p>
         {url && <a className="inline-flex min-h-10 items-center rounded-full px-4 text-[13.5px] font-semibold transition hover:opacity-85" href={url} rel="noopener noreferrer" style={{ background: accent, color: accentInk }} target="_blank">{str(data.cta) || (done ? "Open" : "Get notified")}</a>}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A booking page, form or newsletter sign-up from an approved provider. The provider's frame sets
+ * its own cookies, so it waits for the visitor's media consent like a music player. Without Plus
+ * (or before consent) it is a plain link card to the same page.
+ */
+function EmbedBlock({ data, tone, accent, accentInk, inPlace }: { data: Record<string, unknown>; tone: BlockTone; accent: string; accentInk: string; inPlace: boolean }) {
+  const { mediaAllowed } = useConsent();
+  const media = useMemo(() => parseEmbed(str(data.url)), [data.url]);
+  if (!media) return null;
+  const provider = EMBED_PROVIDERS[media.provider];
+  const title = str(data.title) || `${provider.kind} on ${provider.name}`;
+  if (!inPlace) return <EmbedLink media={media} title={title} tone={tone} />;
+  if (!mediaAllowed) return <EmbedConsentCard accent={accent} accentInk={accentInk} media={media} title={title} tone={tone} />;
+  return (
+    <section data-block-embed={media.provider} data-media>
+      {str(data.title) && <p className="mb-2.5 px-1 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{str(data.title)}</p>}
+      {/* Providers draw on white; a hairline keeps the frame inside the Look. */}
+      <div className="overflow-hidden rounded-[var(--sv-card-r,16px)] bg-white" style={{ boxShadow: `0 0 0 1px ${tone.line}` }}>
+        <iframe allow="payment; clipboard-write" className="block w-full border-0" height={media.height} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" src={media.embedUrl} title={title} />
+      </div>
+    </section>
+  );
+}
+
+function EmbedLink({ media, title, tone }: { media: EmbedMedia; title: string; tone: BlockTone }) {
+  const provider = EMBED_PROVIDERS[media.provider];
+  return (
+    <a className="group flex min-h-[72px] items-center gap-3.5 rounded-[var(--sv-card-r,16px)] p-3 pr-4 transition hover:opacity-95" data-block-embed-link href={media.url} rel="noopener noreferrer" style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }} target="_blank">
+      <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-[12px] font-display text-[18px] font-bold" style={{ background: tone.bg, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>{provider.name.slice(0, 1)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-label text-[10px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>{provider.name}</span>
+        <span className="mt-0.5 block truncate text-[15px] font-semibold leading-snug">{title}</span>
+      </span>
+      <span aria-hidden="true" className="shrink-0 transition group-hover:translate-x-0.5" style={{ color: tone.sub }}>↗</span>
+    </a>
+  );
+}
+
+/** Stands in for the provider's frame until the visitor allows embedded content, once or always. */
+function EmbedConsentCard({ media, title, tone, accent, accentInk }: { media: EmbedMedia; title: string; tone: BlockTone; accent: string; accentInk: string }) {
+  const provider = EMBED_PROVIDERS[media.provider];
+  return (
+    <section className="rounded-[var(--sv-card-r,16px)] p-4" data-block-embed-consent data-media style={{ background: tone.chip, boxShadow: `inset 0 0 0 1px ${tone.line}` }}>
+      <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{provider.kind} · {provider.name}</p>
+      <p className="mt-2 font-display text-[1.25rem] font-extrabold leading-tight tracking-[-0.04em]">{title}</p>
+      <p className="mt-1.5 text-[13px] leading-5" style={{ color: tone.sub }}>Shown here from {provider.name}, which may set its own cookies.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button aria-label={`Show ${provider.name}: ${title}`} className="inline-flex min-h-10 items-center rounded-full px-4 text-[13.5px] font-semibold transition hover:scale-[1.03]" onClick={allowMediaForSession} style={{ background: accent, color: accentInk }} type="button">Show it here</button>
+        <a className="inline-flex min-h-10 items-center rounded-full px-4 text-[13.5px] font-semibold transition hover:opacity-80" href={media.url} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.line}` }} target="_blank">Open on {provider.name} ↗</a>
+        <button className="ml-auto text-[12px] underline underline-offset-2" onClick={() => setConsent("media")} style={{ color: tone.sub }} type="button">Always allow</button>
       </div>
     </section>
   );

@@ -47,7 +47,7 @@ export function CookieConsent() {
         <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-[#ff5a4f] text-[#0d0d0d]"><Mark className="size-6" /></span>
         <div className="min-w-0">
           <h2 className="font-display text-[19px] font-bold leading-tight tracking-[-0.03em]" id={`${id}-title`}>Cookies, kept to a minimum.</h2>
-          <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#f5f4ef]/70">Setuvara only uses what it needs to work. Music and video players from Spotify, YouTube and others can set their own. <Link className="font-semibold text-[#f5f4ef] underline underline-offset-4 hover:text-[#ff5a4f]" href="/cookies">Cookie policy</Link></p>
+          <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#f5f4ef]/70">Setuvara only uses what it needs to work. Players, booking pages and forms from Spotify, YouTube, Calendly and others can set their own. <Link className="font-semibold text-[#f5f4ef] underline underline-offset-4 hover:text-[#ff5a4f]" href="/cookies">Cookie policy</Link></p>
         </div>
       </div>
 
