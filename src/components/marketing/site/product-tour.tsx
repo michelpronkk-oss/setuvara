@@ -8,6 +8,7 @@ import type { AppearanceId } from "@/components/profile/types";
 
 import { DEMO_PEOPLE, ModePhone } from "../home/mode-phone";
 import { RAIL, RAIL_ITEM } from "./kit";
+import { BrandMark } from "./brand-mark";
 import { Avatar } from "./panels";
 
 /**
@@ -132,7 +133,7 @@ export function SoundtrackSources() {
   return (
     <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-[15px] font-semibold">
       <span className={`${mono} text-ink/45`}>Paste a link from</span>
-      {["Spotify", "Apple Music", "SoundCloud", "YouTube"].map((name) => <span key={name}>{name}</span>)}
+      {([["spotify", "Spotify"], ["applemusic", "Apple Music"], ["soundcloud", "SoundCloud"], ["youtube", "YouTube"]] as const).map(([brand, name]) => <span className="inline-flex items-center gap-2" key={brand}><BrandMark brand={brand} plain size={18} />{name}</span>)}
       <span className="flex items-center gap-2 text-[14px] font-normal text-ink/55"><Avatar size={22} who={DEMO_PEOPLE.sena} />Never autoplays: visitors tap to listen.</span>
     </div>
   );
