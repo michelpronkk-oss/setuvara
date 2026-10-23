@@ -49,10 +49,12 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
     if (studio.mode) return <CreatorDashboard plan={billing.plan} studio={studio} />;
   }
   const publicOrigin = await getPublicOrigin(requestHeaders);
+  // Creator sits on the same stage as the other Modes once it is on; its studio stays one link away.
+  const stageOrder: ModeSlug[] = creatorRow?.is_enabled ? [...ORDER, "creator"] : ORDER;
   // Share links and photo signing are independent, so they run side by side.
   const [shortUrls, modes, modeHandles] = await Promise.all([
-    ownerModeShareUrls(userId, profile.username, ORDER.filter((slug) => modeRows?.some((row) => row.slug === slug)), publicOrigin),
-    Promise.all(ORDER.map(async (slug): Promise<StageMode> => {
+    ownerModeShareUrls(userId, profile.username, stageOrder.filter((slug) => modeRows?.some((row) => row.slug === slug)), publicOrigin),
+    Promise.all(stageOrder.map(async (slug): Promise<StageMode> => {
       const row = modeRows?.find((item) => item.slug === slug);
       const settings = (row?.settings ?? {}) as Record<string, string | boolean>;
       const [imageUrl, imageOriginalUrl] = await Promise.all([signHomeImage(supabase, row?.image_path), row?.image_path ? signHomeImage(supabase, row?.image_original_path) : null]);
@@ -103,7 +105,7 @@ export default async function AppHomePage({ searchParams }: { searchParams: Prom
             plan={billing.plan}
             publicOrigin={publicOrigin}
             modeShareUrls={modeShareUrls}
-            creatorHref={creatorRow?.is_enabled ? "/app?mode=creator" : null}
+            creatorStudioHref={creatorRow?.is_enabled ? "/app?mode=creator" : null}
             username={profile.username}
           />
         </div>
@@ -139,6 +141,13 @@ function describeMode(slug: ModeSlug, settings: Record<string, string | boolean>
       sub: join(s("role"), s("company")) || "Not set up",
       line: s("description") || join(s("role"), s("company"), s("city")) || "Add your role and company.",
       configured: Boolean(s("role") || s("company")),
+    };
+  }
+  if (slug === "creator") {
+    return {
+      sub: s("category") || s("tagline") || "Creator",
+      line: s("tagline") || "Your work, audience and creative identity.",
+      configured: Boolean(s("tagline")),
     };
   }
   return {
