@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { nameFontClasses } from "@/components/profile/name-fonts";
 import { JsonLd } from "@/components/seo/json-ld";
 import { COMPARE_PAGES } from "@/lib/marketing/compare-content";
@@ -7,15 +5,23 @@ import { SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 
 import { MeetMark } from "../brand";
 import { CastPhone } from "../home/mode-phone";
+import { STAGE_PALETTES } from "../home/phone-stage";
 import { Label, Shell } from "../home/primitives";
-import { ButtonLink, CtaBand, FaqSection, PageHero, SectionHead, Stage } from "./kit";
+import { ButtonLink, CtaBand, FaqSection, PageHero, RAIL, RAIL_ITEM, SectionHead, Stage } from "./kit";
 import { LinkCards, RelatedLinks } from "./link-cards";
 
 const FAN = [
-  { slug: "personal", left: "2%", rotate: -7, top: "16%" },
-  { slug: "event", left: "26%", rotate: -2, top: "12%" },
-  { slug: "business", left: "50%", rotate: 2, top: "12%" },
-  { slug: "creator", left: "74%", rotate: 7, top: "16%" },
+  { slug: "personal", left: "0%", rotate: -8, top: "17%" },
+  { slug: "event", left: "24%", rotate: -2.5, top: "11%" },
+  { slug: "business", left: "48%", rotate: 2.5, top: "11%" },
+  { slug: "creator", left: "72%", rotate: 8, top: "17%" },
+] as const;
+
+const MODES = [
+  { name: "Personal", slug: "personal" },
+  { name: "Event", slug: "event" },
+  { name: "Business", slug: "business" },
+  { name: "Creator", slug: "creator" },
 ] as const;
 
 /** What the other product is, drawn as a plain schematic, never as their real design. */
@@ -26,26 +32,54 @@ const SCHEMATIC: Record<string, { label: string; rows: number; card?: boolean }>
   carrd: { label: "A one-page site builder", rows: 3 },
 };
 
-function Hero({ slug }: { slug: string }) {
+function Check({ className = "" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" focusable="false" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7" /></svg>
+  );
+}
+
+/** The other product as a wireframe: an avatar, a name line and rows of links. */
+function Wireframe({ slug, className = "" }: { slug: string; className?: string }) {
   const schematic = SCHEMATIC[slug] ?? SCHEMATIC.linktree;
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-      <Stage className={`${nameFontClasses} h-[340px] sm:h-[460px] lg:h-[520px]`} slug="personal">
-        <Label className="absolute left-6 top-6 z-10 sm:left-8 sm:top-8">Setuvara · One account, four Modes</Label>
-        {FAN.map((phone) => (
-          <div aria-hidden="true" className="absolute origin-top scale-[.42] sm:scale-[.6] lg:scale-[.66]" inert key={phone.slug} style={{ left: phone.left, top: phone.top, transform: `rotate(${phone.rotate}deg)` }}>
-            <div className="rounded-[46px] shadow-[0_40px_60px_-30px_rgba(13,13,13,.6)]"><CastPhone slug={phone.slug} /></div>
-          </div>
-        ))}
-      </Stage>
-      <div className="relative flex h-[340px] flex-col overflow-hidden rounded-[28px] bg-[#E9E6DF] p-6 sm:h-[460px] sm:p-8 lg:h-[520px]">
-        <Label className="text-ink/50">{schematic.label}</Label>
-        <div aria-hidden="true" className={`mx-auto mb-10 mt-8 flex w-[56%] flex-1 flex-col overflow-hidden items-center rounded-t-[30px] bg-white px-[8%] pt-8 shadow-[0_0_0_8px_#D9D5CC] ${schematic.card ? "max-h-[200px] rounded-b-[30px] pb-8" : ""}`}>
-          <span className="size-14 rounded-full bg-[#D9D5CC]" />
-          <span className="mt-4 h-2 w-1/2 rounded-full bg-[#D9D5CC]" />
-          {Array.from({ length: schematic.rows }, (_, index) => <span className="mt-3 h-8 w-full rounded-[10px] bg-[#EFEDE7] first:mt-6" key={index} />)}
+    <div aria-hidden="true" className={`flex flex-col items-center rounded-[30px] bg-white/80 px-[10%] pt-8 shadow-[0_0_0_7px_rgba(255,255,255,.45),0_40px_60px_-40px_rgba(13,13,13,.35)] backdrop-blur-sm ${schematic.card ? "pb-8" : "pb-10"} ${className}`}>
+      <span className="size-12 rounded-full bg-[#DCD8CF]" />
+      <span className="mt-4 h-2 w-1/2 rounded-full bg-[#DCD8CF]" />
+      {Array.from({ length: schematic.rows }, (_, index) => <span className="mt-2.5 h-7 w-full rounded-[9px] bg-[#EEECE6] first:mt-6" key={index} />)}
+    </div>
+  );
+}
+
+/** One stage: the four Modes fanned out, a quiet "vs", and the other product as a wireframe. */
+function Hero({ slug, name }: { slug: string; name: string }) {
+  const schematic = SCHEMATIC[slug] ?? SCHEMATIC.linktree;
+  return (
+    <div className="grid gap-4">
+      <Stage className={`${nameFontClasses} h-[330px] sm:h-[500px] lg:h-[580px]`} slug="personal">
+        <Label className="absolute left-6 top-6 z-10 text-ink/70 max-sm:text-[10px] sm:left-8 sm:top-8">Setuvara · One account, four Modes</Label>
+        <div className="absolute inset-y-0 left-[5%] max-sm:top-9 right-[12%] sm:left-[4%] sm:right-[4%] lg:right-[37%]">
+          {FAN.map((phone) => (
+            <div aria-hidden="true" className="absolute origin-top max-sm:origin-top-left scale-[.34] min-[400px]:scale-[.38] sm:scale-[.62] lg:scale-[.7]" inert key={phone.slug} style={{ left: phone.left, top: phone.top, transform: `rotate(${phone.rotate}deg)` }}>
+              <div className="rounded-[46px] shadow-[0_50px_70px_-30px_rgba(13,13,13,.55)]"><CastPhone slug={phone.slug} /></div>
+            </div>
+          ))}
         </div>
-        <p className="absolute bottom-5 left-6 text-[13px] text-ink/55 sm:left-8">Illustrative. Not their actual design.</p>
+        {/* The other side, on desktop: a frosted panel at the stage's right edge. */}
+        <div className="absolute inset-y-4 right-4 hidden w-[30%] flex-col rounded-[24px] bg-white/35 p-7 shadow-[inset_0_0_0_1px_rgba(255,255,255,.55)] backdrop-blur-xl lg:flex">
+          <Label className="text-ink/55">{name} · {schematic.label}</Label>
+          <div className="flex flex-1 items-center justify-center py-6"><Wireframe className="w-[70%] max-w-[220px]" slug={slug} /></div>
+          <p className="text-[12px] text-ink/50">Illustrative. Not their actual design.</p>
+        </div>
+        <span aria-hidden="true" className="absolute right-[calc(30%+16px)] top-1/2 z-10 hidden size-14 translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-ink font-display text-[18px] font-extrabold tracking-[-0.04em] text-paper shadow-[0_20px_40px_-16px_rgba(13,13,13,.6)] lg:grid">vs</span>
+      </Stage>
+      {/* Phones and tablets: the other side as a slim card under the stage. */}
+      <div className="flex items-center gap-5 rounded-[24px] bg-[#EAE7E0] p-5 lg:hidden">
+        <div className="h-[170px] w-[76px] flex-none"><Wireframe className="w-[152px] origin-top-left scale-50" slug={slug} /></div>
+        <div>
+          <Label className="text-ink/55">vs {name}</Label>
+          <p className="mt-2 text-[16px] font-semibold leading-snug">{schematic.label}</p>
+          <p className="mt-2 text-[12px] text-ink/50">Illustrative. Not their actual design.</p>
+        </div>
       </div>
     </div>
   );
@@ -55,11 +89,12 @@ function Hero({ slug }: { slug: string }) {
 export function CompareLanding({ slug }: { slug: string }) {
   const page = COMPARE_PAGES[slug];
   const path = `/compare/${page.slug}`;
+  const theirPricing = <a className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-semibold underline decoration-ink/25 underline-offset-4 hover:decoration-coral focus-visible:outline-2 focus-visible:outline-coral" href={page.pricingUrl} rel="noopener nofollow" target="_blank">{page.name} pricing ↗</a>;
   return (
     <>
       <JsonLd data={{ "@context": "https://schema.org", "@type": "WebPage", name: page.title, url: `${SETUVARA_ORIGIN}${path}`, description: page.metaDescription, about: [{ "@type": "SoftwareApplication", name: "Setuvara", applicationCategory: "BusinessApplication" }, { "@type": "SoftwareApplication", name: page.name }] }} />
       <PageHero
-        below={<Hero slug={page.slug} />}
+        below={<Hero name={page.name} slug={page.slug} />}
         crumbs={[{ name: "Compare", path: "/compare" }, { name: page.name, path }]}
         eyebrow="Compare"
         layout="wide"
@@ -72,14 +107,23 @@ export function CompareLanding({ slug }: { slug: string }) {
       <section aria-labelledby="summary-title" className="bg-white">
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow="The short version" id="summary" title="Two different jobs." />
-          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:mt-[72px]">
-            <div className="flex min-h-[280px] flex-col rounded-[28px] bg-ink p-8 text-paper sm:p-11">
+          <div className="mt-12 grid gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:mt-[72px] lg:gap-6">
+            <div className="relative isolate flex min-h-[340px] flex-col overflow-hidden rounded-[32px] bg-ink p-8 text-paper sm:p-11">
+              <span aria-hidden="true" className="absolute -right-[10%] -top-[30%] -z-10 size-[70%] rounded-full bg-coral opacity-[.22] blur-[90px]" />
+              <span aria-hidden="true" className="absolute -bottom-[35%] left-[10%] -z-10 size-[60%] rounded-full bg-[#72a7e7] opacity-[.16] blur-[90px]" />
+              <MeetMark className="absolute -bottom-[18%] -right-[6%] -z-10 w-[46%] text-paper opacity-[.04]" />
               <p className="flex items-center gap-3 font-display text-[30px] font-extrabold tracking-[-0.05em]"><MeetMark className="size-8 text-coral" />Setuvara</p>
-              <p className="mt-auto pt-10 text-[19px] leading-[1.6] text-paper/80">{page.summary.setuvara}</p>
+              <p className="mt-10 max-w-[34rem] text-[20px] leading-[1.5] text-paper/90 sm:text-[22px]">{page.summary.setuvara}</p>
+              <ul aria-label="The four Modes" className="mt-auto flex flex-wrap gap-2 pt-10">
+                {MODES.map((mode) => (
+                  <li className="flex items-center gap-2 rounded-full bg-white/[0.08] px-3.5 py-2 text-[13px] font-semibold text-paper/90 shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)]" key={mode.slug}><span aria-hidden="true" className="size-2 rounded-full" style={{ background: STAGE_PALETTES[mode.slug].a }} />{mode.name}</li>
+                ))}
+              </ul>
             </div>
-            <div className="flex min-h-[280px] flex-col rounded-[28px] bg-paper p-8 sm:p-11">
+            <div className="flex min-h-[340px] flex-col rounded-[32px] bg-paper p-8 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] sm:p-11">
               <p className="font-display text-[30px] font-extrabold tracking-[-0.05em]">{page.name}</p>
-              <p className="mt-auto pt-10 text-[19px] leading-[1.6] text-ink/70">{page.summary.them}</p>
+              <p className="mt-10 max-w-[30rem] text-[20px] leading-[1.5] text-ink/70 sm:text-[22px]">{page.summary.them}</p>
+              <div className="mt-auto pt-10">{theirPricing}</div>
             </div>
           </div>
         </Shell>
@@ -88,48 +132,75 @@ export function CompareLanding({ slug }: { slug: string }) {
       <section aria-labelledby="table-title" className="bg-paper">
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow="Side by side" id="table" lede={<>Setuvara’s side is our own plan sheet. For {page.name}’s current prices and fees, see <a className="font-semibold text-ink underline underline-offset-4" href={page.pricingUrl} rel="noopener nofollow" target="_blank">their pricing page</a>.</>} title="Line by line." />
-          <div className="mt-12 overflow-x-auto rounded-[24px] bg-white p-3 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] sm:rounded-[28px] lg:mt-[72px]">
-            <table className="w-full min-w-[640px] border-separate border-spacing-0 text-left text-[15px]">
+          {/* From md: one table with Setuvara's column lifted out of the sheet as a dark card. */}
+          <div className="relative mt-12 hidden rounded-[32px] bg-white px-3 shadow-[0_50px_100px_-70px_rgba(13,13,13,.55)] md:block lg:mt-[80px]">
+            <span aria-hidden="true" className="pointer-events-none absolute -bottom-5 -top-5 left-[calc(12px+(100%-24px)*.24)] w-[calc((100%-24px)*.42)] overflow-hidden rounded-[28px] bg-ink shadow-[0_40px_70px_-40px_rgba(13,13,13,.55)]">
+              <span className="absolute -top-24 left-1/2 size-56 -translate-x-1/2 rounded-full bg-coral opacity-[.28] blur-[70px]" />
+            </span>
+            <table className="relative w-full table-fixed border-separate border-spacing-0 text-left text-[16px]">
               <caption className="sr-only">Setuvara compared with {page.name}</caption>
+              <colgroup><col className="w-[24%]" /><col className="w-[42%]" /><col className="w-[34%]" /></colgroup>
               <thead>
                 <tr>
-                  <th className="w-[24%] p-5 font-label text-[10px] font-normal uppercase tracking-[0.16em] text-ink/45" scope="col">Topic</th>
-                  <th className="rounded-t-[20px] bg-ink p-5 text-[17px] font-semibold text-paper" scope="col"><span className="flex items-center gap-2.5"><MeetMark className="size-5 text-coral" />Setuvara</span></th>
-                  <th className="p-5 text-[17px] font-semibold" scope="col">{page.name}</th>
+                  <th className="px-6 pb-6 pt-8 font-label text-[11px] font-normal uppercase tracking-[0.16em] text-ink/45" scope="col">Topic</th>
+                  <th className="px-7 pb-6 pt-8 text-[19px] font-semibold text-paper" scope="col"><span className="flex items-center gap-2.5 font-display font-extrabold tracking-[-0.04em]"><MeetMark className="size-6 text-coral" />Setuvara</span></th>
+                  <th className="px-7 pb-6 pt-8 font-display text-[19px] font-extrabold tracking-[-0.04em]" scope="col">{page.name}</th>
                 </tr>
               </thead>
               <tbody>
-                {page.rows.map((row, index) => {
-                  const last = index === page.rows.length - 1;
-                  return (
-                    <tr className="align-top" key={row.topic}>
-                      <th className="border-t border-ink/[0.08] p-5 font-semibold" scope="row">{row.topic}</th>
-                      <td className={`border-t border-paper/10 bg-ink p-5 leading-[1.5] text-paper/90 ${last ? "rounded-b-[20px]" : ""}`}>{row.setuvara}</td>
-                      <td className="border-t border-ink/[0.08] p-5 leading-[1.5] text-ink/62">{row.them}</td>
-                    </tr>
-                  );
-                })}
+                {page.rows.map((row) => (
+                  <tr className="align-top" key={row.topic}>
+                    <th className="border-t border-ink/[0.07] px-6 py-6 text-[15px] font-semibold" scope="row">{row.topic}</th>
+                    <td className="border-t border-paper/[0.09] px-7 py-6 leading-[1.5] text-paper"><span className="flex gap-3"><span className="mt-0.5 grid size-5 flex-none place-items-center rounded-full bg-coral text-ink"><Check className="size-3" /></span><span>{row.setuvara}</span></span></td>
+                    <td className="border-t border-ink/[0.07] px-7 py-6 leading-[1.5] text-ink/60">{row.them}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
+            <div className="h-5" />
           </div>
+          {/* Phones: one swipeable card per topic, Setuvara's answer on ink above theirs. */}
+          <ol className={`mt-10 md:hidden ${RAIL}`}>
+            {page.rows.map((row) => (
+              <li className={`rounded-[24px] bg-white p-2 shadow-[0_30px_60px_-50px_rgba(13,13,13,.5)] ${RAIL_ITEM}`} key={row.topic}>
+                <Label className="px-3 pb-3 pt-3 text-ink/50">{row.topic}</Label>
+                <div className="relative overflow-hidden rounded-[18px] bg-ink p-4 text-paper">
+                  <p className="flex items-center gap-2 text-[12px] font-semibold text-paper/60"><MeetMark className="size-3.5 text-coral" />Setuvara</p>
+                  <p className="mt-1.5 text-[16px] leading-[1.45]">{row.setuvara}</p>
+                </div>
+                <div className="px-4 pb-3 pt-4">
+                  <p className="text-[12px] font-semibold text-ink/45">{page.name}</p>
+                  <p className="mt-1.5 text-[15px] leading-[1.45] text-ink/65">{row.them}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </Shell>
       </section>
 
       <section aria-labelledby="which-title" className="bg-paper">
         <Shell className="pb-20 sm:pb-24 lg:pb-32">
           <SectionHead eyebrow="Which one" id="which" title="Pick the one that fits." />
-          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:mt-[72px]">
-            {[{ name: "Setuvara", items: page.pickSetuvara, coral: true }, { name: page.name, items: page.pickThem, coral: false }].map((side) => (
-              <div className={`flex flex-col rounded-[28px] p-8 sm:p-11 ${side.coral ? "bg-coral" : "bg-white shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)]"}`} key={side.name}>
-                <h3 className="font-display text-[clamp(32px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick {side.name} if…</h3>
-                <ol className="mt-8 border-t border-ink/15">
-                  {side.items.map((item, index) => (
-                    <li className="flex gap-6 border-b border-ink/15 py-5 text-[17px] leading-[1.5]" key={item}><span className={`mt-1 font-label text-[11px] ${side.coral ? "" : "text-ink/45"}`}>0{index + 1}</span><span className={side.coral ? "" : "text-ink/75"}>{item}</span></li>
-                  ))}
-                </ol>
-                {side.coral ? <div className="mt-8"><ButtonLink href="/signup">Create your Setuvara</ButtonLink></div> : null}
-              </div>
-            ))}
+          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:mt-[72px] lg:gap-6">
+            <div className="relative isolate flex flex-col overflow-hidden rounded-[32px] bg-coral p-8 sm:p-11">
+              <MeetMark className="absolute -right-[12%] -top-[14%] -z-10 w-[58%] text-ink opacity-[.07]" />
+              <h3 className="font-display text-[clamp(32px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick Setuvara if…</h3>
+              <ul className="mt-9 grid gap-5">
+                {page.pickSetuvara.map((item) => (
+                  <li className="flex gap-4 text-[18px] font-medium leading-[1.45]" key={item}><span className="mt-0.5 grid size-7 flex-none place-items-center rounded-full bg-ink text-coral"><Check className="size-3.5" /></span>{item}</li>
+                ))}
+              </ul>
+              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-10"><ButtonLink href="/signup">Create your Setuvara</ButtonLink><span className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/70">Free to start</span></div>
+            </div>
+            <div className="flex flex-col rounded-[32px] bg-white p-8 shadow-[0_40px_80px_-60px_rgba(13,13,13,.45),inset_0_0_0_1px_rgba(13,13,13,.05)] sm:p-11">
+              <h3 className="font-display text-[clamp(32px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick {page.name} if…</h3>
+              <ul className="mt-9 grid gap-5">
+                {page.pickThem.map((item) => (
+                  <li className="flex gap-4 text-[18px] leading-[1.45] text-ink/70" key={item}><span className="mt-0.5 grid size-7 flex-none place-items-center rounded-full text-ink/45 shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.14)]"><Check className="size-3.5" /></span>{item}</li>
+                ))}
+              </ul>
+              <div className="mt-auto pt-10">{theirPricing}</div>
+            </div>
           </div>
         </Shell>
       </section>
