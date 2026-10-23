@@ -99,7 +99,12 @@ function CellView({ cell, plan }: { cell: Cell; plan: number }) {
 
 export function Compare() {
   const { interval } = usePricing();
-  const short = (plan: "plus" | "pro") => interval === "yearly" ? `${formatPrice(getPublicPlan(plan).yearlyPriceMinor)} / year` : `${formatPrice(getPublicPlan(plan).monthlyPriceMinor)} / month`;
+  // One line on phones: "$6.99/mo"; the unit spells out from sm up.
+  const short = (plan: "plus" | "pro") => {
+    const yearly = interval === "yearly";
+    const price = formatPrice(yearly ? getPublicPlan(plan).yearlyPriceMinor : getPublicPlan(plan).monthlyPriceMinor);
+    return <span className="whitespace-nowrap">{price}<span className="sm:hidden">{yearly ? "/yr" : "/mo"}</span><span className="hidden sm:inline">{yearly ? " / year" : " / month"}</span></span>;
+  };
   const grid = "grid grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))] gap-3";
 
   return (
