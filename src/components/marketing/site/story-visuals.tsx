@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { CastPhone, DEMO_PEOPLE } from "../home/mode-phone";
+import { CastPhone, DEMO_PEOPLE, ModePhone } from "../home/mode-phone";
 import { BrandMark } from "./brand-mark";
 import { Avatar, Card, display, Glow, mono, Phone, Row, Stage } from "./link-visuals";
 import { QrArt } from "./qr-art";
@@ -209,6 +209,90 @@ export function NfcScene() {
         <div><p className={`${display} text-[44px] leading-none`}>Lucas Meyer</p><p className={`${mono} mt-3 text-[15px] opacity-55`}>Tap · opens Business</p></div>
       </div>
       <Phone h={640} left={770} rotate={4} top={55}><CastPhone slug="business" /></Phone>
+    </Stage>
+  );
+}
+
+/** Founders: the company and what it's building, with a way to book an intro. */
+export function FoundersScene() {
+  const roadmap = [["Now", "Team inbox", "▲ 128"], ["Next", "Calendar sync", "▲ 96"], ["Shipped", "Quick QR", "✓"]];
+  return (
+    <Stage bg={NIGHT_CORAL}>
+      <Glow className="right-[60px] top-[60px] h-[520px] w-[420px] opacity-45" color="#FF5A4F" />
+      <Heading dark kicker="Business Mode" title="Founders" className="left-[64px] top-[60px]" />
+      <Card className="left-[60px] top-[250px] w-[580px]" dark>
+        <div className="flex items-center gap-5">
+          <span className={`${display} grid size-[72px] place-items-center rounded-[20px] bg-coral text-[40px] text-ink`}>N</span>
+          <div><p className="text-[30px] font-semibold leading-tight">Northwind</p><p className="mt-1 text-[20px] opacity-55">Seed · Berlin · 12 people</p></div>
+        </div>
+        <div className="mt-6 space-y-2.5">
+          {roadmap.map(([when, what, votes]) => (
+            <div className="flex items-center gap-4 rounded-[18px] bg-white/[0.05] px-5 py-3.5" key={when}>
+              <span className={`${mono} w-[96px] text-[15px] ${when === "Now" ? "text-coral" : "opacity-50"}`}>{when}</span>
+              <span className="flex-1 text-[23px] font-semibold">{what}</span>
+              <span className="text-[19px] opacity-60">{votes}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex gap-3">
+          <span className="flex-1 rounded-full bg-coral py-3.5 text-center text-[21px] font-semibold text-ink">Book an intro</span>
+          <span className="flex-1 rounded-full py-3.5 text-center text-[21px] font-semibold shadow-[inset_0_0_0_2px_rgba(255,255,255,.18)]">Save contact</span>
+        </div>
+      </Card>
+      <Phone h={640} left={770} rotate={4} top={55}><CastPhone slug="business" /></Phone>
+    </Stage>
+  );
+}
+
+const AGENT_GREEN = "#1F5C4A";
+
+/** Agents: a light, calm page in a deep green, with open viewing slots and a client's word. */
+export function AgentsScene() {
+  const slots = [["10:00", "2 left", "open"], ["11:30", "Booked", "full"], ["14:00", "1 left", "picked"]] as const;
+  return (
+    <Stage bg="radial-gradient(90% 90% at 100% 0%,#E4EDE6,transparent 65%),linear-gradient(160deg,#F7F4EE,#E9E3D8)">
+      <Glow className="right-[80px] top-[80px] h-[500px] w-[420px] opacity-35" color="#7FB59B" />
+      <Heading kicker="Business Mode" title="Agents" className="left-[64px] top-[60px]" />
+      <Card className="left-[60px] top-[240px] w-[470px]" dark={false}>
+        <div className="mb-5 flex items-center justify-between"><p className={`${mono} text-[18px] opacity-55`}>Open viewings</p><span className="text-[19px] font-semibold opacity-55">Sat 16 Nov</span></div>
+        <div className="space-y-3">
+          {slots.map(([time, note, state]) => (
+            <div className={`flex items-center justify-between rounded-[20px] px-6 py-4 ${state === "picked" ? "text-white" : state === "full" ? "bg-ink/[0.03] opacity-45" : "bg-ink/[0.04]"}`} key={time} style={state === "picked" ? { background: AGENT_GREEN } : undefined}>
+              <span className={`${display} text-[38px] leading-none`}>{time}</span>
+              <span className="text-[20px] font-semibold">{note}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-5 text-[20px] opacity-55">Requests land in Leads.</p>
+      </Card>
+      <div className="absolute left-[500px] top-[500px] w-[300px] rotate-[3deg] rounded-[26px] bg-white p-6 shadow-[0_40px_60px_-40px_rgba(13,13,13,.5)]">
+        <p className={`${display} text-[30px] leading-[1.05]`} style={{ color: AGENT_GREEN }}>“We found our flat in a week.”</p>
+        <p className="mt-3 text-[17px] opacity-55">Example client</p>
+      </div>
+      <Phone h={640} left={790} rotate={3} top={55}><ModePhone look={{ theme: "clean", accent: AGENT_GREEN }} slug="business" who={DEMO_PEOPLE.noor} /></Phone>
+    </Stage>
+  );
+}
+
+const COACH_VIOLET = "#7C5CFF";
+
+/** Coaches: proof first, then the next free session, on a soft violet page. */
+export function CoachesScene() {
+  return (
+    <Stage bg="radial-gradient(90% 90% at 100% 0%,#E9E1FF,transparent 65%),linear-gradient(160deg,#F7F3FF,#ECE5F7)">
+      <Glow className="right-[80px] top-[60px] h-[520px] w-[420px] opacity-40" color={COACH_VIOLET} />
+      <Heading kicker="Business Mode" title="Coaches" className="left-[64px] top-[60px]" />
+      <div className="absolute left-[60px] top-[250px] w-[560px] rounded-[34px] p-9 text-white shadow-[0_50px_80px_-40px_rgba(60,30,140,.6)]" style={{ background: COACH_VIOLET }}>
+        <p className={`${display} text-[44px] leading-[1.02]`}>“Three sessions in, I finally have a plan.”</p>
+        <p className="mt-5 text-[19px] opacity-75">Example client · one of 24 shown on Plus</p>
+      </div>
+      <Card className="left-[100px] top-[520px] w-[520px]" dark={false}>
+        <div className="flex items-center justify-between gap-4">
+          <div><p className={`${mono} text-[16px] opacity-55`}>Next free session</p><p className="mt-2 text-[28px] font-semibold">Tue 11 · 09:30 · 45 min</p></div>
+          <span className="rounded-full px-6 py-3 text-[21px] font-semibold text-white" style={{ background: COACH_VIOLET }}>Book</span>
+        </div>
+      </Card>
+      <Phone h={640} left={790} rotate={4} top={55}><ModePhone look={{ theme: "aura", accent: COACH_VIOLET }} slug="business" who={DEMO_PEOPLE.aanya} /></Phone>
     </Stage>
   );
 }

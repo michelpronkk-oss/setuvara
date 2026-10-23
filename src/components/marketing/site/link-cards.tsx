@@ -5,12 +5,12 @@ import { siCarrd, siLinktree, type SimpleIcon } from "simple-icons";
 import { nameFontClasses } from "@/components/profile/name-fonts";
 import { COMPARE_PAGES } from "@/lib/marketing/compare-content";
 
-import { CastPhone, DEMO_PEOPLE } from "../home/mode-phone";
+import { CastPhone } from "../home/mode-phone";
 import { Label, Shell } from "../home/primitives";
 import { FitCanvas } from "./fit-canvas";
 import { RAIL, RAIL_ITEM } from "./kit";
 import { CheckerScene, ModeScene, ModesScene, type ModeSlug, PricingScene, PrintCardScene, QrToolScene, TemplateScene } from "./link-visuals";
-import { NfcScene } from "./story-visuals";
+import { AgentsScene, CoachesScene, FoundersScene, NfcScene } from "./story-visuals";
 import { BannerVisual, type VisualKey } from "./visuals";
 
 /**
@@ -48,13 +48,13 @@ function VersusVisual({ name, mode, slug }: { name: string; mode: ModeSlug; slug
 }
 
 const USE_CASE_VISUAL: Record<string, ReactNode> = {
-  "digital-business-card-for-founders": <ModeScene slug="business" title="Founders" tool="booking" />,
+  "digital-business-card-for-founders": <FoundersScene />,
   "link-in-bio-for-creators": <ModeScene slug="creator" title="Creators" tool="work" />,
   "event-networking-app": <ModeScene slug="event" title="Networking" tool="met" />,
   "qr-business-card": <PrintCardScene />,
   "nfc-business-card": <NfcScene />,
-  "digital-business-card-for-real-estate-agents": <ModeScene slug="business" title="Agents" tool="viewing" who={DEMO_PEOPLE.noor} />,
-  "booking-page-for-coaches": <ModeScene slug="business" title="Coaches" tool="session" who={DEMO_PEOPLE.aanya} />,
+  "digital-business-card-for-real-estate-agents": <AgentsScene />,
+  "booking-page-for-coaches": <CoachesScene />,
   "link-in-bio-for-musicians": <ModeScene slug="creator" title="Musicians" tool="release" />,
   "share-revenue-publicly": <BannerVisual name="builder" />,
 };

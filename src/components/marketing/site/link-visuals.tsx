@@ -101,7 +101,7 @@ export function Row({ avatar, title, sub, tag, dark }: { avatar?: string; title:
   );
 }
 
-type Tool = "leads" | "booking" | "viewing" | "session" | "store" | "work" | "release" | "kit" | "live" | "met" | "links";
+type Tool = "leads" | "booking" | "store" | "work" | "release" | "kit" | "live" | "met" | "links";
 const MODE_TOOL: Record<ModeSlug, Tool> = { personal: "links", event: "live", business: "leads", creator: "store" };
 
 /** What a Mode adds, drawn as the panel beside its page. */
@@ -121,22 +121,16 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
           </div>
         </Card>
       );
-    case "booking":
-    case "viewing":
-    case "session": {
-      const label = tool === "viewing" ? "Book a viewing" : tool === "session" ? "Book a session" : "Book a call";
-      const length = tool === "session" ? "45 min" : "30 min";
+    case "booking": {
       return (
         <Card className={box} dark={dark}>
-          {head(label, <span className="text-[19px] font-semibold opacity-55">{length}</span>)}
+          {head("Book a call", <span className="text-[19px] font-semibold opacity-55">30 min</span>)}
           <div className="grid grid-cols-5 gap-3 text-center">
             {[["Mon", "10"], ["Tue", "11"], ["Wed", "12"], ["Thu", "13"], ["Fri", "14"]].map(([d, n]) => <div className={`rounded-[20px] py-4 ${n === "13" ? "bg-coral text-ink" : "bg-white/[0.05]"}`} key={d}><p className="text-[17px] opacity-60">{d}</p><p className={`${display} text-[40px] leading-none`}>{n}</p></div>)}
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {["09:30", "14:00", "16:30"].map((t) => <span className={`rounded-full py-3 text-center text-[22px] font-semibold ${t === "14:00" ? "bg-paper text-ink" : "bg-white/[0.05]"}`} key={t}>{t}</span>)}
           </div>
-          {tool === "session" ? <p className="mt-5 rounded-[20px] bg-white/[0.05] px-5 py-4 text-[21px] leading-snug">“Three sessions in, I finally have a plan.” <span className="opacity-55">· Example client</span></p> : null}
-          {tool === "viewing" ? <p className="mt-5 flex items-center justify-between rounded-[20px] bg-white/[0.05] px-5 py-4 text-[21px]"><span>New lead · viewing request</span><span className="rounded-full bg-coral px-4 py-1 text-[17px] font-semibold text-ink">Leads</span></p> : null}
         </Card>
       );
     }
@@ -234,7 +228,7 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
 const MODE_NAME: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
 
 /** A Mode's page with one of its tools beside it; title and tool change for a use case. */
-export function ModeScene({ slug, title, tool = MODE_TOOL[slug], who }: { slug: ModeSlug; title?: string; tool?: Tool; who?: (typeof DEMO_PEOPLE)[keyof typeof DEMO_PEOPLE] }) {
+export function ModeScene({ slug, title, tool = MODE_TOOL[slug] }: { slug: ModeSlug; title?: string; tool?: Tool }) {
   const dark = DARK[slug];
   return (
     <Stage bg={MODE_BG[slug]}>
@@ -244,7 +238,7 @@ export function ModeScene({ slug, title, tool = MODE_TOOL[slug], who }: { slug: 
         <p className={`${display} mt-3 text-[104px] leading-[0.9]`}>{title ?? MODE_NAME[slug]}</p>
       </div>
       <ModeTool dark={dark} tool={tool} />
-      <Phone h={640} left={770} rotate={4} top={55}>{who ? <ModePhone look={CAST[slug].look} slug={slug} who={who} /> : <CastPhone slug={slug} />}</Phone>
+      <Phone h={640} left={770} rotate={4} top={55}><CastPhone slug={slug} /></Phone>
     </Stage>
   );
 }
