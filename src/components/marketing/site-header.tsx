@@ -35,7 +35,7 @@ export function SiteHeader() {
     { href: "/modes", label: copy.modes },
     { href: "/features", label: copy.features },
     { href: "/gallery", label: copy.gallery },
-    { href: "/product", label: copy.tryIt },
+    { href: "/product", label: copy.product },
     { href: "/pricing", label: copy.pricing },
   ];
 

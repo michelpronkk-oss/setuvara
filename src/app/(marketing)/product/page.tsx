@@ -1,6 +1,7 @@
 import { CapabilityGrid } from "@/components/marketing/site/capability-visuals";
 import { CtaBand, FaqSection, PageHero, Section } from "@/components/marketing/site/kit";
 import { ModeScreens } from "@/components/marketing/site/mode-landing";
+import { CueGrid, LooksGallery, NameStyles, SoundtrackPresentations, SoundtrackSources } from "@/components/marketing/site/product-tour";
 import { LOOKS } from "@/lib/marketing/facts";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
@@ -32,7 +33,20 @@ export default function ProductPage() {
   return (
     <>
       <PageHero claimId="product-hero-claim" crumbs={[{ name: "Product", path: PATH }]} eyebrow="The product" lede="Content, Looks, accent, name style, scroll cue and a profile soundtrack. Change any of it, Mode by Mode, and your page follows." note="Free · All four Modes · No card" title={<>Make it yours.</>} visual={<ModeScreens slug="creator" />} />
-      <Section eyebrow="What you can change" id="parts" title="Every part of your page." tone="paper">
+      <Section eyebrow="Looks" id="looks" lede={`Ten complete designs, each with its own photo treatment, type, motion and scroll cue. ${LOOKS.free.join(" and ")} are free; Plus opens all ten.`} title="Ten Looks. One is you." tone="ink">
+        <LooksGallery />
+      </Section>
+      <Section eyebrow="Name style" id="name-style" lede="Six display styles for your name, on top of any Look. Setuvara and Modern are free." title="Your name, your type." tone="white">
+        <NameStyles />
+      </Section>
+      <Section eyebrow="Scroll cues" id="cues" lede="The small sign at the foot of your page that there is more below. Each Look has its own; Plus picks any of the ten, or none." title="A nudge, in your style." tone="ink">
+        <CueGrid />
+      </Section>
+      <Section eyebrow="Profile soundtrack" id="soundtrack" lede="Pick a song or playlist for each Mode. Visitors hear it when they tap sound; it never starts on its own." title="Your page, with a sound." tone="paper">
+        <SoundtrackPresentations />
+        <SoundtrackSources />
+      </Section>
+      <Section eyebrow="At a glance" id="parts" title="Every part of your page." tone="white">
         <CapabilityGrid items={PARTS} />
       </Section>
       <FaqSection items={FAQ} title="Your page, answered." />
