@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 
+import { confirmDialog } from "@/components/app/confirm-dialog";
+import { formatChangeDate, HANDLE_CHANGE_RULE, nextWindowFromNow, parseNextChangeAt } from "@/lib/handles/change-window";
 import { handleErrorMessage, parseModeHandleState, type HandleCheck, type ModeHandleSlug } from "@/lib/handles/mode-handle";
 import { createClient } from "@/lib/supabase/client";
 import type { EditorApi } from "./editor-types";
@@ -30,6 +32,8 @@ export function PublicLinkCard({ api, slug, onCopy, onShare, onQr }: { api: Edit
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmRelease, setConfirmRelease] = useState(false);
+  // One claim or change every 30 days; the database enforces it, this only says when.
+  const [nextChangeAt, setNextChangeAt] = useState<string | null>(null);
   const inputId = useId();
   const name = modeMeta[slug].name;
   const short = api.shortUrl(slug)?.replace(/^https?:\/\//, "") ?? null;
@@ -54,14 +58,34 @@ export function PublicLinkCard({ api, slug, onCopy, onShare, onQr }: { api: Edit
     return () => { live = false; window.clearTimeout(timer); };
   }, [asking, candidate, supabase]);
 
+  useEffect(() => {
+    let live = true;
+    void supabase.rpc("handle_next_change_at", { p_mode: slug }).then(({ data }) => { if (live) setNextChangeAt(parseNextChangeAt(data)); });
+    return () => { live = false; };
+  }, [slug, supabase]);
+
   async function claim() {
+    if (state) {
+      const sure = await confirmDialog({
+        title: "Change your public link?",
+        body: `${host}/${state.handle} becomes ${host}/${candidate}. The old link keeps redirecting here and stays yours, but cards and posts will still show the old name. You can’t change this link again until ${formatChangeDate(nextWindowFromNow())}.`,
+        action: "Change link",
+        cancel: "Keep it",
+      });
+      if (!sure) return;
+    }
     setBusy(true);
     setError(null);
     const { data, error: claimError } = await supabase.rpc("claim_mode_handle", { p_mode: slug, p_handle: candidate });
     setBusy(false);
     const next = claimError ? null : parseModeHandleState(data);
-    if (!next) { setError(handleErrorMessage(claimError?.message)); return; }
+    if (!next) {
+      setError(handleErrorMessage(claimError?.message));
+      if (claimError?.message?.includes("handle_change_limit")) void supabase.rpc("handle_next_change_at", { p_mode: slug }).then(({ data: when }) => setNextChangeAt(parseNextChangeAt(when)));
+      return;
+    }
     api.setModeHandle(slug, next);
+    setNextChangeAt(nextWindowFromNow().toISOString());
     setEditing(false);
     api.toast(state ? `Changed. ${host}/${state.handle} now points to the new link.` : `${host}/${next.handle} is yours.`);
   }
@@ -89,7 +113,7 @@ export function PublicLinkCard({ api, slug, onCopy, onShare, onQr }: { api: Edit
   }
 
   const status = check ? checkCopy[check] : null;
-  const canClaim = !busy && (check === "free" || check === "yours");
+  const canClaim = !busy && !nextChangeAt && (check === "free" || check === "yours");
 
   return (
     <section aria-label="Your public link" className="@container/handle order-1 min-w-0 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] @min-[560px]/share:order-none @min-[760px]/share:p-5" data-public-link={state ? (state.is_live ? "live" : "claimed") : "none"}>
@@ -101,7 +125,7 @@ export function PublicLinkCard({ api, slug, onCopy, onShare, onQr }: { api: Edit
       {editing ? (
         <>
           <p className="mt-1 text-[12.5px] leading-5 text-black/55">
-            {state ? `Pick a new name. ${host}/${state.handle} will keep pointing here.` : `Give ${name} Mode a name of its own. Claiming it doesn’t make anything public.`}
+            {state ? `Pick a new name. ${host}/${state.handle} will keep pointing here. ${HANDLE_CHANGE_RULE}` : nextChangeAt ? `You changed this link recently. You can claim a new one on ${formatChangeDate(nextChangeAt)}.` : `Give ${name} Mode a name of its own. Claiming it doesn’t make anything public. ${HANDLE_CHANGE_RULE}`}
           </p>
           <label className="sr-only" htmlFor={inputId}>Handle</label>
           <div className="mt-3 flex min-h-[52px] items-center rounded-2xl bg-[#F5F4EF] px-4 focus-within:outline-2 focus-within:outline-offset-2">
@@ -130,8 +154,9 @@ export function PublicLinkCard({ api, slug, onCopy, onShare, onQr }: { api: Edit
         <>
           <div className="mt-3 flex min-h-[52px] items-center gap-2 rounded-2xl bg-[#F5F4EF] py-1.5 pl-4 pr-1.5">
             <span className="min-w-0 flex-1 truncate font-label text-[12.5px]" data-handle-url>{host}/<b className="font-semibold">{state.handle}</b></span>
-            <button className="min-h-10 shrink-0 rounded-full px-3.5 text-[12.5px] font-semibold text-black/65 hover:bg-black/[0.06]" onClick={() => { setEditing(true); setRemote(null); }} type="button">Change handle</button>
+            <button className="min-h-10 shrink-0 rounded-full px-3.5 text-[12.5px] font-semibold text-black/65 hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:text-black/35 disabled:hover:bg-transparent" disabled={Boolean(nextChangeAt)} onClick={() => { setEditing(true); setRemote(null); }} type="button">Change handle</button>
           </div>
+          {nextChangeAt && <p className="mt-2 text-[12px] leading-[1.45] text-black/55" data-handle-lock>You can change this handle again on {formatChangeDate(nextChangeAt)}.</p>}
           {state.is_live && (
             <div className="mt-3 grid grid-cols-3 gap-2">
               <Pill className="!min-h-11 !px-2" onClick={onCopy} variant="ink">Copy URL</Pill>

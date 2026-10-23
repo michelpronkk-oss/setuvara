@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(26);
 
 -- Two members, one published.
 create temporary table hf(kind text primary key, user_id uuid not null, username text not null);
@@ -41,14 +41,24 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub',(select user_id from hf where kind='a'),'role','authenticated')::text, true);
 select ok(public.is_username_available((select old from hf_names)), 'the owner can see their old name as available');
 reset role;
+-- Changes are once a month; move the first one back so the owner can take the name back now.
+update private.username_changes set changed_at = now() - interval '31 days' where profile_id=(select user_id from hf where kind='a');
 update public.profiles set username=(select old from hf_names) where id=(select user_id from hf where kind='a');
 select is((select count(*)::int from public.handle_history where handle=(select old from hf_names)), 0, 'taking it back removes it from history');
 select is(public.resolve_renamed_handle((select new from hf_names)), (select old from hf_names), 'the in-between name now points back, one hop');
 select is(public.resolve_renamed_handle((select old from hf_names)), null, 'and the live name does not redirect: no loop');
 
--- Change limit: 3 in 30 days (A has made 2, one of them taking a name back).
+-- Change limit: once in 30 days (taking a name back counted as A's change).
+select throws_ok($$update public.profiles set username=(select new from hf_names)||'y' where id=(select user_id from hf where kind='a')$$, 'P0001', 'username_change_limit', 'a second change in 30 days is refused');
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub',(select user_id from hf where kind='a'),'role','authenticated')::text, true);
+select ok(public.handle_next_change_at('personal') > now() + interval '29 days', 'the owner can see when the next change opens');
+reset role;
+update private.username_changes set changed_at = now() - interval '31 days' where profile_id=(select user_id from hf where kind='a');
+set local role authenticated;
+select is(public.handle_next_change_at('personal'), null, 'after 30 days the username can change again');
+reset role;
 update public.profiles set username=(select new from hf_names)||'y' where id=(select user_id from hf where kind='a');
-select throws_ok($$update public.profiles set username=(select new from hf_names)||'z' where id=(select user_id from hf where kind='a')$$, 'P0001', 'username_change_limit', 'a fourth change in 30 days is refused');
 
 -- Unpublished owners don't redirect; deleted owners keep the name blocked.
 update public.profiles set username=(select username from hf where kind='c')||'n' where id=(select user_id from hf where kind='c');

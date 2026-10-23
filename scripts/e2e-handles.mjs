@@ -94,16 +94,17 @@ try {
   assert.ok((await rename(ben, "roadmap")).error); check("a reserved route can't be taken by renaming");
   assert.ok((await ana.client.from("handle_history").select("handle")).error || (await ana.client.from("handle_history").select("handle")).data.length === 0); check("members can't read handle history");
 
-  // Owner takes it back: no loop, the in-between name points back in one hop.
+  // Owner takes it back (after the 30-day window): no loop, the in-between name points back in one hop.
+  assert.ok((await rename(ana, oldName)).error?.message.includes("username_change_limit")); check("a second change in 30 days is refused by the database");
+  psql(`update private.username_changes set changed_at = now() - interval '31 days' where profile_id='${ana.id}'`);
   assert.ifError((await rename(ana, oldName)).error);
   assert.equal((await get(`/${oldName}`)).status, 200);
   response = await get(`/${newName}`);
   assert.equal(response.status, 307); assert.equal(where(response).pathname, `/${oldName}`); check("taking it back serves it live and redirects the other way, one hop");
 
-  // Rate limit: a third change in 30 days succeeds, the fourth is refused (UI also saves the rest).
-  assert.ifError((await rename(ana, `hd_ana3_${suffix}`)).error);
-  const fourth = await rename(ana, `hd_ana4_${suffix}`);
-  assert.ok(fourth.error?.message.includes("username_change_limit")); check("a fourth change in 30 days is refused by the database");
+  // Rate limit: the owner can see when the next change opens; another member is not affected.
+  assert.ok(new Date((await ana.client.rpc("handle_next_change_at", { p_mode: "personal" })).data) > new Date(Date.now() + 29 * 864e5)); check("the owner sees when the next change opens");
+  assert.equal((await ben.client.rpc("handle_next_change_at", { p_mode: "personal" })).data, null); check("a member who hasn't changed can change now");
 
   // Unpublished owners don't redirect.
   const cyOld = cy.username;

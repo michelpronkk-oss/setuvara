@@ -136,6 +136,11 @@ try {
   assert.equal((await get(`/${biz}`)).status, 404); check("an unpublished profile does not open by handle");
   psql(`update public.profiles set is_published=true where id='${ana.id}'`);
 
+  // Once every 30 days: a change right after the claim is refused and says when it opens.
+  assert.ok((await claim(ana, "business", biz2)).error?.message.includes("handle_change_limit")); check("a second change in 30 days is refused");
+  assert.ok(new Date((await ana.client.rpc("handle_next_change_at", { p_mode: "business" })).data) > new Date(Date.now() + 29 * 864e5)); check("the owner sees when the next change opens");
+  psql(`update private.mode_handle_changes set changed_at = now() - interval '31 days' where profile_id='${ana.id}' and mode_slug='business'`);
+
   // Change handle: old one stays Ana's and 307s to the new one.
   assert.ifError((await claim(ana, "business", biz2)).error);
   response = await get(`/${biz}?source=qr`);

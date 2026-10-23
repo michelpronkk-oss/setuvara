@@ -47,6 +47,14 @@ export type EditorApi = {
   publicOrigin: string;
   fieldErrors: Record<string, string>;
   usernameStatus: UsernameStatus;
+  /** The username being typed; it only saves through changeUsername, after a confirm. */
+  usernameDraft: string;
+  setUsernameDraft: (value: string) => void;
+  /** Asks "are you sure", then saves. Resolves true once changed. */
+  changeUsername: () => Promise<boolean>;
+  usernameBusy: boolean;
+  /** ISO time the username may change again, or null when it can change now. */
+  usernameNextChangeAt: string | null;
   unlockedRewards: string[];
   selectedRewards: Partial<Record<RewardCategory, string>>;
   busyPhoto: boolean;

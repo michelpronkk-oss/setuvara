@@ -23,6 +23,7 @@ import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { isModeHandleSlug } from "@/lib/handles/mode-handle";
+import { formatChangeDate, HANDLE_CHANGE_RULE } from "@/lib/handles/change-window";
 import { modeTools, type ModePage } from "@/components/app/side-nav";
 import { GalleryRow } from "./editor-gallery";
 import { PublicLinkCard } from "./editor-public-link";
@@ -269,18 +270,48 @@ function SettingInput({ api, field, label, placeholder, hint, multiline = false,
   );
 }
 
+/**
+ * The username is the Personal link, so it never autosaves: the member taps Change, picks a free
+ * name and confirms. The database allows one change every 30 days; old names keep redirecting.
+ */
 function UsernameField({ api }: { api: EditorApi }) {
   const id = useId();
+  const [editing, setEditing] = useState(false);
   const status = api.usernameStatus;
-  const message = api.fieldErrors.username ?? (status === "invalid" ? "Use 3–24 lowercase letters, numbers or underscores." : status === "taken" ? "That username is taken." : undefined);
-  const hint = status === "checking" ? "Checking…" : status === "available" ? <span className="font-semibold text-[#1E7B4F]">Available ✓ · your old link keeps working and stays yours</span> : `setuvara.com/${api.profile.username || "you"}`;
-  return (
-    <Field error={message} hint={hint} htmlFor={id} label="Username">
-      <div className="relative">
-        <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/40">@</span>
-        <TextInput aria-invalid={Boolean(message)} autoCapitalize="none" autoComplete="username" className="pl-9" id={id} maxLength={24} onChange={(event) => api.updateProfile({ username: event.target.value })} spellCheck={false} value={api.profile.username} />
+  const saved = api.profile.username;
+  const locked = api.usernameNextChangeAt;
+  const message = api.fieldErrors.username ?? (editing && status === "invalid" ? "Use 3–24 lowercase letters, numbers or underscores." : editing && status === "taken" ? "That username is taken." : undefined);
+  const close = () => { setEditing(false); api.setUsernameDraft(saved); };
+  const save = async () => { if (await api.changeUsername()) setEditing(false); };
+
+  if (!editing) {
+    return (
+      <div className="flex min-w-0 flex-col gap-2" data-username-field="view">
+        <p className="text-[14px] font-semibold">Username</p>
+        <div className="flex min-h-[52px] items-center gap-2 rounded-2xl bg-[#F5F4EF] py-1.5 pl-4 pr-1.5">
+          <span className="min-w-0 flex-1 truncate text-[16px] font-semibold"><span className="font-normal text-black/40">@</span>{saved}</span>
+          <button className="min-h-10 shrink-0 rounded-full px-3.5 text-[12.5px] font-semibold text-black/70 hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:text-black/35 disabled:hover:bg-transparent" disabled={Boolean(locked)} onClick={() => { api.setUsernameDraft(saved); setEditing(true); }} type="button">Change</button>
+        </div>
+        <p className="text-[12.5px] leading-5 text-black/55" data-username-lock={locked ?? ""}>{locked ? `You changed it recently. You can change it again on ${formatChangeDate(locked)}.` : `${api.publicOrigin.replace(/^https?:\/\//, "")}/${saved} · ${HANDLE_CHANGE_RULE}`}</p>
       </div>
-    </Field>
+    );
+  }
+
+  const hint = status === "checking" ? "Checking…" : status === "available" ? <span className="font-semibold text-[#1E7B4F]">Available ✓ · your old link keeps working and stays yours</span> : HANDLE_CHANGE_RULE;
+  const canSave = status === "available" && !api.usernameBusy;
+  return (
+    <div className="flex min-w-0 flex-col gap-3" data-username-field="edit">
+      <Field error={message} hint={hint} htmlFor={id} label="New username">
+        <div className="relative">
+          <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/40">@</span>
+          <TextInput aria-invalid={Boolean(message)} autoCapitalize="none" autoComplete="username" autoFocus className="pl-9" id={id} maxLength={24} onChange={(event) => api.setUsernameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && canSave) void save(); if (event.key === "Escape") close(); }} spellCheck={false} value={api.usernameDraft} />
+        </div>
+      </Field>
+      <div className="flex flex-wrap items-center gap-3">
+        <Pill className="!min-h-11 !px-6" disabled={!canSave} onClick={() => void save()} variant="ink">{api.usernameBusy ? "Saving…" : "Save username"}</Pill>
+        <button className="text-[12.5px] font-semibold text-black/60 underline underline-offset-4 hover:text-black" onClick={close} type="button">Keep @{saved}</button>
+      </div>
+    </div>
   );
 }
 
