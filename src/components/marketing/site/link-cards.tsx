@@ -69,14 +69,14 @@ export function LinkCards({ items, columns = 3 }: { items: LinkCard[]; columns?:
     <ul className={`grid gap-6 ${cols} ${RAIL}`}>
       {items.map((item) => (
         <li className={`min-w-0 ${RAIL_ITEM}`} key={item.href}>
-          <Link className="group flex h-full flex-col rounded-[28px] bg-white p-2.5 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" href={item.href}>
+          <div className="group relative flex h-full flex-col rounded-[28px] bg-white p-2.5 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] transition-transform duration-300 hover:-translate-y-1 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-coral">
             <div aria-hidden="true" className="aspect-[16/10] overflow-hidden rounded-[20px] [&_*]:pointer-events-none" inert>{visualFor(item.href, item.name)}</div>
             <div className="flex flex-1 flex-col px-4 pb-5 pt-5 sm:px-5">
               {item.tag ? <span className="font-label text-[10px] uppercase tracking-[0.16em] text-coral">{item.tag}</span> : null}
-              <span className={`${item.tag ? "mt-2" : ""} font-display text-[26px] font-extrabold leading-[0.98] tracking-[-0.05em]`}>{item.title}<span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-x-1">→</span></span>
+              <Link className={`${item.tag ? "mt-2" : ""} font-display text-[26px] font-extrabold leading-[0.98] tracking-[-0.05em] outline-none after:absolute after:inset-0 after:rounded-[28px] after:content-['']`} href={item.href}>{item.title}<span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-x-1">→</span></Link>
               <span className="mt-2.5 text-[14.5px] leading-[1.5] text-ink/60">{item.line}</span>
             </div>
-          </Link>
+          </div>
         </li>
       ))}
     </ul>
