@@ -54,8 +54,8 @@ function Wireframe({ slug, className = "" }: { slug: string; className?: string 
 function Hero({ slug, name }: { slug: string; name: string }) {
   const schematic = SCHEMATIC[slug] ?? SCHEMATIC.linktree;
   return (
-    <div className="grid gap-4">
-      <Stage className={`${nameFontClasses} h-[330px] sm:h-[500px] lg:h-[580px]`} slug="personal">
+    <div className="grid gap-2.5 sm:gap-4">
+      <Stage className={`${nameFontClasses} h-[300px] sm:h-[500px] lg:h-[580px]`} slug="personal">
         <Label className="absolute left-6 top-6 z-10 text-ink/70 max-sm:text-[10px] sm:left-8 sm:top-8">Setuvara · One account, four Modes</Label>
         <div className="absolute inset-y-0 left-[5%] max-sm:top-9 right-[12%] sm:left-[4%] sm:right-[4%] lg:right-[37%]">
           {FAN.map((phone) => (
@@ -73,12 +73,12 @@ function Hero({ slug, name }: { slug: string; name: string }) {
         <span aria-hidden="true" className="absolute right-[calc(30%+16px)] top-1/2 z-10 hidden size-14 translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-ink font-display text-[18px] font-extrabold tracking-[-0.04em] text-paper shadow-[0_20px_40px_-16px_rgba(13,13,13,.6)] lg:grid">vs</span>
       </Stage>
       {/* Phones and tablets: the other side as a slim card under the stage. */}
-      <div className="flex items-center gap-5 rounded-[24px] bg-[#EAE7E0] p-5 lg:hidden">
-        <div className="h-[170px] w-[76px] flex-none"><Wireframe className="w-[152px] origin-top-left scale-50" slug={slug} /></div>
+      <div className="flex items-center gap-4 rounded-[22px] bg-[#EAE7E0] p-3 pr-5 lg:hidden">
+        <div className="h-[104px] w-[60px] flex-none overflow-hidden rounded-[14px]"><Wireframe className="w-[150px] origin-top-left scale-[.4]" slug={slug} /></div>
         <div>
           <Label className="text-ink/55">vs {name}</Label>
-          <p className="mt-2 text-[16px] font-semibold leading-snug">{schematic.label}</p>
-          <p className="mt-2 text-[12px] text-ink/50">Illustrative. Not their actual design.</p>
+          <p className="mt-1.5 text-[15px] font-semibold leading-snug">{schematic.label}</p>
+          <p className="mt-1 text-[12px] text-ink/50">Illustrative. Not their actual design.</p>
         </div>
       </div>
     </div>
@@ -100,37 +100,37 @@ export function CompareLanding({ slug }: { slug: string }) {
         layout="wide"
         lede={page.lede}
         ledeShort={page.ledeShort}
-        meta={<Label className="text-ink/45">Updated Oct 2026 · {page.name} details from its public pages</Label>}
+        meta={<p className="inline-flex max-w-full items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-[13px] leading-tight text-ink/55 shadow-[inset_0_0_0_1px_rgba(13,13,13,.07)]"><span aria-hidden="true" className="relative flex size-2 shrink-0"><span className="absolute inset-0 rounded-full bg-[#2BB673] opacity-30 [animation:ping_2.4s_ease-out_infinite]" /><span className="relative size-2 rounded-full bg-[#2BB673]" /></span><span><span className="font-semibold text-ink">Updated Oct 2026</span> · From {page.name}’s public pages</span></p>}
         title={<>Setuvara<br /><span className="text-ink/30">vs</span> {page.name}</>}
       />
 
       <section aria-labelledby="summary-title" className="bg-white">
-        <Shell className="py-20 sm:py-24 lg:py-32">
+        <Shell className="py-14 sm:py-24 lg:py-32">
           <SectionHead eyebrow="The short version" id="summary" title="Two different jobs." />
-          <div className="mt-12 grid gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:mt-[72px] lg:gap-6">
-            <div className="relative isolate flex min-h-[340px] flex-col overflow-hidden rounded-[32px] bg-ink p-8 text-paper sm:p-11">
+          <div className="mt-8 grid gap-3 sm:mt-12 sm:gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:mt-[72px] lg:gap-6">
+            <div className="relative isolate flex flex-col overflow-hidden rounded-[26px] bg-ink p-6 text-paper sm:min-h-[340px] sm:rounded-[32px] sm:p-11">
               <span aria-hidden="true" className="absolute -right-[10%] -top-[30%] -z-10 size-[70%] rounded-full bg-coral opacity-[.22] blur-[90px]" />
               <span aria-hidden="true" className="absolute -bottom-[35%] left-[10%] -z-10 size-[60%] rounded-full bg-[#72a7e7] opacity-[.16] blur-[90px]" />
               <MeetMark className="absolute -bottom-[18%] -right-[6%] -z-10 w-[46%] text-paper opacity-[.04]" />
-              <p className="flex items-center gap-3 font-display text-[30px] font-extrabold tracking-[-0.05em]"><MeetMark className="size-8 text-coral" />Setuvara</p>
-              <p className="mt-10 max-w-[34rem] text-[20px] leading-[1.5] text-paper/90 sm:text-[22px]">{page.summary.setuvara}</p>
-              <ul aria-label="The four Modes" className="mt-auto flex flex-wrap gap-2 pt-10">
+              <p className="flex items-center gap-2.5 font-display text-[24px] font-extrabold tracking-[-0.05em] sm:gap-3 sm:text-[30px]"><MeetMark className="size-6 text-coral sm:size-8" />Setuvara</p>
+              <p className="mt-5 max-w-[34rem] text-[16px] leading-[1.55] text-paper/85 sm:mt-10 sm:text-[22px] sm:leading-[1.5]">{page.summary.setuvara}</p>
+              <ul aria-label="The four Modes" className="mt-auto flex flex-wrap gap-1.5 pt-6 sm:gap-2 sm:pt-10">
                 {MODES.map((mode) => (
-                  <li className="flex items-center gap-2 rounded-full bg-white/[0.08] px-3.5 py-2 text-[13px] font-semibold text-paper/90 shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)]" key={mode.slug}><span aria-hidden="true" className="size-2 rounded-full" style={{ background: STAGE_PALETTES[mode.slug].a }} />{mode.name}</li>
+                  <li className="flex items-center gap-2 rounded-full bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-paper/90 sm:px-3.5 sm:py-2 sm:text-[13px] shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)]" key={mode.slug}><span aria-hidden="true" className="size-2 rounded-full" style={{ background: STAGE_PALETTES[mode.slug].a }} />{mode.name}</li>
                 ))}
               </ul>
             </div>
-            <div className="flex min-h-[340px] flex-col rounded-[32px] bg-paper p-8 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] sm:p-11">
-              <p className="font-display text-[30px] font-extrabold tracking-[-0.05em]">{page.name}</p>
-              <p className="mt-10 max-w-[30rem] text-[20px] leading-[1.5] text-ink/70 sm:text-[22px]">{page.summary.them}</p>
-              <div className="mt-auto pt-10">{theirPricing}</div>
+            <div className="flex flex-col rounded-[26px] bg-paper p-6 shadow-[inset_0_0_0_1px_rgba(13,13,13,.06)] sm:min-h-[340px] sm:rounded-[32px] sm:p-11">
+              <p className="font-display text-[24px] font-extrabold tracking-[-0.05em] sm:text-[30px]">{page.name}</p>
+              <p className="mt-5 max-w-[30rem] text-[16px] leading-[1.55] text-ink/70 sm:mt-10 sm:text-[22px] sm:leading-[1.5]">{page.summary.them}</p>
+              <div className="mt-auto pt-5 sm:pt-10">{theirPricing}</div>
             </div>
           </div>
         </Shell>
       </section>
 
       <section aria-labelledby="table-title" className="bg-paper">
-        <Shell className="py-20 sm:py-24 lg:py-32">
+        <Shell className="py-14 sm:py-24 lg:py-32">
           <SectionHead eyebrow="Side by side" id="table" lede={<>Setuvara’s side is our own plan sheet. For {page.name}’s current prices and fees, see <a className="font-semibold text-ink underline underline-offset-4" href={page.pricingUrl} rel="noopener nofollow" target="_blank">their pricing page</a>.</>} title="Line by line." />
           {/* From md: one table with Setuvara's column lifted out of the sheet as a dark card. */}
           <div className="relative mt-12 hidden rounded-[32px] bg-white px-3 shadow-[0_50px_100px_-70px_rgba(13,13,13,.55)] md:block lg:mt-[80px]">
@@ -160,46 +160,47 @@ export function CompareLanding({ slug }: { slug: string }) {
             <div className="h-5" />
           </div>
           {/* Phones: one swipeable card per topic, Setuvara's answer on ink above theirs. */}
-          <ol className={`mt-10 md:hidden ${RAIL}`}>
+          <ol className={`mt-8 md:hidden max-md:items-start ${RAIL}`}>
             {page.rows.map((row) => (
-              <li className={`rounded-[24px] bg-white p-2 shadow-[0_30px_60px_-50px_rgba(13,13,13,.5)] ${RAIL_ITEM}`} key={row.topic}>
-                <Label className="px-3 pb-3 pt-3 text-ink/50">{row.topic}</Label>
-                <div className="relative overflow-hidden rounded-[18px] bg-ink p-4 text-paper">
+              <li className={`rounded-[22px] bg-white p-1.5 shadow-[0_24px_50px_-40px_rgba(13,13,13,.45),inset_0_0_0_1px_rgba(13,13,13,.05)] ${RAIL_ITEM}`} key={row.topic}>
+                <Label className="px-3.5 pb-2.5 pt-3 text-ink/50">{row.topic}</Label>
+                <div className="relative overflow-hidden rounded-[17px] bg-ink px-4 py-3.5 text-paper">
                   <p className="flex items-center gap-2 text-[12px] font-semibold text-paper/60"><MeetMark className="size-3.5 text-coral" />Setuvara</p>
-                  <p className="mt-1.5 text-[16px] leading-[1.45]">{row.setuvara}</p>
+                  <p className="mt-1 text-[15px] leading-[1.45]">{row.setuvara}</p>
                 </div>
-                <div className="px-4 pb-3 pt-4">
+                <div className="px-4 pb-3 pt-3.5">
                   <p className="text-[12px] font-semibold text-ink/45">{page.name}</p>
-                  <p className="mt-1.5 text-[15px] leading-[1.45] text-ink/65">{row.them}</p>
+                  <p className="mt-1 text-[14px] leading-[1.45] text-ink/60">{row.them}</p>
                 </div>
               </li>
             ))}
           </ol>
+          <p className="mt-1 flex items-center gap-2 font-label text-[11px] uppercase tracking-[0.14em] text-ink/45 md:hidden">Swipe to compare all {page.rows.length} <span aria-hidden="true">→</span></p>
         </Shell>
       </section>
 
       <section aria-labelledby="which-title" className="bg-paper">
-        <Shell className="pb-20 sm:pb-24 lg:pb-32">
+        <Shell className="pb-14 sm:pb-24 lg:pb-32">
           <SectionHead eyebrow="Which one" id="which" title="Pick the one that fits." />
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:mt-[72px] lg:gap-6">
-            <div className="relative isolate flex flex-col overflow-hidden rounded-[32px] bg-coral p-8 sm:p-11">
+          <div className="mt-8 grid gap-3 sm:mt-12 sm:gap-4 md:grid-cols-2 lg:mt-[72px] lg:gap-6">
+            <div className="relative isolate flex flex-col overflow-hidden rounded-[26px] bg-coral p-6 sm:rounded-[32px] sm:p-11">
               <MeetMark className="absolute -right-[12%] -top-[14%] -z-10 w-[58%] text-ink opacity-[.07]" />
-              <h3 className="font-display text-[clamp(32px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick Setuvara if…</h3>
-              <ul className="mt-9 grid gap-5">
+              <h3 className="font-display text-[clamp(26px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick Setuvara if…</h3>
+              <ul className="mt-6 grid gap-3.5 sm:mt-9 sm:gap-5">
                 {page.pickSetuvara.map((item) => (
-                  <li className="flex gap-4 text-[18px] font-medium leading-[1.45]" key={item}><span className="mt-0.5 grid size-7 flex-none place-items-center rounded-full bg-ink text-coral"><Check className="size-3.5" /></span>{item}</li>
+                  <li className="flex gap-3 text-[16px] font-medium leading-[1.45] sm:gap-4 sm:text-[18px]" key={item}><span className="mt-px grid size-6 flex-none place-items-center rounded-full sm:mt-0.5 sm:size-7 bg-ink text-coral"><Check className="size-3.5" /></span>{item}</li>
                 ))}
               </ul>
-              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-10"><ButtonLink href="/signup">Create your Setuvara</ButtonLink><span className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/70">Free to start</span></div>
+              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-7 sm:pt-10"><ButtonLink href="/signup">Create your Setuvara</ButtonLink><span className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/70">Free to start</span></div>
             </div>
-            <div className="flex flex-col rounded-[32px] bg-white p-8 shadow-[0_40px_80px_-60px_rgba(13,13,13,.45),inset_0_0_0_1px_rgba(13,13,13,.05)] sm:p-11">
-              <h3 className="font-display text-[clamp(32px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick {page.name} if…</h3>
-              <ul className="mt-9 grid gap-5">
+            <div className="flex flex-col rounded-[26px] bg-white p-6 shadow-[0_40px_80px_-60px_rgba(13,13,13,.45),inset_0_0_0_1px_rgba(13,13,13,.05)] sm:rounded-[32px] sm:p-11">
+              <h3 className="font-display text-[clamp(26px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Pick {page.name} if…</h3>
+              <ul className="mt-6 grid gap-3.5 sm:mt-9 sm:gap-5">
                 {page.pickThem.map((item) => (
-                  <li className="flex gap-4 text-[18px] leading-[1.45] text-ink/70" key={item}><span className="mt-0.5 grid size-7 flex-none place-items-center rounded-full text-ink/45 shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.14)]"><Check className="size-3.5" /></span>{item}</li>
+                  <li className="flex gap-3 text-[16px] leading-[1.45] text-ink/70 sm:gap-4 sm:text-[18px]" key={item}><span className="mt-px grid size-6 flex-none place-items-center rounded-full sm:mt-0.5 sm:size-7 text-ink/45 shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.14)]"><Check className="size-3.5" /></span>{item}</li>
                 ))}
               </ul>
-              <div className="mt-auto pt-10">{theirPricing}</div>
+              <div className="mt-auto pt-5 sm:pt-10">{theirPricing}</div>
             </div>
           </div>
         </Shell>
