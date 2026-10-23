@@ -133,7 +133,7 @@ export function PageHero({ crumbs, eyebrow, title, lede: fullLede, ledeShort, vi
         {mode === "center" ? (
           <div className="mx-auto mt-12 flex max-w-[60rem] flex-col items-center text-center lg:mt-16">
             <Label className="text-coral">{eyebrow}</Label>
-            <Display as="h1" className="mt-5 text-[clamp(50px,8vw,124px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
+            <Display as="h1" className="mt-5 text-[clamp(42px,8vw,124px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
             <div className={`mt-7 max-w-[44rem] text-[18px] leading-[1.55] sm:text-[21px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
             {extras}
           </div>
@@ -141,7 +141,7 @@ export function PageHero({ crumbs, eyebrow, title, lede: fullLede, ledeShort, vi
           <div className="mt-12 grid gap-12 lg:mt-16 lg:grid-cols-12 lg:items-center lg:gap-6">
             <div className="min-w-0 lg:col-span-5">
               <Label className="text-coral">{eyebrow}</Label>
-              <Display as="h1" className="mt-5 text-[clamp(50px,6.6vw,104px)] leading-[0.92] sm:leading-[0.88]">{title}</Display>
+              <Display as="h1" className="mt-5 text-[clamp(42px,6.6vw,104px)] leading-[0.92] sm:leading-[0.88]">{title}</Display>
               <div className={`mt-7 max-w-[34rem] text-[18px] leading-[1.6] sm:text-[20px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
               {extras}
             </div>
@@ -151,7 +151,7 @@ export function PageHero({ crumbs, eyebrow, title, lede: fullLede, ledeShort, vi
           <div className="mt-12 grid gap-8 lg:mt-16 lg:grid-cols-12 lg:items-end lg:gap-6">
             <div className="min-w-0 lg:col-span-8">
               <Label className="text-coral">{eyebrow}</Label>
-              <Display as="h1" className="mt-5 text-[clamp(50px,8vw,124px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
+              <Display as="h1" className="mt-5 text-[clamp(42px,8vw,124px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
             </div>
             <div className="min-w-0 lg:col-span-4 lg:col-start-9">
               <div className={`text-[18px] leading-[1.6] sm:text-[19px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
@@ -253,7 +253,7 @@ export function CtaBand({ title, line, claimId, secondary }: { title: ReactNode;
       <MeetMark className="pointer-events-none absolute -right-[22%] -top-[8%] w-[78vw] text-ink sm:hidden" />
       <Shell className="relative py-20 sm:py-24 lg:py-32">
         <Label>Create your Setuvara</Label>
-        <Display className="relative mt-5 max-w-[15ch] text-[clamp(50px,7.4vw,120px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
+        <Display className="relative mt-5 max-w-[15ch] text-[clamp(42px,7.4vw,120px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
         {line ? <p className="relative mt-6 max-w-[30rem] text-[18px] leading-[1.5] text-ink/75">{line}</p> : null}
         <div className="relative mt-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
           <div className="w-full max-w-[520px]"><ClaimForm id={claimId} tone="coral" /></div>

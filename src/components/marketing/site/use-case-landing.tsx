@@ -5,8 +5,8 @@ import { SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 import { MODE_PAGES } from "@/lib/marketing/modes-content";
 import { USE_CASE_ORDER, USE_CASES } from "@/lib/marketing/use-cases-content";
 
-import { CAST } from "../home/mode-phone";
-import { ArticleLayout, ArticleStage, KeepReading, NumberedSteps, proseH2, proseP } from "./article";
+import { ArticleLayout, KeepReading, NumberedSteps, proseH2, proseP } from "./article";
+import { visualFor } from "./link-cards";
 import { CtaBand, FaqSection } from "./kit";
 
 /** One use case as a long read: the problem, four steps, what you get, questions. */
@@ -20,10 +20,10 @@ export function UseCaseLanding({ slug }: { slug: string }) {
       <JsonLd data={{ "@context": "https://schema.org", "@type": "Article", headline: page.title, description: page.metaDescription, url: `${SETUVARA_ORIGIN}${path}`, datePublished: "2026-10-22", author: { "@type": "Organization", name: "Setuvara" } }} />
       <ArticleLayout
         aside={{ title: `Your ${mode.name} page, free.`, cta: "Claim your name", href: "/signup" }}
-        caption={`${CAST[page.mode].who.name}’s ${mode.name} Mode on a laptop and a phone. Example page.`}
+        caption="Example page. The people shown are illustrations."
         crumbs={[{ name: "Use cases", path: "/use-cases" }, { name: page.name, path }]}
         date="2026-10-22"
-        hero={<ArticleStage slug={page.mode} url={mode.share} />}
+        hero={<div className="mx-auto max-w-[1200px] overflow-hidden rounded-[24px] sm:rounded-[32px] [&>div]:!rounded-none">{visualFor(path, page.name)}</div>}
         kicker={page.eyebrow}
         lede={page.lede}
         ledeShort={page.ledeShort}
@@ -32,7 +32,7 @@ export function UseCaseLanding({ slug }: { slug: string }) {
         toc={[{ id: "problem", label: "The problem" }, { id: "steps", label: "Four steps" }, { id: "tools", label: "What you get" }, { id: "faq", label: "Questions" }]}
       >
         <h2 className="sr-only" id="problem">{page.problem.title}</h2>
-        <p className="text-[21px] leading-[1.6] text-ink sm:text-[24px]">{page.problem.title} {page.problem.body}</p>
+        <p className="text-[19px] leading-[1.55] text-ink sm:text-[24px] sm:leading-[1.6]">{page.problem.title} {page.problem.body}</p>
         <h2 className={proseH2} id="steps">Four steps, about ten minutes.</h2>
         <NumberedSteps steps={page.steps} />
         <h2 className={proseH2} id="tools">What you get.</h2>

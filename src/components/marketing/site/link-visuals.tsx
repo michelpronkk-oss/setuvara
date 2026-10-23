@@ -21,23 +21,24 @@ export type ModeSlug = "personal" | "event" | "business" | "creator";
 
 const W = 1200;
 const H = 750;
-const mono = "font-label font-medium uppercase tracking-[0.16em]";
-const display = "font-display font-extrabold tracking-[-0.055em]";
+export const mono = "font-label font-medium uppercase tracking-[0.16em]";
+export const display = "font-display font-extrabold tracking-[-0.055em]";
 
-function Stage({ bg, children }: { bg: string; children: ReactNode }) {
+/** The scene's ground: 1200 wide, 750 tall for link cards (16:10) or 800 for blog banners (3:2). */
+export function Stage({ bg, children, height = H, className = "rounded-[20px]" }: { bg: string; children: ReactNode; height?: number; className?: string }) {
   return (
-    <FitCanvas className="rounded-[20px]" height={H} width={W}>
+    <FitCanvas className={className} height={height} width={W}>
       <div className={`${nameFontClasses} relative isolate h-full w-full overflow-hidden text-ink`} style={{ background: bg }}>{children}</div>
     </FitCanvas>
   );
 }
 
-function Glow({ color, className }: { color: string; className: string }) {
+export function Glow({ color, className }: { color: string; className: string }) {
   return <span aria-hidden="true" className={`absolute rounded-full blur-[110px] ${className}`} style={{ background: color }} />;
 }
 
 /** A 280×580 page drawn at height h, absolutely placed. */
-function Phone({ children, left, top, h, rotate = 0, className = "" }: { children: ReactNode; left: number; top: number; h: number; rotate?: number; className?: string }) {
+export function Phone({ children, left, top, h, rotate = 0, className = "" }: { children: ReactNode; left: number; top: number; h: number; rotate?: number; className?: string }) {
   const scale = h / 580;
   return (
     <div className={`absolute ${className}`} style={{ left, top, width: 280 * scale, height: h, transform: `rotate(${rotate}deg)`, filter: "drop-shadow(0 50px 60px rgba(13,13,13,.45))" }}>
@@ -46,7 +47,7 @@ function Phone({ children, left, top, h, rotate = 0, className = "" }: { childre
   );
 }
 
-function Avatar({ src, size = 64 }: { src: string; size?: number }) {
+export function Avatar({ src, size = 64 }: { src: string; size?: number }) {
   return <img alt="" className="shrink-0 rounded-full object-cover" src={src} style={{ width: size, height: size }} />;
 }
 
@@ -86,11 +87,11 @@ const MODE_BG: Record<ModeSlug, string> = {
 const MODE_GLOW: Record<ModeSlug, string> = { personal: "#FF5A4F", event: "#C7FF4A", business: "#FF5A4F", creator: "#F5A54A" };
 const DARK: Record<ModeSlug, boolean> = { personal: false, event: true, business: true, creator: false };
 
-function Card({ dark, className = "", children }: { dark: boolean; className?: string; children: ReactNode }) {
+export function Card({ dark, className = "", children }: { dark: boolean; className?: string; children: ReactNode }) {
   return <div className={`absolute rounded-[34px] p-8 shadow-[0_50px_80px_-40px_rgba(0,0,0,.6)] ${dark ? "bg-[#1C1C1C] text-paper shadow-[inset_0_0_0_1.5px_rgba(255,255,255,.07),0_50px_80px_-40px_rgba(0,0,0,.8)]" : "bg-white text-ink"} ${className}`}>{children}</div>;
 }
 
-function Row({ avatar, title, sub, tag, dark }: { avatar?: string; title: string; sub: string; tag?: string; dark: boolean }) {
+export function Row({ avatar, title, sub, tag, dark }: { avatar?: string; title: string; sub: string; tag?: string; dark: boolean }) {
   return (
     <div className={`flex items-center gap-5 rounded-[22px] p-4 ${dark ? "bg-white/[0.05]" : "bg-ink/[0.04]"}`}>
       {avatar ? <Avatar size={62} src={avatar} /> : null}
@@ -100,7 +101,7 @@ function Row({ avatar, title, sub, tag, dark }: { avatar?: string; title: string
   );
 }
 
-type Tool = "leads" | "booking" | "store" | "work" | "kit" | "live" | "met" | "links";
+type Tool = "leads" | "booking" | "viewing" | "session" | "store" | "work" | "release" | "kit" | "live" | "met" | "links";
 const MODE_TOOL: Record<ModeSlug, Tool> = { personal: "links", event: "live", business: "leads", creator: "store" };
 
 /** What a Mode adds, drawn as the panel beside its page. */
@@ -121,17 +122,24 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
         </Card>
       );
     case "booking":
+    case "viewing":
+    case "session": {
+      const label = tool === "viewing" ? "Book a viewing" : tool === "session" ? "Book a session" : "Book a call";
+      const length = tool === "session" ? "45 min" : "30 min";
       return (
         <Card className={box} dark={dark}>
-          {head("Book a call", <span className="text-[19px] font-semibold opacity-55">30 min</span>)}
+          {head(label, <span className="text-[19px] font-semibold opacity-55">{length}</span>)}
           <div className="grid grid-cols-5 gap-3 text-center">
             {[["Mon", "10"], ["Tue", "11"], ["Wed", "12"], ["Thu", "13"], ["Fri", "14"]].map(([d, n]) => <div className={`rounded-[20px] py-4 ${n === "13" ? "bg-coral text-ink" : "bg-white/[0.05]"}`} key={d}><p className="text-[17px] opacity-60">{d}</p><p className={`${display} text-[40px] leading-none`}>{n}</p></div>)}
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {["09:30", "14:00", "16:30"].map((t) => <span className={`rounded-full py-3 text-center text-[22px] font-semibold ${t === "14:00" ? "bg-paper text-ink" : "bg-white/[0.05]"}`} key={t}>{t}</span>)}
           </div>
+          {tool === "session" ? <p className="mt-5 rounded-[20px] bg-white/[0.05] px-5 py-4 text-[21px] leading-snug">“Three sessions in, I finally have a plan.” <span className="opacity-55">· Example client</span></p> : null}
+          {tool === "viewing" ? <p className="mt-5 flex items-center justify-between rounded-[20px] bg-white/[0.05] px-5 py-4 text-[21px]"><span>New lead · viewing request</span><span className="rounded-full bg-coral px-4 py-1 text-[17px] font-semibold text-ink">Leads</span></p> : null}
         </Card>
       );
+    }
     case "store":
       return (
         <Card className={box} dark={dark}>
@@ -156,6 +164,21 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
               <div key={name}><div className="relative h-[170px] rounded-[20px]" style={tile(from, to)}><span className="absolute bottom-3 left-3 grid size-10 place-items-center rounded-full bg-white/85 text-[16px]">▶</span></div><p className="mt-3 truncate text-[20px] font-semibold">{name}</p></div>
             ))}
           </div>
+        </Card>
+      );
+    case "release":
+      return (
+        <Card className={box} dark={dark}>
+          {head("Now playing", <span className="flex gap-2"><BrandMark brand="spotify" plain size={30} /><BrandMark brand="soundcloud" plain size={30} /><BrandMark brand="applemusic" plain size={30} /></span>)}
+          <div className="flex items-center gap-5">
+            <div className="size-[120px] shrink-0 rounded-[22px]" style={tile("#FFB0A8", "#FF5A4F")} />
+            <div className="min-w-0 flex-1">
+              <p className={`${display} truncate text-[44px] leading-none`}>Late sets, vol. 3</p>
+              <p className="mt-2 text-[21px] opacity-55">New release · 6 tracks</p>
+              <div className="mt-4 h-2 rounded-full bg-ink/10"><div className="h-2 w-[38%] rounded-full bg-coral" /></div>
+            </div>
+          </div>
+          <p className="mt-5 flex items-center justify-between rounded-[20px] bg-ink px-5 py-4 text-[21px] font-semibold text-paper">Next night · Saturday<span className="text-coral">RSVP →</span></p>
         </Card>
       );
     case "kit":
@@ -211,7 +234,7 @@ function ModeTool({ tool, dark }: { tool: Tool; dark: boolean }) {
 const MODE_NAME: Record<ModeSlug, string> = { personal: "Personal", event: "Event", business: "Business", creator: "Creator" };
 
 /** A Mode's page with one of its tools beside it; title and tool change for a use case. */
-export function ModeScene({ slug, title, tool = MODE_TOOL[slug] }: { slug: ModeSlug; title?: string; tool?: Tool }) {
+export function ModeScene({ slug, title, tool = MODE_TOOL[slug], who }: { slug: ModeSlug; title?: string; tool?: Tool; who?: (typeof DEMO_PEOPLE)[keyof typeof DEMO_PEOPLE] }) {
   const dark = DARK[slug];
   return (
     <Stage bg={MODE_BG[slug]}>
@@ -221,7 +244,7 @@ export function ModeScene({ slug, title, tool = MODE_TOOL[slug] }: { slug: ModeS
         <p className={`${display} mt-3 text-[104px] leading-[0.9]`}>{title ?? MODE_NAME[slug]}</p>
       </div>
       <ModeTool dark={dark} tool={tool} />
-      <Phone h={640} left={770} rotate={4} top={55}><CastPhone slug={slug} /></Phone>
+      <Phone h={640} left={770} rotate={4} top={55}>{who ? <ModePhone look={CAST[slug].look} slug={slug} who={who} /> : <CastPhone slug={slug} />}</Phone>
     </Stage>
   );
 }

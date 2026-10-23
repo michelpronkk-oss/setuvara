@@ -8,14 +8,14 @@ import { SETUVARA_ORGANIZATION_ID, SETUVARA_ORIGIN } from "@/lib/marketing/metad
 import { MODE_PAGES } from "@/lib/marketing/modes-content";
 
 import { Label } from "../home/primitives";
-import { BannerVisual } from "./visuals";
+import { PostVisual } from "./story-visuals";
 import { ArticleLayout, articleDate, KeepReading, proseH2, proseP } from "./article";
 import { CtaBand, PageHero, Section } from "./kit";
 
 type ModeSlug = "personal" | "event" | "business" | "creator";
 
 /** Which Mode's stage a post stands on, by its topic. */
-const TOPIC_MODE: Record<string, ModeSlug> = { Events: "event", Founders: "business", Creators: "creator" };
+const TOPIC_MODE: Record<string, ModeSlug> = { Events: "event", Founders: "business", Business: "business", Creators: "creator" };
 const modeFor = (post: BlogPost): ModeSlug => TOPIC_MODE[post.topic] ?? "personal";
 
 const anchor = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -40,12 +40,12 @@ function Block({ block }: { block: BlogBlock }) {
 export function BlogIndex() {
   return (
     <>
-      <PageHero crumbs={[{ name: "Blog", path: "/blog" }]} eyebrow="Blog" lede="Meeting people, sharing your work and building in public. Two posts a month." title="Blog." />
+      <PageHero crumbs={[{ name: "Blog", path: "/blog" }]} eyebrow="Blog" lede="Meeting people, sharing your work and staying in touch. Practical guides, no filler." title="Blog." />
       <Section id="posts" tone="paper" className="!pt-0 [&>div]:!pt-0">
         <ul className={`${nameFontClasses} grid gap-8 md:grid-cols-2`}>
           {BLOG_POSTS.map((post) => (
             <li className="group relative" key={post.slug}>
-              <BannerVisual className="transition-transform duration-500 group-hover:-translate-y-1" name={post.visual} />
+              <PostVisual className="transition-transform duration-500 group-hover:-translate-y-1" name={post.visual} />
               <Label className="mt-6 text-coral">{post.topic} · <time dateTime={post.published}>{articleDate(post.published)}</time> · {post.readingMinutes} min</Label>
               <Link className="mt-3 block font-display text-[clamp(28px,2.6vw,36px)] font-extrabold leading-[0.98] tracking-[-0.05em] after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-coral" href={`/blog/${post.slug}`}>{post.title}</Link>
               <p className="mt-3 text-[16px] leading-[1.6] text-ink/62">{post.description}</p>
@@ -82,7 +82,7 @@ export function BlogArticle({ post }: { post: BlogPost }) {
         aside={{ title: `Your ${MODE_PAGES[mode].name} page, free.`, cta: "Claim your name", href: "/signup" }}
         crumbs={[{ name: "Blog", path: "/blog" }, { name: post.title, path: `/blog/${post.slug}` }]}
         date={post.published}
-        hero={<BannerVisual className="mx-auto max-w-[1200px]" name={post.visual} />}
+        hero={<PostVisual className="mx-auto max-w-[1200px]" name={post.visual} />}
         kicker={post.topic}
         lede={post.description}
         minutes={post.readingMinutes}
