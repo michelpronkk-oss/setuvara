@@ -102,10 +102,10 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
     metaDescription: "A digital business card that does the next step: bookings, lead capture, testimonials, a team, and Builder to show what you're building with verified revenue.",
     eyebrow: "Business Mode",
     title: "The you that closes the meeting.",
-    lede: "Role, company and what you do, with the next step one tap away. Every inquiry becomes a lead, every project can show verified revenue, and your team shares the same front door.",
+    lede: "Role, company and what you do, with the next step one tap away. Every inquiry and booking lands in Leads, and your team shares the same front door.",
     shows: [
       { title: "A business card that books", body: "Add a booking link and it gets its own button, so the next step happens while you're still talking." },
-      { title: "Proof, not claims", body: "Testimonials you choose to show, and Builder projects with a public roadmap and revenue verified from your payment provider." },
+      { title: "Proof, not claims", body: "Client testimonials you choose to show, and what you’re building next to them." },
       { title: "One front door", body: "Your page is the card, the QR on the stand and the link in your email signature." },
     ],
     tools: [

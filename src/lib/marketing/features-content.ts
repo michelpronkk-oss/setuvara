@@ -19,6 +19,11 @@ export type FeaturePage = {
   lede: string;
   status?: "coming";
   steps: { title: string; body: string }[];
+  /** The "how it works" heading, and the closing band's line. */
+  stepsTitle?: string;
+  ctaTitle?: string;
+  /** Names shown in the "works with" row under the hero visual. */
+  worksWith?: string[];
   capabilities: Feature[];
   /** The plan table group from facts.ts to show, if any. */
   planGroup?: string;
@@ -29,6 +34,9 @@ export type FeaturePage = {
 export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   actions: {
     slug: "actions",
+    stepsTitle: "Four steps. One inbox.",
+    ctaTitle: "Make your page do the next step.",
+    worksWith: ["Forms", "Newsletter", "Booking", "Submissions", "Collabs", "Giveaways"],
     name: "Actions",
     metaTitle: "Actions: forms, sign-ups, bookings and giveaways | Setuvara",
     metaDescription: "Put a form, a newsletter sign-up, a booking request, questions, collaboration requests or a giveaway on your Setuvara page. Every response lands in its own inbox.",
@@ -64,6 +72,9 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   },
   builder: {
     slug: "builder",
+    stepsTitle: "Four steps. One honest number.",
+    ctaTitle: "Show the work. Prove the numbers.",
+    worksWith: ["Stripe", "RevenueCat", "Dodo Payments", "Paddle"],
     name: "Builder",
     metaTitle: "Builder: show what you're building, with verified revenue | Setuvara",
     metaDescription: "Show your projects on your Setuvara page: a public roadmap with voting, updates and revenue verified from Stripe, RevenueCat, Dodo or Paddle. Build in public, with proof.",
@@ -99,6 +110,8 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   },
   analytics: {
     slug: "analytics",
+    stepsTitle: "Four steps. No guessing.",
+    ctaTitle: "Know what works.",
     name: "Analytics",
     metaTitle: "Analytics: views, scans and connections | Setuvara",
     metaDescription: "Profile views, QR and Tap scans, link taps and connections, by source and Mode, with comparison and a funnel on Pro. No tracking of who your visitors are.",
@@ -134,6 +147,9 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   },
   "qr-and-tap": {
     slug: "qr-and-tap",
+    stepsTitle: "Four steps. Never reprint.",
+    ctaTitle: "One code. Every version of you.",
+    worksWith: ["QR code", "Quick QR", "NFC cards", "Rings", "Stickers"],
     name: "QR and Tap",
     metaTitle: "QR code business card and NFC tap | Setuvara",
     metaDescription: "Share your Setuvara by QR code or a tap of an NFC card, ring or sticker. Change which Mode it opens without reprinting. Five QR styles, Quick QR and tap analytics.",
@@ -169,6 +185,8 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
   },
   wallet: {
     slug: "wallet",
+    stepsTitle: "Coming soon. Here’s the plan.",
+    ctaTitle: "Start with your name today.",
     name: "Wallet",
     metaTitle: "Wallet pass for Apple and Google Wallet (coming soon) | Setuvara",
     metaDescription: "A Setuvara pass in Apple Wallet and Google Wallet: your QR one swipe away, even offline. Coming soon. Share by QR, Quick QR and Tap today.",
