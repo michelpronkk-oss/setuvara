@@ -204,3 +204,7 @@ section[aria-labelledby="cta-title"] { content-visibility: auto; contain-intrins
 @keyframes pro-bar-2 { 0%, 25% { transform: scaleX(0); } 50%, 100% { transform: scaleX(1); } }
 @keyframes pro-bar-3 { 0%, 50% { transform: scaleX(0); } 75%, 100% { transform: scaleX(1); } }
 @keyframes pro-bar-4 { 0%, 75% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+
+/* Soundtrack try-it: equaliser bars and a slowly turning record. */
+@keyframes sv-eq { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+@keyframes sv-spin { to { transform: rotate(360deg); } }
