@@ -1,4 +1,5 @@
-import { CtaBand, FaqSection, FeatureGrid, PageHero, Section } from "@/components/marketing/site/kit";
+import { CapabilityGrid } from "@/components/marketing/site/capability-visuals";
+import { CtaBand, FaqSection, PageHero, Section } from "@/components/marketing/site/kit";
 import { ProfilePlayground } from "@/components/marketing/tools/profile-playground";
 import { JsonLd } from "@/components/seo/json-ld";
 import { LOOKS } from "@/lib/marketing/facts";
@@ -36,8 +37,8 @@ export default function ProductPage() {
       <section aria-label="Profile playground" className="scroll-mt-16" id="playground">
         <div className="mx-auto w-full max-w-[1440px] px-5 pb-20 sm:px-8 sm:pb-28 lg:px-14"><ProfilePlayground /></div>
       </section>
-      <Section eyebrow="What you can change" id="parts" title="Every part of your page." tone="white">
-        <FeatureGrid items={PARTS} />
+      <Section eyebrow="What you can change" id="parts" title="Every part of your page." tone="paper">
+        <CapabilityGrid items={PARTS} />
       </Section>
       <FaqSection items={FAQ} title="The playground, answered." />
       <CtaBand claimId="product-cta" line="Free to start, with all four Modes." secondary={{ href: "/pricing", label: "See what Plus adds" }} title="Keep this look." />

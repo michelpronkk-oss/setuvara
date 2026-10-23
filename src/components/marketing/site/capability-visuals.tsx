@@ -196,6 +196,48 @@ const SCENES: Record<string, { tone: "paper" | "ink" | "coral"; scene: ReactNode
       <div className="mt-2"><Bars values={[20, 28, 24, 40, 88, 64, 30]} accent={4} /></div>
     </div>
   ) },
+  Content: { tone: "paper", scene: (
+    <div className="w-full max-w-[260px] rounded-[16px] bg-white p-4">
+      <div className="flex items-center gap-2.5"><Avatar size={34} who={aanya} /><div><p className="text-[14px] font-semibold">Aanya Rao</p><p className="text-[11.5px] text-ink/50">Lisbon · Personal</p></div></div>
+      <div className="mt-3 flex flex-col gap-1.5">{["Sunday run mix", "Book a coffee"].map((l) => <span className="flex h-8 items-center justify-between rounded-full bg-paper px-3 text-[12px] font-semibold" key={l}>{l}<span className="text-ink/35">→</span></span>)}</div>
+    </div>
+  ) },
+  Looks: { tone: "ink", scene: (
+    <div className="flex items-end gap-2">
+      {[["#120F0D", "#FF5A4F"], ["#F4F2EE", "#0D0D0D"], ["#07070A", "#C7FF4A"], ["#F1ECEA", "#E8A6FF"]].map(([bg, dot], i) => (
+        <span className={`relative block w-[52px] overflow-hidden rounded-[12px] shadow-[0_0_0_1px_rgba(255,255,255,.08)] ${i === 2 ? "h-[96px]" : "h-[80px]"}`} key={bg} style={{ background: bg }}>
+          <span className="absolute inset-x-[16%] bottom-0 top-[22%] rounded-t-full bg-cover opacity-90" style={{ backgroundImage: `url(${aanya.photo})`, backgroundPosition: `${aanya.face.x}% ${aanya.face.y}%` }} />
+          <span className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: `linear-gradient(to top, ${bg}, transparent)` }} />
+          <span className="absolute bottom-2 left-1/2 h-1 w-1/3 -translate-x-1/2 rounded-full" style={{ background: dot }} />
+        </span>
+      ))}
+    </div>
+  ) },
+  "Name style": { tone: "coral", scene: (
+    <div className="grid w-full max-w-[250px] grid-cols-3 gap-1.5">
+      {[["Aa", "font-display font-extrabold tracking-[-0.05em]"], ["Aa", "font-serif italic"], ["AA", "font-sans font-semibold tracking-[0.04em]"], ["Aa", "font-sans font-extrabold italic"], ["Aa", "font-sans font-bold"], ["Aa", "font-display font-bold"]].map(([t, c], i) => <span className={`flex h-[52px] items-center justify-center rounded-[12px] text-[24px] ${i === 3 ? "bg-ink text-paper" : "bg-white"} ${c}`} key={i}>{t}</span>)}
+    </div>
+  ) },
+  Accent: { tone: "paper", scene: (
+    <div className="flex flex-col items-center gap-4">
+      <div className="flex gap-2">{["#FF5A4F", "#C7FF4A", "#AFCBFF", "#E8A6FF", "#F5C66E"].map((c, i) => <span className={`size-9 rounded-full ${i === 0 ? "shadow-[0_0_0_2px_#FFFFFF,0_0_0_4px_#0D0D0D]" : ""}`} key={c} style={{ background: c }} />)}</div>
+      <span className="flex h-11 w-[200px] items-center justify-center rounded-full bg-coral text-[14px] font-semibold">Connect</span>
+    </div>
+  ) },
+  "Scroll cue": { tone: "ink", scene: (
+    <div className="flex items-end gap-6 text-paper">
+      <span className="flex flex-col items-center gap-1.5"><span className="flex h-9 w-6 justify-center rounded-full border-2 border-paper/70 pt-1.5"><span className="h-2 w-1 rounded-full bg-paper" /></span><span className={`${mono} text-paper/45`}>Mouse</span></span>
+      <span className="flex flex-col items-center gap-1.5"><span className="flex h-9 flex-col items-center justify-end gap-0.5">{[0.3, 0.6, 1].map((o) => <span className="block h-1.5 w-3 rotate-45 border-b-2 border-r-2 border-coral" key={o} style={{ opacity: o }} />)}</span><span className={`${mono} text-paper/45`}>Cascade</span></span>
+      <span className="flex flex-col items-center gap-1.5"><span className="flex h-9 items-end"><span className="h-8 w-[2px] rounded-full bg-gradient-to-b from-transparent to-coral" /></span><span className={`${mono} text-paper/45`}>Beam</span></span>
+    </div>
+  ) },
+  "Profile soundtrack": { tone: "coral", scene: (
+    <div className="flex w-full max-w-[260px] items-center gap-3 rounded-[18px] bg-ink p-3.5 text-paper">
+      <span className="grid size-12 shrink-0 place-items-center rounded-[12px] bg-[radial-gradient(circle_at_30%_30%,#FF5A4F,#2A2A2A_75%)]"><span className="flex h-5 items-end gap-[3px]">{[10, 18, 13, 20].map((h, i) => <span className="w-[3px] rounded-full bg-paper" key={i} style={{ height: h }} />)}</span></span>
+      <span className="min-w-0 flex-1"><span className={`${mono} block text-paper/45`}>Now playing</span><span className="block truncate text-[14px] font-semibold">Sunday run mix</span></span>
+      <span className="grid size-9 place-items-center rounded-full bg-paper text-[12px] text-ink">▶</span>
+    </div>
+  ) },
   "Standard pass": { tone: "paper", scene: <div className="flex flex-col items-center gap-3"><Pass /><span className={`${mono} text-ink/45`}>Coming soon</span></div> },
   "Premium pass": { tone: "ink", scene: <div className="flex flex-col items-center gap-3"><Pass premium /><span className={`${mono} text-paper/45`}>Coming soon</span></div> },
 };
