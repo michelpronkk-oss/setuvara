@@ -42,6 +42,7 @@ const GROUPS: Group[] = [
     { label: "Giveaways open at once", cells: [false, "1", "5"] },
     { label: "Questions per Action", cells: [m("3"), "6", "12"] },
     { label: "Responses CSV export and thank-you rewards", cells: [false, true, true] },
+    { label: "Action insights", cells: [m("7 days"), "90 days", "365 days"] },
     { label: "Email your Audience", cells: [false, "2,500 a month", "20,000 a month"] },
   ] },
   { name: "Business", color: "text-ink/65", rows: [
@@ -55,8 +56,10 @@ const GROUPS: Group[] = [
   { name: "Builder", color: "text-ink/65", rows: [
     { label: "Public projects", cells: [m("1"), "5", "20"] },
     { label: "Roadmap with voting", cells: [true, true, true] },
+    { label: "Roadmap items per project", cells: [m("15"), "60", "200"] },
     { label: "Feature suggestions", cells: [false, true, true] },
-    { label: "Verified revenue providers", cells: [false, "1", "3"] },
+    { label: "Verified revenue providers, synced daily", cells: [false, "1", "3"] },
+    { label: "Revenue history", cells: [false, "365 days", "3 years"] },
   ] },
   { name: "Creator store", color: "text-ink/65", rows: [
     { label: "Sell digital products and services", cells: [true, true, true] },
@@ -67,6 +70,7 @@ const GROUPS: Group[] = [
     { label: "History", cells: [m("7 days"), "30 and 90 days", "Custom, up to 2 years"] },
     { label: "Source and Mode breakdowns", cells: [false, true, true] },
     { label: "View to Connection conversion", cells: [false, true, true] },
+    { label: "Period comparison and loop per Mode", cells: [false, false, true] },
     { label: "Connection journey funnel", cells: [false, false, true] },
     { label: "Device and Tap sharing insights", cells: [false, false, true] },
     { label: "Export to CSV", cells: [false, false, true] },
