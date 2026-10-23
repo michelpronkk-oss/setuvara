@@ -94,17 +94,27 @@ try {
   assert.ok((await rename(ben, "roadmap")).error); check("a reserved route can't be taken by renaming");
   assert.ok((await ana.client.from("handle_history").select("handle")).error || (await ana.client.from("handle_history").select("handle")).data.length === 0); check("members can't read handle history");
 
-  // Owner takes it back (after the 30-day window): no loop, the in-between name points back in one hop.
-  assert.ok((await rename(ana, oldName)).error?.message.includes("username_change_limit")); check("a second change in 30 days is refused by the database");
-  psql(`update private.username_changes set changed_at = now() - interval '31 days' where profile_id='${ana.id}'`);
+  // Owner switches back once inside the 30 days: no loop, the in-between name points back in one hop.
+  assert.equal((await ana.client.rpc("handle_change_state", { p_mode: "personal" })).data.switch_back, oldName); check("the owner is offered a switch back");
   assert.ifError((await rename(ana, oldName)).error);
   assert.equal((await get(`/${oldName}`)).status, 200);
   response = await get(`/${newName}`);
-  assert.equal(response.status, 307); assert.equal(where(response).pathname, `/${oldName}`); check("taking it back serves it live and redirects the other way, one hop");
+  assert.equal(response.status, 307); assert.equal(where(response).pathname, `/${oldName}`); check("switching back serves it live and redirects the other way, one hop");
 
-  // Rate limit: the owner can see when the next change opens; another member is not affected.
-  assert.ok(new Date((await ana.client.rpc("handle_next_change_at", { p_mode: "personal" })).data) > new Date(Date.now() + 29 * 864e5)); check("the owner sees when the next change opens");
-  assert.equal((await ben.client.rpc("handle_next_change_at", { p_mode: "personal" })).data, null); check("a member who hasn't changed can change now");
+  // Rate limit: no second switch; the owner sees when the next change opens; another member is not affected.
+  assert.ok((await rename(ana, newName)).error?.message.includes("username_change_limit")); check("flipping back and forth is refused by the database");
+  const state = (await ana.client.rpc("handle_change_state", { p_mode: "personal" })).data;
+  assert.ok(new Date(state.next_change_at) > new Date(Date.now() + 29 * 864e5) && state.switch_back === null); check("the owner sees when the next change opens");
+  assert.equal((await ben.client.rpc("handle_change_state", { p_mode: "personal" })).data.next_change_at, null); check("a member who hasn't changed can change now");
+
+  // After 30 days the old name opens up; it keeps redirecting until someone claims it.
+  psql(`update public.handle_history set retired_at = now() - interval '31 days' where handle='${newName}'`);
+  assert.equal((await ben.client.rpc("is_username_available", { candidate_username: newName })).data, true); check("after 30 days others can claim the old name");
+  assert.equal((await get(`/${newName}`)).status, 307); check("until then it still redirects to its old owner");
+  assert.ifError((await rename(ben, newName)).error);
+  assert.equal((await get(`/${newName}`)).status, 200); check("once claimed, it serves the new owner's page, not a redirect");
+  ben.username = newName;
+  psql(`delete from private.username_changes where profile_id='${ben.id}'`);
 
   // Unpublished owners don't redirect.
   const cyOld = cy.username;

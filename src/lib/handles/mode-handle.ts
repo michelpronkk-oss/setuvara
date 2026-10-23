@@ -32,7 +32,6 @@ export function handleErrorMessage(message: string | undefined) {
   if (message.includes("handle_reserved")) return "That name is reserved for Setuvara.";
   if (message.includes("handle_invalid")) return "Use 3–24 lowercase letters, numbers or _.";
   if (message.includes("handle_change_limit")) return "You can change this link once every 30 days.";
-  if (message.includes("handle_history_limit")) return "You’ve used 20 names. Take back an old one, or write to us.";
   return "Couldn’t save that. Try again.";
 }
 

@@ -23,7 +23,7 @@ import { PASSPORT_REWARDS, type RewardCategory } from "@/lib/passport/rewards";
 import type { ConnectPolicy } from "@/lib/connections/access";
 import { passExpiryLabel, useConnectPass } from "@/lib/connections/use-connect-pass";
 import { isModeHandleSlug } from "@/lib/handles/mode-handle";
-import { formatChangeDate, HANDLE_CHANGE_RULE } from "@/lib/handles/change-window";
+import { formatChangeDate, HANDLE_CHANGE_RULE, OLD_NAME_RULE } from "@/lib/handles/change-window";
 import { modeTools, type ModePage } from "@/components/app/side-nav";
 import { GalleryRow } from "./editor-gallery";
 import { PublicLinkCard } from "./editor-public-link";
@@ -272,14 +272,16 @@ function SettingInput({ api, field, label, placeholder, hint, multiline = false,
 
 /**
  * The username is the Personal link, so it never autosaves: the member taps Change, picks a free
- * name and confirms. The database allows one change every 30 days; old names keep redirecting.
+ * name and confirms. The database allows one change every 30 days (plus one switch back to the
+ * name just left); old names stay the owner's for 30 days, then anyone may claim them.
  */
 function UsernameField({ api }: { api: EditorApi }) {
   const id = useId();
   const [editing, setEditing] = useState(false);
   const status = api.usernameStatus;
   const saved = api.profile.username;
-  const locked = api.usernameNextChangeAt;
+  const locked = api.usernameChange.nextChangeAt;
+  const back = api.usernameChange.switchBack;
   const message = api.fieldErrors.username ?? (editing && status === "invalid" ? "Use 3–24 lowercase letters, numbers or underscores." : editing && status === "taken" ? "That username is taken." : undefined);
   const close = () => { setEditing(false); api.setUsernameDraft(saved); };
   const save = async () => { if (await api.changeUsername()) setEditing(false); };
@@ -293,11 +295,12 @@ function UsernameField({ api }: { api: EditorApi }) {
           <button className="min-h-10 shrink-0 rounded-full px-3.5 text-[12.5px] font-semibold text-black/70 hover:bg-black/[0.06] disabled:cursor-not-allowed disabled:text-black/35 disabled:hover:bg-transparent" disabled={Boolean(locked)} onClick={() => { api.setUsernameDraft(saved); setEditing(true); }} type="button">Change</button>
         </div>
         <p className="text-[12.5px] leading-5 text-black/55" data-username-lock={locked ?? ""}>{locked ? `You changed it recently. You can change it again on ${formatChangeDate(locked)}.` : `${api.publicOrigin.replace(/^https?:\/\//, "")}/${saved} · ${HANDLE_CHANGE_RULE}`}</p>
+        {locked && back && <button className="self-start text-[12.5px] font-semibold underline underline-offset-4 disabled:opacity-40" data-username-switch-back={back} disabled={api.usernameBusy} onClick={() => void api.changeUsername(true)} type="button">Changed your mind? Switch back to @{back}</button>}
       </div>
     );
   }
 
-  const hint = status === "checking" ? "Checking…" : status === "available" ? <span className="font-semibold text-[#1E7B4F]">Available ✓ · your old link keeps working and stays yours</span> : HANDLE_CHANGE_RULE;
+  const hint = status === "checking" ? "Checking…" : status === "available" ? <span className="font-semibold text-[#1E7B4F]">Available ✓</span> : HANDLE_CHANGE_RULE;
   const canSave = status === "available" && !api.usernameBusy;
   return (
     <div className="flex min-w-0 flex-col gap-3" data-username-field="edit">
@@ -307,6 +310,7 @@ function UsernameField({ api }: { api: EditorApi }) {
           <TextInput aria-invalid={Boolean(message)} autoCapitalize="none" autoComplete="username" autoFocus className="pl-9" id={id} maxLength={24} onChange={(event) => api.setUsernameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && canSave) void save(); if (event.key === "Escape") close(); }} spellCheck={false} value={api.usernameDraft} />
         </div>
       </Field>
+      <p className="-mt-1 text-[12.5px] leading-5 text-black/55">{OLD_NAME_RULE}</p>
       <div className="flex flex-wrap items-center gap-3">
         <Pill className="!min-h-11 !px-6" disabled={!canSave} onClick={() => void save()} variant="ink">{api.usernameBusy ? "Saving…" : "Save username"}</Pill>
         <button className="text-[12.5px] font-semibold text-black/60 underline underline-offset-4 hover:text-black" onClick={close} type="button">Keep @{saved}</button>

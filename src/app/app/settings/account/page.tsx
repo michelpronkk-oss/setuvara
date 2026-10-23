@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { formatChangeDate, HANDLE_CHANGE_RULE, parseNextChangeAt } from "@/lib/handles/change-window";
+import { formatChangeDate, HANDLE_CHANGE_RULE, parseChangeState } from "@/lib/handles/change-window";
 import { createClient } from "@/lib/supabase/server";
 import { EmailForm, PasswordForm } from "./account-forms";
 
@@ -21,10 +21,10 @@ export default async function AccountSettingsPage({ searchParams }: { searchPara
 
   const [{ data: profile }, { data: nextChange }] = await Promise.all([
     supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
-    supabase.rpc("handle_next_change_at", { p_mode: "personal" }),
+    supabase.rpc("handle_change_state", { p_mode: "personal" }),
   ]);
   const username = (profile?.username as string | undefined) ?? "";
-  const lockedUntil = parseNextChangeAt(nextChange);
+  const lockedUntil = parseChangeState(nextChange).nextChangeAt;
   const notice = query.email ? NOTICES[query.email] : undefined;
   const card = "rounded-[22px] bg-white px-5 py-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] sm:px-6";
 
@@ -46,7 +46,7 @@ export default async function AccountSettingsPage({ searchParams }: { searchPara
         </div>
         <Link className="inline-flex min-h-11 items-center rounded-full bg-[#f5f4ef] px-4 text-sm font-semibold hover:bg-[#ecebe4] focus-visible:outline-2 focus-visible:outline-offset-2" href="/app/identity?mode=personal&section=settings">Change username</Link>
       </div>
-      <p className="mt-2 text-[13.5px] leading-5 text-black/55" data-username-lock={lockedUntil ?? ""}>{lockedUntil ? `You changed it recently. You can change it again on ${formatChangeDate(lockedUntil, "en")}.` : `${HANDLE_CHANGE_RULE} Your old link keeps redirecting to the new one.`}</p>
+      <p className="mt-2 text-[13.5px] leading-5 text-black/55" data-username-lock={lockedUntil ?? ""}>{lockedUntil ? `You changed it recently. You can change it again on ${formatChangeDate(lockedUntil, "en")}.` : `${HANDLE_CHANGE_RULE} Your old link stays yours for 30 days and redirects to the new one.`}</p>
     </section>}
   </main>;
 }

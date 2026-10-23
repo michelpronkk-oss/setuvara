@@ -19,7 +19,7 @@ import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
 import { isAllowedUsername } from "@/lib/usernames";
-import { formatChangeDate, nextWindowFromNow, parseNextChangeAt } from "@/lib/handles/change-window";
+import { formatChangeDate, nextWindowFromNow, OPEN_CHANGE_STATE, parseChangeState, type ChangeState } from "@/lib/handles/change-window";
 import { confirmDialog } from "@/components/app/confirm-dialog";
 import { publicModeUrl } from "@/lib/share/public-mode-url";
 import { useI18n } from "@/lib/i18n/provider";
@@ -232,11 +232,15 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
 
   // The username only changes on an explicit, confirmed save: it's limited to once every 30 days.
   const [usernameDraft, setUsernameDraftState] = useState(initialProfile.username);
-  const [usernameNextChangeAt, setUsernameNextChangeAt] = useState<string | null>(null);
+  const [usernameChange, setUsernameChange] = useState<ChangeState>(OPEN_CHANGE_STATE);
   const [usernameBusy, setUsernameBusy] = useState(false);
+  const refreshUsernameChange = useCallback(async () => {
+    const { data } = await supabase.rpc("handle_change_state", { p_mode: "personal" });
+    setUsernameChange(parseChangeState(data));
+  }, [supabase]);
   useEffect(() => {
     let live = true;
-    void supabase.rpc("handle_next_change_at", { p_mode: "personal" }).then(({ data }) => { if (live) setUsernameNextChangeAt(parseNextChangeAt(data)); });
+    void supabase.rpc("handle_change_state", { p_mode: "personal" }).then(({ data }) => { if (live) setUsernameChange(parseChangeState(data)); });
     return () => { live = false; };
   }, [supabase]);
   const setUsernameDraft = useCallback((value: string) => {
@@ -257,14 +261,21 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
     return () => window.clearTimeout(handle);
   }, [usernameDraft, savedUsername, supabase, usernameValid]);
 
-  const changeUsername = useCallback(async () => {
-    const username = usernameDraft;
+  /** Saves the typed name, or (switchBack) returns to the name just left, after an "are you sure". */
+  const changeUsername = useCallback(async (switchBack = false) => {
+    const username = switchBack ? usernameChange.switchBack : usernameDraft;
     const old = savedUsername;
-    if (username === old || usernameStatus !== "available") return false;
+    if (!username || username === old || (!switchBack && usernameStatus !== "available")) return false;
     const host = publicOrigin.replace(/^https?:\/\//, "");
-    const sure = await confirmDialog({
+    const until = formatChangeDate(nextWindowFromNow());
+    const sure = await confirmDialog(switchBack ? {
+      title: `Switch back to @${username}?`,
+      body: `${host}/${username} becomes your link again and ${host}/${old} goes back to being free. You can’t change your username again until ${until}.`,
+      action: "Switch back",
+      cancel: "Keep it",
+    } : {
       title: "Change your username?",
-      body: `@${old} becomes @${username}, and ${host}/${username} becomes your link. ${host}/${old} keeps redirecting to it and stays yours. You can’t change your username again until ${formatChangeDate(nextWindowFromNow())}.`,
+      body: `@${old} becomes @${username}. ${host}/${old} stays yours for 30 days and redirects to your new link; after that, someone else can claim it. You can’t change your username again until ${until}, but you can switch back to @${old} once before then.`,
       action: "Change username",
       cancel: "Keep it",
     });
@@ -275,20 +286,20 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
     if (updateError) {
       const message = updateError.message ?? "";
       const text = message.includes("username_change_limit") ? "You can change your username once every 30 days."
-        : message.includes("username_history_limit") ? "You've used 20 usernames. Take back an old one, or write to us."
         : updateError.code === "23505" ? "That username is taken."
         : "Your username couldn’t be changed. Try again.";
-      if (message.includes("username_change_limit")) void supabase.rpc("handle_next_change_at", { p_mode: "personal" }).then(({ data }) => setUsernameNextChangeAt(parseNextChangeAt(data)));
+      void refreshUsernameChange();
       setFieldErrors((current) => ({ ...current, username: text }));
       return false;
     }
     profileRef.current = { ...profileRef.current, username };
     setProfile((current) => ({ ...current, username }));
     setSavedUsername(username);
-    setUsernameNextChangeAt(nextWindowFromNow().toISOString());
-    toast(`Done. ${host}/${old} now points to ${host}/${username}.`);
+    setUsernameDraftState(username);
+    setUsernameChange({ nextChangeAt: nextWindowFromNow().toISOString(), switchBack: switchBack ? null : old });
+    toast(switchBack ? `Back to ${host}/${username}.` : `Done. ${host}/${old} now points to ${host}/${username}.`);
     return true;
-  }, [initialProfile.id, publicOrigin, savedUsername, supabase, toast, usernameDraft, usernameStatus]);
+  }, [initialProfile.id, publicOrigin, refreshUsernameChange, savedUsername, supabase, toast, usernameChange.switchBack, usernameDraft, usernameStatus]);
 
   // ---------- Modes ----------
   const patchMode = useCallback((modeId: string, patch: Partial<ProfileMode>) => {
@@ -891,7 +902,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   const setPageOrder = useCallback((value: EditorApi["pageOrder"]) => setPageOrders((all) => ({ ...all, [modeKey]: value })), [modeKey]);
   const api: EditorApi = {
     pageOrder: pageOrders[modeKey] ?? null, setPageOrder,
-    actionsLive, profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, usernameDraft, setUsernameDraft, changeUsername, usernameBusy, usernameNextChangeAt, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
+    actionsLive, profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, usernameDraft, setUsernameDraft, changeUsername, usernameBusy, usernameChange, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
     updateProfile, updateSetting, updateAppearance, requestCapability,
     appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,
