@@ -191,12 +191,18 @@ export function EventCard() {
   );
 }
 
+/** Theo's page while he is at Slush: the photo, the Live pill and who he is there to meet. */
 export function LivePill() {
+  const theo = DEMO_PEOPLE.theo;
   return (
-    <div className="rounded-[20px] bg-paper p-5">
-      <p className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-[13px] text-paper"><span className="size-2 rounded-full bg-[#C7FF4A]" /><b className="font-semibold">Live</b> · Slush 2026 · until 20 Nov</p>
-      <p className="mt-4 text-[15px] leading-[1.5] text-ink/70">Here to meet: <b className="text-ink">climate founders and grid operators.</b></p>
-      <p className={`mt-4 ${mono} text-ink/45`}>Ends by itself · no username in the link</p>
+    <div className="relative mx-auto aspect-[4/5] w-full max-w-[300px] overflow-hidden rounded-[26px] bg-cover text-paper shadow-[0_40px_70px_-30px_rgba(13,13,13,.7)]" style={{ backgroundImage: `url(${theo.photo})`, backgroundPosition: `${theo.face.x}% ${theo.face.y}%` }}>
+      <span className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D] via-[#0D0D0D]/25 to-transparent" />
+      <p className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-ink/80 px-3 py-1.5 text-[12.5px] backdrop-blur"><span className="relative flex size-2"><span className="absolute inset-0 animate-ping rounded-full bg-[#C7FF4A] opacity-70" /><span className="relative size-2 rounded-full bg-[#C7FF4A]" /></span><b className="font-semibold">Live</b> · Slush 2026</p>
+      <div className="absolute inset-x-5 bottom-5">
+        <p className="font-display text-[30px] font-extrabold leading-none tracking-[-0.05em]">Theo Laurent</p>
+        <p className="mt-2 text-[13px] text-paper/75">Here to meet <b className="text-paper">climate founders</b></p>
+        <p className={`mt-3 ${mono} text-[#C7FF4A]`}>Ends by itself on 20 Nov</p>
+      </div>
     </div>
   );
 }

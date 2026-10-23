@@ -75,7 +75,7 @@ export function SectionHead({ id, eyebrow, title, lede, tone = "paper", as: Tag 
         {eyebrow ? <Label className={tone === "coral" ? "" : "text-coral"}>{eyebrow}</Label> : null}
         <Display as={Tag} className="mt-4 text-[clamp(40px,5vw,72px)] leading-[0.98] sm:mt-5 sm:leading-[0.9]"><span id={id ? `${id}-title` : undefined}>{title}</span></Display>
       </div>
-      {lede ? <div className={`text-[17px] leading-[1.6] lg:col-span-4 lg:col-start-9 sm:text-[18px] ${muted}`}>{lede}</div> : null}
+      {lede ? <div className={`text-[17px] leading-[1.6] max-sm:hidden lg:col-span-4 lg:col-start-9 sm:text-[18px] ${muted}`}>{lede}</div> : null}
     </div>
   );
 }
@@ -162,6 +162,26 @@ export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId,
   );
 }
 
+/**
+ * Phones: a list of cards becomes one swipeable row (each card most of the screen wide, the
+ * next one peeking), so a section reads as one idea instead of a long stack. From md up the
+ * caller's grid takes over. Pair RAIL on the list with RAIL_ITEM on each child.
+ */
+export const RAIL = "max-md:-mx-5 max-md:flex max-md:snap-x max-md:snap-mandatory max-md:gap-3 max-md:overflow-x-auto max-md:scroll-px-5 max-md:px-5 max-md:pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-md:-mx-8 sm:max-md:scroll-px-8 sm:max-md:px-8";
+export const RAIL_ITEM = "max-md:w-[80%] max-md:max-w-[340px] max-md:shrink-0 max-md:snap-start";
+
+/** Phones: items after the first few fold behind a toggle; wider screens show them all. CSS only. */
+export function MoreOnPhone({ id, label, children, rest }: { id: string; label: string; children: ReactNode; rest: ReactNode }) {
+  return (
+    <>
+      {children}
+      <input aria-hidden="true" className="peer sr-only" id={id} tabIndex={-1} type="checkbox" />
+      <div className="max-sm:hidden max-sm:peer-checked:block">{rest}</div>
+      <label className="mt-6 flex min-h-12 cursor-pointer items-center justify-center rounded-full text-[14px] font-semibold shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.18)] peer-checked:hidden sm:hidden" htmlFor={id}>{label}</label>
+    </>
+  );
+}
+
 export type Feature = { title: string; body: string; tag?: string; href?: string };
 
 /** Index cards: a real capability per card, the tag naming the plan, an href leading further in. */
@@ -169,7 +189,7 @@ export function FeatureGrid({ items, columns = 3, tone = "white" }: { items: Fea
   const cols = { 2: "md:grid-cols-2", 3: "md:grid-cols-2 lg:grid-cols-3", 4: "md:grid-cols-2 lg:grid-cols-4" }[columns];
   const card = tone === "ink" ? "bg-[#1B1B1B] text-paper" : "bg-white shadow-[0_30px_60px_-50px_rgba(13,13,13,.45)]";
   return (
-    <ul className={`grid gap-6 ${cols}`}>
+    <ul className={`grid gap-6 ${cols} ${RAIL}`}>
       {items.map((item) => {
         const inner = (
           <>
@@ -179,7 +199,7 @@ export function FeatureGrid({ items, columns = 3, tone = "white" }: { items: Fea
           </>
         );
         return (
-          <li className="min-w-0" key={item.title}>
+          <li className={`min-w-0 ${RAIL_ITEM}`} key={item.title}>
             {item.href
               ? <Link className={`group block h-full rounded-[24px] p-7 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:p-8 ${card}`} href={item.href}>{inner}</Link>
               : <div className={`h-full rounded-[24px] p-7 sm:p-8 ${card}`}>{inner}</div>}
@@ -203,15 +223,19 @@ export function FaqSection({ items, title = "Questions, answered.", id = "faq", 
           <Display className="mt-4 text-[clamp(40px,4.4vw,64px)] leading-[0.98] sm:leading-[0.92]"><span id={`${id}-title`}>{title}</span></Display>
         </div>
         <div className={single ? "mx-auto mt-10 max-w-[680px] border-t-[1.5px] border-ink" : "border-t-[1.5px] border-ink lg:col-span-7 lg:col-start-6"}>
-          {items.map((item, index) => (
-            <details className="group border-b border-ink/12" key={item.q} open={index === 0}>
-              <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-6 py-6 text-[18px] font-semibold tracking-[-0.01em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:text-[19px] [&::-webkit-details-marker]:hidden">
-                {item.q}
-                <span aria-hidden="true" className="mt-0.5 text-[20px] font-normal leading-none text-ink/40 transition-transform group-open:rotate-45">+</span>
-              </summary>
-              <p className="-mt-2 max-w-[44rem] pb-7 text-[16px] leading-[1.65] text-ink/65">{item.a}</p>
-            </details>
-          ))}
+          {(() => {
+            const row = (item: Faq, index: number) => (
+              <details className="group border-b border-ink/12" key={item.q} open={index === 0}>
+                <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-6 py-6 text-[18px] font-semibold tracking-[-0.01em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:text-[19px] [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <span aria-hidden="true" className="mt-0.5 text-[20px] font-normal leading-none text-ink/40 transition-transform group-open:rotate-45">+</span>
+                </summary>
+                <p className="-mt-2 max-w-[44rem] pb-7 text-[16px] leading-[1.65] text-ink/65">{item.a}</p>
+              </details>
+            );
+            const first = items.slice(0, 3).map(row);
+            return items.length > 4 ? <MoreOnPhone id={`${id}-more`} label={`${items.length - 3} more questions`} rest={items.slice(3).map((item, index) => row(item, index + 3))}>{first}</MoreOnPhone> : items.map(row);
+          })()}
         </div>
       </Shell>
     </section>

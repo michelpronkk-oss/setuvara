@@ -9,8 +9,8 @@ import { SETUVARA_ORIGIN, SETUVARA_ORGANIZATION_ID } from "@/lib/marketing/metad
 
 import { CAST, CastPhone, DEMO_PEOPLE, ModeDesktop } from "../home/mode-phone";
 import { Display, Label, Shell } from "../home/primitives";
-import { BrowserFrame, CtaBand, FaqSection, ModeSwitch, PageHero, SectionHead, Stage } from "./kit";
-import { AudienceRows, Avatar, BookingCard, ConnectionRows, DealStages, EventCard, LeadsList, LivePill, MediaKitCard, NewsletterCard, Quote, RevenueCard, RoadmapRows, Stamps, StoreList, SubRows, ToolPanel } from "./panels";
+import { BrowserFrame, CtaBand, FaqSection, ModeSwitch, PageHero, RAIL, RAIL_ITEM, SectionHead, Stage } from "./kit";
+import { AudienceRows, Avatar, BookingCard, ConnectionRows, DealStages, EventCard, LeadsList, LivePill, MediaKitCard, NewsletterCard, Quote, RevenueCard, RoadmapRows, Stamps, StoreList, ToolPanel } from "./panels";
 
 type Person = (typeof DEMO_PEOPLE)[keyof typeof DEMO_PEOPLE];
 
@@ -34,30 +34,30 @@ const WHO_PHOTOS: Record<ModeSlugPage, string[]> = {
 function ToolPanels({ slug }: { slug: ModeSlugPage }): ReactNode[] {
   switch (slug) {
     case "personal": return [
-      <ToolPanel body="Everyone who connects is saved with where and when you met, and a note only you can see." key="a" tag="Every plan" title="Connections" tone="ink">
+      <ToolPanel body="Saved with where and when you met." key="a" tag="Every plan" title="Connections" tone="ink">
         <ConnectionRows rows={[{ who: DEMO_PEOPLE.theo, name: "Theo Laurent", where: "Café Lisboa · after the run", when: "Today" }, { who: DEMO_PEOPLE.noor, name: "Noor Haddad", where: "Friday dinner · Alfama", when: "Fri" }, { who: DEMO_PEOPLE.sena, name: "Sena Okafor", where: "Concert · LX Factory", when: "12 Oct" }]} />
       </ToolPanel>,
-      <ToolPanel body="A newsletter, a form or a question as a card on your page." key="b" tag="Free · 2 live" title="Actions"><NewsletterCard /></ToolPanel>,
-      <ToolPanel body="Stamps for the places and people that mattered, kept in your Passport." key="c" tag="Every plan" title="Passport" tone="coral"><div className="mt-auto"><Stamps items={[{ title: "Lisbon", line: "First 10" }, { title: "Run club", line: "Sundays" }, { title: "50", line: "Connections" }]} /></div></ToolPanel>,
-      <ToolPanel aside={<AudienceRows count="212" subject="Sunday’s route is up." />} body="Everyone who joined through your Actions, in one list you own." key="d" tag="Free · Email on Plus" title="Audience"><SubRows rows={[["Collect subscribers", "Every plan"], ["Email your list", "Plus · Pro"]]} /></ToolPanel>,
+      <ToolPanel body="A newsletter, form or question on your page." key="b" tag="Free · 2 live" title="Actions"><NewsletterCard /></ToolPanel>,
+      <ToolPanel body="A stamp for every place that mattered." key="c" tag="Every plan" title="Passport" tone="coral"><div className="mt-auto"><Stamps items={[{ title: "Lisbon", line: "First 10" }, { title: "Run club", line: "Sundays" }, { title: "50", line: "Connections" }]} /></div></ToolPanel>,
+      <ToolPanel aside={<AudienceRows count="212" subject="Sunday’s route is up." />} body="Everyone who joined, in one list you own." key="d" tag="Free · Email on Plus" title="Audience" />,
     ];
     case "event": return [
-      <ToolPanel body="Host your own: an event page with RSVPs, a waitlist, a guest list and a door scanner." key="a" tag="Every plan · 50 upcoming" title="Events" tone="ink"><EventCard /></ToolPanel>,
-      <ToolPanel body="Go Live while you’re there. It shows on your page and ends by itself." key="b" tag="Every plan" title="Live"><LivePill /></ToolPanel>,
+      <ToolPanel body="RSVPs, a guest list and a door scanner." key="a" tag="Every plan · 50 upcoming" title="Events" tone="ink"><EventCard /></ToolPanel>,
+      <ToolPanel body="On your page while you’re there." key="b" tag="Every plan" title="Live"><LivePill /></ToolPanel>,
       <ToolPanel body="Every event you go to leaves a stamp." key="c" tag="Every plan" title="Passport" tone="coral"><div className="mt-auto"><Stamps items={[{ title: "Slush", line: "2026" }, { title: "Web Summit", line: "Lisbon" }, { title: "Helsinki", line: "First visit" }]} /></div></ToolPanel>,
-      <ToolPanel aside={<ConnectionRows dark={false} rows={[{ who: DEMO_PEOPLE.noor, name: "Noor Haddad", where: "Slush · Stage B · 11:05", when: "Today" }, { who: DEMO_PEOPLE.lucasClose, name: "Lucas Meyer", where: "Slush · Founders lunch", when: "Today" }]} />} body="Everyone you meet keeps the event, the city and the time. Search Connections by event later." key="d" tag="Every plan" title="Connections"><SubRows rows={[["Questions and sign-ups", "Actions · Free"], ["Your attendees list", "Audience · Free"]]} /></ToolPanel>,
+      <ToolPanel aside={<ConnectionRows dark={false} rows={[{ who: DEMO_PEOPLE.noor, name: "Noor Haddad", where: "Slush · Stage B · 11:05", when: "Today" }, { who: DEMO_PEOPLE.lucasClose, name: "Lucas Meyer", where: "Slush · Founders lunch", when: "Today" }]} />} body="Everyone keeps the event, city and time." key="d" tag="Every plan" title="Connections" />,
     ];
     case "creator": return [
-      <ToolPanel body="Sell downloads, guides and calls from your page, paid through your own Stripe account." key="a" tag="5% fee on Free · 0% on Plus" title="Store" tone="ink"><StoreList /></ToolPanel>,
-      <ToolPanel body="Your platforms and audience on one page brands can read in ten seconds." key="b" tag="Every plan" title="Media kit"><MediaKitCard /></ToolPanel>,
-      <ToolPanel body="Collaboration requests become Deals you move from new to paid." key="c" tag="Every plan" title="Deals" tone="coral"><DealStages /></ToolPanel>,
-      <ToolPanel aside={<AudienceRows />} body="Fans who follow or sign up land in one list. Write to them from Setuvara." key="d" tag="Free · Email on Plus" title="Audience"><SubRows rows={[["Builder for your projects", "Free"], ["Insights", "Every plan"]]} /></ToolPanel>,
+      <ToolPanel body="Sell downloads and calls, paid through your Stripe." key="a" tag="5% fee on Free · 0% on Plus" title="Store" tone="ink"><StoreList /></ToolPanel>,
+      <ToolPanel body="Your reach, readable in ten seconds." key="b" tag="Every plan" title="Media kit"><MediaKitCard /></ToolPanel>,
+      <ToolPanel body="Brand requests, from new to paid." key="c" tag="Every plan" title="Deals" tone="coral"><DealStages /></ToolPanel>,
+      <ToolPanel aside={<AudienceRows />} body="Your fans in one list you can write to." key="d" tag="Free · Email on Plus" title="Audience" />,
     ];
     default: return [
-      <ToolPanel body="Every inquiry from your page lands as a lead with stages and a conversion funnel." key="a" tag="Free · Notes and CSV on Plus" title="Leads" tone="ink"><LeadsList /></ToolPanel>,
-      <ToolPanel body="Projects, a public roadmap with voting and updates. Revenue verified on Plus." key="b" tag="Free · Verified on Plus" title="Builder"><div><RevenueCard compact /><RoadmapRows /></div></ToolPanel>,
+      <ToolPanel body="Every inquiry becomes a lead with stages." key="a" tag="Free · Notes and CSV on Plus" title="Leads" tone="ink"><LeadsList /></ToolPanel>,
+      <ToolPanel body="A voting roadmap, and revenue verified on Plus." key="b" tag="Free · Verified on Plus" title="Builder"><div><RevenueCard compact /><RoadmapRows /></div></ToolPanel>,
       <ToolPanel key="c" tag="Free · 3 shown" title="Testimonials" tone="coral"><Quote role="Example client · you choose which quotes show" text="We booked the follow-up before we left the stand." who={DEMO_PEOPLE.sena} /></ToolPanel>,
-      <ToolPanel aside={<BookingCard />} body="Forms, booking requests and a newsletter as cards on your page, each with its own inbox." key="d" tag="Free" title="Actions"><SubRows rows={[["Audience", "Free · Email on Plus"], ["Team", "Pro · 5 seats"]]} /></ToolPanel>,
+      <ToolPanel aside={<BookingCard />} body="Bookings and forms, each with an inbox." key="d" tag="Free" title="Actions" />,
     ];
   }
 }
@@ -143,11 +143,11 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
       <section aria-labelledby={`${slug}-tools-title`} className="bg-paper">
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow={`Tools in ${page.name} Mode`} id={`${slug}-tools`} lede={`Each Mode has its own tools in the app, beside its page. These are the ones built for ${page.name}.`} title="What you work with." />
-          <div className="mt-12 grid gap-6 lg:mt-[72px] lg:grid-cols-12">
-            <div className="flex lg:col-span-7 [&>*]:flex-1">{a}</div>
-            <div className="flex lg:col-span-5 [&>*]:flex-1">{b}</div>
-            <div className="flex min-h-[360px] lg:col-span-5 [&>*]:flex-1">{c}</div>
-            <div className="flex lg:col-span-7 [&>*]:flex-1">{d}</div>
+          <div className={`mt-12 grid gap-6 lg:mt-[72px] lg:grid-cols-12 ${RAIL}`}>
+            <div className={`flex lg:col-span-7 [&>*]:flex-1 ${RAIL_ITEM}`}>{a}</div>
+            <div className={`flex lg:col-span-5 [&>*]:flex-1 ${RAIL_ITEM}`}>{b}</div>
+            <div className={`flex lg:col-span-5 lg:min-h-[360px] [&>*]:flex-1 ${RAIL_ITEM}`}>{c}</div>
+            <div className={`flex lg:col-span-7 [&>*]:flex-1 ${RAIL_ITEM}`}>{d}</div>
           </div>
         </Shell>
       </section>

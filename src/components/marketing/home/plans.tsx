@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PRICES } from "@/lib/marketing/facts";
 
+import { RAIL, RAIL_ITEM } from "../site/kit";
 import { Display, Label, Shell } from "./primitives";
 
 /** Free, Plus and Pro in one row: the price from the catalog and the four lines that matter most. */
@@ -20,11 +21,11 @@ export function Plans() {
             <Label className="text-coral">Plus and Pro</Label>
             <Display className="mt-4 text-[clamp(40px,4.4vw,72px)] leading-[0.92]"><span id="plans-title">Free to start.<br />More when you want it.</span></Display>
           </div>
-          <p className="max-w-[28rem] text-[18px] leading-[1.5] text-ink/70 sm:text-[20px]">Free is complete for meeting people. Plus makes it yours; Pro is for the work around it.</p>
+          <p className="max-w-[28rem] text-[18px] max-sm:hidden leading-[1.5] text-ink/70 sm:text-[20px]">Free is complete for meeting people. Plus makes it yours; Pro is for the work around it.</p>
         </div>
-        <ul className="mt-12 grid gap-4 lg:mt-16 lg:grid-cols-3">
+        <ul className={`mt-12 grid gap-4 lg:mt-16 lg:grid-cols-3 ${RAIL}`}>
           {PLANS.map((plan) => (
-            <li className={`flex flex-col rounded-[28px] p-7 sm:p-8 ${plan.tone}`} key={plan.name}>
+            <li className={`flex flex-col rounded-[28px] p-7 sm:p-8 ${RAIL_ITEM} ${plan.tone}`} key={plan.name}>
               <p className="font-label text-[11px] uppercase tracking-[0.16em] opacity-60">{plan.name}</p>
               <p className="mt-4 flex items-baseline gap-2"><span className="font-display text-[48px] font-extrabold leading-none tracking-[-0.05em]">{plan.price}</span><span className="text-[14px] opacity-60">{plan.note}</span></p>
               <ul className="mt-6 flex flex-col gap-2.5 border-t border-current/15 pt-6">

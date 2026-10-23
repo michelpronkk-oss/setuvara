@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { DEMO_PEOPLE } from "../home/mode-phone";
+import { RAIL, RAIL_ITEM } from "./kit";
 import { Avatar } from "./panels";
 import { QrArt } from "./qr-art";
 
@@ -253,11 +254,11 @@ export type Capability = { title: string; body: string; tag?: string };
 /** The "What's in it" grid: product scene, plan line, title, one sentence. */
 export function CapabilityGrid({ items }: { items: Capability[] }) {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+    <ul className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6 ${RAIL}`}>
       {items.map((item) => {
         const scene = SCENES[item.title];
         return (
-          <li className="flex flex-col rounded-[24px] bg-white p-3 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] sm:rounded-[28px]" key={item.title}>
+          <li className={`flex flex-col rounded-[24px] bg-white p-3 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] sm:rounded-[28px] ${RAIL_ITEM}`} key={item.title}>
             {scene ? <div aria-hidden="true" className={`flex h-[210px] items-center justify-center overflow-hidden rounded-[18px] px-5 sm:rounded-[20px] ${GROUND[scene.tone]}`} inert>{scene.scene}</div> : null}
             <div className="px-4 pb-5 pt-6 sm:px-5">
               {item.tag ? <span className={`${mono} ${item.tag === "Every plan" || item.tag === "Live today" ? "text-ink/45" : "text-coral"}`}>{item.tag}</span> : null}

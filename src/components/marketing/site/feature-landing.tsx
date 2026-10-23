@@ -3,7 +3,7 @@ import { FEATURE_PAGES, planRowsFor, type FeatureSlug } from "@/lib/marketing/fe
 
 import { Shell } from "../home/primitives";
 import { CapabilityGrid } from "./capability-visuals";
-import { ButtonLink, CtaBand, FaqSection, PageHero, RelatedLinks, Section, SectionHead } from "./kit";
+import { ButtonLink, CtaBand, FaqSection, RAIL, RAIL_ITEM, PageHero, RelatedLinks, Section, SectionHead } from "./kit";
 import { FeatureVisual } from "./visuals";
 
 const COLUMNS = [
@@ -86,11 +86,11 @@ export function FeatureLanding({ slug }: { slug: FeatureSlug }) {
       <section aria-labelledby={`${slug}-how-title`} className="bg-ink text-paper">
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow="How it works" id={`${slug}-how`} lede={page.status === "coming" ? "Quick QR and Tap do this job today; the pass will make it one swipe." : "From a card on your page to something people use, in a few minutes."} title={page.stepsTitle ?? "Four steps."} tone="ink" />
-          <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:mt-[72px] lg:grid-cols-4 lg:gap-6">
+          <ol className={`mt-12 grid gap-4 sm:grid-cols-2 lg:mt-[72px] lg:grid-cols-4 lg:gap-6 ${RAIL}`}>
             {steps.map((step, index) => {
               const last = index === steps.length - 1;
               return (
-                <li className={`flex min-h-[220px] flex-col rounded-[24px] p-7 lg:min-h-[300px] ${last ? "bg-coral text-ink" : "bg-[#1B1B1B]"}`} key={step.title}>
+                <li className={`flex min-h-[220px] flex-col rounded-[24px] p-7 lg:min-h-[300px] ${RAIL_ITEM} ${last ? "bg-coral text-ink" : "bg-[#1B1B1B]"}`} key={step.title}>
                   <span className={`font-label text-[11px] tracking-[0.16em] ${last ? "" : "text-coral"}`}>0{index + 1}</span>
                   <h3 className="mt-4 font-display text-[30px] font-extrabold leading-[0.95] tracking-[-0.05em]">{step.title}</h3>
                   <p className={`mt-3 text-[15px] leading-[1.55] ${last ? "text-ink/75" : "text-paper/60"}`}>{step.body}</p>
