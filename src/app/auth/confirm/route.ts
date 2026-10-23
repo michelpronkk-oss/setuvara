@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 
 const DEFAULT_NEXT_PATH = "/app";
+const ACCOUNT_PATH = "/app/settings/account";
 
 function getSafeNextPath(value: string | null, origin: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
@@ -76,11 +77,14 @@ export async function GET(request: NextRequest) {
     ? await supabase.auth.exchangeCodeForSession(code as string)
     : await supabase.auth.verifyOtp({ token_hash: tokenHash as string, type: otpType as EmailOtpType });
 
+  const nextPath = getSafeNextPath(request.nextUrl.searchParams.get("next"), request.nextUrl.origin);
+  // An email change confirmed on one address of two returns no session yet: say so, not "failed".
+  const emailChange = otpType === "email_change" && nextPath === ACCOUNT_PATH;
+  if (emailChange && error) return redirectToPath(`${ACCOUNT_PATH}?email=failed`);
+  if (emailChange && !data.session) return redirectToPath(`${ACCOUNT_PATH}?email=confirm-other`);
   if (error || !data.session) return confirmationError();
 
-  const response = redirectToPath(
-    getSafeNextPath(request.nextUrl.searchParams.get("next"), request.nextUrl.origin),
-  );
+  const response = redirectToPath(emailChange ? `${ACCOUNT_PATH}?email=changed` : nextPath);
   cookieMutations.forEach((applyCookie) => applyCookie(response));
   responseHeaders.forEach(([name, value]) => response.headers.set(name, value));
   return response;

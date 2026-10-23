@@ -1,3 +1,4 @@
+import type { ChangeState } from "@/lib/handles/change-window";
 import type { ModeHandleSlug, ModeHandleState } from "@/lib/handles/mode-handle";
 import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -47,6 +48,14 @@ export type EditorApi = {
   publicOrigin: string;
   fieldErrors: Record<string, string>;
   usernameStatus: UsernameStatus;
+  /** The username being typed; it only saves through changeUsername, after a confirm. */
+  usernameDraft: string;
+  setUsernameDraft: (value: string) => void;
+  /** Asks "are you sure", then saves the draft (or, with switchBack, the name just left). Resolves true once changed. */
+  changeUsername: (switchBack?: boolean) => Promise<boolean>;
+  usernameBusy: boolean;
+  /** When the username may change again (null = now), and the old name the owner may still switch back to. */
+  usernameChange: ChangeState;
   unlockedRewards: string[];
   selectedRewards: Partial<Record<RewardCategory, string>>;
   busyPhoto: boolean;

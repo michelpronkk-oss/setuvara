@@ -1,6 +1,6 @@
 begin;
 
-select plan(44);
+select plan(51);
 
 -- Three members: A and B published, C unpublished.
 create temporary table mh(kind text primary key, user_id uuid not null, username text not null);
@@ -81,6 +81,15 @@ update public.profiles set is_published=false where id=(select user_id from mh w
 select is((select count(*)::int from public.list_indexed_mode_handles() where handle=(select name from mh_names where kind='biz')), 0, 'an unpublished profile is not in the sitemap');
 update public.profiles set is_published=true where id=(select user_id from mh where kind='a');
 
+-- Once a month: a change right after the claim waits 30 days.
+set local role authenticated;
+select pg_temp.as_member('a');
+select throws_ok($$select public.claim_mode_handle('business', (select name from mh_names where kind='biz2'))$$, 'P0001', 'handle_change_limit', 'a second change in 30 days is refused');
+select ok((public.handle_change_state('business')->>'next_change_at')::timestamptz > now() + interval '29 days', 'the owner can see when the next change opens');
+select is(public.handle_change_state('creator')->>'next_change_at', null, 'each Mode has its own window');
+reset role;
+update private.mode_handle_changes set changed_at = now() - interval '31 days' where profile_id=(select user_id from mh where kind='a');
+
 -- Change the handle: the old one stays A's and points at the new live one, one hop.
 set local role authenticated;
 select pg_temp.as_member('a');
@@ -100,7 +109,14 @@ select is(public.check_handle((select name from mh_names where kind='biz2')), 'f
 reset role;
 select is(public.resolve_renamed_handle((select name from mh_names where kind='biz2')), null, 'a released handle never points at the unlisted Mode');
 select pg_temp.as_member('b');
-select ok(not public.is_username_available((select name from mh_names where kind='biz2')), 'and stays blocked for others');
+select ok(not public.is_username_available((select name from mh_names where kind='biz2')), 'and stays held from others for 30 days');
+set local role authenticated;
+select is(public.check_handle((select name from mh_names where kind='biz')), 'free', 'the earlier old handle is released: one held name per Mode');
+select pg_temp.as_member('a');
+select is(public.handle_change_state('business')->>'switch_back', (select name from mh_names where kind='biz2'), 'the owner may switch back to the name just left');
+select is(public.claim_mode_handle('business', (select name from mh_names where kind='biz2'))->>'handle', (select name from mh_names where kind='biz2'), 'switching back works inside the 30 days');
+select throws_ok($$select public.claim_mode_handle('business', (select name from mh_names where kind='biz'))$$, 'P0001', 'handle_change_limit', 'but only once');
+reset role;
 
 -- Account deletion keeps the Mode handle blocked.
 set local role authenticated;

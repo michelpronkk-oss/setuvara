@@ -19,6 +19,8 @@ import type { MemberTier } from "@/lib/billing/member-badge";
 import type { PlanCode } from "@/lib/billing/catalog";
 import type { CapabilityKey } from "@/lib/billing/capabilities";
 import { isAllowedUsername } from "@/lib/usernames";
+import { formatChangeDate, nextWindowFromNow, OPEN_CHANGE_STATE, parseChangeState, type ChangeState } from "@/lib/handles/change-window";
+import { confirmDialog } from "@/components/app/confirm-dialog";
 import { publicModeUrl } from "@/lib/share/public-mode-url";
 import { useI18n } from "@/lib/i18n/provider";
 import { FeaturePaywall } from "@/components/app/feature-paywall";
@@ -65,7 +67,6 @@ type SaveStatus = "saved" | "pending" | "saving" | "error";
 type Task = () => Promise<string | null>;
 
 const profileSchema = z.object({
-  username: z.string().trim().regex(/^[a-z0-9_]{3,24}$/, "Use 3–24 lowercase letters, numbers or underscores."),
   display_name: z.string().trim().min(1, "Add the name people know you by.").max(80, "Keep your name under 80 characters."),
   bio: z.string().max(280, "Keep this under 280 characters."),
 });
@@ -121,7 +122,6 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   const supabase = useMemo(() => createClient(), []);
   const profileRef = useRef(profile);
   const modesRef = useRef(modes);
-  const savedUsernameRef = useRef(initialProfile.username);
   const pending = useRef(new Map<string, Task>());
   const failed = useRef(new Map<string, Task>());
   const timer = useRef<number | null>(null);
@@ -209,66 +209,97 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   // ---------- Profile ----------
   const saveProfileTask: Task = useCallback(async () => {
     const draft = profileRef.current;
-    const parsed = profileSchema.safeParse({ username: draft.username, display_name: draft.display_name, bio: draft.bio });
+    const parsed = profileSchema.safeParse({ display_name: draft.display_name, bio: draft.bio });
     const errors: Record<string, string> = {};
     if (!parsed.success) for (const issue of parsed.error.issues) errors[String(issue.path[0])] ??= issue.message;
     if (errors.display_name || errors.bio) {
       setFieldErrors((current) => ({ ...current, ...errors }));
       return "Fix the highlighted field to save.";
     }
-    // A username that can't be used never blocks the rest of the profile from saving.
-    const username = draft.username.trim();
-    let usernameError: string | null = null;
-    let includeUsername = username !== savedUsernameRef.current;
-    if (includeUsername) {
-      if (errors.username) usernameError = errors.username;
-      else if (!isAllowedUsername(username)) usernameError = "That username is reserved.";
-      else {
-        const { data: available, error: availabilityError } = await supabase.rpc("is_username_available", { candidate_username: username });
-        if (availabilityError) usernameError = "We couldn’t check that username. Try again.";
-        else if (!available) { usernameError = "That username is taken."; setUsernameCheck({ candidate: username, result: "taken" }); }
-      }
-      if (usernameError) includeUsername = false;
-    }
-    const values = { display_name: draft.display_name.trim(), bio: draft.bio, ...(includeUsername ? { username } : {}) };
-    let { error: updateError } = await supabase.from("profiles").update(values).eq("id", initialProfile.id);
-    const limit = updateError?.message?.includes("username_change_limit") ? "You can change your username 3 times in 30 days." : updateError?.message?.includes("username_history_limit") ? "You've used 20 usernames. Take back an old one, or write to us." : null;
-    if (updateError && includeUsername && limit) {
-      // The rest of the profile still saves; only the new username waits.
-      usernameError = limit;
-      includeUsername = false;
-      ({ error: updateError } = await supabase.from("profiles").update({ display_name: values.display_name, bio: values.bio }).eq("id", initialProfile.id));
-    }
-    if (updateError) {
-      if (updateError.code === "23505") { setFieldErrors((current) => ({ ...current, username: "That username is taken." })); return "That username is taken."; }
-      return "Your profile couldn’t be saved. Try again.";
-    }
-    if (includeUsername) { savedUsernameRef.current = username; setSavedUsername(username); }
-    setFieldErrors((current) => { const next = { ...current }; delete next.display_name; delete next.bio; if (usernameError) next.username = usernameError; else delete next.username; return next; });
-    return usernameError;
+    const { error: updateError } = await supabase.from("profiles").update({ display_name: draft.display_name.trim(), bio: draft.bio }).eq("id", initialProfile.id);
+    if (updateError) return "Your profile couldn’t be saved. Try again.";
+    setFieldErrors((current) => { const next = { ...current }; delete next.display_name; delete next.bio; return next; });
+    return null;
   }, [initialProfile.id, supabase]);
 
   const updateProfile = useCallback((patch: Partial<EditableProfile>) => {
     const next = { ...profileRef.current, ...patch };
-    if (patch.username !== undefined) next.username = patch.username.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24);
     profileRef.current = next;
     setProfile(next);
     setFieldErrors((current) => { const copy = { ...current }; for (const key of Object.keys(patch)) delete copy[key]; return copy; });
     schedule("profile", saveProfileTask);
   }, [saveProfileTask, schedule]);
 
-  // Debounced username availability, so people know before the save runs.
-  const usernameValid = /^[a-z0-9_]{3,24}$/.test(profile.username) && isAllowedUsername(profile.username);
-  const usernameStatus: UsernameStatus = profile.username === savedUsername ? "idle" : !usernameValid ? "invalid" : usernameCheck?.candidate === profile.username ? usernameCheck.result : "checking";
+  // The username only changes on an explicit, confirmed save: it's limited to once every 30 days.
+  const [usernameDraft, setUsernameDraftState] = useState(initialProfile.username);
+  const [usernameChange, setUsernameChange] = useState<ChangeState>(OPEN_CHANGE_STATE);
+  const [usernameBusy, setUsernameBusy] = useState(false);
+  const refreshUsernameChange = useCallback(async () => {
+    const { data } = await supabase.rpc("handle_change_state", { p_mode: "personal" });
+    setUsernameChange(parseChangeState(data));
+  }, [supabase]);
   useEffect(() => {
-    const candidate = profile.username;
+    let live = true;
+    void supabase.rpc("handle_change_state", { p_mode: "personal" }).then(({ data }) => { if (live) setUsernameChange(parseChangeState(data)); });
+    return () => { live = false; };
+  }, [supabase]);
+  const setUsernameDraft = useCallback((value: string) => {
+    setUsernameDraftState(value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 24));
+    setFieldErrors((current) => { const copy = { ...current }; delete copy.username; return copy; });
+  }, []);
+
+  // Debounced username availability, so people know before they save.
+  const usernameValid = /^[a-z0-9_]{3,24}$/.test(usernameDraft) && isAllowedUsername(usernameDraft);
+  const usernameStatus: UsernameStatus = usernameDraft === savedUsername ? "idle" : !usernameValid ? "invalid" : usernameCheck?.candidate === usernameDraft ? usernameCheck.result : "checking";
+  useEffect(() => {
+    const candidate = usernameDraft;
     if (candidate === savedUsername || !usernameValid) return;
     const handle = window.setTimeout(async () => {
       const { data, error: checkError } = await supabase.rpc("is_username_available", { candidate_username: candidate });
       setUsernameCheck({ candidate, result: checkError ? "idle" : data ? "available" : "taken" });
     }, 350);
     return () => window.clearTimeout(handle);
-  }, [profile.username, savedUsername, supabase, usernameValid]);
+  }, [usernameDraft, savedUsername, supabase, usernameValid]);
+
+  /** Saves the typed name, or (switchBack) returns to the name just left, after an "are you sure". */
+  const changeUsername = useCallback(async (switchBack = false) => {
+    const username = switchBack ? usernameChange.switchBack : usernameDraft;
+    const old = savedUsername;
+    if (!username || username === old || (!switchBack && usernameStatus !== "available")) return false;
+    const host = publicOrigin.replace(/^https?:\/\//, "");
+    const until = formatChangeDate(nextWindowFromNow());
+    const sure = await confirmDialog(switchBack ? {
+      title: `Switch back to @${username}?`,
+      body: `${host}/${username} becomes your link again and ${host}/${old} goes back to being free. You can’t change your username again until ${until}.`,
+      action: "Switch back",
+      cancel: "Keep it",
+    } : {
+      title: "Change your username?",
+      body: `@${old} becomes @${username}. ${host}/${old} stays yours for 30 days and redirects to your new link; after that, someone else can claim it. You can’t change your username again until ${until}, but you can switch back to @${old} once before then.`,
+      action: "Change username",
+      cancel: "Keep it",
+    });
+    if (!sure) return false;
+    setUsernameBusy(true);
+    const { error: updateError } = await supabase.from("profiles").update({ username }).eq("id", initialProfile.id);
+    setUsernameBusy(false);
+    if (updateError) {
+      const message = updateError.message ?? "";
+      const text = message.includes("username_change_limit") ? "You can change your username once every 30 days."
+        : updateError.code === "23505" ? "That username is taken."
+        : "Your username couldn’t be changed. Try again.";
+      void refreshUsernameChange();
+      setFieldErrors((current) => ({ ...current, username: text }));
+      return false;
+    }
+    profileRef.current = { ...profileRef.current, username };
+    setProfile((current) => ({ ...current, username }));
+    setSavedUsername(username);
+    setUsernameDraftState(username);
+    setUsernameChange({ nextChangeAt: nextWindowFromNow().toISOString(), switchBack: switchBack ? null : old });
+    toast(switchBack ? `Back to ${host}/${username}.` : `Done. ${host}/${old} now points to ${host}/${username}.`);
+    return true;
+  }, [initialProfile.id, publicOrigin, refreshUsernameChange, savedUsername, supabase, toast, usernameChange.switchBack, usernameDraft, usernameStatus]);
 
   // ---------- Modes ----------
   const patchMode = useCallback((modeId: string, patch: Partial<ProfileMode>) => {
@@ -871,7 +902,7 @@ export function IdentityEditor({ actionsLive = false, initialProfile, initialMod
   const setPageOrder = useCallback((value: EditorApi["pageOrder"]) => setPageOrders((all) => ({ ...all, [modeKey]: value })), [modeKey]);
   const api: EditorApi = {
     pageOrder: pageOrders[modeKey] ?? null, setPageOrder,
-    actionsLive, profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
+    actionsLive, profile, modes, mode, slug, section, publicOrigin, fieldErrors, usernameStatus, usernameDraft, setUsernameDraft, changeUsername, usernameBusy, usernameChange, unlockedRewards, selectedRewards, busyPhoto, memberTier, plan,
     updateProfile, updateSetting, updateAppearance, requestCapability,
     appearancePreview: appearancePreviews[mode?.id ?? ""] ?? null, chooseAppearance, clearAppearancePreview, applyAppearancePreview, resetAppearance, openPlusSheet: setPlusSheet, setModeEnabled, setConnectPolicy, initialShareIntent, setPublished,
     addLink, editLink, toggleLink, deleteLink, reorderLinks, copyLinksFrom,

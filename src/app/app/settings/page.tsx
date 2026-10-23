@@ -80,7 +80,8 @@ export default async function SettingsPage() {
         </Group>
 
         <Group title="Account">
-          <Item description={auth?.user?.email ?? "Your sign-in"} href="/app/settings/privacy" title="Privacy & data" />
+          <Item description={auth?.user?.email ?? "Your sign-in"} href="/app/settings/account" title="Email & password" />
+          <Item description="Connected platforms, account deletion." href="/app/settings/privacy" title="Privacy & data" />
           {profile?.username && <Item description={`setuvara.com/${profile.username}`} external href={`/${profile.username}`} title="View public profile" />}
         </Group>
 

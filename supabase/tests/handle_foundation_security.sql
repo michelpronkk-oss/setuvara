@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(34);
 
 -- Two members, one published.
 create temporary table hf(kind text primary key, user_id uuid not null, username text not null);
@@ -31,37 +31,59 @@ select is(public.resolve_renamed_handle((select old from hf_names)), (select new
 select is(public.resolve_renamed_handle(upper((select old from hf_names))), (select new from hf_names), 'resolving is case-insensitive');
 select is(public.resolve_renamed_handle((select new from hf_names)), null, 'a live name never redirects');
 
--- Nobody else can take it, ever (no automatic release).
-update public.handle_history set retired_at = now() - interval '5 years' where handle=(select old from hf_names);
-select ok(not public.is_username_available((select old from hf_names)), 'the old name is not available to others even years later');
-select throws_ok($$update public.profiles set username=(select old from hf_names) where id=(select user_id from hf where kind='b')$$, '23505', 'username_held', 'another member cannot take it');
+-- For 30 days nobody else can take it.
+select ok(not public.is_username_available((select old from hf_names)), 'the old name is held for its owner');
+select throws_ok($$update public.profiles set username=(select old from hf_names) where id=(select user_id from hf where kind='b')$$, '23505', 'username_held', 'another member cannot take it while held');
 
--- The owner sees it as available and can take it back; history row goes, no loop.
+-- The owner may switch back once inside the window; history row goes, no loop.
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub',(select user_id from hf where kind='a'),'role','authenticated')::text, true);
 select ok(public.is_username_available((select old from hf_names)), 'the owner can see their old name as available');
+select is(public.handle_change_state('personal')->>'switch_back', (select old from hf_names), 'the owner is offered a switch back');
 reset role;
 update public.profiles set username=(select old from hf_names) where id=(select user_id from hf where kind='a');
-select is((select count(*)::int from public.handle_history where handle=(select old from hf_names)), 0, 'taking it back removes it from history');
+select is((select count(*)::int from public.handle_history where handle=(select old from hf_names)), 0, 'switching back removes it from history');
 select is(public.resolve_renamed_handle((select new from hf_names)), (select old from hf_names), 'the in-between name now points back, one hop');
 select is(public.resolve_renamed_handle((select old from hf_names)), null, 'and the live name does not redirect: no loop');
 
--- Change limit: 3 in 30 days (A has made 2, one of them taking a name back).
+-- Change limit: once in 30 days, and the switch back used it up.
+select throws_ok($$update public.profiles set username=(select new from hf_names) where id=(select user_id from hf where kind='a')$$, 'P0001', 'username_change_limit', 'no second switch: flipping back and forth is refused');
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub',(select user_id from hf where kind='a'),'role','authenticated')::text, true);
+select ok((public.handle_change_state('personal')->>'next_change_at')::timestamptz > now() + interval '29 days', 'the owner can see when the next change opens');
+select is(public.handle_change_state('personal')->>'switch_back', null, 'and no switch back is left');
+reset role;
+update private.username_changes set changed_at = now() - interval '31 days' where profile_id=(select user_id from hf where kind='a');
+set local role authenticated;
+select is(public.handle_change_state('personal')->>'next_change_at', null, 'after 30 days the username can change again');
+reset role;
 update public.profiles set username=(select new from hf_names)||'y' where id=(select user_id from hf where kind='a');
-select throws_ok($$update public.profiles set username=(select new from hf_names)||'z' where id=(select user_id from hf where kind='a')$$, 'P0001', 'username_change_limit', 'a fourth change in 30 days is refused');
+
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+-- One held old name: renaming again released the in-between name, which still redirects until claimed.
+select ok(public.is_username_available((select new from hf_names)), 'the earlier old name is free once another rename happens');
+select is(public.resolve_renamed_handle((select new from hf_names)), (select new from hf_names)||'y', 'a released name still redirects to its old owner');
+update public.profiles set username=(select new from hf_names) where id=(select user_id from hf where kind='b');
+select is(public.resolve_renamed_handle((select new from hf_names)), null, 'once someone claims it, the redirect stops');
+select is((select count(*)::int from public.handle_history where handle=(select new from hf_names)), 0, 'and it leaves history');
+
+-- After 30 days the held name opens up too.
+select ok(not public.is_username_available((select old from hf_names)), 'the latest old name is still held');
+update public.handle_history set retired_at = now() - interval '31 days' where handle=(select old from hf_names);
+select ok(public.is_username_available((select old from hf_names)), 'after 30 days anyone can claim it');
 
 -- Unpublished owners don't redirect; deleted owners keep the name blocked.
 update public.profiles set username=(select username from hf where kind='c')||'n' where id=(select user_id from hf where kind='c');
 select is(public.resolve_renamed_handle((select username from hf where kind='c')), null, 'an unpublished owner''s old name does not redirect');
 delete from auth.users where id=(select user_id from hf where kind='c');
 select is((select profile_id from public.handle_history where handle=(select username from hf where kind='c')), null, 'after account deletion the row stays with no owner');
-select ok(not public.is_username_available((select username from hf where kind='c')), 'and the name stays blocked');
+select ok(not public.is_username_available((select username from hf where kind='c')), 'and the name stays blocked for the rest of the 30 days');
 
 -- Visitors only get the redirect target, nothing else.
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
 select is(public.resolve_renamed_handle((select old from hf_names)), (select new from hf_names)||'y', 'visitors resolve a published rename');
-select ok(not public.is_username_available((select new from hf_names)), 'visitors see a kept name as taken');
+select ok(not public.is_username_available((select new from hf_names)), 'visitors see a claimed name as taken');
 reset role;
 
 select * from finish();
