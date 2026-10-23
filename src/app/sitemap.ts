@@ -36,6 +36,7 @@ const marketingUrls: MetadataRoute.Sitemap = [
   { url: `${SETUVARA_ORIGIN}/modes`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${SETUVARA_ORIGIN}/contact`, changeFrequency: "yearly", priority: 0.5 },
   { url: `${SETUVARA_ORIGIN}/what-is-setuvara`, changeFrequency: "monthly", priority: 0.8 },
+  { url: `${SETUVARA_ORIGIN}/help`, changeFrequency: "monthly", priority: 0.6 },
   ...MODE_ORDER.map((slug) => ({ url: `${SETUVARA_ORIGIN}/${slug}`, changeFrequency: "monthly" as const, priority: 0.8 })),
   { url: `${SETUVARA_ORIGIN}/features`, changeFrequency: "monthly", priority: 0.7 },
   ...FEATURE_ORDER.map((slug) => ({ url: `${SETUVARA_ORIGIN}/features/${slug}`, changeFrequency: "monthly" as const, priority: 0.7 })),

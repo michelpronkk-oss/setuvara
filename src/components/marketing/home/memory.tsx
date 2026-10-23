@@ -23,15 +23,15 @@ export function Memory() {
           <article aria-label="Example connection: Noor Haddad" className="reveal relative overflow-hidden rounded-[2rem] bg-ink text-paper shadow-[0_60px_120px_-60px_rgba(13,13,13,.7)]">
             <div className="relative h-[260px] sm:h-[320px]">
               {/* eslint-disable-next-line @next/next/no-img-element -- static example portrait */}
-              <img alt="" className="absolute inset-0 size-full object-cover" src="/pricing/noor-wide.webp" style={{ objectPosition: "50% 30%" }} />
-              <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink via-ink/35 to-transparent" />
+              <img alt="" className="absolute inset-0 size-full object-cover" src="/pricing/noor-wide.webp" style={{ objectPosition: "50% 22%" }} />
+              <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink via-transparent to-transparent" />
               <span className="absolute left-5 top-5 flex items-center gap-2 rounded-full bg-black/45 px-3.5 py-2 text-[12px] font-semibold backdrop-blur sm:left-7 sm:top-7"><span className="size-2 rounded-full bg-coral" />Met 3 times</span>
-              <div className="absolute inset-x-5 bottom-5 sm:inset-x-8 sm:bottom-7">
-                <p className="font-display text-[44px] font-extrabold leading-[0.9] tracking-[-0.055em] sm:text-[60px]">Noor Haddad</p>
-                <p className="mt-2 text-[14px] text-paper/70 sm:text-[15px]">Partner · Ondas Ventures</p>
-              </div>
             </div>
-            <div className="flex flex-col gap-5 p-5 sm:p-8 sm:pt-6">
+            <div className="flex flex-col gap-5 p-5 sm:p-8 sm:pt-5">
+              <div>
+                <p className="font-display text-[40px] font-extrabold leading-[0.9] tracking-[-0.055em] sm:text-[54px]">Noor Haddad</p>
+                <p className="mt-2 text-[14px] text-paper/65 sm:text-[15px]">Partner · Ondas Ventures</p>
+              </div>
               <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {[["You met", "TNW Conference"], ["Where", "Amsterdam"], ["Mode", "Business"]].map(([term, value], index) => (
                   <div className={`rounded-2xl px-3.5 py-3 ${index === 0 ? "col-span-2 bg-coral text-ink sm:col-span-1" : "bg-white/[0.06]"}`} key={term}><dt className={`font-label text-[10px] uppercase tracking-[0.14em] ${index === 0 ? "text-ink/60" : "text-paper/45"}`}>{term}</dt><dd className="mt-1 truncate text-[14px] font-semibold sm:text-[16px]">{value}</dd></div>

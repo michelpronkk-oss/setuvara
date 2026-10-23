@@ -26,6 +26,7 @@ export function SiteFooter() {
       { href: "/teams", label: copy.teams },
     ] },
     { title: "Resources", links: [
+      { href: "/help", label: "Help centre" },
       { href: "/what-is-setuvara", label: "What is Setuvara" },
       { href: "/compare", label: "Compare" },
       { href: "/use-cases", label: "Use cases" },

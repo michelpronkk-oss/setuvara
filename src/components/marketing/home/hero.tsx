@@ -8,8 +8,9 @@ export function Hero() {
   return (
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
       <Shell className="flex flex-col items-center pb-14 pt-7 text-center sm:pt-12 lg:pb-20 lg:pt-14">
-        <Display as="h1" className="text-[clamp(46px,7vw,112px)] leading-[0.88]">
-          <span id="hero-title">One identity.<br />Every version of&nbsp;you.</span>
+        {/* Two lines on every width: each line holds, and phones size the type to the longer one. */}
+        <Display as="h1" className="text-[min(9.2vw,46px)] leading-[0.9] sm:text-[clamp(46px,7vw,112px)] sm:leading-[0.88]">
+          <span id="hero-title"><span className="whitespace-nowrap">One identity.</span><br /><span className="whitespace-nowrap">Every version of you.</span></span>
         </Display>
         <p className="mt-4 max-w-[40rem] text-[17px] leading-[1.45] text-ink/70 sm:mt-7 sm:text-[21px] sm:leading-[1.5]">
           <span className="sm:hidden">A page for every part of your life.<br />Remember everyone you meet.</span>

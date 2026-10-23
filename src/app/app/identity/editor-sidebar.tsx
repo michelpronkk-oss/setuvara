@@ -1,7 +1,7 @@
 "use client";
 
 import { AccountMenu } from "@/components/app/app-shell";
-import { SettingsLink, SideNav, type ModePage } from "@/components/app/side-nav";
+import { HelpLink, SettingsLink, SideNav, type ModePage } from "@/components/app/side-nav";
 import type { PhotoFocus } from "@/components/profile/photo-focus";
 import type { ModeSlug, ProfileIdentity } from "@/components/profile/types";
 import type { PlanCode } from "@/lib/billing/catalog";
@@ -24,7 +24,7 @@ export function EditorSidebar({ profile, modes, slug, studio = null, actions = f
   const page: ModePage = studio ?? (events ? "events" : leads ? "leads" : testimonials ? "testimonials" : team ? "team" : builder ? "builder" : actions ? "actions" : audience ? "audience" : "overview");
   return (
     <SideNav
-      footer={<><SettingsLink current={false} /><AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} displayName={profile.display_name || "Your identity"} placement="panel" plan={plan} publicProfileUrl={personalUrl} signOut={signOut} username={profile.username || null} /></>}
+      footer={<><HelpLink /><SettingsLink current={false} /><AccountMenu avatarFocus={avatarFocus} avatarUrl={avatarUrl} displayName={profile.display_name || "Your identity"} placement="panel" plan={plan} publicProfileUrl={personalUrl} signOut={signOut} username={profile.username || null} /></>}
       liveUrl={liveUrl}
       modes={modes.map((mode) => ({ slug: mode.slug, enabled: mode.is_enabled }))}
       needsYou={needsYou}

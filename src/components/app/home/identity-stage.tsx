@@ -86,8 +86,13 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
       <section aria-label={`${NAMES[slug]} Mode`} className="relative h-[min(62dvh,470px)] overflow-hidden rounded-[28px] bg-[#0d0d0d] text-[#f5f4ef] md:h-[560px] lg:h-full lg:rounded-[30px] [clip-path:polygon(0_0,100%_0,100%_calc(100%-44px),calc(100%-25px)_100%,0_100%)] lg:[clip-path:polygon(0_0,100%_0,100%_calc(100%-64px),calc(100%-37px)_100%,0_100%)]">
         {hasPhoto ? (
           <>
-            {mode.imageSource && <FramedPhoto alt="" className="[animation:fade-in_320ms_ease-out]" fetchPriority="high" key={mode.slug} onError={() => setFailedImage(mode.imageUrl)} sizes="(min-width: 1024px) 60vw, 100vw" source={mode.imageSource} />}
-            <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(13,13,13,.96)_0%,rgba(13,13,13,.7)_30%,rgba(13,13,13,0)_62%),linear-gradient(to_bottom,rgba(13,13,13,.5)_0%,rgba(13,13,13,0)_18%)]" />
+            {/* Phones: the photo fills the stage. Desktop: it takes the right side, so the name sits on dark, never over a face. */}
+            <div className="absolute inset-0 lg:left-auto lg:w-[60%]">
+              {mode.imageSource && <FramedPhoto alt="" className="[animation:fade-in_320ms_ease-out]" fetchPriority="high" key={mode.slug} onError={() => setFailedImage(mode.imageUrl)} sizes="(min-width: 1024px) 40vw, 100vw" source={mode.imageSource} />}
+              <div aria-hidden="true" className="absolute inset-y-0 left-0 hidden w-[45%] bg-[linear-gradient(to_right,#0d0d0d,rgba(13,13,13,0))] lg:block" />
+            </div>
+            <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(13,13,13,.96)_0%,rgba(13,13,13,.7)_30%,rgba(13,13,13,0)_62%),linear-gradient(to_bottom,rgba(13,13,13,.5)_0%,rgba(13,13,13,0)_18%)] lg:bg-[linear-gradient(to_top,rgba(13,13,13,.92)_0%,rgba(13,13,13,0)_34%),linear-gradient(to_bottom,rgba(13,13,13,.45)_0%,rgba(13,13,13,0)_16%)]" />
+            <span aria-hidden="true" className="pointer-events-none absolute -left-24 top-1/4 hidden size-[420px] rounded-full blur-[120px] lg:block" style={{ background: DOT[slug], opacity: 0.14 }} />
           </>
         ) : (
           <>
@@ -109,9 +114,9 @@ export function IdentityStage({ displayName, username, plan, isPublished, public
         </div>
 
         <div className="absolute inset-x-5 bottom-6 flex flex-col gap-6 lg:inset-x-9 lg:bottom-8 lg:gap-[26px]">
-          <div className="flex max-w-[820px] flex-col gap-2 pr-5 lg:gap-3">
+          <div className={`flex max-w-[820px] flex-col gap-2 pr-5 lg:gap-3 ${hasPhoto ? "lg:max-w-[44%] lg:pb-4" : ""}`}>
             <p className="font-label text-[10px] tracking-[0.14em] text-[#f5f4ef]/80 lg:hidden">{NAMES[slug].toUpperCase()} MODE</p>
-            <p className="break-words font-display text-[clamp(36px,11vw,48px)] font-bold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] lg:text-[clamp(64px,5.6vw,112px)] lg:leading-[0.9]">
+            <p className="break-words font-display text-[clamp(36px,11vw,48px)] font-bold leading-[0.92] tracking-[-0.05em] [text-wrap:balance] lg:text-[clamp(52px,4.4vw,96px)] lg:leading-[0.9]">
               {displayName}
               {hasMemberBadge && <span className="ml-[0.16em] inline-block align-[0.08em]"><StatusBadge className="size-5 lg:size-[30px]" plan={plan} size={20} /></span>}
             </p>

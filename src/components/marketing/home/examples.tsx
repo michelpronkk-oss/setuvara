@@ -13,7 +13,7 @@ import { Display, Label, Shell } from "./primitives";
  */
 const EXAMPLES = [
   { slug: "business", caption: "Business · Glow" },
-  { slug: "creator", caption: "Creator · Film" },
+  { slug: "creator", caption: "Creator · Social" },
   { slug: "event", caption: "Event · Immersive, Live at Slush" },
 ] as const;
 
