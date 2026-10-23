@@ -1,6 +1,7 @@
 import { CapabilityGrid } from "@/components/marketing/site/capability-visuals";
 import { CtaBand, FaqSection, PageHero, Section } from "@/components/marketing/site/kit";
 import { ModeScreens } from "@/components/marketing/site/mode-landing";
+import { SoundtrackTry } from "@/components/marketing/site/soundtrack-try";
 import { CueGrid, LooksGallery, NameStyles, SoundtrackPresentations, SoundtrackSources } from "@/components/marketing/site/product-tour";
 import { LOOKS } from "@/lib/marketing/facts";
 import { marketingMetadata } from "@/lib/marketing/metadata";
@@ -45,6 +46,7 @@ export default function ProductPage() {
       <Section eyebrow="Profile soundtrack" id="soundtrack" lede="Pick a song or playlist for each Mode. Visitors hear it when they tap sound; it never starts on its own." title="Your page, with a sound." tone="paper">
         <SoundtrackPresentations />
         <SoundtrackSources />
+        <SoundtrackTry />
       </Section>
       <Section eyebrow="At a glance" id="parts" title="Every part of your page." tone="white">
         <CapabilityGrid items={PARTS} />

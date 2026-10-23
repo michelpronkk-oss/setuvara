@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { siCarrd, siLinktree, type SimpleIcon } from "simple-icons";
 
 import { nameFontClasses } from "@/components/profile/name-fonts";
 import { COMPARE_PAGES } from "@/lib/marketing/compare-content";
@@ -20,19 +21,26 @@ import { BannerVisual, type VisualKey } from "./visuals";
 const MODES: ModeSlug[] = ["personal", "event", "business", "creator"];
 const FEATURE_VISUALS = new Set<VisualKey>(["actions", "builder", "analytics", "qr-and-tap", "wallet"]);
 
-/** A plain list of links beside a Setuvara page: what each comparison is about, drawn. */
-function VersusVisual({ name, mode }: { name: string; mode: ModeSlug }) {
+const RIVAL_MARK: Record<string, SimpleIcon> = { linktree: siLinktree, carrd: siCarrd };
+
+/** Setuvara's page in front on the left; the other product faded on the right, as a plain list with its mark. */
+function VersusVisual({ name, mode, slug }: { name: string; mode: ModeSlug; slug: string }) {
+  const mark = RIVAL_MARK[slug];
   return (
     <FitCanvas className="rounded-[20px]">
-      <div className="relative h-full w-full bg-[radial-gradient(90%_90%_at_100%_0%,#FFFFFF,transparent_70%),radial-gradient(120%_120%_at_0%_100%,#E7E3D9,#F1EEE7_75%)]">
-        <div className="absolute left-[90px] top-[150px] w-[400px] rounded-[40px] bg-white p-9 shadow-[0_60px_90px_-50px_rgba(13,13,13,.45)]">
+      <div className="relative h-full w-full bg-[radial-gradient(70%_90%_at_20%_10%,#FFFFFF,transparent_70%),radial-gradient(120%_120%_at_100%_100%,#E2DDD2,#F1EEE7_70%)]">
+        <span aria-hidden="true" className="absolute left-[40px] top-[120px] size-[520px] rounded-full bg-coral/25 blur-[110px]" />
+        <div className="absolute right-[90px] top-[150px] w-[400px] rounded-[40px] bg-white/70 p-9 opacity-50 grayscale shadow-[0_40px_70px_-50px_rgba(13,13,13,.4)]">
           <span className="block size-24 rounded-full bg-ink/10" />
           <span className="mt-6 block h-7 w-56 rounded-full bg-ink/15" />
           {[0, 1, 2, 3].map((i) => <span className="mt-5 block h-16 rounded-full bg-ink/[0.06] shadow-[inset_0_0_0_2px_rgba(13,13,13,.06)]" key={i} />)}
-          <p className="mt-8 text-center font-label text-[22px] uppercase tracking-[0.16em] text-ink/40">{name}</p>
         </div>
-        <span className="absolute left-[540px] top-[360px] font-display text-[64px] font-extrabold tracking-[-0.05em] text-ink/25">vs</span>
-        <div className={`${nameFontClasses} absolute right-[110px] top-[60px] origin-top-right scale-[1.18] rounded-[46px] shadow-[0_60px_90px_-40px_rgba(13,13,13,.6)]`}><CastPhone slug={mode} /></div>
+        <div className="absolute right-[150px] top-[620px] flex items-center gap-4 opacity-50">
+          {mark ? <svg aria-hidden="true" fill="#0D0D0D" height="56" viewBox="0 0 24 24" width="56"><path d={mark.path} /></svg> : null}
+          <span className="font-display text-[64px] font-extrabold tracking-[-0.05em] text-ink">{name}</span>
+        </div>
+        <span className="absolute left-[520px] top-[340px] font-display text-[64px] font-extrabold tracking-[-0.05em] text-ink/25">vs</span>
+        <div className={`${nameFontClasses} absolute left-[110px] top-[60px] origin-top-left scale-[1.18] rounded-[46px] shadow-[0_60px_90px_-40px_rgba(13,13,13,.6)]`}><CastPhone slug={mode} /></div>
       </div>
     </FitCanvas>
   );
@@ -53,7 +61,7 @@ export function visualFor(href: string, name = ""): ReactNode {
   if (section === "features" && FEATURE_VISUALS.has(slug as VisualKey)) return <BannerVisual name={slug as VisualKey} />;
   if (MODES.includes(section as ModeSlug)) return <ModeScene slug={section as ModeSlug} />;
   if (section === "use-cases" && USE_CASE_VISUAL[slug]) return USE_CASE_VISUAL[slug];
-  if (section === "compare" && COMPARE_MODE[slug]) return <VersusVisual mode={COMPARE_MODE[slug]} name={(COMPARE_PAGES as Record<string, { name: string }>)[slug]?.name ?? (name || slug)} />;
+  if (section === "compare" && COMPARE_MODE[slug]) return <VersusVisual mode={COMPARE_MODE[slug]} slug={slug} name={(COMPARE_PAGES as Record<string, { name: string }>)[slug]?.name ?? (name || slug)} />;
   if (section === "tools" && slug === "qr-code-generator") return <QrToolScene />;
   if (section === "tools" && slug === "media-kit-template") return <ModeScene slug="creator" title="Media kit" tool="kit" />;
   if (section === "tools") return <CheckerScene />;
