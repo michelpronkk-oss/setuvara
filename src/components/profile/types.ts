@@ -17,7 +17,7 @@ export type ProfileLink = {
   sort_order: number;
 };
 
-export type BlockKind = "video" | "music" | "feature" | "services" | "highlights" | "testimonial" | "image";
+export type BlockKind = "video" | "music" | "feature" | "services" | "highlights" | "testimonial" | "image" | "text" | "section" | "faq" | "location" | "countdown";
 
 export type ProfileBlock = {
   id: string;

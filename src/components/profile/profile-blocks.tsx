@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { ProfileImage } from "@/components/profile/profile-image";
 import { useMediaFocus, useSoundtrack } from "@/components/profile/soundtrack";
@@ -165,6 +165,43 @@ function Block({ block, tone, accent, accentInk, compact = false }: { block: Pro
         </section>
       );
     }
+    case "text":
+      return (
+        <section data-block-text>
+          {str(data.heading) && <h2 className="font-display text-[1.5rem] font-extrabold leading-[1.05] tracking-[-0.045em] @min-[1100px]/profile:!text-[clamp(30px,2.6cqw,44px)] @min-[1100px]/profile:[font-family:var(--sv-name-family,inherit)] @min-[1100px]/profile:[font-weight:var(--sv-name-weight,800)]">{str(data.heading)}</h2>}
+          <div className={`${str(data.heading) ? "mt-3" : ""} space-y-3 text-[15.5px] leading-[1.6] @min-[1100px]/profile:!mt-5 @min-[1100px]/profile:!text-[clamp(17px,1.3cqw,20px)] @min-[1100px]/profile:!leading-[1.65] @min-[1100px]/profile:max-w-[62ch]`} style={{ color: tone.sub }}>
+            {str(data.body).split(/\n{2,}/).map((paragraph, index) => <p className="whitespace-pre-line [text-wrap:pretty]" key={index}>{paragraph}</p>)}
+          </div>
+        </section>
+      );
+    case "section":
+      return (
+        <div className="mt-4 flex items-end justify-between gap-4 border-b pb-2.5 @min-[1100px]/profile:!mt-8 @min-[1100px]/profile:!pb-4" data-block-section style={{ borderColor: tone.line }}>
+          <h2 className="font-display text-[1.35rem] font-extrabold leading-none tracking-[-0.045em] @min-[1100px]/profile:!text-[clamp(28px,2.4cqw,40px)] @min-[1100px]/profile:[font-family:var(--sv-name-family,inherit)] @min-[1100px]/profile:[font-weight:var(--sv-name-weight,800)]">{str(data.title)}</h2>
+          {str(data.kicker) && <span className="shrink-0 font-label text-[10px] uppercase tracking-[0.18em] @min-[1100px]/profile:!text-[11px]" style={{ color: tone.sub }}>{str(data.kicker)}</span>}
+        </div>
+      );
+    case "faq": {
+      const items = (data.items as { q?: string; a?: string }[] | undefined) ?? [];
+      return (
+        <section className="rounded-[var(--sv-card-r,16px)] @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!shadow-none" data-block-faq style={surface}>
+          {str(data.heading) && <p className="px-4 pt-4 font-label text-[10px] uppercase tracking-[0.16em] @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!pt-0 @min-[1100px]/profile:!text-[11px] @min-[1100px]/profile:!tracking-[0.22em]" style={{ color: tone.sub }}>{str(data.heading)}</p>}
+          <div className={str(data.heading) ? "mt-1 @min-[1100px]/profile:!mt-4" : ""}>
+            {items.map((item, index) => (
+              <details className="group px-4 @min-[1100px]/profile:!border-t @min-[1100px]/profile:!px-0" key={index} style={{ borderTop: index ? `1px solid ${tone.line}` : undefined, borderColor: tone.line }}>
+                <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-4 py-3 text-[15px] font-semibold leading-snug [&::-webkit-details-marker]:hidden @min-[1100px]/profile:!min-h-[72px] @min-[1100px]/profile:!text-[clamp(18px,1.4cqw,22px)]">
+                  <span>{item.q}</span>
+                  <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full text-[17px] leading-none transition-transform group-open:rotate-45" style={{ background: tone.bg }}>+</span>
+                </summary>
+                <p className="-mt-1 whitespace-pre-line pb-4 text-[14.5px] leading-[1.6] @min-[1100px]/profile:!pb-6 @min-[1100px]/profile:!text-[clamp(16px,1.2cqw,19px)] @min-[1100px]/profile:max-w-[62ch]" style={{ color: tone.sub }}>{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      );
+    }
+    case "location": return <LocationBlock data={data} surface={surface} tone={tone} />;
+    case "countdown": return <CountdownBlock accent={accent} accentInk={accentInk} data={data} surface={surface} tone={tone} />;
     case "testimonial":
       return (
         <figure className="rounded-[var(--sv-card-r,16px)] px-5 pb-5 pt-4 @min-[1100px]/profile:!rounded-none @min-[1100px]/profile:!bg-transparent @min-[1100px]/profile:!px-0 @min-[1100px]/profile:!pb-0 @min-[1100px]/profile:!pt-0 @min-[1100px]/profile:!shadow-none" style={surface}>
@@ -489,5 +526,79 @@ function ImageBlock({ data, tone }: { data: Record<string, unknown>; tone: Block
       <ProfileImage alt={str(data.alt)} className="mx-auto block max-h-[80vh] max-w-full object-contain" onError={() => setFailedImage(image)} sizes="(max-width: 480px) calc(100vw - 32px), (max-width: 768px) calc(100vw - 64px), 656px" src={image} />
       {str(data.caption) && <figcaption className="px-4 py-3 text-[13px] leading-5" style={{ color: tone.sub }}>{str(data.caption)}</figcaption>}
     </figure>
+  );
+}
+
+/** Address with opening hours and two map links. No map is embedded, so nothing loads from a map provider until a visitor taps. */
+function LocationBlock({ data, tone, surface }: { data: Record<string, unknown>; tone: BlockTone; surface: CSSProperties }) {
+  const address = str(data.address);
+  const hours = ((data.hours as { days?: string; time?: string }[] | undefined) ?? []).filter((row) => str(row.days) && str(row.time));
+  const query = encodeURIComponent([str(data.name), address].filter(Boolean).join(", "));
+  const pill = "inline-flex min-h-10 items-center rounded-full px-4 text-[13.5px] font-semibold transition hover:opacity-80";
+  return (
+    <section className="rounded-[var(--sv-card-r,16px)] p-4 @min-[1100px]/profile:!grid @min-[1100px]/profile:!grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @min-[1100px]/profile:!gap-10 @min-[1100px]/profile:!p-[clamp(24px,2.2cqw,36px)]" data-block-location style={surface}>
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}><svg aria-hidden="true" className="size-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.5a7 7 0 0 1 7 7c0 5.2-7 12-7 12s-7-6.8-7-12a7 7 0 0 1 7-7Zm0 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" /></svg>Find us</p>
+        {str(data.name) && <p className="mt-3 font-display text-[1.3rem] font-extrabold leading-tight tracking-[-0.04em] @min-[1100px]/profile:!text-[clamp(24px,2cqw,32px)]">{str(data.name)}</p>}
+        <p className={`${str(data.name) ? "mt-1" : "mt-3"} whitespace-pre-line text-[15px] leading-[1.5]`}>{address}</p>
+        {str(data.note) && <p className="mt-2 text-[13.5px] leading-5" style={{ color: tone.sub }}>{str(data.note)}</p>}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a className={pill} href={`https://www.google.com/maps/search/?api=1&query=${query}`} rel="noopener noreferrer" style={{ background: tone.ink, color: tone.bg }} target="_blank">Open in Google Maps</a>
+          <a className={pill} href={`https://maps.apple.com/?q=${query}`} rel="noopener noreferrer" style={{ boxShadow: `inset 0 0 0 1.5px ${tone.line}` }} target="_blank">Apple Maps</a>
+        </div>
+      </div>
+      {hours.length > 0 && (
+        <dl className="mt-5 border-t pt-3 text-[14px] @min-[1100px]/profile:!mt-0 @min-[1100px]/profile:!border-t-0 @min-[1100px]/profile:!pt-0" style={{ borderColor: tone.line }}>
+          {hours.map((row, index) => (
+            <div className="flex justify-between gap-4 py-1.5 @min-[1100px]/profile:!border-b @min-[1100px]/profile:!py-3 @min-[1100px]/profile:!text-[16px]" key={index} style={{ borderColor: tone.line }}>
+              <dt style={{ color: tone.sub }}>{str(row.days)}</dt>
+              <dd className="font-semibold tabular-nums">{str(row.time)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
+
+const DATE_LABEL = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+
+/** Days, hours and minutes to a moment. The first render shows only the date, so server and browser agree. */
+function CountdownBlock({ data, tone, accent, accentInk, surface }: { data: Record<string, unknown>; tone: BlockTone; accent: string; accentInk: string; surface: CSSProperties }) {
+  const ends = Date.parse(str(data.ends_at));
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, 30_000);
+    return () => { clearTimeout(first); clearInterval(timer); };
+  }, []);
+  const left = now === null || Number.isNaN(ends) ? null : Math.max(0, ends - now);
+  const done = left === 0;
+  const parts = left === null ? null : [
+    { value: Math.floor(left / 86_400_000), label: "days" },
+    { value: Math.floor((left % 86_400_000) / 3_600_000), label: "hours" },
+    { value: Math.floor((left % 3_600_000) / 60_000), label: "min" },
+  ];
+  const url = str(data.url);
+  return (
+    <section className="rounded-[var(--sv-card-r,16px)] p-4 @min-[1100px]/profile:!p-[clamp(24px,2.2cqw,36px)]" data-block-countdown style={surface}>
+      <p className="font-label text-[10px] uppercase tracking-[0.16em]" style={{ color: tone.sub }}>{done ? "It’s here" : "Coming up"}</p>
+      <p className="mt-2 font-display text-[1.3rem] font-extrabold leading-tight tracking-[-0.04em] @min-[1100px]/profile:!text-[clamp(24px,2cqw,34px)]">{done && str(data.after) ? str(data.after) : str(data.title)}</p>
+      {!done && (
+        <div className="mt-4 grid grid-cols-3 gap-2" suppressHydrationWarning>
+          {(parts ?? [{ value: null, label: "days" }, { value: null, label: "hours" }, { value: null, label: "min" }]).map((part) => (
+            <div className="rounded-[var(--sv-card-r-small,14px)] px-2 py-3 text-center @min-[1100px]/profile:!py-5" key={part.label} style={{ background: tone.bg }}>
+              <p className="font-display text-[2rem] font-extrabold leading-none tracking-[-0.05em] tabular-nums @min-[1100px]/profile:!text-[clamp(40px,3.6cqw,60px)]">{part.value === null ? "–" : String(part.value).padStart(2, "0")}</p>
+              <p className="mt-1.5 font-label text-[10px] uppercase tracking-[0.14em]" style={{ color: tone.sub }}>{part.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px]" style={{ color: tone.sub }} suppressHydrationWarning>{Number.isNaN(ends) ? "" : now === null ? new Date(ends).toISOString().slice(0, 10) : DATE_LABEL.format(ends)}</p>
+        {url && <a className="inline-flex min-h-10 items-center rounded-full px-4 text-[13.5px] font-semibold transition hover:opacity-85" href={url} rel="noopener noreferrer" style={{ background: accent, color: accentInk }} target="_blank">{str(data.cta) || (done ? "Open" : "Get notified")}</a>}
+      </div>
+    </section>
   );
 }
