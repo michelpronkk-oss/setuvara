@@ -5,27 +5,33 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 
 import { MeetMark } from "../brand";
+import type { DemoMode } from "../home/demo";
+import { StageField } from "../home/phone-stage";
 import { ClaimForm, Display, Label, Shell } from "../home/primitives";
 
 /**
  * The parts every marketing landing page is built from: Mode pages, feature pages, comparisons,
- * use cases, templates and tools. One rhythm, one type scale, so thirty pages read as one site.
+ * use cases, templates and tools. The spec (Claude Design, "Setuvara Marketing Templates"):
+ * Bricolage 800 at -0.055em for display, Geist body, Geist Mono labels; coral is the only accent;
+ * grounds alternate paper / white / ink so each scroll has one change of light; product is shown
+ * as working panels on blurred Mode stages, never as icon grids.
  */
 
 export type Crumb = { name: string; path: string };
+type ModeSlug = DemoMode["slug"];
 
 /** Visible breadcrumbs plus their BreadcrumbList structured data. */
-export function Breadcrumbs({ trail }: { trail: Crumb[] }) {
+export function Breadcrumbs({ trail, className = "" }: { trail: Crumb[]; className?: string }) {
   const items = [{ name: "Setuvara", path: "/" }, ...trail];
   return (
     <>
       <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: new URL(item.path, SETUVARA_ORIGIN).toString() })) }} />
-      <nav aria-label="Breadcrumb" className="font-label text-[11px] uppercase tracking-[0.14em] text-ink/50">
+      <nav aria-label="Breadcrumb" className={`font-label text-[11px] uppercase tracking-[0.16em] text-ink/50 ${className}`}>
         <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {items.map((item, index) => (
             <li className="flex items-center gap-2" key={item.path}>
               {index > 0 && <span aria-hidden="true">/</span>}
-              {index === items.length - 1 ? <span aria-current="page" className="text-ink/80">{item.name}</span> : <Link className="rounded-sm hover:text-ink focus-visible:outline-2 focus-visible:outline-coral" href={item.path}>{item.name}</Link>}
+              {index === items.length - 1 ? <span aria-current="page" className="text-ink">{item.name}</span> : <Link className="rounded-sm hover:text-ink focus-visible:outline-2 focus-visible:outline-coral" href={item.path}>{item.name}</Link>}
             </li>
           ))}
         </ol>
@@ -34,40 +40,121 @@ export function Breadcrumbs({ trail }: { trail: Crumb[] }) {
   );
 }
 
-/** The opening: what this page is about, in one large line, with the way in beside it. */
-export function PageHero({ crumbs, eyebrow, title, lede, visual, claimId, actions, tone = "paper" }: { crumbs: Crumb[]; eyebrow: string; title: ReactNode; lede: string; visual?: ReactNode; claimId?: string; actions?: ReactNode; tone?: "paper" | "ink" }) {
-  const dark = tone === "ink";
+const pill = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral";
+const pillTone = {
+  ink: "bg-ink text-paper hover:bg-[#262626]",
+  coral: "bg-coral text-ink hover:bg-[#ff6e64]",
+  paper: "bg-paper text-ink hover:bg-white",
+  outline: "text-ink shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.18)] hover:shadow-[inset_0_0_0_1.5px_#0D0D0D]",
+  "outline-paper": "text-paper shadow-[inset_0_0_0_1.5px_rgba(245,244,239,.25)] hover:shadow-[inset_0_0_0_1.5px_#F5F4EF]",
+} as const;
+
+/** The site's one button shape, as a link. */
+export function ButtonLink({ href, children, tone = "ink", className = "" }: { href: string; children: ReactNode; tone?: keyof typeof pillTone; className?: string }) {
+  return <Link className={`${pill} ${pillTone[tone]} ${className}`} href={href}>{children}</Link>;
+}
+
+/** A Mode's blurred colour stage with grain: the ground every product moment sits on. */
+export function Stage({ slug, children, className = "" }: { slug: ModeSlug; children?: ReactNode; className?: string }) {
   return (
-    <section className={`relative overflow-hidden ${dark ? "bg-ink text-paper" : ""}`}>
-      <MeetMark className={`pointer-events-none absolute -right-[12%] top-[-8%] hidden w-[min(46vw,620px)] lg:block ${dark ? "text-paper/[0.04]" : "text-ink/[0.04]"}`} />
-      <Shell className={`relative grid gap-12 pb-16 pt-8 sm:pt-12 lg:gap-16 lg:pb-24 lg:pt-16 ${visual ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center" : ""}`}>
-        <div className="min-w-0">
-          <div className={dark ? "[&_nav]:text-paper/55 [&_nav_[aria-current]]:text-paper/85" : ""}><Breadcrumbs trail={crumbs} /></div>
-          <Label className="mt-8 text-coral">{eyebrow}</Label>
-          <Display as="h1" className="mt-5 text-[clamp(44px,6.4vw,104px)] leading-[0.9]">{title}</Display>
-          <p className={`mt-6 max-w-[38rem] text-[18px] leading-[1.5] sm:text-[21px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</p>
-          {claimId ? <div className="mt-9"><ClaimForm id={claimId} /></div> : null}
-          {actions ? <div className="mt-8 flex flex-wrap gap-3">{actions}</div> : null}
-        </div>
-        {visual ? <div className="min-w-0">{visual}</div> : null}
+    <div className={`relative isolate overflow-hidden rounded-[28px] sm:rounded-[32px] ${className}`}>
+      <StageField className="-z-10" slug={slug} />
+      {children}
+    </div>
+  );
+}
+
+/** Title left (7 of 12 columns), lede right from column 9, bottom-aligned: the head of every section. */
+export function SectionHead({ id, eyebrow, title, lede, tone = "paper", as: Tag = "h2" }: { id?: string; eyebrow?: string; title: ReactNode; lede?: ReactNode; tone?: "paper" | "ink" | "coral"; as?: "h1" | "h2" }) {
+  const muted = tone === "ink" ? "text-paper/60" : "text-ink/65";
+  return (
+    <div className="grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-6">
+      <div className="lg:col-span-7">
+        {eyebrow ? <Label className={tone === "coral" ? "" : "text-coral"}>{eyebrow}</Label> : null}
+        <Display as={Tag} className="mt-4 text-[clamp(44px,5vw,72px)] leading-[0.9] sm:mt-5"><span id={id ? `${id}-title` : undefined}>{title}</span></Display>
+      </div>
+      {lede ? <div className={`text-[17px] leading-[1.6] lg:col-span-4 lg:col-start-9 sm:text-[18px] ${muted}`}>{lede}</div> : null}
+    </div>
+  );
+}
+
+const grounds = { paper: "bg-paper", white: "bg-white", ink: "bg-ink text-paper", sand: "bg-[#EDEBE4]", coral: "bg-coral" } as const;
+
+/** A section: eyebrow, heading and lede in the shared head, content below. */
+export function Section({ id, eyebrow, title, lede, children, tone = "paper", className = "" }: { id?: string; eyebrow?: string; title?: ReactNode; lede?: ReactNode; children?: ReactNode; tone?: keyof typeof grounds; className?: string }) {
+  return (
+    <section aria-labelledby={id && title ? `${id}-title` : undefined} className={`scroll-mt-16 ${grounds[tone]} ${className}`} id={id}>
+      <Shell className="py-20 sm:py-24 lg:py-32">
+        {title ? <SectionHead eyebrow={eyebrow} id={id} lede={lede} title={title} tone={tone === "ink" ? "ink" : tone === "coral" ? "coral" : "paper"} /> : null}
+        {children ? <div className={title ? "mt-12 lg:mt-[72px]" : ""}>{children}</div> : null}
       </Shell>
     </section>
   );
 }
 
-/** A section with an eyebrow, a heading and a short lede; content below. */
-export function Section({ id, eyebrow, title, lede, children, tone = "paper", className = "" }: { id?: string; eyebrow?: string; title: ReactNode; lede?: ReactNode; children?: ReactNode; tone?: "paper" | "white" | "ink" | "sand"; className?: string }) {
-  const bg = { paper: "", white: "bg-white", ink: "bg-ink text-paper", sand: "bg-[#E9E4D9]" }[tone];
-  const muted = tone === "ink" ? "text-paper/65" : "text-ink/65";
+/**
+ * The opening. "split": text left, a stage right (Mode pages, comparisons, use cases). "center":
+ * centred title and actions with the visual full width below (feature pages, articles).
+ */
+export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId, actions, note, meta, layout, tone = "paper" }: {
+  crumbs: Crumb[];
+  eyebrow: string;
+  title: ReactNode;
+  lede: ReactNode;
+  visual?: ReactNode;
+  below?: ReactNode;
+  claimId?: string;
+  actions?: ReactNode;
+  note?: string;
+  meta?: ReactNode;
+  layout?: "split" | "center" | "wide";
+  tone?: "paper" | "ink";
+}) {
+  const dark = tone === "ink";
+  const mode = layout ?? (visual ? "split" : "wide");
+  const claim = claimId ? <ClaimForm id={claimId} /> : null;
+  const extras = (
+    <>
+      {claim ? <div className="mt-9 w-full max-w-[520px]">{claim}</div> : null}
+      {actions ? <div className={`mt-9 flex flex-wrap gap-3 ${mode === "center" ? "justify-center" : ""}`}>{actions}</div> : null}
+      {note ? <Label className={`mt-5 ${dark ? "text-paper/45" : "text-ink/45"}`}>{note}</Label> : null}
+      {meta ? <div className="mt-6">{meta}</div> : null}
+    </>
+  );
   return (
-    <section aria-labelledby={id ? `${id}-title` : undefined} className={`${bg} ${className}`} id={id}>
-      <Shell className="py-16 sm:py-20 lg:py-28">
-        <div className="max-w-[46rem]">
-          {eyebrow ? <Label className="text-coral">{eyebrow}</Label> : null}
-          <Display className="mt-4 text-[clamp(34px,4.4vw,64px)] leading-[0.95]"><span id={id ? `${id}-title` : undefined}>{title}</span></Display>
-          {lede ? <p className={`mt-5 text-[17px] leading-[1.55] sm:text-[19px] ${muted}`}>{lede}</p> : null}
-        </div>
-        {children ? <div className="mt-10 lg:mt-14">{children}</div> : null}
+    <section className={`relative overflow-hidden ${dark ? "bg-ink text-paper" : "bg-paper"}`}>
+      <Shell className="relative pb-20 pt-10 sm:pt-14 lg:pb-28">
+        <div className={dark ? "[&_nav]:text-paper/50 [&_nav_[aria-current]]:text-paper" : ""}><Breadcrumbs className={mode === "center" ? "lg:justify-center" : ""} trail={crumbs} /></div>
+        {mode === "center" ? (
+          <div className="mx-auto mt-12 flex max-w-[60rem] flex-col items-center text-center lg:mt-16">
+            <Label className="text-coral">{eyebrow}</Label>
+            <Display as="h1" className="mt-5 text-[clamp(52px,8vw,124px)] leading-[0.86]">{title}</Display>
+            <div className={`mt-7 max-w-[44rem] text-[18px] leading-[1.55] sm:text-[21px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
+            {extras}
+          </div>
+        ) : mode === "split" ? (
+          <div className="mt-12 grid gap-12 lg:mt-16 lg:grid-cols-12 lg:items-center lg:gap-6">
+            <div className="min-w-0 lg:col-span-5">
+              <Label className="text-coral">{eyebrow}</Label>
+              <Display as="h1" className="mt-5 text-[clamp(52px,6.6vw,104px)] leading-[0.88]">{title}</Display>
+              <div className={`mt-7 max-w-[34rem] text-[18px] leading-[1.6] sm:text-[20px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
+              {extras}
+            </div>
+            <div className="min-w-0 lg:col-span-7 lg:col-start-6">{visual}</div>
+          </div>
+        ) : (
+          <div className="mt-12 grid gap-8 lg:mt-16 lg:grid-cols-12 lg:items-end lg:gap-6">
+            <div className="min-w-0 lg:col-span-8">
+              <Label className="text-coral">{eyebrow}</Label>
+              <Display as="h1" className="mt-5 text-[clamp(52px,8vw,124px)] leading-[0.86]">{title}</Display>
+            </div>
+            <div className="min-w-0 lg:col-span-4 lg:col-start-9">
+              <div className={`text-[18px] leading-[1.6] sm:text-[19px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
+              {extras}
+            </div>
+          </div>
+        )}
+        {below ? <div className="mt-14 lg:mt-20">{below}</div> : null}
       </Shell>
     </section>
   );
@@ -75,26 +162,25 @@ export function Section({ id, eyebrow, title, lede, children, tone = "paper", cl
 
 export type Feature = { title: string; body: string; tag?: string; href?: string };
 
-/** Cards of real capabilities; a tag names the plan or kind, an href makes the card a way further in. */
+/** Index cards: a real capability per card, the tag naming the plan, an href leading further in. */
 export function FeatureGrid({ items, columns = 3, tone = "white" }: { items: Feature[]; columns?: 2 | 3 | 4; tone?: "white" | "ink" }) {
   const cols = { 2: "md:grid-cols-2", 3: "md:grid-cols-2 lg:grid-cols-3", 4: "md:grid-cols-2 lg:grid-cols-4" }[columns];
-  const card = tone === "ink" ? "bg-[#1A1918] text-paper shadow-[inset_0_0_0_1px_rgba(245,244,239,.08)]" : "bg-white shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)]";
+  const card = tone === "ink" ? "bg-[#1B1B1B] text-paper" : "bg-white shadow-[0_30px_60px_-50px_rgba(13,13,13,.45)]";
   return (
-    <ul className={`grid gap-3 sm:gap-4 ${cols}`}>
+    <ul className={`grid gap-6 ${cols}`}>
       {items.map((item) => {
         const inner = (
           <>
-            {item.tag ? <span className={`font-label text-[10.5px] uppercase tracking-[0.16em] ${tone === "ink" ? "text-paper/50" : "text-ink/50"}`}>{item.tag}</span> : null}
-            <h3 className="mt-3 font-display text-[23px] font-bold leading-[1.1] tracking-[-0.035em]">{item.title}</h3>
-            <p className={`mt-2.5 text-[15px] leading-[1.55] ${tone === "ink" ? "text-paper/65" : "text-ink/65"}`}>{item.body}</p>
-            {item.href ? <span aria-hidden="true" className="mt-5 inline-block text-[14px] font-semibold text-coral transition-transform group-hover:translate-x-0.5">Learn more →</span> : null}
+            {item.tag ? <span className={`font-label text-[10.5px] uppercase tracking-[0.16em] ${tone === "ink" ? "text-paper/50" : "text-ink/45"}`}>{item.tag}</span> : null}
+            <h3 className="mt-4 font-display text-[28px] font-extrabold leading-[0.95] tracking-[-0.05em]">{item.title}{item.href ? <span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-x-1">→</span> : null}</h3>
+            <p className={`mt-3 text-[15px] leading-[1.6] ${tone === "ink" ? "text-paper/60" : "text-ink/62"}`}>{item.body}</p>
           </>
         );
         return (
           <li className="min-w-0" key={item.title}>
             {item.href
-              ? <Link className={`group block h-full rounded-[24px] p-6 transition-shadow hover:shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:p-7 ${card}`} href={item.href}>{inner}</Link>
-              : <div className={`h-full rounded-[24px] p-6 sm:p-7 ${card}`}>{inner}</div>}
+              ? <Link className={`group block h-full rounded-[24px] p-7 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:p-8 ${card}`} href={item.href}>{inner}</Link>
+              : <div className={`h-full rounded-[24px] p-7 sm:p-8 ${card}`}>{inner}</div>}
           </li>
         );
       })}
@@ -104,76 +190,105 @@ export function FeatureGrid({ items, columns = 3, tone = "white" }: { items: Fea
 
 export type Faq = { q: string; a: string };
 
-/** Short, factual answers, with FAQPage structured data so search and AI tools can quote them. */
-export function FaqSection({ items, title = "Questions, answered.", id = "faq" }: { items: Faq[]; title?: string; id?: string }) {
+/** Questions left, answers right as native disclosures (no script), with FAQPage structured data. */
+export function FaqSection({ items, title = "Questions, answered.", id = "faq", tone = "paper", single = false }: { items: Faq[]; title?: string; id?: string; tone?: "paper" | "white"; single?: boolean }) {
   return (
-    <section aria-labelledby={`${id}-title`} className="border-t border-ink/10" id={id}>
+    <section aria-labelledby={`${id}-title`} className={`scroll-mt-16 ${tone === "white" ? "bg-white" : "bg-paper"}`} id={id}>
       <JsonLd data={{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: items.map((item) => ({ "@type": "Question", name: item.q, acceptedAnswer: { "@type": "Answer", text: item.a } })) }} />
-      <Shell className="grid gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:gap-16 lg:py-28">
-        <div>
+      <Shell className={`py-20 sm:py-24 lg:py-32 ${single ? "" : "grid gap-10 lg:grid-cols-12 lg:gap-6"}`}>
+        <div className={single ? "mx-auto max-w-[680px]" : "lg:col-span-5"}>
           <Label className="text-coral">FAQ</Label>
-          <Display className="mt-4 text-[clamp(34px,4vw,56px)] leading-[0.95]"><span id={`${id}-title`}>{title}</span></Display>
+          <Display className="mt-4 text-[clamp(40px,4.4vw,64px)] leading-[0.92]"><span id={`${id}-title`}>{title}</span></Display>
         </div>
-        <dl className="divide-y divide-ink/10 border-y border-ink/10">
-          {items.map((item) => (
-            <div className="py-6" key={item.q}>
-              <dt className="text-[18px] font-semibold tracking-[-0.01em]">{item.q}</dt>
-              <dd className="mt-2.5 max-w-[44rem] text-[16px] leading-[1.6] text-ink/70">{item.a}</dd>
-            </div>
+        <div className={single ? "mx-auto mt-10 max-w-[680px] border-t-[1.5px] border-ink" : "border-t-[1.5px] border-ink lg:col-span-7 lg:col-start-6"}>
+          {items.map((item, index) => (
+            <details className="group border-b border-ink/12" key={item.q} open={index === 0}>
+              <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-6 py-6 text-[18px] font-semibold tracking-[-0.01em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:text-[19px] [&::-webkit-details-marker]:hidden">
+                {item.q}
+                <span aria-hidden="true" className="mt-0.5 text-[20px] font-normal leading-none text-ink/40 transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <p className="-mt-2 max-w-[44rem] pb-7 text-[16px] leading-[1.65] text-ink/65">{item.a}</p>
+            </details>
           ))}
-        </dl>
+        </div>
       </Shell>
     </section>
   );
 }
 
-/** The closing ask: one line, the claim field and a quieter second way. */
-export function CtaBand({ title, line, claimId, secondary }: { title: ReactNode; line: string; claimId: string; secondary?: { href: string; label: string } }) {
+/** The closing ask on coral: one large line, the claim field and a quieter second way. */
+export function CtaBand({ title, line, claimId, secondary }: { title: ReactNode; line?: string; claimId: string; secondary?: { href: string; label: string } }) {
   return (
     <section className="relative overflow-hidden bg-coral">
-      <MeetMark className="pointer-events-none absolute -bottom-[30%] -right-[8%] w-[min(54vw,620px)] text-ink/[0.09]" />
-      <Shell className="relative py-16 sm:py-20 lg:py-28">
-        <Display className="max-w-[18ch] text-[clamp(40px,5.6vw,88px)] leading-[0.9]">{title}</Display>
-        <p className="mt-5 max-w-[34rem] text-[18px] leading-[1.5] text-ink/75">{line}</p>
-        <div className="mt-9 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <ClaimForm id={claimId} tone="coral" />
-          {secondary ? <Link className="inline-flex min-h-12 items-center rounded-full px-2 text-[15px] font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink focus-visible:outline-2 focus-visible:outline-ink" href={secondary.href}>{secondary.label}</Link> : null}
+      <MeetMark className="pointer-events-none absolute -right-[6%] top-1/2 hidden w-[min(40vw,560px)] -translate-y-1/2 text-ink sm:block" />
+      <MeetMark className="pointer-events-none absolute -right-[22%] -top-[8%] w-[78vw] text-ink sm:hidden" />
+      <Shell className="relative py-20 sm:py-24 lg:py-32">
+        <Label>Create your Setuvara</Label>
+        <Display className="relative mt-5 max-w-[15ch] text-[clamp(52px,7.4vw,120px)] leading-[0.86]">{title}</Display>
+        {line ? <p className="relative mt-6 max-w-[30rem] text-[18px] leading-[1.5] text-ink/75">{line}</p> : null}
+        <div className="relative mt-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
+          <div className="w-full max-w-[520px]"><ClaimForm id={claimId} tone="coral" /></div>
+          {secondary ? <Link className="inline-flex min-h-11 items-center text-[16px] font-semibold underline decoration-ink/40 decoration-[1.5px] underline-offset-4 hover:decoration-ink focus-visible:outline-2 focus-visible:outline-ink" href={secondary.href}>{secondary.label}</Link> : null}
         </div>
       </Shell>
     </section>
   );
 }
 
-/** A quiet desktop window around a real profile drawn at desktop width. */
+/** A desktop window around a real profile drawn at desktop width. */
 export function BrowserFrame({ url, children, className = "" }: { url: string; children: ReactNode; className?: string }) {
   return (
-    <figure className={`overflow-hidden rounded-[18px] bg-[#1B1B1B] shadow-[0_50px_90px_-40px_rgba(13,13,13,.6),inset_0_0_0_1px_rgba(255,255,255,.06)] ${className}`}>
-      <div aria-hidden="true" className="flex h-9 items-center gap-2 px-4">
+    <figure className={`overflow-hidden rounded-[18px] bg-[#1B1B1B] shadow-[0_60px_100px_-40px_rgba(13,13,13,.55),inset_0_0_0_1px_rgba(255,255,255,.06)] lg:rounded-[22px] ${className}`}>
+      <div aria-hidden="true" className="flex h-9 items-center gap-2 px-4 lg:h-11">
         <span className="size-2.5 rounded-full bg-white/15" /><span className="size-2.5 rounded-full bg-white/15" /><span className="size-2.5 rounded-full bg-white/15" />
-        <span className="ml-3 flex h-6 min-w-0 flex-1 items-center justify-center truncate rounded-full bg-white/[0.07] px-3 font-label text-[11px] text-white/55">{url}</span>
+        <span className="mx-auto flex h-6 min-w-0 max-w-[420px] flex-1 items-center justify-center truncate rounded-full bg-white/[0.07] px-3 font-label text-[11px] text-white/55">{url}</span>
       </div>
       <div className="relative">{children}</div>
     </figure>
   );
 }
 
-/** Where to go next: a short row of related pages, the internal links that tie the site together. */
+/** Where to go next: a rule, a label and a row of white cards. The internal links that tie the site together. */
 export function RelatedLinks({ title = "Keep exploring", items }: { title?: string; items: { href: string; label: string; line: string }[] }) {
   return (
-    <section aria-label={title} className="border-t border-ink/10 bg-white">
-      <Shell className="py-14 sm:py-16">
-        <Label className="text-ink/55">{title}</Label>
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {items.map((item) => (
-            <li key={item.href}>
-              <Link className="group flex h-full flex-col rounded-[20px] p-5 shadow-[inset_0_0_0_1px_rgba(13,13,13,.1)] transition-shadow hover:shadow-[inset_0_0_0_1.5px_rgba(13,13,13,.35)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" href={item.href}>
-                <span className="font-display text-[19px] font-bold tracking-[-0.03em]">{item.label}<span aria-hidden="true" className="ml-1.5 text-coral transition-transform group-hover:translate-x-0.5">→</span></span>
-                <span className="mt-1.5 text-[14px] leading-[1.5] text-ink/60">{item.line}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+    <section aria-label={title} className="bg-paper">
+      <Shell className="pb-20 pt-2 sm:pb-24">
+        <div className="border-t-[1.5px] border-ink pt-8">
+          <Label className="text-ink/55">{title}</Label>
+          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+            {items.map((item) => (
+              <li key={item.href}>
+                <Link className="group flex h-full flex-col rounded-[22px] bg-white p-6 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" href={item.href}>
+                  <span className="font-display text-[24px] font-extrabold leading-none tracking-[-0.05em]">{item.label}<span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-x-1">→</span></span>
+                  <span className="mt-2.5 text-[14px] leading-[1.5] text-ink/58">{item.line}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       </Shell>
     </section>
+  );
+}
+
+/** The four Modes as a dark segmented switch; each opens that Mode's page. */
+export function ModeSwitch({ current }: { current: ModeSlug }) {
+  const modes: { slug: ModeSlug; name: string; dot: string }[] = [
+    { slug: "personal", name: "Personal", dot: "#FF5A4F" },
+    { slug: "event", name: "Event", dot: "#C7FF4A" },
+    { slug: "business", name: "Business", dot: "#AFCBFF" },
+    { slug: "creator", name: "Creator", dot: "#E8A6FF" },
+  ];
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <nav aria-label="Modes" className="flex max-w-full overflow-x-auto rounded-full bg-ink p-1.5 text-paper [scrollbar-width:none]">
+        {modes.map((mode) => (
+          <Link aria-current={mode.slug === current ? "page" : undefined} className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium min-[400px]:gap-2 min-[400px]:px-3.5 min-[400px]:text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-coral sm:px-5 sm:text-[15px] ${mode.slug === current ? "bg-paper font-semibold text-ink" : "text-paper/75 hover:text-paper"}`} href={`/${mode.slug}`} key={mode.slug}>
+            <span aria-hidden="true" className="size-2 rounded-full" style={{ background: mode.dot }} />{mode.name}
+          </Link>
+        ))}
+      </nav>
+      <Label className="text-ink/45">One identity · Four Modes</Label>
+    </div>
   );
 }
