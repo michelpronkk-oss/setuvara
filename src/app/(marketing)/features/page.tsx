@@ -1,4 +1,5 @@
 import { CtaBand, FeatureGrid, PageHero, Section } from "@/components/marketing/site/kit";
+import { FeatureVisual } from "@/components/marketing/site/visuals";
 import { FEATURE_ORDER, FEATURE_PAGES } from "@/lib/marketing/features-content";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import { MODE_ORDER, MODE_PAGES } from "@/lib/marketing/modes-content";
@@ -12,7 +13,7 @@ export const metadata = marketingMetadata({
 export default function FeaturesIndex() {
   return (
     <>
-      <PageHero claimId="features-claim" crumbs={[{ name: "Features", path: "/features" }]} eyebrow="Features" lede="Four Modes, and the tools that do the next step: forms and sign-ups, projects with verified revenue, analytics, and every way to share in person." title="Everything in Setuvara." />
+      <PageHero claimId="features-claim" crumbs={[{ name: "Features", path: "/features" }]} eyebrow="Features" lede="Four Modes, and the tools that do the next step: forms and sign-ups, projects with verified revenue, analytics, and every way to share in person." below={<FeatureVisual name="builder" />} title="Everything in Setuvara." />
       <Section eyebrow="Tools" id="features-tools" title="What you work with.">
         <FeatureGrid items={FEATURE_ORDER.map((slug) => ({ title: FEATURE_PAGES[slug].name, body: FEATURE_PAGES[slug].lede, tag: FEATURE_PAGES[slug].status === "coming" ? "Coming soon" : undefined, href: `/features/${slug}` }))} />
       </Section>
