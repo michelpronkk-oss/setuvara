@@ -1,4 +1,5 @@
-import { CtaBand, FaqSection, PageHero, RelatedLinks, Section, Stage } from "@/components/marketing/site/kit";
+import { CtaBand, FaqSection, PageHero, Section, Stage } from "@/components/marketing/site/kit";
+import { RelatedLinks } from "@/components/marketing/site/link-cards";
 import { QrGenerator } from "@/components/marketing/tools/qr-generator";
 import { JsonLd } from "@/components/seo/json-ld";
 import { marketingMetadata, SETUVARA_ORGANIZATION_ID, SETUVARA_ORIGIN } from "@/lib/marketing/metadata";

@@ -8,7 +8,8 @@ import { SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 import { MeetMark } from "../brand";
 import { CastPhone } from "../home/mode-phone";
 import { Label, Shell } from "../home/primitives";
-import { ButtonLink, CtaBand, FaqSection, PageHero, RelatedLinks, SectionHead, Stage } from "./kit";
+import { ButtonLink, CtaBand, FaqSection, PageHero, SectionHead, Stage } from "./kit";
+import { LinkCards, RelatedLinks } from "./link-cards";
 
 const FAN = [
   { slug: "personal", left: "2%", rotate: -7, top: "16%" },
@@ -142,17 +143,5 @@ export function CompareLanding({ slug }: { slug: string }) {
 
 /** The index of comparisons, for /compare and related lists. */
 export function CompareList() {
-  return (
-    <ul className="grid gap-6 md:grid-cols-2">
-      {Object.values(COMPARE_PAGES).map((page) => (
-        <li key={page.slug}>
-          <Link className="group flex h-full flex-col rounded-[28px] bg-white p-8 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:p-10" href={`/compare/${page.slug}`}>
-            <span className="font-display text-[clamp(32px,3vw,44px)] font-extrabold leading-none tracking-[-0.055em]">Setuvara <span className="text-ink/30">vs</span> {page.name}</span>
-            <span className="mt-4 text-[16px] leading-[1.6] text-ink/62">{page.summary.them}</span>
-            <span className="mt-auto pt-6 text-[15px] font-semibold">Compare <span aria-hidden="true" className="inline-block transition-transform group-hover:translate-x-1">→</span></span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
+  return <LinkCards columns={2} items={Object.values(COMPARE_PAGES).map((page) => ({ href: `/compare/${page.slug}`, title: <>Setuvara <span className="text-ink/30">vs</span> {page.name}</>, line: page.ledeShort ?? page.summary.them, name: page.name }))} />;
 }

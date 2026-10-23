@@ -8,7 +8,8 @@ import { MODE_PAGES } from "@/lib/marketing/modes-content";
 import { LOOK_TEMPLATES, MODE_TEMPLATES, type LookTemplate, type ModeTemplate } from "@/lib/marketing/templates-content";
 
 import { CAST, ModeDesktop, ModePhone } from "../home/mode-phone";
-import { BrowserFrame, ButtonLink, CtaBand, PageHero, RelatedLinks, Section, Stage } from "./kit";
+import { BrowserFrame, ButtonLink, CtaBand, PageHero, Section, Stage } from "./kit";
+import { RelatedLinks } from "./link-cards";
 
 type ModeSlug = keyof typeof MODE_PAGES;
 

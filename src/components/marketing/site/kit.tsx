@@ -278,27 +278,6 @@ export function BrowserFrame({ url, children, className = "" }: { url: string; c
 }
 
 /** Where to go next: a rule, a label and a row of white cards. The internal links that tie the site together. */
-export function RelatedLinks({ title = "Keep exploring", items }: { title?: string; items: { href: string; label: string; line: string }[] }) {
-  return (
-    <section aria-label={title} className="bg-paper">
-      <Shell className="pb-20 pt-2 sm:pb-24">
-        <div className="border-t-[1.5px] border-ink pt-8">
-          <Label className="text-ink/55">{title}</Label>
-          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-            {items.map((item) => (
-              <li key={item.href}>
-                <Link className="group flex h-full flex-col rounded-[22px] bg-white p-6 transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral" href={item.href}>
-                  <span className="font-display text-[24px] font-extrabold leading-none tracking-[-0.05em]">{item.label}<span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-x-1">→</span></span>
-                  <span className="mt-2.5 text-[14px] leading-[1.5] text-ink/58">{item.line}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Shell>
-    </section>
-  );
-}
 
 /** The four Modes as a dark segmented switch; each opens that Mode's page. */
 export function ModeSwitch({ current }: { current?: ModeSlug }) {
