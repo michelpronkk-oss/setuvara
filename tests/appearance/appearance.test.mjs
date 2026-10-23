@@ -573,10 +573,31 @@ describe("Name type", () => {
 
   test("the plan trigger mirrors the field list", () => {
     // The latest migration that recreates the trigger carries the whole list.
-    const sql = readFileSync(join(root, "supabase/migrations/20261013020000_scroll_cue.sql"), "utf8");
-    assert.match(sql, /'qrStyle', 'nameFont', 'scrollCue'\n  \] loop/, "same order as PREMIUM_FIELDS");
-    assert.equal(lib.PREMIUM_FIELDS.at(-2), "nameFont");
+    const sql = readFileSync(join(root, "supabase/migrations/20261116090000_appearance_card_color.sql"), "utf8");
+    const list = sql.match(/foreach field in array array\[([\s\S]*?)\] loop/)[1].match(/'([a-zA-Z]+)'/g).map((name) => name.slice(1, -1));
+    assert.deepEqual(list, [...lib.PREMIUM_FIELDS], "same order as PREMIUM_FIELDS");
     assert.match(sql, /p_field = 'nameFont' then p_value #>> '\{\}' not in \('setuvara', 'modern'\)/);
+    assert.match(sql, /p_field = 'cardColor' then true/);
+  });
+
+  test("card colour: Plus tint on every card style, accent follows the accent", () => {
+    const base = { theme: "immersive", accent: "#C7FF4A" };
+    assert.ok(lib.isValidAppearance("personal", { ...base, cardColor: "accent" }));
+    assert.ok(lib.isValidAppearance("personal", { ...base, cardColor: "#8CC2FF" }));
+    assert.ok(!lib.isValidAppearance("personal", { ...base, cardColor: "red" }));
+    assert.equal(lib.resolveAppearance(mode("personal", { ...base, cardColor: "accent" }), "plus").cardColor, "#C7FF4A");
+    assert.equal(lib.resolveAppearance(mode("personal", { ...base, cardColor: "#8cc2ff" }), "plus").cardColor, "#8CC2FF");
+    assert.equal(lib.resolveAppearance(mode("personal", { ...base, cardColor: "#8CC2FF" }), "free").cardColor, null, "Free renders the Look's own cards");
+    assert.deepEqual(lib.introducedLockedFields(base, { ...base, cardColor: "accent" }, "free"), ["cardColor"]);
+    assert.deepEqual(lib.introducedLockedFields({ ...base, cardColor: "accent" }, { ...base, cardColor: "accent", accent: "#FF5A4F" }, "free"), [], "a saved colour survives a downgrade");
+    assert.ok(lib.VISUAL_KEYS.includes("cardColor"));
+    const cardMode = (appearance) => mode("personal", appearance, { blocks: [{ id: "b", kind: "text", is_visible: true, sort_order: 0, data: { text: "Hello" } }] });
+    for (const cardStyle of ["solid", "glass", "outline"]) {
+      const html = render(cardMode({ ...base, cardStyle, cardColor: "#8CC2FF" }), "plus");
+      assert.match(html, /data-card-color="#8CC2FF"/, cardStyle);
+      assert.match(html, /color-mix\(in srgb, #8CC2FF/, `${cardStyle} tints the cards`);
+    }
+    assert.doesNotMatch(render(cardMode({ ...base, cardColor: "#8CC2FF" }), "free"), /data-card-color=|color-mix\(in srgb, #8CC2FF/);
   });
 
   test("every Appearance draws its name in the chosen face; Setuvara keeps each look's own", () => {

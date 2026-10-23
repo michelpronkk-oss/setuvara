@@ -54,6 +54,7 @@ export const PLAN_LIMITS: { group: string; source: string; rows: Row[] }[] = [
       { label: "Photo slideshow", free: "—", plus: "2 photos", pro: "4 photos" },
       { label: "Content blocks (Text, Section, FAQ, Location, Countdown and more)", free: "Yes", plus: "Yes", pro: "Yes" },
       { label: "Card styles", free: "Solid", plus: "Solid, Glass, Outline", pro: "Solid, Glass, Outline" },
+      { label: "Card colours", free: "Look's own", plus: "Any colour", pro: "Any colour" },
       { label: "Text fonts", free: "Sans", plus: "Sans, Serif, Mono", pro: "Sans, Serif, Mono" },
       { label: "Embeds (Calendly, Cal.com, Typeform, Tally, Google Forms, Substack)", free: "—", plus: "Yes", pro: "Yes" },
       { label: "QR styles", free: "Standard", plus: "All 5", pro: "All 5" },

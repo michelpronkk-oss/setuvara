@@ -97,6 +97,8 @@ export type CardVariant = (typeof CARD_VARIANTS)[number];
 /** Body text faces; sans is the Look's own. */
 export const BODY_FONTS = ["sans", "serif", "mono"] as const;
 export type BodyFont = (typeof BODY_FONTS)[number];
+/** A saved card colour: "accent" follows the Mode accent, otherwise a #RRGGBB colour. */
+export const isCardColor = (value: unknown): value is string => value === "accent" || (typeof value === "string" && HEX_COLOR.test(value));
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 export const SOUND_PRESENTATIONS = ["ambient", "minimal", "featured"] as const;
 export const SLIDE_SPEEDS = ["slow", "medium", "fast"] as const;
@@ -171,6 +173,8 @@ export type ResolvedAppearance = {
   /** Display style of the name; a Plus style renders Setuvara without Plus. */
   nameFont: NameFont;
   cardStyle: CardVariant;
+  /** The card tint as a colour (accent resolved); null keeps the Look's own cards. */
+  cardColor: string | null;
   bodyFont: BodyFont;
   /** The cue at the hero's foot; null when the member turned it off. */
   scrollCue: ScrollCue | null;
@@ -244,6 +248,7 @@ export function capabilityForField(field: keyof ModeAppearance, value: unknown):
     case "scrollCue": return value === "auto" || value === "off" ? null : "appearance.premium";
     case "cardStyle": return value === "solid" ? null : "appearance.advanced_controls";
     case "bodyFont": return value === "sans" ? null : "appearance.advanced_controls";
+    case "cardColor": return "appearance.advanced_controls";
     default: return null;
   }
 }
@@ -253,7 +258,7 @@ export const PREMIUM_FIELDS = [
   "theme", "layout", "portraitZoom", "portraitNameSize", "portraitShowUsername",
   "namePosition", "readability", "socialStyle", "motion", "soundtrackPresentation",
   "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle", "qrStyle", "nameFont", "scrollCue",
-  "cardStyle", "bodyFont",
+  "cardStyle", "bodyFont", "cardColor",
 ] as const;
 export type PremiumField = (typeof PREMIUM_FIELDS)[number];
 
@@ -330,6 +335,7 @@ export function resolveAppearance(mode: Pick<ProfileMode, "slug" | "appearance">
     nameFont: isNameFont(saved.nameFont) && (isFreeNameFont(saved.nameFont) || can("appearance.premium")) ? saved.nameFont : "setuvara",
     cardStyle: includes(CARD_VARIANTS, saved.cardStyle) && advanced ? saved.cardStyle : "solid",
     bodyFont: includes(BODY_FONTS, saved.bodyFont) && advanced ? saved.bodyFont : "sans",
+    cardColor: isCardColor(saved.cardColor) && advanced ? (saved.cardColor === "accent" ? resolveModeAccent(mode) : saved.cardColor.toUpperCase()) : null,
     // A chosen cue needs Plus; without it the look's own shows. Off is always honoured.
     scrollCue: cueChoice === "off" ? null : cueChoice === "auto" || !premium ? APPEARANCE_CUES[id] : cueChoice,
     scrollCueMotion: premium && motion !== "off",
@@ -352,7 +358,7 @@ export const VISUAL_KEYS = [
   "layout", "imageTreatment", "intensity", "card", "radius", "button", "links", "soundStyle",
   "portraitZoom", "portraitNameSize", "portraitShowUsername", "namePosition", "readability",
   "socialStyle", "socialPlacement", "identityAlign", "slideSpeed", "mediaLayout", "nameFont", "scrollCue", "motion", "soundtrackPresentation",
-  "cardStyle", "bodyFont",
+  "cardStyle", "bodyFont", "cardColor",
 ] as const satisfies readonly (keyof ModeAppearance)[];
 
 /**
@@ -411,7 +417,8 @@ export function isValidAppearance(slug: ModeSlug, appearance: ModeAppearance) {
     && optional(appearance.motion, MOTION_LEVELS)
     && optional(appearance.soundtrackPresentation, SOUND_PRESENTATIONS)
     && optional(appearance.cardStyle, CARD_VARIANTS)
-    && optional(appearance.bodyFont, BODY_FONTS);
+    && optional(appearance.bodyFont, BODY_FONTS)
+    && (appearance.cardColor === undefined || isCardColor(appearance.cardColor));
 }
 
 /** Validate an untrusted ?appearance= hint. A hint only pre-selects a preview; it grants nothing. */

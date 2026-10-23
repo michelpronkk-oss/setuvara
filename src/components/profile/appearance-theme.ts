@@ -202,10 +202,22 @@ export const SOCIAL_HEIGHTS = { rail: 54, row: 34, compact: 52, hidden: 0 } as c
  * A Look's cards in a variant. Solid is the Look's own; glass frosts them over the photo or
  * colour behind; outline drops the fill for a hairline. The Look's colours, radius and type stay.
  */
-export function withCardStyle(theme: AppearanceTheme, style: "solid" | "glass" | "outline"): AppearanceTheme {
-  if (style === "solid") return theme;
-  if (style === "glass") return { ...theme, card: theme.light ? { bg: "#FFFFFF66", edge: "#FFFFFFB3" } : { bg: "#F5F4EF26", edge: "#F5F4EF3D" } };
-  return { ...theme, card: { bg: "transparent", edge: theme.light ? "#0D0D0D52" : "#F5F4EF7A" } };
+export function withCardStyle(theme: AppearanceTheme, style: "solid" | "glass" | "outline", color: string | null = null): AppearanceTheme {
+  const styled = style === "solid" ? theme
+    : style === "glass" ? { ...theme, card: theme.light ? { bg: "#FFFFFF66", edge: "#FFFFFFB3" } : { bg: "#F5F4EF26", edge: "#F5F4EF3D" } }
+    : { ...theme, card: { bg: "transparent", edge: theme.light ? "#0D0D0D52" : "#F5F4EF7A" } };
+  return color ? { ...styled, card: tintCard(styled.card, style, color, styled.light) } : styled;
+}
+
+/**
+ * A chosen card colour tints the card rather than painting it, so the Look's text stays
+ * readable on any colour: solid takes a firm tint, glass a lighter one, outline only its edge.
+ */
+function tintCard(card: AppearanceTheme["card"], style: "solid" | "glass" | "outline", color: string, light: boolean): AppearanceTheme["card"] {
+  const mix = (share: number, into: string) => `color-mix(in srgb, ${color} ${share}%, ${into})`;
+  if (style === "outline") return { bg: "transparent", edge: mix(80, "transparent") };
+  const share = style === "glass" ? (light ? 26 : 20) : light ? 34 : 28;
+  return { bg: mix(share, card.bg), edge: mix(45, card.edge) };
 }
 
 /** The body text face for a chosen body font; undefined keeps the Look's own. */

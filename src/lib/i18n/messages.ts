@@ -61,6 +61,8 @@ const messages = {
       alignment: "Alignment", alignments: { left: "Left", center: "Center" }, socials: "Social icons", socialPlacements: { name: "Under name", links: "In links", both: "Both" }, socialStyle: "Icon style", socialStyles: { rail: "Rail", row: "Row", compact: "Compact", hidden: "Hidden" },
       motion: "Motion", motions: { off: "Off", subtle: "Subtle", full: "Full" },
       cardStyle: "Cards", cardStyles: { solid: "Solid", glass: "Glass", outline: "Outline" },
+      cardColour: "Card colour", cardColours: { auto: "Auto", accent: "Accent", paper: "White", ink: "Ink", blush: "Blush", mint: "Mint", sky: "Sky", sand: "Sand" },
+      customCardColour: "Custom card colour", cardColourLabel: "{name} cards",
       bodyFont: "Text font", bodyFonts: { sans: "Sans", serif: "Serif", mono: "Mono" },
       soundtrack: "Soundtrack", soundPresentations: { ambient: "Ambient", minimal: "Minimal", featured: "Featured" },
       noSoundtrack: "Add a soundtrack in Content to choose how it appears.",

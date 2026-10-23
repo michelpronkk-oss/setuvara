@@ -31,6 +31,7 @@ const GROUPS: Group[] = [
     { label: "Name fonts", cells: [m(String(PLAN_COUNTS.freeNameFonts)), String(PLAN_COUNTS.nameFonts), String(PLAN_COUNTS.nameFonts)] },
     { label: "Accent intensity, cards, links and scroll cues", cells: [m("Core"), "Full", "Full"] },
     { label: "Card styles", cells: [m("Solid"), "Solid, Glass, Outline", "Solid, Glass, Outline"] },
+    { label: "Card colours", cells: [m("Look's own"), "Any colour", "Any colour"] },
     { label: "Text fonts", cells: [m("Sans"), "Sans, Serif, Mono", "Sans, Serif, Mono"] },
     { label: "Soundtrack presentation", cells: [m("Standard"), "Premium", "Premium"] },
     { label: "Profile flair from your Passport", cells: [false, true, true] },

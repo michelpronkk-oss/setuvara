@@ -216,7 +216,7 @@ function Profile(props: ProfileProps) {
   const photo = source ? mode.image_url ?? source.url : null;
   const lookTheme = appearanceTheme(look.id, look.accent, Boolean(photo));
   // A chosen alignment moves the identity and the About text together; Auto keeps the look's own.
-  const theme = withCardStyle(look.align === "auto" ? lookTheme : { ...lookTheme, bioAlign: look.align, identity: { ...lookTheme.identity, align: look.align } }, look.cardStyle);
+  const theme = withCardStyle(look.align === "auto" ? lookTheme : { ...lookTheme, bioAlign: look.align, identity: { ...lookTheme.identity, align: look.align } }, look.cardStyle, look.cardColor);
   const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
   const connected = viewerState === "visitor_connected" && !previewAsVisitor;
@@ -302,6 +302,7 @@ function Profile(props: ProfileProps) {
       data-foot={props.edgeToEdge ? `${cover.foot}` : undefined}
       data-sound-presentation={scene.sound ?? "none"}
       data-card-style={look.cardStyle}
+      data-card-color={look.cardColor ?? undefined}
       data-body-font={look.bodyFont}
       style={{
         background: theme.base,

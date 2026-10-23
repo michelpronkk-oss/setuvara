@@ -32,7 +32,7 @@ import { Pill, PlusTag, SectionHeader, Sheet, modeMeta, previewVisitorAction } f
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "cardStyle" | "bodyFont" | "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed" | "socialStyle";
+type ControlKey = "cardStyle" | "cardColor" | "bodyFont" | "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed" | "socialStyle";
 type MoreKey = "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
@@ -52,7 +52,7 @@ const CONTROLS: Record<AppearanceId, ControlKey[]> = {
 };
 const ALWAYS: ControlKey[] = ["scrollCue", "username", "focus", "slideSpeed"];
 /** Name type leads every look's controls: it is the most visible personal choice after the look itself. */
-const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], "cardStyle", "bodyFont", ...ALWAYS];
+const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], "cardStyle", "cardColor", "bodyFont", ...ALWAYS];
 
 /**
  * "Make it yours" in five plain groups, plus the fine-tuning behind Advanced. A look only shows
@@ -60,7 +60,7 @@ const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS
  */
 const GROUPS: { id: string; title: string; keys: ControlKey[] }[] = [
   { id: "name", title: "Name", keys: ["nameFont", "username", "nameSize", "namePosition", "align"] },
-  { id: "look", title: "Look", keys: ["accent", "cardStyle", "bodyFont"] },
+  { id: "look", title: "Look", keys: ["accent", "cardStyle", "cardColor", "bodyFont"] },
   { id: "links", title: "Links", keys: ["socials"] },
   { id: "motion", title: "Motion & sound", keys: ["motion", "sound", "slideSpeed"] },
   { id: "photo", title: "Photo", keys: ["focus", "zoom"] },
@@ -328,6 +328,8 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
       return <ScrollCueControl api={api} state={state} />;
     case "cardStyle":
       return <Segment copy={copy} label={copy.cardStyle} locked={previewLocked("cardStyle")} onPick={(value) => choose({ cardStyle: value === "solid" ? undefined : value })} options={CARD_VARIANTS.map((value) => ({ value, label: copy.cardStyles[value], plus: premium("cardStyle", value) }))} value={look.cardStyle} />;
+    case "cardColor":
+      return <CardColourControl api={api} state={state} />;
     case "bodyFont":
       return <Segment copy={copy} label={copy.bodyFont} locked={previewLocked("bodyFont")} onPick={(value) => choose({ bodyFont: value === "sans" ? undefined : value })} options={BODY_FONTS.map((value) => ({ value, label: copy.bodyFonts[value], plus: premium("bodyFont", value) }))} value={look.bodyFont} />;
     case "nameSize":
@@ -422,13 +424,13 @@ function ScrollCueControl({ api, state }: { api: EditorApi; state: State }) {
   const locked = state.previewing && !allowed(api.plan, "scrollCue", working.scrollCue);
   return (
     <ControlRow label={copy.scrollCue} note={locked && <PlusTag />}>
-      <div aria-label={copy.scrollCue} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:none]" data-scroll-cue-picker role="radiogroup">
+      <div aria-label={copy.scrollCue} className="grid grid-cols-4 gap-1.5 @[420px]/controls:grid-cols-6" data-scroll-cue-picker role="radiogroup">
         {SCROLL_CUE_CHOICES.map((value) => {
           const on = choice === value;
           const plus = !allowed(api.plan, "scrollCue", value);
           const cue = value === "auto" ? APPEARANCE_CUES[look.id] : value === "off" ? null : value;
           return (
-            <button aria-checked={on} aria-label={`${copy.scrollCues[value]}${plus ? ` · ${copy.plus}` : ""}`} className={`flex h-[52px] w-[62px] shrink-0 flex-col items-center justify-between rounded-[12px] px-1 pb-1 pt-1.5 transition-colors ${focusRing}`} data-scroll-cue-choice={value} key={value} onClick={() => api.chooseAppearance({ scrollCue: value === "auto" ? undefined : value })} role="radio" style={{ background: on ? "#0D0D0D" : "#0D0D0D0A", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
+            <button aria-checked={on} aria-label={`${copy.scrollCues[value]}${plus ? ` · ${copy.plus}` : ""}`} className={`flex h-[52px] min-w-0 flex-col items-center justify-between rounded-[12px] px-1 pb-1 pt-1.5 transition-colors ${focusRing}`} data-scroll-cue-choice={value} key={value} onClick={() => api.chooseAppearance({ scrollCue: value === "auto" ? undefined : value })} role="radio" style={{ background: on ? "#0D0D0D" : "#0D0D0D0A", color: on ? "#F5F4EF" : "#0D0D0D" }} type="button">
               <span aria-hidden="true" className={`flex h-6 items-center justify-center ${cue === "swipe" || cue === "caption" || cue === "credits" ? "scale-[.7]" : "scale-[.85]"}`}>
                 {cue ? <CueGlyph accent={look.accent} animated={on} cue={cue} text={copy.scrollCues[cue]} /> : <span className="block h-px w-4 bg-current opacity-50" />}
               </span>
@@ -498,6 +500,53 @@ function AccentControl({ api, state }: { api: EditorApi; state: State }) {
         <label className="relative grid size-10 cursor-pointer place-items-center rounded-full text-base focus-within:outline focus-within:outline-2 focus-within:outline-offset-2" style={custom ? { background: look.accent, boxShadow: "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" } : { boxShadow: "inset 0 0 0 1px #0D0D0D47" }} title={copy.custom}>
           {!custom && <span aria-hidden="true">+</span>}
           <input aria-label={copy.customAccent} className="absolute inset-0 size-full cursor-pointer opacity-0" onChange={(event) => { if (/^#[\da-f]{6}$/i.test(event.target.value)) api.chooseAppearance({ accent: event.target.value.toUpperCase() }); }} type="color" value={look.accent.toLowerCase()} />
+        </label>
+      </div>
+    </ControlRow>
+  );
+}
+
+/** Card colours on offer besides Auto (the Look's own) and Accent. Each tints the cards; it never paints them. */
+const CARD_COLOUR_PRESETS = [
+  { id: "paper", hex: "#FFFFFF" },
+  { id: "ink", hex: "#0D0D0D" },
+  { id: "blush", hex: "#FF9EB5" },
+  { id: "mint", hex: "#7FE0B5" },
+  { id: "sky", hex: "#8CC2FF" },
+  { id: "sand", hex: "#E8C48A" },
+] as const;
+
+/**
+ * Card colour: Auto keeps the Look's own cards, Accent follows the accent, or any colour. Plus,
+ * like the card styles; Free members can try it in the preview.
+ */
+function CardColourControl({ api, state }: { api: EditorApi; state: State }) {
+  const { copy, look, working } = state;
+  const saved = typeof working.cardColor === "string" ? working.cardColor.toUpperCase() : null;
+  const choice = saved === "ACCENT" ? "accent" : saved;
+  const plus = !allowed(api.plan, "cardColor", "accent");
+  const locked = state.previewing && !allowed(api.plan, "cardColor", working.cardColor);
+  const custom = choice !== null && choice !== "accent" && !CARD_COLOUR_PRESETS.some((preset) => preset.hex === choice);
+  const ring = (on: boolean) => (on ? "0 0 0 2px #FFFFFF, 0 0 0 3.5px #0D0D0D" : "inset 0 0 0 1px #0D0D0D1F");
+  const pick = (value: string | undefined) => api.chooseAppearance({ cardColor: value });
+  const chip = `flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[12px] font-semibold transition-colors ${focusRing}`;
+  return (
+    <ControlRow label={copy.cardColour} note={locked && <PlusTag />}>
+      <div aria-label={copy.cardColour} className="flex flex-wrap items-center gap-2" data-card-colour-picker role="radiogroup">
+        <button aria-checked={choice === null} className={chip} data-card-colour="auto" onClick={() => pick(undefined)} role="radio" style={{ background: choice === null ? "#0D0D0D" : "#0D0D0D0A", color: choice === null ? "#F5F4EF" : "#0D0D0DCC" }} type="button">{copy.cardColours.auto}</button>
+        <button aria-checked={choice === "accent"} aria-label={`${copy.cardColours.accent}${plus ? ` · ${copy.plus}` : ""}`} className={chip} data-card-colour="accent" onClick={() => pick("accent")} role="radio" style={{ background: choice === "accent" ? "#0D0D0D" : "#0D0D0D0A", color: choice === "accent" ? "#F5F4EF" : "#0D0D0DCC" }} type="button">
+          <span aria-hidden="true" className="size-3.5 rounded-full" style={{ background: look.accent, boxShadow: "inset 0 0 0 1px #0D0D0D1F" }} />
+          {copy.cardColours.accent}
+          {plus && <PlusTag label={copy.plus} variant="mark" />}
+        </button>
+        {CARD_COLOUR_PRESETS.map((preset) => {
+          const on = choice === preset.hex;
+          const name = copy.cardColours[preset.id];
+          return <button aria-checked={on} aria-label={`${copy.cardColourLabel.replace("{name}", name)}${plus ? ` · ${copy.plus}` : ""}`} className={`size-9 rounded-full ${focusRing}`} data-card-colour={preset.id} key={preset.id} onClick={() => pick(preset.hex)} role="radio" style={{ background: preset.hex, boxShadow: ring(on) }} title={name} type="button" />;
+        })}
+        <label className="relative grid size-9 cursor-pointer place-items-center rounded-full text-base focus-within:outline focus-within:outline-2 focus-within:outline-offset-2" data-card-colour="custom" style={custom ? { background: choice!, boxShadow: ring(true) } : { boxShadow: "inset 0 0 0 1px #0D0D0D47" }} title={copy.custom}>
+          {!custom && <span aria-hidden="true">+</span>}
+          <input aria-label={copy.customCardColour} className="absolute inset-0 size-full cursor-pointer opacity-0" onChange={(event) => { if (/^#[\da-f]{6}$/i.test(event.target.value)) pick(event.target.value.toUpperCase()); }} type="color" value={(custom ? choice! : look.accent).toLowerCase()} />
         </label>
       </div>
     </ControlRow>

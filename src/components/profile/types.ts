@@ -82,6 +82,8 @@ export type ModeAppearance = {
   cardStyle?: "solid" | "glass" | "outline";
   /** The body text face: the Look's own sans, a serif or mono. Plus. */
   bodyFont?: "sans" | "serif" | "mono";
+  /** Tint for link and content cards: "accent" (follows the accent) or a #RRGGBB colour. Absent: the Look's own. Plus. */
+  cardColor?: string;
 };
 
 export type ProfileMode = {
