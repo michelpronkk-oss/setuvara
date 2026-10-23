@@ -197,3 +197,20 @@ export const FILM_GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 
 export const NAME_SCALE = { compact: 0.74, standard: 1, large: 1.2, statement: 1.42 } as const;
 export const SOCIAL_HEIGHTS = { rail: 54, row: 34, compact: 52, hidden: 0 } as const;
+
+/**
+ * A Look's cards in a variant. Solid is the Look's own; glass frosts them over the photo or
+ * colour behind; outline drops the fill for a hairline. The Look's colours, radius and type stay.
+ */
+export function withCardStyle(theme: AppearanceTheme, style: "solid" | "glass" | "outline"): AppearanceTheme {
+  if (style === "solid") return theme;
+  if (style === "glass") return { ...theme, card: theme.light ? { bg: "#FFFFFF66", edge: "#FFFFFFB3" } : { bg: "#F5F4EF26", edge: "#F5F4EF3D" } };
+  return { ...theme, card: { bg: "transparent", edge: theme.light ? "#0D0D0D52" : "#F5F4EF7A" } };
+}
+
+/** The body text face for a chosen body font; undefined keeps the Look's own. */
+export function bodyFontFamily(font: "sans" | "serif" | "mono"): string | undefined {
+  if (font === "serif") return "var(--font-body-serif), Georgia, 'Times New Roman', serif";
+  if (font === "mono") return "var(--font-geist-mono), ui-monospace, monospace";
+  return undefined;
+}

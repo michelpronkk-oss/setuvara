@@ -19,7 +19,7 @@ import { providerForLink, resolveStoredLink } from "@/lib/links/providers";
 import { getMessages } from "@/lib/i18n/messages";
 import { legacySource, photoSource, type PhotoSource } from "./photo-focus";
 import { extraSlideLimit, resolveAppearance, SLIDE_SECONDS, type ResolvedAppearance } from "./appearance";
-import { appearanceTheme, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, type AppearanceTheme } from "./appearance-theme";
+import { appearanceTheme, bodyFontFamily, BOOKING_PROVIDERS, brandColour, contentImages, filmSubtitle, FILM_GRAIN, heroSocials, INK, NAME_SCALE, PAPER, withCardStyle, type AppearanceTheme } from "./appearance-theme";
 import { nameType, nameTypeStyle, type NameType } from "./name-type";
 import { estimateFace, immersiveMask, immersiveScrim, solveFaceSafe } from "./face-safe";
 import { ScrollCue } from "./scroll-cue";
@@ -216,7 +216,7 @@ function Profile(props: ProfileProps) {
   const photo = source ? mode.image_url ?? source.url : null;
   const lookTheme = appearanceTheme(look.id, look.accent, Boolean(photo));
   // A chosen alignment moves the identity and the About text together; Auto keeps the look's own.
-  const theme = look.align === "auto" ? lookTheme : { ...lookTheme, bioAlign: look.align, identity: { ...lookTheme.identity, align: look.align } };
+  const theme = withCardStyle(look.align === "auto" ? lookTheme : { ...lookTheme, bioAlign: look.align, identity: { ...lookTheme.identity, align: look.align } }, look.cardStyle);
   const who = identityFor(profile, mode);
   const owner = viewerState === "owner" && !previewAsVisitor;
   const connected = viewerState === "visitor_connected" && !previewAsVisitor;
@@ -300,9 +300,12 @@ function Profile(props: ProfileProps) {
       data-profile-mode={look.slug}
       data-foot={props.edgeToEdge ? `${cover.foot}` : undefined}
       data-sound-presentation={scene.sound ?? "none"}
+      data-card-style={look.cardStyle}
+      data-body-font={look.bodyFont}
       style={{
         background: theme.base,
         color: theme.fg,
+        fontFamily: bodyFontFamily(look.bodyFont),
         // The hero is one screen: the small viewport, less what Safari's overlaid toolbar covers.
         "--sv-h": `clamp(560px, calc(var(--profile-vh, 100svh) - ${cover.bar}px), 1000px)`,
         "--sv-card-r": `${theme.radius}px`,

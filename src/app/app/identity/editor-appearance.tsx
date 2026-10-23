@@ -8,7 +8,7 @@ import { ProfileRenderer } from "@/components/profile/profile-renderer";
 import { usePreviewPieces } from "./editor-preview-pieces";
 import {
   ACCENT_PRESETS, APPEARANCE_LINES, APPEARANCE_NAMES, APPEARANCES, EDITOR_ZOOMS, EDITOR_ZOOMS_WITH_OUT, ZOOM_OUT_APPEARANCES, MOTION_LEVELS, NAME_POSITIONS, NAME_SIZES, READABILITY, SOCIAL_STYLES, SOUND_PRESENTATIONS,
-  APPEARANCE_CUES, SCROLL_CUE_CHOICES, capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
+  APPEARANCE_CUES, BODY_FONTS, CARD_VARIANTS, SCROLL_CUE_CHOICES, capabilityForField, introducedLockedFields, isFreeAppearance, lockedFields, previewAppearance, resolveAppearance,
   type AppearanceId, type ResolvedAppearance, defaultSocialStyle, extraSlideLimit, SLIDE_SPEEDS, SOCIAL_PLACEMENTS } from "@/components/profile/appearance";
 import { appearanceTheme } from "@/components/profile/appearance-theme";
 import { NAME_FONT_NAMES, NAME_FONTS, isFreeNameFont, nameType, nameTypeStyle } from "@/components/profile/name-type";
@@ -32,7 +32,7 @@ import { Pill, PlusTag, SectionHeader, Sheet, modeMeta, previewVisitorAction } f
  */
 
 type Copy = MessageDictionary["appearance"];
-type ControlKey = "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed" | "socialStyle";
+type ControlKey = "cardStyle" | "bodyFont" | "scrollCue" | "nameFont" | "namePosition" | "nameSize" | "align" | "readability" | "socials" | "accent" | "sound" | "zoom" | "motion" | "username" | "focus" | "slideSpeed" | "socialStyle";
 type MoreKey = "earned";
 
 export const pendingAppearanceKey = (modeId: string) => `setuvara:appearance-pending:${modeId}`;
@@ -52,7 +52,7 @@ const CONTROLS: Record<AppearanceId, ControlKey[]> = {
 };
 const ALWAYS: ControlKey[] = ["scrollCue", "username", "focus", "slideSpeed"];
 /** Name type leads every look's controls: it is the most visible personal choice after the look itself. */
-const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], ...ALWAYS];
+const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS[id], "cardStyle", "bodyFont", ...ALWAYS];
 
 /**
  * "Make it yours" in five plain groups, plus the fine-tuning behind Advanced. A look only shows
@@ -60,7 +60,7 @@ const controlsFor = (id: AppearanceId): ControlKey[] => ["nameFont", ...CONTROLS
  */
 const GROUPS: { id: string; title: string; keys: ControlKey[] }[] = [
   { id: "name", title: "Name", keys: ["nameFont", "username", "nameSize", "namePosition", "align"] },
-  { id: "look", title: "Look", keys: ["accent"] },
+  { id: "look", title: "Look", keys: ["accent", "cardStyle", "bodyFont"] },
   { id: "links", title: "Links", keys: ["socials"] },
   { id: "motion", title: "Motion & sound", keys: ["motion", "sound", "slideSpeed"] },
   { id: "photo", title: "Photo", keys: ["focus", "zoom"] },
@@ -326,6 +326,10 @@ function Control({ api, state, control }: { api: EditorApi; state: State; contro
       return <NameFontControl api={api} state={state} />;
     case "scrollCue":
       return <ScrollCueControl api={api} state={state} />;
+    case "cardStyle":
+      return <Segment copy={copy} label={copy.cardStyle} locked={previewLocked("cardStyle")} onPick={(value) => choose({ cardStyle: value === "solid" ? undefined : value })} options={CARD_VARIANTS.map((value) => ({ value, label: copy.cardStyles[value], plus: premium("cardStyle", value) }))} value={look.cardStyle} />;
+    case "bodyFont":
+      return <Segment copy={copy} label={copy.bodyFont} locked={previewLocked("bodyFont")} onPick={(value) => choose({ bodyFont: value === "sans" ? undefined : value })} options={BODY_FONTS.map((value) => ({ value, label: copy.bodyFonts[value], plus: premium("bodyFont", value) }))} value={look.bodyFont} />;
     case "nameSize":
       return <Segment copy={copy} label={copy.nameSize} locked={previewLocked("portraitNameSize")} onPick={(value) => choose({ portraitNameSize: value === "standard" ? undefined : value })} options={NAME_SIZES.map((value) => ({ value, label: copy.sizes[value], plus: premium("portraitNameSize", value) }))} value={look.nameSize} />;
     case "namePosition":

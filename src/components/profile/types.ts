@@ -78,6 +78,10 @@ export type ModeAppearance = {
   scrollCue?: "auto" | "off" | "glide" | "rail" | "orb" | "mouse" | "beam" | "cascade" | "caption" | "cards" | "swipe" | "credits";
   motion?: "off" | "subtle" | "full";
   soundtrackPresentation?: "ambient" | "minimal" | "featured";
+  /** How link and content cards are drawn under the Look: its own (solid), glass or outline. Plus. */
+  cardStyle?: "solid" | "glass" | "outline";
+  /** The body text face: the Look's own sans, a serif or mono. Plus. */
+  bodyFont?: "sans" | "serif" | "mono";
 };
 
 export type ProfileMode = {
