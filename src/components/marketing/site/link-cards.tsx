@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 import { nameFontClasses } from "@/components/profile/name-fonts";
 import { COMPARE_PAGES } from "@/lib/marketing/compare-content";
 
-import { CastPhone, ModeDesktop } from "../home/mode-phone";
+import { CastPhone } from "../home/mode-phone";
 import { Label, Shell } from "../home/primitives";
 import { FitCanvas } from "./fit-canvas";
 import { RAIL, RAIL_ITEM } from "./kit";
+import { CheckerScene, ModeScene, ModesScene, type ModeSlug, PricingScene, PrintCardScene, QrToolScene, TemplateScene } from "./link-visuals";
 import { BannerVisual, type VisualKey } from "./visuals";
 
 /**
@@ -16,7 +17,6 @@ import { BannerVisual, type VisualKey } from "./visuals";
  * get one swipeable row; the visual carries the card, the copy is a title and one line.
  */
 
-type ModeSlug = "personal" | "event" | "business" | "creator";
 const MODES: ModeSlug[] = ["personal", "event", "business", "creator"];
 const FEATURE_VISUALS = new Set<VisualKey>(["actions", "builder", "analytics", "qr-and-tap", "wallet"]);
 
@@ -39,26 +39,27 @@ function VersusVisual({ name, mode }: { name: string; mode: ModeSlug }) {
 }
 
 const USE_CASE_VISUAL: Record<string, ReactNode> = {
-  "digital-business-card-for-founders": <ModeDesktop fit slug="business" />,
-  "link-in-bio-for-creators": <ModeDesktop fit slug="creator" />,
-  "event-networking-app": <ModeDesktop fit slug="event" />,
-  "qr-business-card": <BannerVisual name="qr-and-tap" />,
+  "digital-business-card-for-founders": <ModeScene slug="business" title="Founders" tool="booking" />,
+  "link-in-bio-for-creators": <ModeScene slug="creator" title="Creators" tool="work" />,
+  "event-networking-app": <ModeScene slug="event" title="Networking" tool="met" />,
+  "qr-business-card": <PrintCardScene />,
   "share-saas-revenue-publicly": <BannerVisual name="builder" />,
 };
 const COMPARE_MODE: Record<string, ModeSlug> = { linktree: "personal", beacons: "creator", popl: "business", carrd: "event" };
 
-/** The visual a link should carry, from where it goes. */
+/** The visual a link should carry, drawn for where it goes. */
 export function visualFor(href: string, name = ""): ReactNode {
   const [, section, slug = ""] = href.split("/");
   if (section === "features" && FEATURE_VISUALS.has(slug as VisualKey)) return <BannerVisual name={slug as VisualKey} />;
-  if (MODES.includes(section as ModeSlug)) return <ModeDesktop fit slug={section as ModeSlug} />;
+  if (MODES.includes(section as ModeSlug)) return <ModeScene slug={section as ModeSlug} />;
   if (section === "use-cases" && USE_CASE_VISUAL[slug]) return USE_CASE_VISUAL[slug];
   if (section === "compare" && COMPARE_MODE[slug]) return <VersusVisual mode={COMPARE_MODE[slug]} name={(COMPARE_PAGES as Record<string, { name: string }>)[slug]?.name ?? (name || slug)} />;
-  if (section === "tools" && slug === "qr-code-generator") return <BannerVisual name="qr-and-tap" />;
-  if (section === "tools" && slug === "media-kit-template") return <ModeDesktop fit slug="creator" />;
-  if (section === "tools") return <VersusVisual mode="personal" name="Your bio link" />;
-  if (section === "pricing") return <ModeDesktop fit slug="event" />;
-  return <ModeDesktop fit slug="personal" />;
+  if (section === "tools" && slug === "qr-code-generator") return <QrToolScene />;
+  if (section === "tools" && slug === "media-kit-template") return <ModeScene slug="creator" title="Media kit" tool="kit" />;
+  if (section === "tools") return <CheckerScene />;
+  if (section === "templates" && slug) return <TemplateScene slug={slug} />;
+  if (section === "pricing") return <PricingScene />;
+  return <ModesScene />;
 }
 
 export type LinkCard = { href: string; title: ReactNode; line: string; tag?: string; name?: string };
