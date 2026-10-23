@@ -23,11 +23,11 @@ export function ToolPanel({ title, tag, body, tone = "white", aside, children, c
   return (
     <article className={`flex flex-col rounded-[24px] p-6 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] sm:rounded-[28px] sm:p-9 ${skin} ${aside ? "lg:flex-row lg:gap-8" : ""} ${className}`}>
       <div className={`flex min-w-0 flex-1 flex-col`}>
-        <div className="flex items-baseline justify-between gap-4">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <h3 className="font-display text-[34px] font-extrabold leading-none tracking-[-0.055em] sm:text-[40px]">{title}</h3>
-          <span className={`${mono} shrink-0 text-right ${tone === "ink" ? "text-paper/45" : "text-ink/50"}`}>{tag}</span>
+          <span className={`${mono} sm:shrink-0 sm:text-right ${tone === "ink" ? "text-paper/45" : "text-ink/50"}`}>{tag}</span>
         </div>
-        {body ? <p className={`mt-3 max-w-[30rem] text-[15px] leading-[1.6] sm:text-[16px] ${muted}`}>{body}</p> : null}
+        {body ? <p className={`mt-4 max-w-[30rem] sm:mt-3 text-[15px] leading-[1.6] sm:text-[16px] ${muted}`}>{body}</p> : null}
         {children ? <div className="mt-7 flex flex-1 flex-col justify-end">{children}</div> : null}
       </div>
       {aside ? <div className="mt-7 min-w-0 lg:mt-0 lg:w-[45%]">{aside}</div> : null}
