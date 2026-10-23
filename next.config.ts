@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: 1,
+    // Next.js only nudges coding agents about security upgrades.
+    agentUpgrade: "security",
   },
   async redirects() {
     return [
