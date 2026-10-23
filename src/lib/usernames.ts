@@ -52,6 +52,7 @@ export const reservedUsernames = [
   "personal",
   "pricing",
   "privacy",
+  "product",
   "purchase",
   "q",
   "refunds",
