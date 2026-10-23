@@ -12,7 +12,7 @@ import { ConnectChoice, Looks } from "../pricing/looks";
 
 /**
  * /modes: the four Modes side by side, each chapter leading to its own Mode page. Every claim maps to a live feature: per-Mode
- * fields (public-profile.ts), links, Appearances, opaque /s/ links for Event and Business,
+ * fields (public-profile.ts), links, Appearances, an opaque /s/ link for Event, chosen handles for Business and Creator,
  * connect_policy, Live Context, Save contact, and the Mode never being named publicly.
  */
 
@@ -55,7 +55,7 @@ const CHAPTERS: Chapter[] = [
     title: "The you that closes the meeting.",
     line: "Role, company, city and what you do. Add a booking link and it gets its own button, so the next step is one tap.",
     fields: [["Role", "Partnerships Lead"], ["Company", "Setuvara"], ["City", "Lisbon"], ["Booking", "Book a 20-min intro"]],
-    share: "setuvara.com/s/R3vT9wLe",
+    share: "setuvara.com/lucasmeyer",
     tone: "bg-white",
   },
   {
@@ -65,7 +65,7 @@ const CHAPTERS: Chapter[] = [
     title: "The you that makes the work.",
     line: "Your work, your store, your media kit and what you’re open to. Sell digital products and take brand deals from one page.",
     fields: [["Category", "Film and music"], ["Based in", "Lagos"], ["Store", "Presets, guides and calls"], ["Open to", "Brand deals and collaborations"]],
-    share: "setuvara.com/s/Fm8cN2qZ",
+    share: "setuvara.com/senaokafor",
     tone: "bg-paper",
   },
 ];

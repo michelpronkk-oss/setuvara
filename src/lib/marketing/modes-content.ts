@@ -121,7 +121,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
       { title: "Sales and partnerships", body: "Book the next call on the spot and see which events bring leads." },
       { title: "Consultants and studios", body: "Inquiries, bookings and client quotes in one place." },
     ],
-    share: "setuvara.com/s/R3vT9wLe",
+    share: "setuvara.com/lucasmeyer",
     faq: [
       { q: "Is Setuvara a digital business card?", a: "Yes. Business Mode is a digital business card you share by link, QR code or Setuvara Tap, with booking, lead capture, testimonials and Builder built in." },
       { q: "What happens when someone sends an inquiry?", a: "It becomes a lead in Leads with its stage and history. You move it from new to contacted, qualified, won or lost. Notes and CSV export are on Plus and Pro." },
@@ -156,7 +156,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
       { title: "Writers and educators", body: "Sell a guide, grow a newsletter, take questions." },
       { title: "Video creators", body: "Featured work, brand deals and a media kit that's never out of date." },
     ],
-    share: "setuvara.com/s/Fm8cN2qZ",
+    share: "setuvara.com/senaokafor",
     faq: [
       { q: "What is Creator Mode?", a: "Creator Mode is a Setuvara page for creators: featured work, a store, a live media kit, brand deal requests, Actions and an audience, alongside your links." },
       { q: "How do I get Creator Mode?", a: "Every Setuvara account has it. Switch Creator Mode on and fill it in; it's on every plan, including Free." },

@@ -25,7 +25,7 @@
     "test:live-context-i18n": "node --test tests/live-context-i18n.test.mjs",
     "test:billing": "deno test --unstable-sloppy-imports --import-map=tests/billing/import_map.json tests/billing/billing.test.mjs tests/billing/member-badge.test.mjs tests/billing/pricing.test.mjs",
     "test:wallet": "node --test tests/wallet/wallet.test.mjs",
-    "test:tools": "deno test --unstable-sloppy-imports --import-map=tests/tools/import_map.json tests/tools/link-check.test.mjs",
+    "test:tools": "deno test --unstable-sloppy-imports --import-map=tests/tools/import_map.json tests/tools/link-check.test.mjs tests/tools/page-import.test.mjs",
     "test:billing:integration": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-billing-database.ps1",
     "smoke:billing:hosted": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-hosted-billing.ps1",
     "billing:validate-live": "node scripts/validate-live-dodo-products.mjs",

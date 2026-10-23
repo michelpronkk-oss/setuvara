@@ -7,11 +7,11 @@ import { QrFrame } from "@/components/profile/qr-frame";
 
 import { Label } from "./primitives";
 
-/** Personal shares the username; Event and Business share a short opaque link (/s/<8 Base62>). */
+/** Personal shares the username, Business its own chosen handle, Event a private opaque link (/s/<8 Base62>) that never shows the username. */
 const MODES = [
   { slug: "personal", label: "Personal", context: "Personal", link: "setuvara.com/aanya" },
   { slug: "event", label: "Event", context: "Event · Slush", link: "setuvara.com/s/k7Qx2mPa" },
-  { slug: "business", label: "Business", context: "Business", link: "setuvara.com/s/R4nd8LwQ" },
+  { slug: "business", label: "Business", context: "Business", link: "setuvara.com/lucasmeyer" },
 ] as const;
 
 /** The QR treatments members choose in Appearance. Standard is free; the rest are Plus. */

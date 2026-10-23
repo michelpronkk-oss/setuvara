@@ -39,7 +39,7 @@ export function Examples() {
               <div inert>
                 <BrowserFrame className="transition-transform duration-300 group-hover:-translate-y-1" url={MODE_PAGES[example.slug].share}>
                   {/* One drawing, zoomed per breakpoint. Column widths: lg 912px (halves 444), xl 1168px (halves 572). */}
-                  <ModeDesktop scales={index === 0 ? "[--z:.26] sm:[--z:.44] md:[--z:.52] lg:[--z:.7] xl:[--z:.9]" : "[--z:.26] sm:[--z:.44] md:[--z:.52] lg:[--z:.34] xl:[--z:.44]"} slug={example.slug} />
+                  <ModeDesktop fit slug={example.slug} />
                 </BrowserFrame>
               </div>
               <p className="mt-3 flex items-center justify-between text-[14px] text-ink/60"><span>{example.caption}</span><Link className="font-semibold text-ink transition-transform after:absolute after:inset-0 after:rounded-[20px] group-hover:translate-x-0.5 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-coral" href={MODE_PAGES[example.slug].path}>{MODE_PAGES[example.slug].name} Mode →</Link></p>

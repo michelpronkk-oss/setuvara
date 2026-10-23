@@ -1,7 +1,9 @@
 import { FinalCta } from "@/components/marketing/home/closing";
 import { Examples } from "@/components/marketing/home/examples";
 import { Hero } from "@/components/marketing/home/hero";
-import { FaqSection } from "@/components/marketing/site/kit";
+import { FaqSection, Section } from "@/components/marketing/site/kit";
+import { QrModeSwitch } from "@/components/marketing/home/qr-switch";
+import { LinkImport } from "@/components/marketing/tools/link-import";
 import { Loop } from "@/components/marketing/home/loop";
 import { Memory } from "@/components/marketing/home/memory";
 import { Modes } from "@/components/marketing/home/modes";
@@ -59,7 +61,13 @@ export default function HomePage() {
       <JsonLd data={homeStructuredData} />
       {/* Product first: the four Modes, then the loop (share, connect, remember), example pages, Looks and plans. */}
       <Hero />
+      <Section eyebrow="Bring your link in bio" id="import" lede="Paste your Linktree, Beacons or any bio link. See your name, picture and links as a Setuvara page, in every Look, before you sign up." title="Your page, in ten seconds." tone="white">
+        <LinkImport />
+      </Section>
       <Modes />
+      <Section eyebrow="One code, every Mode" id="one-code" lede="Your Quick QR and Setuvara Tap open the Mode you choose. Switch it in a tap: the same code shows your Event page at Slush and your Personal page with friends. A link in bio can’t do that." title="Same code. Different you." tone="ink">
+        <QrModeSwitch />
+      </Section>
       <Loop />
       <Share />
       <MeetConnect />
