@@ -16,21 +16,39 @@ export function Avatar({ who, size = 38, className = "" }: { who: Person; size?:
   return <span aria-hidden="true" className={`block shrink-0 rounded-full bg-cover ${className}`} style={{ width: size, height: size, backgroundImage: `url(${who.photo})`, backgroundPosition: `${who.face.x}% ${who.face.y}%` }} />;
 }
 
-/** A tool's card: its name, its plan line, one sentence, then the tool itself. */
+/**
+ * A tool's card: the tool itself on a lit stage (its own ground, glow and depth), then its name,
+ * plan line and one sentence. Phones put the stage first so the visual leads; wide panels with an
+ * aside set the text beside a stage that holds both.
+ */
+const STAGES = {
+  ink: "bg-[radial-gradient(90%_80%_at_85%_0%,rgba(255,90,79,.28),transparent_60%),radial-gradient(120%_120%_at_0%_100%,#262626,#0D0D0D_70%)]",
+  white: "bg-[radial-gradient(90%_90%_at_100%_0%,#FFFFFF,transparent_70%),radial-gradient(120%_120%_at_0%_100%,#E7E3D9,#F1EEE7_75%)]",
+  coral: "bg-[radial-gradient(80%_80%_at_20%_0%,#FFC2BC,transparent_65%),radial-gradient(120%_120%_at_100%_100%,#FF3B2F,#FF5A4F_70%)]",
+} as const;
+
 export function ToolPanel({ title, tag, body, tone = "white", aside, children, className = "" }: { title: string; tag: string; body?: string; tone?: "ink" | "white" | "coral"; aside?: ReactNode; children?: ReactNode; className?: string }) {
   const skin = { ink: "bg-ink text-paper", white: "bg-white text-ink", coral: "bg-coral text-ink" }[tone];
   const muted = tone === "ink" ? "text-paper/60" : tone === "coral" ? "text-ink/70" : "text-ink/62";
-  return (
-    <article className={`flex flex-col rounded-[24px] p-6 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] sm:rounded-[28px] sm:p-9 ${skin} ${aside ? "lg:flex-row lg:gap-8" : ""} ${className}`}>
-      <div className={`flex min-w-0 flex-1 flex-col`}>
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-          <h3 className="font-display text-[34px] font-extrabold leading-none tracking-[-0.055em] sm:text-[40px]">{title}</h3>
-          <span className={`${mono} sm:shrink-0 sm:text-right ${tone === "ink" ? "text-paper/45" : "text-ink/50"}`}>{tag}</span>
-        </div>
-        {body ? <p className={`mt-4 max-w-[30rem] sm:mt-3 text-[15px] leading-[1.6] sm:text-[16px] ${muted}`}>{body}</p> : null}
-        {children ? <div className="mt-7 flex flex-1 flex-col justify-end">{children}</div> : null}
+  const stage = (children || aside) ? (
+    <div className={`relative overflow-hidden rounded-[22px] p-5 sm:rounded-[26px] sm:p-8 ${STAGES[tone]}`}>
+      <span aria-hidden="true" className={`pointer-events-none absolute inset-0 rounded-[inherit] ${tone === "ink" ? "shadow-[inset_0_0_0_1px_rgba(255,255,255,.06)]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.05)]"}`} />
+      <div className={`relative flex h-full flex-col justify-center gap-5 [&>*]:drop-shadow-[0_24px_30px_rgba(13,13,13,.18)] ${aside ? "lg:flex-row lg:items-center lg:[&>*]:flex-1" : ""}`}>
+        {children ? <div className={`min-w-0 ${aside ? "max-lg:hidden" : ""}`}>{children}</div> : null}
+        {aside ? <div className="min-w-0">{aside}</div> : null}
       </div>
-      {aside ? <div className="mt-7 min-w-0 lg:mt-0 lg:w-[45%]">{aside}</div> : null}
+    </div>
+  ) : null;
+  return (
+    <article className={`flex flex-col overflow-hidden rounded-[28px] p-2.5 shadow-[0_50px_100px_-60px_rgba(13,13,13,.6)] sm:rounded-[34px] sm:p-3 ${skin} ${className}`}>
+      {stage ? <div className="flex flex-1 flex-col [&>*]:flex-1">{stage}</div> : null}
+      <div className="flex flex-col px-3.5 pb-4 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
+        <div className="flex items-baseline justify-between gap-4">
+          <h3 className="font-display text-[30px] font-extrabold leading-none tracking-[-0.055em] sm:text-[38px]">{title}</h3>
+          <span className={`${mono} shrink-0 text-right ${tone === "ink" ? "text-paper/45" : "text-ink/50"}`}>{tag}</span>
+        </div>
+        {body ? <p className={`mt-3 max-w-[34rem] text-[15px] leading-[1.6] sm:text-[16px] ${muted}`}>{body}</p> : null}
+      </div>
     </article>
   );
 }
