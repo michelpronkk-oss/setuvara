@@ -57,7 +57,7 @@ export function ButtonLink({ href, children, tone = "ink", className = "" }: { h
 /** A Mode's blurred colour stage with grain: the ground every product moment sits on. */
 export function Stage({ slug, children, className = "" }: { slug: ModeSlug; children?: ReactNode; className?: string }) {
   return (
-    <div className={`relative isolate overflow-hidden rounded-[28px] sm:rounded-[32px] ${className}`}>
+    <div className={`relative isolate overflow-hidden rounded-[28px] [mask-image:radial-gradient(white,black)] sm:rounded-[32px] ${className}`}>
       <StageField className="-z-10" slug={slug} />
       {children}
     </div>
@@ -71,7 +71,7 @@ export function SectionHead({ id, eyebrow, title, lede, tone = "paper", as: Tag 
     <div className="grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-6">
       <div className="lg:col-span-7">
         {eyebrow ? <Label className={tone === "coral" ? "" : "text-coral"}>{eyebrow}</Label> : null}
-        <Display as={Tag} className="mt-4 text-[clamp(44px,5vw,72px)] leading-[0.9] sm:mt-5"><span id={id ? `${id}-title` : undefined}>{title}</span></Display>
+        <Display as={Tag} className="mt-4 text-[clamp(40px,5vw,72px)] leading-[0.98] sm:mt-5 sm:leading-[0.9]"><span id={id ? `${id}-title` : undefined}>{title}</span></Display>
       </div>
       {lede ? <div className={`text-[17px] leading-[1.6] lg:col-span-4 lg:col-start-9 sm:text-[18px] ${muted}`}>{lede}</div> : null}
     </div>
@@ -128,7 +128,7 @@ export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId,
         {mode === "center" ? (
           <div className="mx-auto mt-12 flex max-w-[60rem] flex-col items-center text-center lg:mt-16">
             <Label className="text-coral">{eyebrow}</Label>
-            <Display as="h1" className="mt-5 text-[clamp(52px,8vw,124px)] leading-[0.86]">{title}</Display>
+            <Display as="h1" className="mt-5 text-[clamp(50px,8vw,124px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
             <div className={`mt-7 max-w-[44rem] text-[18px] leading-[1.55] sm:text-[21px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
             {extras}
           </div>
@@ -136,7 +136,7 @@ export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId,
           <div className="mt-12 grid gap-12 lg:mt-16 lg:grid-cols-12 lg:items-center lg:gap-6">
             <div className="min-w-0 lg:col-span-5">
               <Label className="text-coral">{eyebrow}</Label>
-              <Display as="h1" className="mt-5 text-[clamp(52px,6.6vw,104px)] leading-[0.88]">{title}</Display>
+              <Display as="h1" className="mt-5 text-[clamp(50px,6.6vw,104px)] leading-[0.92] sm:leading-[0.88]">{title}</Display>
               <div className={`mt-7 max-w-[34rem] text-[18px] leading-[1.6] sm:text-[20px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
               {extras}
             </div>
@@ -146,7 +146,7 @@ export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId,
           <div className="mt-12 grid gap-8 lg:mt-16 lg:grid-cols-12 lg:items-end lg:gap-6">
             <div className="min-w-0 lg:col-span-8">
               <Label className="text-coral">{eyebrow}</Label>
-              <Display as="h1" className="mt-5 text-[clamp(52px,8vw,124px)] leading-[0.86]">{title}</Display>
+              <Display as="h1" className="mt-5 text-[clamp(50px,8vw,124px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
             </div>
             <div className="min-w-0 lg:col-span-4 lg:col-start-9">
               <div className={`text-[18px] leading-[1.6] sm:text-[19px] ${dark ? "text-paper/70" : "text-ink/70"}`}>{lede}</div>
@@ -198,7 +198,7 @@ export function FaqSection({ items, title = "Questions, answered.", id = "faq", 
       <Shell className={`py-20 sm:py-24 lg:py-32 ${single ? "" : "grid gap-10 lg:grid-cols-12 lg:gap-6"}`}>
         <div className={single ? "mx-auto max-w-[680px]" : "lg:col-span-5"}>
           <Label className="text-coral">FAQ</Label>
-          <Display className="mt-4 text-[clamp(40px,4.4vw,64px)] leading-[0.92]"><span id={`${id}-title`}>{title}</span></Display>
+          <Display className="mt-4 text-[clamp(40px,4.4vw,64px)] leading-[0.98] sm:leading-[0.92]"><span id={`${id}-title`}>{title}</span></Display>
         </div>
         <div className={single ? "mx-auto mt-10 max-w-[680px] border-t-[1.5px] border-ink" : "border-t-[1.5px] border-ink lg:col-span-7 lg:col-start-6"}>
           {items.map((item, index) => (
@@ -224,7 +224,7 @@ export function CtaBand({ title, line, claimId, secondary }: { title: ReactNode;
       <MeetMark className="pointer-events-none absolute -right-[22%] -top-[8%] w-[78vw] text-ink sm:hidden" />
       <Shell className="relative py-20 sm:py-24 lg:py-32">
         <Label>Create your Setuvara</Label>
-        <Display className="relative mt-5 max-w-[15ch] text-[clamp(52px,7.4vw,120px)] leading-[0.86]">{title}</Display>
+        <Display className="relative mt-5 max-w-[15ch] text-[clamp(50px,7.4vw,120px)] leading-[0.92] sm:leading-[0.86]">{title}</Display>
         {line ? <p className="relative mt-6 max-w-[30rem] text-[18px] leading-[1.5] text-ink/75">{line}</p> : null}
         <div className="relative mt-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
           <div className="w-full max-w-[520px]"><ClaimForm id={claimId} tone="coral" /></div>
@@ -281,10 +281,10 @@ export function ModeSwitch({ current }: { current: ModeSlug }) {
   ];
   return (
     <div className="flex flex-col items-center gap-4">
-      <nav aria-label="Modes" className="flex max-w-full overflow-x-auto rounded-full bg-ink p-1.5 text-paper [scrollbar-width:none]">
+      <nav aria-label="Modes" className="grid w-full max-w-[440px] grid-cols-4 rounded-full bg-ink p-1 text-paper sm:flex sm:w-auto sm:max-w-none sm:p-1.5">
         {modes.map((mode) => (
-          <Link aria-current={mode.slug === current ? "page" : undefined} className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium min-[400px]:gap-2 min-[400px]:px-3.5 min-[400px]:text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-coral sm:px-5 sm:text-[15px] ${mode.slug === current ? "bg-paper font-semibold text-ink" : "text-paper/75 hover:text-paper"}`} href={`/${mode.slug}`} key={mode.slug}>
-            <span aria-hidden="true" className="size-2 rounded-full" style={{ background: mode.dot }} />{mode.name}
+          <Link aria-current={mode.slug === current ? "page" : undefined} className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-1 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-coral sm:shrink-0 sm:gap-2 sm:px-5 sm:text-[15px] ${mode.slug === current ? "bg-paper font-semibold text-ink" : "text-paper/75 hover:text-paper"}`} href={`/${mode.slug}`} key={mode.slug}>
+            <span aria-hidden="true" className="hidden size-2 shrink-0 rounded-full min-[440px]:block" style={{ background: mode.dot }} />{mode.name}
           </Link>
         ))}
       </nav>

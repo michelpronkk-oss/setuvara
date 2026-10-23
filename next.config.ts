@@ -22,7 +22,11 @@ const nextConfig: NextConfig = {
     cpus: 1,
   },
   async redirects() {
-    return [{ source: "/favicon.ico", destination: "/icons/setuvara-icon.png", permanent: true }];
+    return [
+      { source: "/favicon.ico", destination: "/icons/setuvara-icon.png", permanent: true },
+      // The old "For Events" page; Event Mode at /event covers it now.
+      { source: "/events", destination: "/event", permanent: true },
+    ];
   },
   async headers() {
     const noIndex = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];

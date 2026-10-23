@@ -117,7 +117,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
       { title: "Audience", tag: "In Business", body: "Everyone who signed up through your Actions, in one list." },
     ],
     forWho: [
-      { title: "Founders", body: "Your company, your roadmap and your revenue on the page people scan." },
+      { title: "Founders", body: "Your company, what you’re building and a way to book a call, on the page people scan." },
       { title: "Sales and partnerships", body: "Book the next call on the spot and see which events bring leads." },
       { title: "Consultants and studios", body: "Inquiries, bookings and client quotes in one place." },
     ],

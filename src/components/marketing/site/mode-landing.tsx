@@ -83,10 +83,10 @@ export function ModeScreens({ slug }: { slug: ModeSlugPage }) {
         <div className="absolute right-[4.5%] top-[10%] hidden w-[75%] sm:block">
           <BrowserFrame url={MODE_PAGES[slug].share}><div className="flex justify-end [&>*]:shrink-0"><ModeDesktop scales="[--z:.32] md:[--z:.4] lg:[--z:.3] xl:[--z:.4]" slug={slug} /></div></BrowserFrame>
         </div>
-        <div className="absolute bottom-[-12%] left-1/2 origin-top -translate-x-1/2 scale-[.78] sm:bottom-[4.5%] sm:left-[7.5%] sm:translate-x-0 sm:origin-bottom-left sm:scale-[.62] lg:scale-[.55] xl:scale-[.7]">
+        <div className="absolute bottom-[-14%] left-1/2 origin-top -translate-x-1/2 scale-[.78] sm:bottom-[4.5%] sm:left-[7.5%] sm:translate-x-0 sm:origin-bottom-left sm:scale-[.62] lg:scale-[.55] xl:scale-[.7]">
           <div className="rounded-[46px] shadow-[0_50px_80px_-30px_rgba(13,13,13,.6)]"><CastPhone mediaPriority="high" slug={slug} /></div>
         </div>
-        <div className="absolute inset-x-4 bottom-4 sm:inset-x-auto sm:bottom-[20%] sm:right-[5%] sm:w-[46%]">{toast}</div>
+        <div className="absolute inset-x-4 top-4 sm:inset-x-auto sm:bottom-[20%] sm:right-[5%] sm:top-auto sm:w-[46%]">{toast}</div>
         <p className="absolute bottom-[8%] right-[5%] hidden items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-[13px] font-medium text-paper sm:flex"><span aria-hidden="true" className="size-2 rounded-full bg-[#C7FF4A]" />{moment.pill}</p>
       </Stage>
       <span className="sr-only">{`${who.name}'s ${MODE_PAGES[slug].name} Mode page, on a desktop and a phone. Example page.`}</span>
@@ -155,9 +155,9 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
       <section aria-labelledby={`${slug}-who-title`} className="bg-ink text-paper">
         <Shell className="py-20 sm:py-24 lg:py-32">
           <SectionHead eyebrow="Who it’s for" id={`${slug}-who`} title="Made for people who meet people." tone="ink" />
-          <ul className="mt-12 grid gap-6 md:grid-cols-3 lg:mt-[72px]">
+          <ul className="mt-10 -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-5 px-5 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 sm:pb-0 sm:gap-6 sm:overflow-visible sm:grid sm:grid-cols-3 lg:mt-[72px]">
             {page.forWho.map((item, index) => (
-              <li className="relative isolate flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-[24px] p-7" key={item.title}>
+              <li className="relative isolate flex aspect-[4/5] w-[80%] shrink-0 snap-start flex-col justify-end overflow-hidden rounded-[24px] p-6 sm:w-auto sm:p-7" key={item.title}>
                 <span aria-hidden="true" className="absolute inset-0 -z-10 bg-cover bg-center" style={{ backgroundImage: `url(${WHO_PHOTOS[slug][index % 3]})` }} />
                 <span aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-t from-ink via-ink/55 to-transparent" />
                 <h3 className="font-display text-[clamp(28px,2.6vw,36px)] font-extrabold leading-[0.95] tracking-[-0.05em]">{item.title}</h3>
@@ -176,15 +176,15 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
             <Display className="text-[clamp(40px,4.4vw,64px)] leading-[0.92]"><span id={`${slug}-others-title`}>One account, four Modes.</span></Display>
             <Link className="inline-flex min-h-11 items-center text-[15px] font-semibold hover:text-coral focus-visible:outline-2 focus-visible:outline-coral" href="/modes">How Modes work →</Link>
           </div>
-          <ul className={`${nameFontClasses} mt-10 grid gap-6 sm:grid-cols-3`}>
+          <ul className={`${nameFontClasses} mt-10 -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-5 px-5 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 sm:pb-0 sm:gap-6 sm:overflow-visible sm:grid sm:grid-cols-3`}>
             {others.map((other) => {
               const target = MODE_PAGES[other];
               return (
-                <li className="group relative" key={other}>
+                <li className="group relative w-[78%] shrink-0 snap-start sm:w-auto" key={other}>
                   <Stage className="h-[300px]" slug={other}>
                     <div aria-hidden="true" className="absolute left-1/2 top-[11%] origin-top -translate-x-1/2 scale-[.74] transition-transform duration-500 group-hover:-translate-y-2" inert><CastPhone slug={other} /></div>
                   </Stage>
-                  <p className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <p className="mt-4 flex flex-col gap-1 lg:flex-row lg:flex-wrap lg:items-baseline lg:justify-between lg:gap-x-4">
                     <Link className="font-display text-[28px] font-extrabold tracking-[-0.05em] after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-coral" href={target.path}>{target.name} →</Link>
                     <span className="text-[14px] text-ink/55">{target.title}</span>
                   </p>
