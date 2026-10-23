@@ -5,7 +5,7 @@ import { MODE_ORDER, MODE_PAGES } from "@/lib/marketing/modes-content";
 
 import { CAST, CastPhone } from "./mode-phone";
 import { PhoneStage } from "./phone-stage";
-import { Display, Label, Shell } from "./primitives";
+import { Display, Label, Shell, Say } from "./primitives";
 
 /** Each Mode's own tools, as named in the app (components/app/side-nav modeTools). */
 const TOOLS = { personal: "Actions · Audience", event: "Events · Actions · Audience", business: "Leads · Builder · Testimonials · Team", creator: "Store · Media kit · Deals · Builder" } as const;
@@ -21,8 +21,8 @@ export function Modes() {
     <section aria-labelledby="modes-title" className="scroll-mt-16 bg-white" id="modes">
       <Shell className="flex flex-col gap-8 py-16 sm:gap-12 sm:py-28 lg:gap-16 lg:py-36">
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
-          <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="modes-title">Who you are depends on who you’re meeting.</span></Display>
-          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Four Modes. One identity. Each shows only what you choose, and comes with its own tools.</p>
+          <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="modes-title"><Say d="Who you are depends on who you’re meeting." m="Four Modes. One you." /></span></Display>
+          <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]"><Say d="Four Modes. One identity. Each shows only what you choose, and comes with its own tools." m="Each shows only what you choose." /></p>
         </div>
 
         <div aria-hidden="true" className="flex items-center gap-3 sm:gap-4">

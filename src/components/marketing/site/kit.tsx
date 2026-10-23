@@ -7,7 +7,7 @@ import { SETUVARA_ORIGIN } from "@/lib/marketing/metadata";
 import { MeetMark } from "../brand";
 import type { DemoMode } from "../home/demo";
 import { StageField } from "../home/phone-stage";
-import { ClaimForm, Display, Label, Shell } from "../home/primitives";
+import { ClaimForm, Display, Label, Say, Shell } from "../home/primitives";
 
 /**
  * The parts every marketing landing page is built from: Mode pages, feature pages, comparisons,
@@ -98,11 +98,13 @@ export function Section({ id, eyebrow, title, lede, children, tone = "paper", cl
  * The opening. "split": text left, a stage right (Mode pages, comparisons, use cases). "center":
  * centred title and actions with the visual full width below (feature pages, articles).
  */
-export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId, actions, note, meta, layout, tone = "paper" }: {
+export function PageHero({ crumbs, eyebrow, title, lede: fullLede, ledeShort, visual, below, claimId, actions, note, meta, layout, tone = "paper" }: {
   crumbs: Crumb[];
   eyebrow: string;
   title: ReactNode;
   lede: ReactNode;
+  /** A shorter intro for phones; desktop keeps the full one. */
+  ledeShort?: ReactNode;
   visual?: ReactNode;
   below?: ReactNode;
   claimId?: string;
@@ -113,6 +115,7 @@ export function PageHero({ crumbs, eyebrow, title, lede, visual, below, claimId,
   tone?: "paper" | "ink";
 }) {
   const dark = tone === "ink";
+  const lede = ledeShort ? <Say d={fullLede} m={ledeShort} /> : fullLede;
   const mode = layout ?? (visual ? "split" : "wide");
   const claim = claimId ? <ClaimForm id={claimId} /> : null;
   const extras = (

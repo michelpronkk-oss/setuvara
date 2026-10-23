@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PRICES } from "@/lib/marketing/facts";
 
 import { RAIL, RAIL_ITEM } from "../site/kit";
-import { Display, Label, Shell } from "./primitives";
+import { Display, Label, Shell, Say } from "./primitives";
 
 /** Free, Plus and Pro in one row: the price from the catalog and the four lines that matter most. */
 const PLANS = [
@@ -19,7 +19,7 @@ export function Plans() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-end lg:gap-16">
           <div>
             <Label className="text-coral">Plus and Pro</Label>
-            <Display className="mt-4 text-[clamp(40px,4.4vw,72px)] leading-[0.92]"><span id="plans-title">Free to start.<br />More when you want it.</span></Display>
+            <Display className="mt-4 text-[clamp(40px,4.4vw,72px)] leading-[0.92]"><span id="plans-title"><Say d={<>Free to start.<br />More when you want it.</>} m="Free to start." /></span></Display>
           </div>
           <p className="max-w-[28rem] text-[18px] max-sm:hidden leading-[1.5] text-ink/70 sm:text-[20px]">Free is complete for meeting people. Plus makes it yours; Pro is for the work around it.</p>
         </div>

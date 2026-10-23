@@ -1,15 +1,15 @@
 import Link from "next/link";
 
 import { RAIL, RAIL_ITEM } from "../site/kit";
-import { Display, Label, Shell } from "./primitives";
+import { Display, Label, Shell, Say } from "./primitives";
 
 /** Setuvara in one line of five steps; each step links to the page that goes deeper. */
 const STEPS = [
-  { title: "Identity", line: "Claim your name. One account, one person.", href: "/signup", cta: "Claim yours" },
-  { title: "Mode", line: "Personal, Event, Business or Creator: the right version of you for the room.", href: "/modes", cta: "The four Modes" },
-  { title: "Share", line: "By link, your QR code, Quick QR or a tap of an NFC card. They only see that Mode.", href: "/features/qr-and-tap", cta: "QR and Tap" },
-  { title: "Connect", line: "One tap saves you both, no app or account needed on their side.", href: "/event", cta: "Event Mode" },
-  { title: "Stay connected", line: "Where and when you met, a private note, a Passport stamp. Then share again.", href: "/features/analytics", cta: "See it working" },
+  { title: "Identity", line: "Claim your name. One account, one person.", short: "Claim your name.", href: "/signup", cta: "Claim yours" },
+  { title: "Mode", line: "Personal, Event, Business or Creator: the right version of you for the room.", short: "The right you for the room.", href: "/modes", cta: "The four Modes" },
+  { title: "Share", line: "By link, your QR code, Quick QR or a tap of an NFC card. They only see that Mode.", short: "Link, QR or a tap.", href: "/features/qr-and-tap", cta: "QR and Tap" },
+  { title: "Connect", line: "One tap saves you both, no app or account needed on their side.", short: "One tap saves you both.", href: "/event", cta: "Event Mode" },
+  { title: "Stay connected", line: "Where and when you met, a private note, a Passport stamp. Then share again.", short: "Where, when and a note.", href: "/features/analytics", cta: "See it working" },
 ] as const;
 
 export function Loop() {
@@ -28,7 +28,7 @@ export function Loop() {
             <li className={`flex flex-col bg-ink p-6 max-md:rounded-[22px] max-md:bg-[#1B1B1B] sm:p-7 ${RAIL_ITEM}`} key={step.title}>
               <span className="font-label text-[11px] tracking-[0.16em] text-coral">0{index + 1}</span>
               <h3 className="mt-5 font-display text-[28px] font-bold leading-none tracking-[-0.045em]">{step.title}</h3>
-              <p className="mt-3 text-[15px] leading-[1.55] text-paper/65">{step.line}</p>
+              <p className="mt-3 text-[15px] leading-[1.55] text-paper/65"><Say d={step.line} m={step.short} /></p>
               <Link className="mt-auto inline-flex min-h-11 items-end pt-5 text-[14px] font-semibold text-paper/85 underline decoration-paper/25 underline-offset-4 hover:decoration-coral focus-visible:outline-2 focus-visible:outline-coral" href={step.href}>{step.cta} →</Link>
             </li>
           ))}

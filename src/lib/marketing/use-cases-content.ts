@@ -12,6 +12,8 @@ export type UseCase = {
   eyebrow: string;
   title: string;
   lede: string;
+  /** The intro on phones: one short line. */
+  ledeShort?: string;
   problem: { title: string; body: string };
   steps: { title: string; body: string }[];
   features: { title: string; body: string; href?: string }[];
@@ -29,6 +31,7 @@ export const USE_CASES: Record<string, UseCase> = {
     eyebrow: "For founders",
     title: "The business card that shows what you’re building.",
     lede: "Business Mode puts your company, your role and your next step on one page, with your product’s roadmap and revenue verified from your payment provider. Share it by QR or a tap of your phone.",
+    ledeShort: "Your company, your role and a booking, on one page.",
     problem: { title: "A paper card says who you were.", body: "Investors, partners and early customers want to know what you’re building now, how it’s going and how to talk to you next. A static card or a LinkedIn link answers none of it." },
     steps: [
       { title: "Fill in Business Mode", body: "Role, company, city and what you do. Add a booking link and it gets its own button." },
@@ -65,6 +68,7 @@ export const USE_CASES: Record<string, UseCase> = {
     eyebrow: "For creators",
     title: "A link in bio that leads with your work.",
     lede: "Creator Mode opens on what you make, not on a list of buttons. Sell from a store, send brands your media kit, take collaborations as Deals and keep your Audience. On every plan, with no application.",
+    ledeShort: "Your work first, with a store and a media kit.",
     problem: { title: "Your bio link is your shop window.", body: "Most link pages are a stack of buttons. Brands want numbers, fans want the latest thing, and every extra tool takes a cut." },
     steps: [
       { title: "Pick a Look", body: "Film, Social, Stack and seven more. Two are free; all ten on Plus." },
@@ -101,6 +105,7 @@ export const USE_CASES: Record<string, UseCase> = {
     eyebrow: "For events",
     title: "Meet everyone at the event. Remember them after.",
     lede: "Set Event Mode before you arrive: the event, your role and who you’re here to meet. Share it in the room by QR or tap. Every connection keeps the event, the city and the time.",
+    ledeShort: "Share in the room. Every connection keeps the event.",
     problem: { title: "Business cards end up in a drawer.", body: "You meet thirty people in two days and remember five. Event apps need everyone to install them, and they forget you when the event ends." },
     steps: [
       { title: "Set Event Mode", body: "Event name, dates, your role and who you want to meet." },
@@ -137,6 +142,7 @@ export const USE_CASES: Record<string, UseCase> = {
     eyebrow: "QR business card",
     title: "Print once. Update forever.",
     lede: "A Setuvara QR code opens your page, not a fixed file. Change your role, your links or the whole Look, and every card you’ve handed out shows the new version.",
+    ledeShort: "A QR that opens your page. Change it any time.",
     problem: { title: "Printed details go out of date.", body: "New role, new number, new company: every change makes a box of cards wrong. A QR code to a PDF has the same problem." },
     steps: [
       { title: "Make your page", body: "Business Mode with your role, company, booking link and contact." },
@@ -173,6 +179,7 @@ export const USE_CASES: Record<string, UseCase> = {
     eyebrow: "Build in public",
     title: "Revenue people can trust.",
     lede: "Builder shows your project’s verified revenue, read daily from your payment provider with a read-only key, next to a roadmap people can vote on and a changelog of what you shipped.",
+    ledeShort: "Revenue read from your provider, not a screenshot.",
     problem: { title: "Screenshots can be edited.", body: "Building in public works when people believe the numbers. A screenshot of a dashboard proves nothing, and nobody wants to give out a full API key." },
     steps: [
       { title: "Add your project", body: "Name, link, category and tagline in Builder on Business or Creator Mode." },

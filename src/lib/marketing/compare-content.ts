@@ -15,6 +15,8 @@ export type ComparePage = {
   metaDescription: string;
   title: string;
   lede: string;
+  /** The intro on phones: one short line. */
+  ledeShort?: string;
   summary: { setuvara: string; them: string };
   rows: CompareRow[];
   pickSetuvara: string[];
@@ -35,6 +37,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     metaDescription: "Linktree is a list of links. Setuvara gives you four pages from one account, shared by link, QR or NFC tap, and remembers everyone you meet. Compare them side by side.",
     title: "Setuvara vs Linktree",
     lede: "Linktree is the classic link in bio: one page, a list of links. Setuvara is built for meeting people too: a page for each part of your life, shared in person by QR or tap, and a record of who you met.",
+    ledeShort: "A link in bio, plus a page for meeting people.",
     summary: {
       setuvara: "One account with four Modes (Personal, Event, Business, Creator), each with its own page, look, link and QR. Visitors connect in one tap, and you keep where and when you met.",
       them: "One public page of links per account, made for a social media bio. Strong on link management, integrations and its large ecosystem.",
@@ -70,6 +73,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     metaDescription: "Beacons is a creator link in bio with a store and media kit. Setuvara adds Personal, Event and Business Modes, in-person sharing by QR and tap, and 0% fees on Plus.",
     title: "Setuvara vs Beacons",
     lede: "Beacons is an all-in-one link in bio for creators, with a store, a media kit and email. Setuvara’s Creator Mode covers that ground, and the same account has pages for your personal life, events and business.",
+    ledeShort: "Creator tools too, plus Modes and connections.",
     summary: {
       setuvara: "Creator Mode puts your work first, with a store, a media kit, brand Deals and an Audience you can email. Three more Modes cover the rest of your life, shared by link, QR or tap.",
       them: "A creator-focused link in bio with a store, media kit, email marketing and AI tools, built around your online audience.",
@@ -105,6 +109,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     metaDescription: "Popl is an NFC digital business card for people and sales teams. Setuvara is one too, with four Modes, Events, Leads and a free plan that does the job.",
     title: "Setuvara vs Popl and digital business cards",
     lede: "Popl and other digital business cards share your contact details with a tap or a scan. Setuvara does that, and gives you the right page for the room: Business at a meeting, Event at a conference, Personal with friends.",
+    ledeShort: "A tap card that also remembers who you met.",
     summary: {
       setuvara: "A Business Mode with booking, Leads, Testimonials, Builder and a Team, next to Event, Personal and Creator Modes. Share by QR, Quick QR or tap any NFC card, ring or sticker.",
       them: "Digital business cards and NFC products for individuals and sales teams, with lead capture and CRM integrations.",
@@ -140,6 +145,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     metaDescription: "Carrd builds simple one-page sites you design yourself. Setuvara gives you finished pages for four parts of your life, shared by QR or tap.",
     title: "Setuvara vs Carrd",
     lede: "Carrd is a one-page website builder: a blank canvas you design. Setuvara starts from you instead: pick a Look, add your links and details, and every Mode is a finished page on phone and desktop.",
+    ledeShort: "No blank canvas: start from you, live in minutes.",
     summary: {
       setuvara: `Finished pages from ${LOOKS.total} Looks, with forms, sign-ups, bookings and a store built in, plus QR and NFC sharing and Connections.`,
       them: "A flexible builder for simple one-page sites, landing pages and portfolios, with your own domain on paid plans.",

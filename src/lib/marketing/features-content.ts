@@ -17,6 +17,8 @@ export type FeaturePage = {
   eyebrow: string;
   title: string;
   lede: string;
+  /** The intro on phones: one short line. */
+  ledeShort?: string;
   status?: "coming";
   steps: { title: string; body: string }[];
   /** The "how it works" heading, and the closing band's line. */
@@ -43,6 +45,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
     eyebrow: "Actions",
     title: "Your page, with a next step.",
     lede: "An Action is a card on your page with its own form: a newsletter, a sign-up, a booking request, questions, a collaboration request or a giveaway. Responses land in one inbox, with the people in your Audience.",
+    ledeShort: "Sign-ups, bookings and questions, right on your page.",
     steps: [
       { title: "Pick a kind", body: "Start from a goal or choose the kind yourself. Each Mode suggests the ones that suit it." },
       { title: "Place it on your page", body: "It sits among your links and content, in the order you set, and can open and close on a date." },
@@ -81,6 +84,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
     eyebrow: "Builder and Verified Revenue",
     title: "Build in public, with proof.",
     lede: "Builder puts what you're building on your page: the project, a roadmap people can vote on, updates and a revenue figure checked against your payment provider instead of typed in.",
+    ledeShort: "Your project, a roadmap and revenue checked at the source.",
     steps: [
       { title: "Add a project", body: "Name, category, link and what it is. It shows on your Business or Creator page." },
       { title: "Open the roadmap", body: "Planned, in progress and shipped. Visitors vote on what's next; on Plus and Pro they suggest features too." },
@@ -118,6 +122,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
     eyebrow: "Analytics",
     title: "See it working.",
     lede: "Views, scans, link taps and the people who connected, for every Mode. Free shows your last seven days; Plus and Pro show where they came from, which Mode they saw and how many became a connection.",
+    ledeShort: "Views, scans and who connected, per Mode.",
     steps: [
       { title: "Every share counts", body: "Links, QR codes, Quick QR and Tap each report their own scans and views." },
       { title: "Every Mode on its own", body: "See which page people open and which one turns views into connections." },
@@ -156,6 +161,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
     eyebrow: "QR and Tap",
     title: "Meet in person, share in one move.",
     lede: "Your page has its own QR code in the style you choose. Quick QR and Setuvara Tap open the Mode you've equipped, so the same card or sticker opens your Event page today and your Business page tomorrow.",
+    ledeShort: "One code that opens the Mode you choose.",
     steps: [
       { title: "Show your QR", body: "Every Mode has its own link and QR. Download it for a badge, a slide or a table stand." },
       { title: "Or let them tap", body: "Write your Tap link to any NFC card, ring, sticker or badge you own. A phone tap opens your page." },
@@ -194,6 +200,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
     status: "coming",
     title: "Your QR, one swipe away.",
     lede: "A Setuvara pass for Apple Wallet and Google Wallet: your equipped Mode's QR on your lock screen, ready even without signal. The pass is coming soon; Quick QR and Tap do the same job today.",
+    ledeShort: "Your QR on your lock screen. Coming soon.",
     steps: [
       { title: "Add the pass", body: "One tap from the app adds your Setuvara to Apple Wallet or Google Wallet." },
       { title: "Show it anywhere", body: "Your QR on the lock screen, at the door, in a queue, without opening anything." },

@@ -12,7 +12,7 @@ export const metadata = marketingMetadata({
 export default function ToolsIndex() {
   return (
     <>
-      <PageHero crumbs={[{ name: "Tools", path: "/tools" }]} eyebrow="Free tools" lede="Small, useful things for meeting people and sharing your work. Free, with no sign-up." below={<FeatureVisual name="qr-and-tap" />} title="Free tools." />
+      <PageHero ledeShort="Free, no sign-up." crumbs={[{ name: "Tools", path: "/tools" }]} eyebrow="Free tools" lede="Small, useful things for meeting people and sharing your work. Free, with no sign-up." below={<FeatureVisual name="qr-and-tap" />} title="Free tools." />
       <Section id="tools" title="Use them as often as you like." tone="white">
         <FeatureGrid items={TOOLS.map((tool) => ({ title: tool.name, body: tool.line, href: tool.path }))} />
       </Section>

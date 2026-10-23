@@ -17,6 +17,8 @@ export type ModePageContent = {
   eyebrow: string;
   title: string;
   lede: string;
+  /** The intro on phones: one short line. */
+  ledeShort?: string;
   /** What a visitor sees on this Mode's page. */
   shows: { title: string; body: string }[];
   /** The Mode's own tools, as named in the app. */
@@ -37,6 +39,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
     eyebrow: "Personal Mode",
     title: "The you your friends know.",
     lede: "Your bio, your city, your music and the links you actually use. One page for the people you choose, shared by link, QR or a tap of your phone.",
+    ledeShort: "Your bio, music and links, for the people you choose.",
     shows: [
       { title: "Your page, your look", body: "Ten Looks to choose from, your photo, your name in the type you pick, and a soundtrack that plays when they open it." },
       { title: "Links and content", body: "Instagram, Spotify, WhatsApp and any link you add, plus pictures, videos and music, in the order you set." },
@@ -70,6 +73,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
     eyebrow: "Event Mode",
     title: "The you that belongs in this room.",
     lede: "The event, the city, your role and who you're here to meet. Go Live while you're there, let people connect in one scan, and every connection keeps where it happened.",
+    ledeShort: "Your role, who you’re here to meet, and every connection saved.",
     shows: [
       { title: "Where you are, right now", body: "A Live pill with the event and city while you're there. It ends on its own, so your page never shows last month's conference." },
       { title: "Who you're here to meet", body: "Your role and the people you're looking for, right under your name, so the right ones walk up." },
@@ -103,6 +107,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
     eyebrow: "Business Mode",
     title: "The you that closes the meeting.",
     lede: "Role, company and what you do, with the next step one tap away. Every inquiry and booking lands in Leads, and your team shares the same front door.",
+    ledeShort: "Your card, with the next step one tap away.",
     shows: [
       { title: "A business card that books", body: "Add a booking link and it gets its own button, so the next step happens while you're still talking." },
       { title: "Proof, not claims", body: "Client testimonials you choose to show, and what you’re building next to them." },
@@ -138,6 +143,7 @@ export const MODE_PAGES: Record<ModeSlugPage, ModePageContent> = {
     eyebrow: "Creator Mode",
     title: "The you they came to see.",
     lede: "Your work first, then the ways to support it: a store, a media kit that stays current, brand deals in one inbox and an audience you can write to.",
+    ledeShort: "Your work, a store and brand deals, on one page.",
     shows: [
       { title: "Work first", body: "Featured videos and pictures lead the page, in the order you set." },
       { title: "A store on your page", body: "Sell digital downloads and services, or give them away free. Payments go to your own Stripe account, with no Setuvara fee on Plus and Pro." },

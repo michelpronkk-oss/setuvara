@@ -3,7 +3,7 @@ import { CharacterAvatar } from "@/components/avatar/character-avatar";
 import { ConnectionsDemo } from "./connections-demo";
 import { demoConnections } from "./demo";
 import { Flag } from "./flag";
-import { Display, Label, Shell } from "./primitives";
+import { Display, Label, Shell, Say } from "./primitives";
 
 const encounters = [
   { when: "Jun 2026", where: "TNW Conference · Amsterdam", mode: "Business", country: "NL" },
@@ -56,7 +56,7 @@ export function Memory() {
         <div className="grid grid-cols-[minmax(0,1fr)] scroll-mt-20 gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-20" id="connections">
           <div className="flex flex-col gap-5 lg:pt-6">
             <Label className="text-coral">Connections</Label>
-            <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]">Everyone you’ve met. Searchable by moment.</Display>
+            <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><Say d="Everyone you’ve met. Searchable by moment." m="Search by moment." /></Display>
             <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Try it. These are example people.</p>
           </div>
           <ConnectionsDemo items={demoConnections} />

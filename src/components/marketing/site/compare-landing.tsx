@@ -63,6 +63,7 @@ export function CompareLanding({ slug }: { slug: string }) {
         eyebrow="Compare"
         layout="wide"
         lede={page.lede}
+        ledeShort={page.ledeShort}
         meta={<Label className="text-ink/45">Updated Oct 2026 · {page.name} details from its public pages</Label>}
         title={<>Setuvara<br /><span className="text-ink/30">vs</span> {page.name}</>}
       />

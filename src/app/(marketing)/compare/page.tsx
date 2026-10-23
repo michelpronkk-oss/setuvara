@@ -12,7 +12,7 @@ export const metadata = marketingMetadata({
 export default function CompareIndex() {
   return (
     <>
-      <PageHero claimId="compare-claim" crumbs={[{ name: "Compare", path: "/compare" }]} eyebrow="Compare" lede="Link in bio, digital business card, page builder: Setuvara overlaps with all three. Here is how it differs, and when the other one fits better." title="Setuvara, compared." visual={<ModeScreens slug="creator" />} />
+      <PageHero ledeShort="How Setuvara differs, honestly." claimId="compare-claim" crumbs={[{ name: "Compare", path: "/compare" }]} eyebrow="Compare" lede="Link in bio, digital business card, page builder: Setuvara overlaps with all three. Here is how it differs, and when the other one fits better." title="Setuvara, compared." visual={<ModeScreens slug="creator" />} />
       <Section id="comparisons" title="Side by side." tone="white"><CompareList /></Section>
       <CtaBand claimId="compare-cta" line="Free to start, with all four Modes." secondary={{ href: "/what-is-setuvara", label: "What is Setuvara?" }} title="See for yourself." />
     </>

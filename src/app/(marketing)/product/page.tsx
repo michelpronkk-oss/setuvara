@@ -32,7 +32,7 @@ const FAQ = [
 export default function ProductPage() {
   return (
     <>
-      <PageHero claimId="product-hero-claim" crumbs={[{ name: "Product", path: PATH }]} eyebrow="The product" lede="Content, Looks, accent, name style, scroll cue and a profile soundtrack. Change any of it, Mode by Mode, and your page follows." note="Free · All four Modes · No card" title={<>Make it yours.</>} visual={<ModeScreens slug="creator" />} />
+      <PageHero ledeShort="Change any of it, Mode by Mode." claimId="product-hero-claim" crumbs={[{ name: "Product", path: PATH }]} eyebrow="The product" lede="Content, Looks, accent, name style, scroll cue and a profile soundtrack. Change any of it, Mode by Mode, and your page follows." note="Free · All four Modes · No card" title={<>Make it yours.</>} visual={<ModeScreens slug="creator" />} />
       <Section eyebrow="Looks" id="looks" lede={`Ten complete designs, each with its own photo treatment, type, motion and scroll cue. ${LOOKS.free.join(" and ")} are free; Plus opens all ten.`} title="Ten Looks. One is you." tone="ink">
         <LooksGallery />
       </Section>

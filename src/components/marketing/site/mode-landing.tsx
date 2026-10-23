@@ -117,6 +117,7 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
         crumbs={[{ name: `${page.name} Mode`, path: page.path }]}
         eyebrow={page.eyebrow}
         lede={page.lede}
+        ledeShort={page.ledeShort}
         note="Free · All four Modes · No card"
         title={page.title}
         visual={<ModeScreens slug={slug} />}
@@ -130,10 +131,10 @@ export function ModeLanding({ slug }: { slug: ModeSlugPage }) {
           </div>
           <ol className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
             {page.shows.map((item, index) => (
-              <li className="border-t-[1.5px] border-ink pt-6" key={item.title}>
+              <li className="border-t-[1.5px] border-ink pt-6 max-sm:pt-4" key={item.title}>
                 <span className="font-label text-[11px] tracking-[0.16em] text-coral">0{index + 1}</span>
                 <h3 className="mt-3 font-display text-[28px] font-extrabold leading-[1] tracking-[-0.05em]">{item.title}</h3>
-                <p className="mt-3 text-[16px] leading-[1.6] text-ink/62">{item.body}</p>
+                <p className="mt-3 text-[16px] leading-[1.6] text-ink/62 max-sm:hidden">{item.body}</p>
               </li>
             ))}
           </ol>

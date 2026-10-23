@@ -26,6 +26,7 @@ export function UseCaseLanding({ slug }: { slug: string }) {
         hero={<ArticleStage slug={page.mode} url={mode.share} />}
         kicker={page.eyebrow}
         lede={page.lede}
+        ledeShort={page.ledeShort}
         minutes={4}
         title={page.title}
         toc={[{ id: "problem", label: "The problem" }, { id: "steps", label: "Four steps" }, { id: "tools", label: "What you get" }, { id: "faq", label: "Questions" }]}
