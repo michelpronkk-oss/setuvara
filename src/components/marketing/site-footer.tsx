@@ -13,6 +13,7 @@ export function SiteFooter() {
       { href: "/modes", label: copy.modes },
       { href: "/features", label: copy.features },
       { href: "/gallery", label: copy.gallery },
+      { href: "/product", label: copy.tryIt },
       { href: "/templates", label: "Templates" },
       { href: "/pricing", label: copy.pricing },
       { href: "/roadmap", label: copy.roadmap },
