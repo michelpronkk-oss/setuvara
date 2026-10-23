@@ -5,7 +5,7 @@ import { nameFontClasses } from "@/components/profile/name-fonts";
 
 import { MeetMark } from "../brand";
 import { CastPhone, ModeDesktop } from "../home/mode-phone";
-import { Display, Label, Shell } from "../home/primitives";
+import { Display, Label, Shell, Say } from "../home/primitives";
 import { BrowserFrame, Breadcrumbs, ButtonLink, Stage, type Crumb } from "./kit";
 
 type ModeSlug = "personal" | "event" | "business" | "creator";
@@ -45,11 +45,13 @@ export const proseH2 = "mt-20 scroll-mt-24 font-display text-[clamp(32px,3.4vw,4
 export const proseP = "mt-6 text-[17px] leading-[1.75] text-ink/80 sm:text-[18px]";
 
 /** A long read: centred head, a stage, then contents · prose · a quiet way in. */
-export function ArticleLayout({ crumbs, kicker, title, lede, date, minutes, hero, caption, toc, aside, children }: {
+export function ArticleLayout({ crumbs, kicker, title, lede, ledeShort, date, minutes, hero, caption, toc, aside, children }: {
   crumbs: Crumb[];
   kicker: string;
   title: ReactNode;
   lede: string;
+  /** A shorter intro for phones; desktop keeps the full one. */
+  ledeShort?: string;
   date: string;
   minutes: number;
   hero: ReactNode;
@@ -65,7 +67,7 @@ export function ArticleLayout({ crumbs, kicker, title, lede, date, minutes, hero
         <div className="mx-auto flex max-w-[60rem] flex-col items-center text-center">
           <p className="font-label text-[11px] uppercase tracking-[0.16em] text-ink/50">{crumbs.slice(0, -1).map((crumb) => <Link className="hover:text-ink" href={crumb.path} key={crumb.path}>{crumb.name} / </Link>)}<span className="text-coral">{kicker}</span></p>
           <Display as="h1" className="mt-8 max-w-[14ch] text-[clamp(44px,6vw,88px)] leading-[0.9]">{title}</Display>
-          <p className="mt-7 max-w-[46rem] text-[18px] leading-[1.6] text-ink/65 sm:text-[22px]">{lede}</p>
+          <p className="mt-7 max-w-[46rem] text-[18px] leading-[1.6] text-ink/65 sm:text-[22px]">{ledeShort ? <Say d={lede} m={ledeShort} /> : lede}</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <span className="flex items-center gap-3 text-[15px] font-semibold"><span aria-hidden="true" className="grid size-10 place-items-center rounded-full bg-ink"><MeetMark className="size-5 text-coral" /></span>The Setuvara team</span>
             <Label className="text-ink/45"><time dateTime={date}>{articleDate(date)}</time> · {minutes} min read</Label>

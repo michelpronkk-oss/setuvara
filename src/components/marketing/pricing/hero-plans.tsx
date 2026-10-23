@@ -1,6 +1,7 @@
 "use client";
 
 import { MemberBadge } from "@/components/app/status-badge";
+import { RAIL, RAIL_ITEM } from "../site/kit";
 import { MeetMark } from "@/components/marketing/brand";
 import { getPublicPlan } from "@/lib/billing/catalog";
 import { COMING_TO_PRO, formatPrice, monthlyNote, PLAN_HIGHLIGHTS, PLAN_TAGLINES, yearlyNote } from "@/lib/billing/plan-copy";
@@ -29,7 +30,7 @@ export function HeroPlans() {
             <h1 className="m-0 font-display text-[clamp(46px,6.6vw,104px)] font-extrabold leading-[0.88] tracking-[-0.055em]" id="pricing-title">Free to start.<br />Made to stand out.</h1>
           </div>
           <div className="flex flex-col gap-7 pb-2">
-            <p className="m-0 max-w-[400px] text-[clamp(16px,1.25vw,18px)] leading-[1.45] text-ink/70 [text-wrap:pretty]">Free is complete, for good. Plus makes it premium. Pro shows what it’s worth.</p>
+            <p className="m-0 max-w-[400px] text-[clamp(16px,1.25vw,18px)] max-sm:hidden leading-[1.45] text-ink/70 [text-wrap:pretty]">Free is complete, for good. Plus makes it premium. Pro shows what it’s worth.</p>
             <div className="flex flex-wrap items-center gap-3.5">
               <IntervalToggle />
               <span className="text-[13px] text-ink/60">USD · Cancel anytime</span>
@@ -38,13 +39,13 @@ export function HeroPlans() {
           </div>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 lg:grid-cols-3">
-          <article className="flex flex-col gap-5 rounded-[28px] bg-white p-7 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-8" data-plan="free">
+        <div className={`grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 lg:grid-cols-3 ${RAIL}`}>
+          <article className={`flex flex-col gap-5 rounded-[28px] bg-white p-7 shadow-[inset_0_0_0_1px_rgba(13,13,13,.08)] sm:p-8 ${RAIL_ITEM}`} data-plan="free">
             <div className="flex h-7 items-center"><Mono className="text-[12px] text-ink/65">Free</Mono></div>
             <h2 className="m-0 font-display text-[22px] font-bold leading-[1.05] tracking-[-0.03em]">{PLAN_TAGLINES.free}</h2>
             <div className="flex items-baseline gap-2"><span className="font-display text-[56px] font-extrabold leading-[0.9] tracking-[-0.05em]">$0</span><span className="text-[15px] text-ink/70">forever</span></div>
             <span className="-mt-3 min-h-5 text-[13px] text-ink/70">No card needed.</span>
-            <div className="flex flex-col gap-1.5 rounded-[18px] bg-paper px-[18px] py-4">
+            <div className="max-md:hidden flex flex-col gap-1.5 rounded-[18px] bg-paper px-[18px] py-4">
               <Mono className="text-[10px] text-ink/65">Standard profile</Mono>
               <span className="font-display text-2xl font-bold leading-none tracking-[-0.035em]">Aanya Rao</span>
               <span className="font-label text-[12px] text-ink/60">setuvara.com/aanya</span>
@@ -53,7 +54,7 @@ export function HeroPlans() {
             <PlanList included="Included" items={PLAN_HIGHLIGHTS.free} tone="free" />
           </article>
 
-          <article className="relative flex flex-col gap-5 rounded-[28px] bg-white p-7 shadow-[inset_0_0_0_2px_#ff5a4f,0_24px_48px_-28px_rgba(255,90,79,.6)] sm:p-8" data-plan="plus">
+          <article className={`relative flex flex-col gap-5 rounded-[28px] bg-white p-7 shadow-[inset_0_0_0_2px_#ff5a4f,0_24px_48px_-28px_rgba(255,90,79,.6)] sm:p-8 ${RAIL_ITEM}`} data-plan="plus">
             <div className="flex h-7 items-center justify-between">
               <Mono className="flex items-center gap-2 text-[12px] text-ink"><MemberBadge decorative size={18} tier="plus" />Plus</Mono>
               <span className="rounded-full bg-coral px-2.5 py-1.5 font-label text-[10px] leading-none tracking-[0.14em] text-ink">MOST POPULAR</span>
@@ -61,7 +62,7 @@ export function HeroPlans() {
             <h2 className="m-0 font-display text-[22px] font-bold leading-[1.05] tracking-[-0.03em]">{PLAN_TAGLINES.plus}</h2>
             <div className="flex items-baseline gap-2"><span className="font-display text-[56px] font-extrabold leading-[0.9] tracking-[-0.05em]">{amount("plus")}</span><span className="text-[15px] text-ink/70">{per}</span></div>
             <span className="-mt-3 min-h-5 text-[13px] text-ink/70">{note("plus")}</span>
-            <div className="flex flex-col gap-1.5 rounded-[18px] bg-[#fff1ef] px-[18px] py-4">
+            <div className="max-md:hidden flex flex-col gap-1.5 rounded-[18px] bg-[#fff1ef] px-[18px] py-4">
               <Mono className="text-[10px] text-[#a43d36]">Plus status · premium look</Mono>
               <BadgedName className="font-display text-2xl font-bold leading-none tracking-[-0.035em]" name="Aanya Rao" size={18} tier="plus" />
               <span className="font-label text-[12px] text-ink/60">setuvara.com/aanya</span>
@@ -70,20 +71,20 @@ export function HeroPlans() {
             <PlanList included="Everything in Free, plus" items={PLAN_HIGHLIGHTS.plus} tone="plus" />
           </article>
 
-          <article className="relative flex flex-col gap-5 overflow-hidden rounded-[28px] bg-ink p-7 text-paper sm:p-8" data-plan="pro">
+          <article className={`relative flex flex-col gap-5 overflow-hidden rounded-[28px] bg-ink p-7 text-paper sm:p-8 ${RAIL_ITEM}`} data-plan="pro">
             <MeetMark className="pointer-events-none absolute -right-[70px] -top-[50px] size-[260px] text-[#d6b25e] opacity-[0.07]" />
             <div className="relative flex h-7 items-center"><Mono className="flex items-center gap-2 text-[12px] text-[#e8d28a]"><MemberBadge decorative size={18} tier="pro" />Pro</Mono></div>
             <h2 className="relative m-0 font-display text-[22px] font-bold leading-[1.05] tracking-[-0.03em]">{PLAN_TAGLINES.pro}</h2>
             <div className="relative flex items-baseline gap-2"><span className="font-display text-[56px] font-extrabold leading-[0.9] tracking-[-0.05em]">{amount("pro")}</span><span className="text-[15px] text-paper/70">{per}</span></div>
             <span className="relative -mt-3 min-h-5 text-[13px] text-paper/70">{note("pro")}</span>
-            <div className="relative flex flex-col gap-1.5 rounded-[18px] bg-[#1a1a1a] px-[18px] py-4">
+            <div className="max-md:hidden relative flex flex-col gap-1.5 rounded-[18px] bg-[#1a1a1a] px-[18px] py-4">
               <Mono className="text-[10px] text-[#e8d28a]">Pro status · Business Mode</Mono>
               <BadgedName className="font-display text-2xl font-bold leading-none tracking-[-0.035em]" name="Aanya Rao" size={18} tier="pro" />
               <span className="font-label text-[12px] text-paper/60">setuvara.com/aanya</span>
             </div>
             <PlanCta className={`${CTA} relative bg-[#d6b25e] text-ink hover:bg-[#e8d28a]`} plan="pro" />
             <PlanList included="Everything in Plus, and" items={PLAN_HIGHLIGHTS.pro} tone="pro" />
-            <div className="relative flex flex-col gap-2 rounded-[18px] px-[18px] py-4 shadow-[inset_0_0_0_1px_rgba(245,244,239,.14)]">
+            <div className="max-md:hidden relative flex flex-col gap-2 rounded-[18px] px-[18px] py-4 shadow-[inset_0_0_0_1px_rgba(245,244,239,.14)]">
               <Mono className="text-[10px] text-paper/60">Coming to Pro</Mono>
               {COMING_TO_PRO.map((item) => <span className="text-[13px] text-paper/60" key={item}>{item}</span>)}
             </div>
@@ -102,8 +103,8 @@ function PlanList({ included, items, tone }: { included: string; items: readonly
     <div className={`relative flex flex-col gap-3 border-t pt-5 text-[14px] ${dark ? "border-paper/15" : "border-ink/10"}`}>
       <Mono className={dark ? "text-paper/65" : "text-ink/65"}>{included}</Mono>
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-        {items.map((item) => (
-          <li className="flex gap-2.5" key={item.text}>
+        {items.map((item, index) => (
+          <li className={`flex gap-2.5 ${index >= 4 ? "max-md:hidden" : ""}`} key={item.text}>
             <Check className={tone === "plus" ? "text-coral" : tone === "pro" ? "text-[#d6b25e]" : ""} />
             <span className={item.strong ? "font-semibold" : undefined}>{item.text}</span>
           </li>

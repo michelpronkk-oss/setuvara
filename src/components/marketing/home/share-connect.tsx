@@ -2,7 +2,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { MeetMark, MeetMarkJoin } from "../brand";
 import { person } from "./demo";
-import { Display, Label, LaterTag, Shell } from "./primitives";
+import { Display, Label, LaterTag, Shell, Say } from "./primitives";
 import { ShareDemo } from "./share-demo";
 
 // The QR codes on this page are real and scannable. They open setuvara.com.
@@ -37,9 +37,9 @@ export function Share() {
           <div className="flex flex-col gap-5">
             <Label className="text-coral">Share</Label>
             <Display className="text-[clamp(40px,4.8vw,72px)] leading-[0.95]"><span id="share-title">The right version, instantly.</span></Display>
-            <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]">Pick a Mode. Share it. They see only that version. Try your colour.</p>
+            <p className="max-w-[26rem] text-[18px] leading-[1.45] text-ink/70 sm:text-[20px] lg:text-[22px]"><Say d="Pick a Mode. Share it. They see only that version. Try your colour." m="Pick a Mode. They see only that." /></p>
           </div>
-          <ul className="border-t border-ink/15">
+          <ul className="border-t border-ink/15 max-md:hidden">
             {channels.map((channel) => (
               <li className={`flex items-center justify-between gap-4 border-b border-ink/15 py-3 sm:py-4 ${channel.live ? "" : "text-ink/55"}`} key={channel.name}>
                 <span className="min-w-0">
@@ -119,7 +119,7 @@ export function MeetConnect() {
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 border-t border-paper/15 pt-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start lg:gap-16">
           <p className="font-display text-[clamp(30px,3.6vw,52px)] font-bold leading-[1] tracking-[-0.045em]">They don’t need an&nbsp;account.</p>
-          <p className="text-[16px] leading-[1.5] text-paper/70 sm:text-[17px]">Guests connect with a name and email. If they join later, the connection is already waiting.</p>
+          <p className="text-[16px] leading-[1.5] text-paper/70 sm:text-[17px]"><Say d="Guests connect with a name and email. If they join later, the connection is already waiting." m="A name and email is enough." /></p>
         </div>
       </Shell>
     </section>

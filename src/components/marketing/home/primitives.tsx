@@ -40,3 +40,11 @@ export function ClaimForm({ tone = "light", id }: { tone?: "light" | "coral"; id
 }
 
 export type DemoLink = { provider: string; title: string; detail: string };
+
+/**
+ * One spot, two lengths: the desktop line and a shorter one written for phones. Only one is ever
+ * displayed (the other is display:none), so screen readers read one and both stay in the page.
+ */
+export function Say({ d, m }: { d: ReactNode; m: ReactNode }) {
+  return <><span className="max-sm:hidden">{d}</span><span className="sm:hidden">{m}</span></>;
+}

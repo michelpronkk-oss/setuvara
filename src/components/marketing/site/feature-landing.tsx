@@ -80,6 +80,7 @@ export function FeatureLanding({ slug }: { slug: FeatureSlug }) {
         eyebrow={page.status === "coming" ? `${page.eyebrow} · Coming soon` : page.eyebrow}
         layout="center"
         lede={page.lede}
+        ledeShort={page.ledeShort}
         title={page.title}
       />
 

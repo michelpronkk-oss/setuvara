@@ -31,7 +31,7 @@ export function ToolPanel({ title, tag, body, tone = "white", aside, children, c
   const skin = { ink: "bg-ink text-paper", white: "bg-white text-ink", coral: "bg-coral text-ink" }[tone];
   const muted = tone === "ink" ? "text-paper/60" : tone === "coral" ? "text-ink/70" : "text-ink/62";
   const stage = (children || aside) ? (
-    <div className={`relative overflow-hidden rounded-[22px] p-5 sm:rounded-[26px] sm:p-8 ${STAGES[tone]}`}>
+    <div className={`relative overflow-hidden rounded-[22px] p-3 sm:rounded-[26px] sm:p-8 ${STAGES[tone]}`}>
       <span aria-hidden="true" className={`pointer-events-none absolute inset-0 rounded-[inherit] ${tone === "ink" ? "shadow-[inset_0_0_0_1px_rgba(255,255,255,.06)]" : "shadow-[inset_0_0_0_1px_rgba(13,13,13,.05)]"}`} />
       <div className={`relative flex h-full flex-col justify-center gap-5 [&>*]:drop-shadow-[0_24px_30px_rgba(13,13,13,.18)] ${aside ? "lg:flex-row lg:items-center lg:[&>*]:flex-1" : ""}`}>
         {children ? <div className={`min-w-0 ${aside ? "max-lg:hidden" : ""}`}>{children}</div> : null}
@@ -43,9 +43,9 @@ export function ToolPanel({ title, tag, body, tone = "white", aside, children, c
     <article className={`flex flex-col overflow-hidden rounded-[28px] p-2.5 shadow-[0_50px_100px_-60px_rgba(13,13,13,.6)] sm:rounded-[34px] sm:p-3 ${skin} ${className}`}>
       {stage ? <div className="flex flex-1 flex-col [&>*]:flex-1">{stage}</div> : null}
       <div className="flex flex-col px-3.5 pb-4 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
-        <div className="flex items-baseline justify-between gap-4">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
           <h3 className="font-display text-[30px] font-extrabold leading-none tracking-[-0.055em] sm:text-[38px]">{title}</h3>
-          <span className={`${mono} shrink-0 text-right ${tone === "ink" ? "text-paper/45" : "text-ink/50"}`}>{tag}</span>
+          <span className={`${mono} sm:shrink-0 sm:text-right ${tone === "ink" ? "text-paper/45" : "text-ink/50"}`}>{tag}</span>
         </div>
         {body ? <p className={`mt-3 max-w-[34rem] text-[15px] leading-[1.6] sm:text-[16px] ${muted}`}>{body}</p> : null}
       </div>
@@ -65,7 +65,7 @@ export function LeadsList() {
   return (
     <div>
       <div className="rounded-[20px] bg-[#1B1B1B] p-3 sm:p-4">
-        <div className="flex flex-wrap gap-1.5">{["All 26", "New 12", "Contacted 7", "Won 3"].map((chip, index) => <span className={`rounded-full px-3 py-1.5 text-[13px] ${index === 0 ? "bg-paper font-semibold text-ink" : "bg-paper/[0.08]"}`} key={chip}>{chip}</span>)}</div>
+        <div className="flex flex-wrap gap-1.5">{["All 26", "New 12", "Contacted 7", "Won 3"].map((chip, index) => <span className={`rounded-full px-3 py-1.5 text-[13px] ${index === 0 ? "bg-paper font-semibold text-ink" : "bg-paper/[0.08]"} ${index === 2 ? "max-sm:hidden" : ""}`} key={chip}>{chip}</span>)}</div>
         <ul className="mt-2">
           {rows.map((row) => (
             <li className="flex items-center gap-3 border-b border-paper/[0.08] py-3.5 last:border-0" key={row.name}>
@@ -78,7 +78,7 @@ export function LeadsList() {
         </ul>
       </div>
       <div aria-hidden="true" className="mt-5 flex gap-1">
-        {funnel.map((step) => <div className="flex flex-col gap-2" key={step.label} style={{ flex: step.w }}><span className={`h-1.5 rounded-full ${step.c}`} /><span className={`${mono} text-paper/45`}>{step.label}</span></div>)}
+        {funnel.map((step) => <div className="flex flex-col gap-2" key={step.label} style={{ flex: step.w }}><span className={`h-1.5 rounded-full ${step.c}`} /><span className={`${mono} text-paper/45 max-sm:hidden`}>{step.label}</span></div>)}
       </div>
     </div>
   );
@@ -89,13 +89,13 @@ export function RevenueCard({ dark = false, compact = false }: { dark?: boolean;
   const path = points.map((y, i) => `${i === 0 ? "M" : "L"}${(i * 400) / (points.length - 1)} ${y}`).join(" ");
   return (
     <div className={dark ? "text-paper" : ""}>
-      <div className="flex items-center justify-between gap-3"><span className="text-[14px] font-semibold">Setuvara Teams</span><span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] ${dark ? "bg-paper/[0.08]" : "bg-paper"}`}><span className="size-1.5 rounded-full bg-[#7ED321]" />Verified · Stripe</span></div>
-      <div className="mt-4 flex items-baseline gap-2"><span className={`font-display font-extrabold leading-[0.85] tracking-[-0.06em] ${compact ? "text-[48px]" : "text-[64px]"}`}>$48.2k</span><span className={`text-[13px] ${dark ? "text-paper/55" : "text-ink/50"}`}>MRR</span><span className="ml-auto text-[13px] font-semibold">+18% vs Sep</span></div>
+      <div className="flex items-center justify-between gap-3"><span className="text-[14px] font-semibold">Setuvara Teams</span><span className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] ${dark ? "bg-paper/[0.08]" : "bg-paper"}`}><span className="size-1.5 rounded-full bg-[#7ED321]" />Verified · Stripe</span></div>
+      <div className="mt-4 flex items-baseline gap-2"><span className={`font-display font-extrabold leading-[0.85] tracking-[-0.06em] ${compact ? "text-[40px] sm:text-[48px]" : "text-[64px]"}`}>$48.2k</span><span className={`text-[13px] ${dark ? "text-paper/55" : "text-ink/50"}`}>MRR</span><span className="ml-auto whitespace-nowrap text-[13px] font-semibold">+18%<span className="max-sm:hidden"> vs Sep</span></span></div>
       <svg aria-hidden="true" className="mt-4 block h-[90px] w-full" preserveAspectRatio="none" viewBox="0 0 400 80">
         <path d={`${path} L400 80 L0 80 Z`} fill={dark ? "rgba(255,90,79,.18)" : "rgba(255,90,79,.1)"} />
         <path d={path} fill="none" stroke={dark ? "#FF5A4F" : "#0D0D0D"} strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
       </svg>
-      <p className={`mt-2 ${mono} ${dark ? "text-paper/40" : "text-ink/40"}`}>Example project · read daily from the provider</p>
+      <p className={`mt-2 ${mono} max-sm:hidden ${dark ? "text-paper/40" : "text-ink/40"}`}>Example project · read daily from the provider</p>
     </div>
   );
 }
@@ -113,8 +113,8 @@ export function RoadmapRows({ dark = false }: { dark?: boolean }) {
 export function Quote({ text, who, role }: { text: string; who: Person; role: string }) {
   return (
     <figure className="flex flex-1 flex-col justify-end">
-      <blockquote className="font-display text-[clamp(30px,3vw,40px)] font-extrabold leading-[0.95] tracking-[-0.05em]">“{text}”</blockquote>
-      <figcaption className="mt-6 flex items-center gap-3"><Avatar size={34} who={who} /><span className="text-[14px]"><b className="font-semibold">{who.name}</b> <span className="text-ink/65">· {role}</span></span></figcaption>
+      <blockquote className="font-display text-[26px] sm:text-[clamp(30px,3vw,40px)] font-extrabold leading-[0.95] tracking-[-0.05em]">“{text}”</blockquote>
+      <figcaption className="mt-6 flex items-center gap-3"><Avatar size={34} who={who} /><span className="text-[14px]"><b className="font-semibold">{who.name}</b> <span className="text-ink/65 max-sm:hidden">· {role}</span></span></figcaption>
     </figure>
   );
 }
@@ -142,8 +142,8 @@ export function SubRows({ rows }: { rows: [string, string][] }) {
 export function NewsletterCard() {
   return (
     <div className="rounded-[20px] bg-paper p-5">
-      <div className="flex justify-between"><span className={`${mono} text-coral`}>Newsletter</span><span className={`${mono} text-ink/40`}>On Aanya’s page</span></div>
-      <p className="mt-3 font-display text-[26px] font-extrabold leading-[0.95] tracking-[-0.05em]">Sunday run club, every week.</p>
+      <div className="flex justify-between gap-3"><span className={`${mono} text-coral`}>Newsletter</span><span className={`${mono} text-ink/40 max-sm:hidden`}>On Aanya’s page</span></div>
+      <p className="mt-3 font-display text-[22px] font-extrabold leading-[0.95] tracking-[-0.05em] sm:text-[26px]">Sunday run club, every week.</p>
       <div className="mt-4 flex gap-2"><span className="flex h-11 flex-1 items-center rounded-[12px] bg-white px-3 text-[14px] text-ink/45">you@email.com</span><span className="flex h-11 items-center rounded-full bg-ink px-4 text-[14px] font-semibold text-paper">Join</span></div>
     </div>
   );
@@ -165,11 +165,11 @@ export function ConnectionRows({ dark = true, rows }: { dark?: boolean; rows: { 
 
 export function Stamps({ items }: { items: { title: string; line: string }[] }) {
   return (
-    <ul className="grid grid-cols-3 gap-3">
+    <ul className="grid grid-cols-3 gap-1.5 sm:gap-3">
       {items.map((stamp, index) => (
         <li className={`flex aspect-square flex-col items-center justify-center rounded-full border-[1.5px] border-dashed border-ink p-2 text-center ${index === 1 ? "rotate-[-8deg] bg-ink text-coral" : index === 2 ? "rotate-[6deg]" : ""}`} key={stamp.title}>
-          <span className="font-display text-[clamp(15px,1.5vw,19px)] font-extrabold leading-none tracking-[-0.04em]">{stamp.title}</span>
-          <span className={`mt-1 ${mono} text-[8.5px]`}>{stamp.line}</span>
+          <span className="font-display text-[13px] font-extrabold leading-none tracking-[-0.04em] sm:text-[clamp(15px,1.5vw,19px)]">{stamp.title}</span>
+          <span className={`mt-1 ${mono} text-[7.5px] tracking-[0.08em] sm:text-[8.5px] sm:tracking-[0.16em] ${stamp.line.length > 8 ? "max-sm:hidden" : ""}`}>{stamp.line}</span>
         </li>
       ))}
     </ul>
@@ -180,13 +180,13 @@ export function EventCard() {
   return (
     <div className="rounded-[20px] bg-[#1B1B1B] p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
-        <div><p className={`${mono} text-paper/45`}>Thu 19 Nov · Helsinki</p><p className="mt-2 font-display text-[26px] font-extrabold leading-[0.95] tracking-[-0.05em]">Climate founders breakfast</p></div>
+        <div className="min-w-0"><p className={`${mono} text-paper/45`}>Thu 19 Nov<span className="max-sm:hidden"> · Helsinki</span></p><p className="mt-2 font-display text-[20px] font-extrabold leading-[1] tracking-[-0.045em] sm:text-[26px] sm:leading-[0.95] sm:tracking-[-0.05em]"><span className="sm:hidden">Founders breakfast</span><span className="max-sm:hidden">Climate founders breakfast</span></p></div>
         <span className="shrink-0 rounded-full bg-[#C7FF4A] px-3 py-1 text-[12px] font-semibold text-ink">Open</span>
       </div>
       <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-        {[["38", "Going"], ["6", "Waitlist"], ["24", "Checked in"]].map(([n, l]) => <div className="rounded-[14px] bg-paper/[0.06] py-3" key={l}><p className="font-display text-[26px] font-extrabold leading-none tracking-[-0.05em]">{n}</p><p className={`mt-1.5 ${mono} text-paper/45`}>{l}</p></div>)}
+        {[["38", "Going", "Going"], ["6", "Waitlist", "Wait"], ["24", "Checked in", "In"]].map(([n, l, short]) => <div className="rounded-[14px] bg-paper/[0.06] py-3" key={l}><p className="font-display text-[22px] font-extrabold leading-none tracking-[-0.05em] sm:text-[26px]">{n}</p><p className="mt-1.5 text-[11px] text-paper/50 sm:font-label sm:text-[10px] sm:uppercase sm:tracking-[0.16em]"><span className="sm:hidden">{short}</span><span className="max-sm:hidden">{l}</span></p></div>)}
       </div>
-      <div className="mt-4 flex items-center gap-2"><span className="flex -space-x-2">{[DEMO_PEOPLE.aanya, DEMO_PEOPLE.lucasClose, DEMO_PEOPLE.sena, DEMO_PEOPLE.noor].map((who) => <Avatar className="ring-2 ring-[#1B1B1B]" key={who.name} size={30} who={who} />)}</span><span className="text-[13px] text-paper/55">Guest list · door scanner on your phone</span></div>
+      <div className="mt-4 flex items-center gap-2"><span className="flex -space-x-2">{[DEMO_PEOPLE.aanya, DEMO_PEOPLE.lucasClose, DEMO_PEOPLE.sena, DEMO_PEOPLE.noor].map((who) => <Avatar className="ring-2 ring-[#1B1B1B]" key={who.name} size={30} who={who} />)}</span><span className="text-[13px] text-paper/55"><span className="sm:hidden">+34 going</span><span className="max-sm:hidden">Guest list · door scanner on your phone</span></span></div>
     </div>
   );
 }
@@ -213,7 +213,7 @@ export function StoreList() {
     <div className="rounded-[20px] bg-[#1B1B1B] p-3 sm:p-4">
       <ul>
         {items.map(([name, kind, price, sold]) => (
-          <li className="flex items-center gap-3 border-b border-paper/[0.08] py-3.5 last:border-0" key={name}>
+          <li className="flex items-center gap-3 border-b border-paper/[0.08] py-3.5 last:border-0 max-sm:[&:nth-child(3)]:hidden" key={name}>
             <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-[#E8A6FF] font-display text-[15px] font-extrabold text-ink">{name[0]}</span>
             <div className="min-w-0 flex-1"><p className="text-[15px] font-semibold">{name}</p><p className="text-[12.5px] text-paper/55">{kind}</p></div>
             <span className={`${mono} hidden text-paper/40 sm:inline`}>{sold}</span>
@@ -221,7 +221,7 @@ export function StoreList() {
           </li>
         ))}
       </ul>
-      <p className="mt-2 flex items-center justify-between border-t border-paper/[0.08] px-1 pt-3 text-[13px]"><span className="text-paper/55">New order · Live session pack</span><span className="font-semibold text-[#C7FF4A]">+$12</span></p>
+      <p className="mt-2 flex items-center justify-between border-t border-paper/[0.08] px-1 pt-3 text-[13px]"><span className="text-paper/55">New order<span className="max-sm:hidden"> · Live session pack</span></span><span className="font-semibold text-[#C7FF4A]">+$12</span></p>
     </div>
   );
 }
@@ -229,9 +229,9 @@ export function StoreList() {
 export function MediaKitCard() {
   return (
     <div className="rounded-[20px] bg-paper p-5">
-      <div className="flex items-center gap-3"><Avatar size={44} who={DEMO_PEOPLE.sena} /><div><p className="text-[16px] font-semibold">Sena Okafor</p><p className="text-[13px] text-ink/55">Music · Live sessions · Lagos</p></div></div>
-      <ul className="mt-4 grid grid-cols-3 gap-2">{[["48K", "YouTube"], ["31K", "Instagram"], ["120K", "TikTok"]].map(([n, p]) => <li className="rounded-[12px] bg-white p-3" key={p}><p className="font-display text-[22px] font-extrabold leading-none tracking-[-0.05em]">{n}</p><p className="mt-1 text-[11px] font-semibold">{p}</p></li>)}</ul>
-      <p className={`mt-4 ${mono} text-ink/45`}>Example numbers · shared by link</p>
+      <div className="flex items-center gap-3"><Avatar size={44} who={DEMO_PEOPLE.sena} /><div className="min-w-0"><p className="text-[16px] font-semibold">Sena Okafor</p><p className="truncate text-[13px] text-ink/55">Music · Lagos</p></div></div>
+      <ul className="mt-4 grid grid-cols-3 gap-2">{[["48K", "YouTube"], ["31K", "Instagram"], ["120K", "TikTok"]].map(([n, p]) => <li className="min-w-0 rounded-[12px] bg-white px-1.5 py-2.5 text-center sm:p-3 sm:text-left" key={p}><p className="font-display text-[19px] font-extrabold leading-none tracking-[-0.05em] sm:text-[22px]">{n}</p><p className="mt-1 text-[10px] font-semibold tracking-[-0.01em] sm:text-[11px]">{p}</p></li>)}</ul>
+      <p className={`mt-4 ${mono} text-ink/45 max-sm:hidden`}>Example numbers · shared by link</p>
     </div>
   );
 }
@@ -240,7 +240,7 @@ export function DealStages() {
   return (
     <ul className="mt-auto flex flex-col gap-2">
       {[["New", "Audio brand · sponsored session", false], ["Talking", "Festival · live set", true], ["Paid", "Streaming service · playlist", false]].map(([stage, line, active]) => (
-        <li className={`flex items-center justify-between gap-3 rounded-[16px] px-4 py-3 ${active ? "bg-ink text-paper" : "bg-paper/40"}`} key={String(stage)}><span className="text-[14px]">{line}</span><span className={`${mono} ${active ? "text-coral" : "text-ink/60"}`}>{stage}</span></li>
+        <li className={`flex items-center justify-between gap-3 rounded-[16px] px-4 py-3 ${active ? "bg-ink text-paper" : "bg-paper/40"}`} key={String(stage)}><span className="min-w-0 truncate text-[14px]">{String(line).split(" · ")[0]}<span className="max-sm:hidden"> · {String(line).split(" · ")[1]}</span></span><span className={`${mono} ${active ? "text-coral" : "text-ink/60"}`}>{stage}</span></li>
       ))}
     </ul>
   );
@@ -249,9 +249,9 @@ export function DealStages() {
 export function AudienceRows({ count = "1,284", subject = "New session this Friday." }: { count?: string; subject?: string }) {
   return (
     <div className="rounded-[20px] bg-paper p-5">
-      <div className="flex items-baseline justify-between"><p className="font-display text-[44px] font-extrabold leading-none tracking-[-0.06em]">{count}</p><span className={`${mono} text-ink/45`}>Subscribers</span></div>
-      <p className="mt-4 rounded-[14px] bg-white p-4 text-[14px] leading-[1.5]"><b className="font-semibold">{subject}</b> <span className="text-ink/60">Sent to {count} subscribers</span></p>
-      <p className={`mt-4 ${mono} text-ink/45`}>Example · email on Plus (2,500 a month) and Pro (20,000)</p>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between"><p className="font-display text-[40px] font-extrabold leading-none tracking-[-0.06em] sm:text-[44px]">{count}</p><span className={`${mono} text-ink/45`}>Subscribers</span></div>
+      <p className="mt-4 rounded-[14px] bg-white p-4 text-[14px] leading-[1.5]"><b className="font-semibold">{subject}</b> <span className="text-ink/60">Sent to {count}<span className="max-sm:hidden"> subscribers</span></span></p>
+      <p className={`mt-4 ${mono} text-ink/45 max-sm:hidden`}>Example · email on Plus (2,500 a month) and Pro (20,000)</p>
     </div>
   );
 }

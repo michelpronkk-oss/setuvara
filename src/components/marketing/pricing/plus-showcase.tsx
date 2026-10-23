@@ -9,6 +9,7 @@ import { PassportCover } from "@/components/passport/passport-cover";
 import { QrFrame } from "@/components/profile/qr-frame";
 import { PLAN_COUNTS } from "@/lib/billing/plan-copy";
 
+import { RAIL, RAIL_ITEM } from "../site/kit";
 import { BadgedName, H2, Lede, Mono, Pill, SECTION, SECTION_PAD, SectionHead } from "./shared";
 
 function Equalizer({ height = 16 }: { height?: number }) {
@@ -25,7 +26,7 @@ function CardFoot({ title, children, dark = false }: { title: string; children: 
   return (
     <div className={`flex flex-col gap-2 border-t pt-5 ${dark ? "border-paper/15" : "border-ink/10"}`}>
       <h3 className="m-0 font-display text-[clamp(20px,1.7vw,24px)] font-bold leading-[1.05] tracking-[-0.03em]">{title}</h3>
-      <p className={`m-0 max-w-[520px] text-[14px] leading-[1.5] ${dark ? "text-paper/70" : "text-ink/70"}`}>{children}</p>
+      <p className={`m-0 max-w-[520px] text-[14px] max-md:hidden leading-[1.5] ${dark ? "text-paper/70" : "text-ink/70"}`}>{children}</p>
     </div>
   );
 }
@@ -52,8 +53,8 @@ export function PlusShowcase() {
           </div>
         </SectionHead>
 
-        <div className="flex flex-wrap gap-5">
-          <article className={`${CARD} flex-[1_1_560px] bg-white`}>
+        <div className={`flex flex-wrap gap-5 ${RAIL}`}>
+          <article className={`${CARD} flex-[1_1_560px] bg-white ${RAIL_ITEM}`}>
             <div className="flex items-center justify-between gap-3"><Mono className="text-ink/65">01 · Plus badge</Mono><Pill className="bg-coral">Plus</Pill></div>
             <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-7 sm:grid-cols-2">
               <div className="relative flex aspect-square w-full max-w-[260px] items-center justify-center justify-self-center overflow-hidden rounded-[28px] bg-[#fff1ef]">
@@ -73,7 +74,7 @@ export function PlusShowcase() {
             <CardFoot title="Status, not a blue tick.">Cut at the mark’s own 30°, in Signal Coral. Beside your name, everywhere.</CardFoot>
           </article>
 
-          <article className={`${CARD} relative flex-[1_1_400px] overflow-hidden bg-ink text-paper`}>
+          <article className={`${CARD} relative flex-[1_1_400px] overflow-hidden bg-ink text-paper ${RAIL_ITEM}`}>
             <div className="flex items-center justify-between gap-3"><Mono className="text-paper/65">02 · Pro status</Mono><Pill className="bg-[#d6b25e] text-ink">Pro</Pill></div>
             <div className="relative flex min-h-[240px] flex-1 items-center justify-center rounded-3xl bg-[radial-gradient(circle_at_50%_45%,#2a2418,#0d0d0d_70%)] shadow-[inset_0_0_0_1px_rgba(214,178,94,.2)]">
               <MemberBadge decorative size={150} tier="pro" />
@@ -86,8 +87,8 @@ export function PlusShowcase() {
             </div>
           </article>
 
-          <article className={`${CARD} flex-[1_1_100%] bg-[#e8e2d4]`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <article className={`${CARD} flex-[1_1_100%] bg-[#e8e2d4] ${RAIL_ITEM}`}>
+            <div className={`flex flex-wrap items-center justify-between gap-3 ${RAIL}`}>
               <Mono className="text-ink/65">03 · Passport · Standard vs Plus</Mono>
               <div aria-label="Passport finish" className="flex gap-1.5" role="group">
                 {[{ on: false, label: "Standard" }, { on: true, label: "Member finish" }].map((item) => (
@@ -127,8 +128,8 @@ export function PlusShowcase() {
             <CardFoot title="Stamps are earned. Plus changes how they’re worn.">The Member finish on your cover, and a stamp on your profile as flair.</CardFoot>
           </article>
 
-          <article className={`${CARD} flex-[1_1_600px] bg-white`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <article className={`${CARD} flex-[1_1_600px] bg-white ${RAIL_ITEM}`}>
+            <div className={`flex flex-wrap items-center justify-between gap-3 ${RAIL}`}>
               <Mono className="text-ink/65">04 · QR styles</Mono>
               <div aria-label="QR style" className="flex flex-wrap gap-1.5" role="group">
                 {QR_CHOICES.map((item, index) => (
@@ -153,7 +154,7 @@ export function PlusShowcase() {
             <CardFoot title="Beautiful. Still scans first time.">{`${PLAN_COUNTS.qrStyles - 1} more styles in your Mode’s accent. The code stays dark on white, so every one scans.`}</CardFoot>
           </article>
 
-          <article className={`${CARD} flex-[1_1_380px] bg-ink text-paper`}>
+          <article className={`${CARD} flex-[1_1_380px] bg-ink text-paper ${RAIL_ITEM}`}>
             <div className="flex items-center justify-between gap-3"><Mono className="text-paper/65">05 · Soundtrack</Mono><Pill className="bg-coral text-ink">Plus</Pill></div>
             <div className="flex flex-1 flex-col justify-center gap-3">
               <div className="flex items-center justify-between rounded-[14px] px-3.5 py-3 text-[13px] text-paper/70 shadow-[inset_0_0_0_1px_rgba(245,244,239,.15)]">

@@ -7,6 +7,7 @@ import { CueGlyph } from "@/components/profile/scroll-cue";
 import type { AppearanceId } from "@/components/profile/types";
 
 import { DEMO_PEOPLE, ModePhone } from "../home/mode-phone";
+import { RAIL, RAIL_ITEM } from "./kit";
 import { Avatar } from "./panels";
 
 /**
@@ -48,12 +49,12 @@ function PlanTag({ value }: { value: string }) {
 
 export function LooksGallery() {
   return (
-    <ul className={`${nameFontClasses} grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-5 lg:gap-x-6`}>
+    <ul className={`${nameFontClasses} grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-5 lg:gap-x-6 ${RAIL}`}>
       {APPEARANCES.map((id) => (
-        <li className="flex flex-col items-center text-center" key={id}>
+        <li className={`flex flex-col items-center text-center ${RAIL_ITEM} max-md:!w-[170px]`} key={id}>
           <Phone scale={0.56}><ModePhone label={`${APPEARANCE_NAMES[id]} Look`} look={{ theme: id, accent: LOOK_CAST[id].accent }} slug="personal" who={LOOK_CAST[id].who} /></Phone>
           <p className="mt-5 flex items-center gap-2"><span className="font-display text-[22px] font-extrabold tracking-[-0.045em]">{APPEARANCE_NAMES[id]}</span><PlanTag value={plan("theme", id)} /></p>
-          <p className="mt-1.5 max-w-[16rem] text-[14px] leading-[1.5] text-paper/60">{APPEARANCE_LINES[id]}</p>
+          <p className="mt-1.5 max-w-[16rem] text-[14px] leading-[1.5] text-paper/60 max-md:hidden">{APPEARANCE_LINES[id]}</p>
         </li>
       ))}
     </ul>
@@ -62,9 +63,9 @@ export function LooksGallery() {
 
 export function NameStyles() {
   return (
-    <ul className={`${nameFontClasses} grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-6 lg:gap-x-5`}>
+    <ul className={`${nameFontClasses} grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-6 lg:gap-x-5 ${RAIL}`}>
       {NAME_FONTS.map((id) => (
-        <li className="flex flex-col items-center" key={id}>
+        <li className={`flex flex-col items-center ${RAIL_ITEM} max-md:!w-[150px]`} key={id}>
           <Phone scale={0.5}><ModePhone label={`${NAME_FONT_NAMES[id]} name style`} look={{ theme: "immersive", accent: "#FF5A4F", nameFont: id, namePosition: "bottom" }} slug="event" who={DEMO_PEOPLE.theo} /></Phone>
           <p className="mt-4 flex items-center gap-2"><span className="text-[15px] font-semibold">{NAME_FONT_NAMES[id]}</span><PlanTag value={plan("nameFont", id)} /></p>
         </li>
@@ -78,14 +79,14 @@ const CUE_OWNER = Object.fromEntries(Object.entries(APPEARANCE_CUES).map(([look,
 
 export function CueGrid() {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-4">
       {SCROLL_CUES.map((cue) => (
         <li className="flex flex-col overflow-hidden rounded-[22px] bg-[#1B1B1B]" key={cue}>
-          <div aria-hidden="true" className="flex h-[150px] items-center justify-center text-paper" data-scroll-cue={cue} data-scroll-cue-motion="loop">
-            <span className="block scale-[1.6]"><CueGlyph accent="#FF5A4F" animated cue={cue} text={cue === "swipe" ? "Swipe" : cue === "caption" ? "Scroll" : "More below"} /></span>
+          <div aria-hidden="true" className="flex h-[96px] items-center justify-center text-paper sm:h-[150px]" data-scroll-cue={cue} data-scroll-cue-motion="loop">
+            <span className="block scale-[1.2] sm:scale-[1.6]"><CueGlyph accent="#FF5A4F" animated cue={cue} text={cue === "swipe" ? "Swipe" : cue === "caption" ? "Scroll" : "More below"} /></span>
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-paper/10 px-4 py-3.5">
-            <span><span className="block text-[14px] font-semibold text-paper">{CUE_NAMES[cue]}</span><span className={`${mono} text-paper/40`}>{CUE_OWNER[cue]}’s own</span></span>
+          <div className="flex items-center justify-between gap-2 border-t border-paper/10 px-3 py-2.5 sm:px-4 sm:py-3.5">
+            <span><span className="block text-[14px] font-semibold text-paper">{CUE_NAMES[cue]}</span><span className={`${mono} text-paper/40 max-sm:hidden`}>{CUE_OWNER[cue]}’s own</span></span>
           </div>
         </li>
       ))}
@@ -112,9 +113,9 @@ export function SoundtrackPresentations() {
     { id: "featured", title: "Featured", body: "A player with artwork, for when the music is the point.", visual: hero(<span className="absolute inset-x-4 top-4 flex items-center gap-3 rounded-[16px] bg-black/50 p-2.5 pr-4 text-paper backdrop-blur"><span className="grid size-11 shrink-0 place-items-center rounded-[10px] bg-[radial-gradient(circle_at_30%_30%,#FF5A4F,#2A2A2A_75%)]"><Bars /></span><span className="min-w-0 flex-1"><span className={`${mono} block text-paper/50`}>Now playing</span><span className="block truncate text-[13px] font-semibold">Late sets, vol. 3</span></span><span className="grid size-8 place-items-center rounded-full bg-paper text-[11px] text-ink">▶</span></span>) },
   ] as const;
   return (
-    <ul className="grid gap-4 md:grid-cols-3 lg:gap-6">
+    <ul className={`grid gap-4 md:grid-cols-3 lg:gap-6 ${RAIL}`}>
       {items.map((item) => (
-        <li className="flex flex-col rounded-[28px] bg-white p-3 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)]" key={item.id}>
+        <li className={`flex flex-col rounded-[28px] bg-white p-3 shadow-[0_40px_80px_-60px_rgba(13,13,13,.5)] ${RAIL_ITEM}`} key={item.id}>
           {item.visual}
           <div className="px-4 pb-5 pt-6">
             <p className="flex items-center gap-2"><span className="font-display text-[26px] font-extrabold leading-none tracking-[-0.05em]">{item.title}</span><PlanTag value={plan("soundtrackPresentation", item.id)} /></p>
