@@ -79,7 +79,7 @@ export const FEATURE_PAGES: Record<FeatureSlug, FeaturePage> = {
     ctaTitle: "Show the work. Prove the numbers.",
     worksWith: ["Stripe", "RevenueCat", "Dodo Payments", "Paddle"],
     name: "Builder",
-    metaTitle: "Builder: show what you're building, with verified revenue | Setuvara",
+    metaTitle: "Builder: share what you build, with verified revenue | Setuvara",
     metaDescription: "Show your projects on your Setuvara page: a public roadmap with voting, updates and revenue verified from Stripe, RevenueCat, Dodo or Paddle. Build in public, with proof.",
     eyebrow: "Builder and Verified Revenue",
     title: "Build in public, with proof.",

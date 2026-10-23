@@ -33,7 +33,7 @@ export const COMPARE_PAGES: Record<string, ComparePage> = {
     slug: "linktree",
     name: "Linktree",
     pricingUrl: "https://linktr.ee/s/pricing",
-    metaTitle: "Setuvara vs Linktree: a link in bio that also meets people | Setuvara",
+    metaTitle: "Setuvara vs Linktree: a link in bio that meets people | Setuvara",
     metaDescription: "Linktree is a list of links. Setuvara gives you four pages from one account, shared by link, QR or NFC tap, and remembers everyone you meet. Compare them side by side.",
     title: "Setuvara vs Linktree",
     lede: "Linktree is the classic link in bio: one page, a list of links. Setuvara is built for meeting people too: a page for each part of your life, shared in person by QR or tap, and a record of who you met.",

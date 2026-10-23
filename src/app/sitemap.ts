@@ -9,7 +9,7 @@ import { TEMPLATE_SLUGS } from "@/lib/marketing/templates-content";
 import { TOOLS } from "@/lib/marketing/tools";
 import { USE_CASE_ORDER } from "@/lib/marketing/use-cases-content";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedUsername } from "@/lib/usernames";
+import { isAllowedUsername, isTestUsername } from "@/lib/usernames";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +80,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const rows = (data ?? []) as unknown as SitemapProfileMode[];
       for (const row of rows) {
         const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-        if (!profile || !isAllowedUsername(profile.username)) continue;
+        if (!profile || !isAllowedUsername(profile.username) || isTestUsername(profile.username)) continue;
         profiles.push({
           url: `${SETUVARA_ORIGIN}/${encodeURIComponent(profile.username)}`,
           lastModified: parseLastModified(row.updated_at, profile.updated_at),
@@ -97,7 +97,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (room > 0) {
       const { data: handles } = await supabase.rpc("list_indexed_mode_handles", { p_limit: room });
       for (const row of (handles ?? []) as { handle: string; updated_at: string | null }[]) {
-        if (!isAllowedUsername(row.handle)) continue;
+        if (!isAllowedUsername(row.handle) || isTestUsername(row.handle)) continue;
         profiles.push({
           url: `${SETUVARA_ORIGIN}/${row.handle}`,
           lastModified: parseLastModified(row.updated_at, null),

@@ -12,8 +12,7 @@ const ORIGIN = "https://setuvara.com";
 
 const indexable = [
   { path: "/", title: "Setuvara | Your identity for real life", jsonLd: ["Organization", "WebSite"] },
-  { path: "/modes", title: "Modes: Personal, Event and Business | Setuvara" },
-  { path: "/events", title: "Setuvara for Events" },
+  { path: "/modes", title: "Modes: Personal, Event, Business and Creator | Setuvara" },
   { path: "/teams", title: "Setuvara for Teams" },
   { path: "/pricing", title: "Pricing | Setuvara", jsonLd: ["WebApplication"] },
   { path: "/roadmap", title: "Roadmap | Setuvara" },

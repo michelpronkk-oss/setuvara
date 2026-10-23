@@ -43,7 +43,7 @@ import { getPublishedPublicMode, publicProfileDescription, publicProfileTitle, p
 import { createClient } from "@/lib/supabase/server";
 import { createPublicProfileImageUrl } from "@/lib/supabase/public-profile-image-url";
 import { parseSlidePhotos, signSlidePhotos } from "@/lib/app/slides";
-import { isAllowedUsername } from "@/lib/usernames";
+import { isAllowedUsername, isTestUsername } from "@/lib/usernames";
 import { liveModeHandle } from "@/lib/handles/mode-server";
 import { OwnerBar, OwnerConnect } from "@/components/profile/owner-view";
 
@@ -129,7 +129,7 @@ export async function publicProfileMetadata(target: PublicProfileTarget): Promis
       ? { alternates: { canonical: pageUrl }, robots: indexable ? indexed : { index: false, follow: false } }
       : shareToken
         ? { ...(liveHandle ? { alternates: { canonical: `https://setuvara.com/${liveHandle}` } } : {}), robots: { index: false, follow: false } }
-        : { alternates: { canonical: pageUrl }, robots: indexed }),
+        : { alternates: { canonical: pageUrl }, robots: isTestUsername(username) ? { index: false, follow: false } : indexed }),
     openGraph: {
       type: "profile",
       ...(handle ? { username: handle } : shareToken ? {} : { username }),
