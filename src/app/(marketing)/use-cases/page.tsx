@@ -6,7 +6,7 @@ import { USE_CASE_ORDER, USE_CASES } from "@/lib/marketing/use-cases-content";
 
 export const metadata = marketingMetadata({
   title: "Use cases: business cards, link in bio, events, revenue | Setuvara",
-  description: "How people use Setuvara: a digital business card for founders, a link in bio for creators, event networking, a QR business card and sharing SaaS revenue publicly.",
+  description: "How people use Setuvara: a digital business card for founders, a link in bio for creators, event networking, a QR business card and sharing your revenue publicly.",
   path: "/use-cases",
 });
 

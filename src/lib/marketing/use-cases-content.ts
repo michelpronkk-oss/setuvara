@@ -54,7 +54,7 @@ export const USE_CASES: Record<string, UseCase> = {
       { q: "Is it free?", a: `Business Mode, Leads, booking and Builder are free. Verified revenue starts on Plus at ${PRICES.plus.monthly} a month.` },
     ],
     related: [
-      { href: "/use-cases/share-saas-revenue-publicly", label: "Share your SaaS revenue publicly", line: "Build in public with numbers people can trust." },
+      { href: "/use-cases/share-revenue-publicly", label: "Share your revenue publicly", line: "Build in public with numbers people can trust." },
       { href: "/business", label: "Business Mode", line: "Everything on the card." },
       { href: "/compare/popl", label: "Setuvara vs Popl", line: "Digital business cards, compared." },
     ],
@@ -170,11 +170,11 @@ export const USE_CASES: Record<string, UseCase> = {
       { href: "/use-cases/digital-business-card-for-founders", label: "Digital business card for founders", line: "With verified revenue." },
     ],
   },
-  "share-saas-revenue-publicly": {
-    slug: "share-saas-revenue-publicly",
+  "share-revenue-publicly": {
+    slug: "share-revenue-publicly",
     mode: "business",
-    name: "Share your SaaS revenue publicly",
-    metaTitle: "Share your SaaS revenue publicly, verified from Stripe | Setuvara",
+    name: "Share your revenue publicly",
+    metaTitle: "Share your revenue and MRR publicly, verified from Stripe | Setuvara",
     metaDescription: "Build in public with revenue people can trust: connect a read-only Stripe, RevenueCat, Dodo or Paddle key and show verified revenue on your page, next to your roadmap.",
     eyebrow: "Build in public",
     title: "Revenue people can trust.",
@@ -196,7 +196,7 @@ export const USE_CASES: Record<string, UseCase> = {
       { title: "On your card", body: "The same page you share by QR or tap at a meetup.", href: "/use-cases/digital-business-card-for-founders" },
     ],
     faq: [
-      { q: "How do I share my SaaS revenue publicly?", a: "Add your project to Builder on Setuvara, connect a read-only key from Stripe, RevenueCat, Dodo or Paddle, and turn on verified revenue. The figure on your page is read from the provider daily." },
+      { q: "How do I share my revenue or MRR publicly?", a: "Add your project to Builder on Setuvara, connect a read-only key from Stripe, RevenueCat, Dodo or Paddle, and turn on verified revenue. The figure on your page is read from the provider daily." },
       { q: "Is my Stripe key safe?", a: "Use a restricted, read-only key: a key like that can’t move money or change anything. Setuvara keeps it encrypted in a vault and only reads revenue with it." },
       { q: "Which plan do I need?", a: `Builder is free. Verified revenue needs Plus (${PRICES.plus.monthly} a month, 1 provider) or Pro (${PRICES.pro.monthly} a month, 3 providers).` },
       { q: "Can people see my customers?", a: "No. Only revenue totals are shown. Customer data never leaves your provider." },
@@ -209,4 +209,4 @@ export const USE_CASES: Record<string, UseCase> = {
   },
 };
 
-export const USE_CASE_ORDER = ["digital-business-card-for-founders", "link-in-bio-for-creators", "event-networking-app", "qr-business-card", "share-saas-revenue-publicly"] as const;
+export const USE_CASE_ORDER = ["digital-business-card-for-founders", "link-in-bio-for-creators", "event-networking-app", "qr-business-card", "share-revenue-publicly"] as const;

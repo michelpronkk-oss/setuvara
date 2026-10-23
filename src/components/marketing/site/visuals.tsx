@@ -70,7 +70,7 @@ export function BuilderVisual() {
   <div style={{ position: "absolute", left: "64px", top: "88px", width: "620px", height: "600px", background: "#FFFFFF", borderRadius: "28px", padding: "32px", boxSizing: "border-box", boxShadow: "0 50px 90px -50px rgba(13,13,13,.5)" }}>
     <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
       <span style={{ width: "48px", height: "48px", borderRadius: "14px", background: "#0D0D0D", display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="26" height="26" viewBox="0 0 100 100" fill="#FF5A4F" aria-hidden="true"><path d="M66.62 10.38A26 26 0 1 0 37 52.89L43.25 56.49L52.25 40.91L46 37.3A8 8 0 1 1 57.15 26.78Z" /><path d="M33.38 89.62A26 26 0 1 0 63 47.11L56.75 43.51L47.75 59.09L54 62.7A8 8 0 1 1 42.85 73.22Z" /></svg></span>
-      <div style={{ flex: "1" }}><div style={{ fontFamily: "var(--font-bricolage),sans-serif", fontWeight: "800", fontSize: "26px", letterSpacing: "-0.05em", lineHeight: "1" }}>Setuvara Teams</div><div style={{ fontSize: "13px", color: "rgba(13,13,13,.5)", marginTop: "4px" }}>SaaS · Launched Mar 2026 · setuvara.com/teams</div></div>
+      <div style={{ flex: "1" }}><div style={{ fontFamily: "var(--font-bricolage),sans-serif", fontWeight: "800", fontSize: "26px", letterSpacing: "-0.05em", lineHeight: "1" }}>Setuvara Teams</div><div style={{ fontSize: "13px", color: "rgba(13,13,13,.5)", marginTop: "4px" }}>Project · Launched Mar 2026 · setuvara.com/teams</div></div>
       <span style={{ font: "500 10px var(--font-geist-mono),monospace", letterSpacing: ".16em", textTransform: "uppercase", color: "#FF5A4F" }}>Roadmap</span>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "12px", marginTop: "28px" }}>

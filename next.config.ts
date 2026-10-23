@@ -26,6 +26,8 @@ const nextConfig: NextConfig = {
       { source: "/favicon.ico", destination: "/icons/setuvara-icon.png", permanent: true },
       // The old "For Events" page; Event Mode at /event covers it now.
       { source: "/events", destination: "/event", permanent: true },
+      // Revenue sharing is for any project or business, not only SaaS.
+      { source: "/use-cases/share-saas-revenue-publicly", destination: "/use-cases/share-revenue-publicly", permanent: true },
     ];
   },
   async headers() {

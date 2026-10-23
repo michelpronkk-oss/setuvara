@@ -43,7 +43,7 @@ const USE_CASE_VISUAL: Record<string, ReactNode> = {
   "link-in-bio-for-creators": <ModeScene slug="creator" title="Creators" tool="work" />,
   "event-networking-app": <ModeScene slug="event" title="Networking" tool="met" />,
   "qr-business-card": <PrintCardScene />,
-  "share-saas-revenue-publicly": <BannerVisual name="builder" />,
+  "share-revenue-publicly": <BannerVisual name="builder" />,
 };
 const COMPARE_MODE: Record<string, ModeSlug> = { linktree: "personal", beacons: "creator", popl: "business", carrd: "event" };
 

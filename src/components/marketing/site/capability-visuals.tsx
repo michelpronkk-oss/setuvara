@@ -85,7 +85,7 @@ const SCENES: Record<string, { tone: "paper" | "ink" | "coral"; scene: ReactNode
   Projects: { tone: "paper", scene: (
     <div className="flex w-full max-w-[260px] items-center gap-3 rounded-[16px] bg-white p-4">
       <span className="flex size-10 items-center justify-center rounded-[12px] bg-ink font-display text-[18px] font-extrabold text-coral">S</span>
-      <div className="min-w-0 flex-1"><p className="text-[14px] font-semibold">Setuvara Teams</p><p className="text-[12px] text-ink/50">SaaS · since Mar 2026</p></div>
+      <div className="min-w-0 flex-1"><p className="text-[14px] font-semibold">Setuvara Teams</p><p className="text-[12px] text-ink/50">Project · since Mar 2026</p></div>
       <span className="rounded-full bg-[#E8F7D4] px-2 py-1 text-[11px] font-semibold">Live</span>
     </div>
   ) },
