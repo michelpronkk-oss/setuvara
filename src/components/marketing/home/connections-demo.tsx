@@ -2,8 +2,6 @@
 
 import { useMemo, useState } from "react";
 
-import { CharacterAvatar } from "@/components/avatar/character-avatar";
-
 import type { DemoConnection } from "./demo";
 import { Flag } from "./flag";
 
@@ -28,7 +26,8 @@ export function ConnectionsDemo({ items }: { items: DemoConnection[] }) {
   }, [filter, items, query]);
 
   return (
-    <div className="flex flex-col gap-4 rounded-[2rem] bg-ink p-4 text-paper sm:p-6">
+    <div className="relative isolate flex flex-col gap-4 overflow-hidden rounded-[2rem] bg-ink p-4 text-paper shadow-[0_60px_120px_-60px_rgba(13,13,13,.7)] sm:p-6">
+      <span aria-hidden="true" className="absolute -right-24 -top-24 -z-10 size-[360px] rounded-full bg-coral/25 blur-[90px]" />
       <div className="flex items-center gap-3 rounded-full bg-white/10 px-5 focus-within:outline-2 focus-within:outline-coral">
         <svg aria-hidden="true" className="size-4 shrink-0 text-paper/50" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" /><path d="m16 16 4 4" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /></svg>
         <label className="sr-only" htmlFor="demo-connection-search">Search the example connections</label>
@@ -57,7 +56,8 @@ export function ConnectionsDemo({ items }: { items: DemoConnection[] }) {
       <ul className="flex min-h-[248px] flex-col divide-y divide-white/10 rounded-[1.4rem] bg-white/[0.04] px-4 sm:px-5">
         {results.map((item) => (
           <li className="flex items-center gap-3.5 py-4" key={item.id}>
-            <CharacterAvatar className="size-11 shrink-0 rounded-full" seed={item.name} />
+            {/* eslint-disable-next-line @next/next/no-img-element -- static example portrait */}
+            <img alt="" className="size-12 shrink-0 rounded-full object-cover shadow-[0_0_0_2px_rgba(245,244,239,.08)]" src={item.photo} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-semibold">{item.name}</span>
               <span className="mt-0.5 block truncate text-[12px] text-paper/55">{item.role}</span>

@@ -51,6 +51,8 @@ export type DemoConnection = {
   id: string;
   name: string;
   role: string;
+  /** One of the example cast's real portraits (public/pricing). */
+  photo: string;
   event: string;
   city: string;
   country: "NL" | "PT" | "IE" | "FI";
@@ -60,11 +62,9 @@ export type DemoConnection = {
 };
 
 export const demoConnections: DemoConnection[] = [
-  { id: "marco", name: "Marco Silva", role: "Head of Sales · Northlight", event: "TNW Conference", city: "Amsterdam", country: "NL", mode: "Business", lastMet: "Jun 2026", encounters: 3 },
-  { id: "priya", name: "Priya Nair", role: "Lisbon run club", event: "Saturday long run", city: "Lisbon", country: "PT", mode: "Personal", lastMet: "4 Oct 2026", encounters: 6 },
-  { id: "tom", name: "Tom Okafor", role: "CTO · Gridline", event: "SaaStock", city: "Dublin", country: "IE", mode: "Business", lastMet: "30 Sep 2026", encounters: 1 },
-  { id: "noah", name: "Noah Chen", role: "Founder · Tidewater", event: "Canal dinner", city: "Amsterdam", country: "NL", mode: "Personal", lastMet: "12 Sep 2026", encounters: 2 },
-  { id: "lena", name: "Lena Fischer", role: "Product Designer · Atelier Nord", event: "Slush", city: "Helsinki", country: "FI", mode: "Event", lastMet: "20 Nov 2025", encounters: 1 },
-  { id: "jonas", name: "Jonas Berg", role: "Talent · Lumen Labs", event: "Slush", city: "Helsinki", country: "FI", mode: "Event", lastMet: "19 Nov 2025", encounters: 2 },
-  { id: "sofia", name: "Sofia Marques", role: "Partner · Ondas Ventures", event: "Web Summit", city: "Lisbon", country: "PT", mode: "Event", lastMet: "12 Nov 2025", encounters: 1 },
+  { id: "noor", name: "Noor Haddad", role: "Partner · Ondas Ventures", photo: "/pricing/noor-close.webp", event: "TNW Conference", city: "Amsterdam", country: "NL", mode: "Business", lastMet: "Jun 2026", encounters: 3 },
+  { id: "aanya", name: "Aanya Rao", role: "Lisbon run club", photo: "/pricing/aanya-close.webp", event: "Saturday long run", city: "Lisbon", country: "PT", mode: "Personal", lastMet: "4 Oct 2026", encounters: 6 },
+  { id: "lucas", name: "Lucas Meyer", role: "Founder", photo: "/pricing/lucas-close.webp", event: "SaaStock", city: "Dublin", country: "IE", mode: "Business", lastMet: "30 Sep 2026", encounters: 1 },
+  { id: "theo", name: "Theo Laurent", role: "Climate founder", photo: "/pricing/theo-close.webp", event: "Canal dinner", city: "Amsterdam", country: "NL", mode: "Personal", lastMet: "12 Sep 2026", encounters: 2 },
+  { id: "sena", name: "Sena Okafor", role: "Musician · Speaker", photo: "/pricing/sena-close.webp", event: "Slush", city: "Helsinki", country: "FI", mode: "Event", lastMet: "20 Nov 2025", encounters: 1 },
 ];

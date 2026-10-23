@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { CharacterAvatar } from "@/components/avatar/character-avatar";
 
 import { Display, Label, LaterTag, Shell } from "./primitives";
 import { TeamsConsole } from "./teams-console";
@@ -48,9 +47,10 @@ export function Events() {
                 <span className="text-[14px] font-semibold">Slush · Helsinki</span>
                 <span className="font-label text-[10px] uppercase tracking-[0.14em] text-ink/55">3 people</span>
               </div>
-              {[["Lena Fischer", "Product Designer · Atelier Nord"], ["Jonas Berg", "Talent · Lumen Labs"], ["Elif Demir", "Founder · Kestrel Grid"]].map(([name, role]) => (
+              {[["Noor Haddad", "Partner · Ondas Ventures", "/pricing/noor-close.webp"], ["Lucas Meyer", "Founder", "/pricing/lucas-close.webp"], ["Sena Okafor", "Musician · Speaker", "/pricing/sena-close.webp"]].map(([name, role, photo]) => (
                 <div className="flex items-center gap-3 border-b border-ink/10 py-3 last:border-0" key={name}>
-                  <CharacterAvatar className="size-9 shrink-0 rounded-full" seed={name} />
+                  {/* eslint-disable-next-line @next/next/no-img-element -- static example portrait */}
+                  <img alt="" className="size-10 shrink-0 rounded-full object-cover" src={photo} />
                   <span className="min-w-0"><span className="block truncate text-[14px] font-semibold">{name}</span><span className="block truncate text-[12px] text-ink/55">{role}</span></span>
                 </div>
               ))}
