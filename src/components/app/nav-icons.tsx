@@ -73,7 +73,7 @@ export function StudioIcon({ name }: { name: StudioPageId }) {
 
 
 // 24px line icons, 1.8 stroke, round joins. The current destination lights its icon coral.
-export type GlobalIconName = "home" | "identity" | "wallet" | "analytics" | "people" | "passport" | "settings";
+export type GlobalIconName = "home" | "identity" | "wallet" | "analytics" | "people" | "passport" | "settings" | "help";
 const navIcons: Record<GlobalIconName, ReactNode> = {
   home: <path d="M4 10.4 12 4l8 6.4V19a1 1 0 0 1-1 1h-4.25v-5.25h-5.5V20H5a1 1 0 0 1-1-1v-8.6Z" />,
   identity: <><rect height="14" rx="2.75" width="18" x="3" y="5" /><circle cx="9" cy="10.6" r="2.2" /><path d="M5.9 16.2c.6-1.5 1.75-2.3 3.1-2.3s2.5.8 3.1 2.3M14.6 10h4M14.6 13.4h2.8" /></>,
@@ -81,6 +81,7 @@ const navIcons: Record<GlobalIconName, ReactNode> = {
   analytics: <path d="M5 20v-5.5M10 20V9M15 20v-7.5M20 20V4.5" />,
   people: <><circle cx="9" cy="8.4" r="3.2" /><path d="M3.4 19.4c.7-3.1 2.9-4.9 5.6-4.9s4.9 1.8 5.6 4.9" /><path d="M15.4 5.4a3 3 0 0 1 0 5.9M17.2 14.6c1.8.5 3 2 3.4 4.4" /></>,
   passport: <><rect height="18" rx="2.5" width="14" x="5" y="3" /><circle cx="12" cy="10" r="3" /><path d="M9.5 16.6h5" /></>,
+  help: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" /><circle cx="12" cy="17" fill="currentColor" r=".9" stroke="none" /></>,
   settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.7 7.7 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.7 7.7 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.7 7.7 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.7 7.7 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.6Z" /></>,
 };
 

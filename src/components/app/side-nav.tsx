@@ -175,6 +175,17 @@ export function SideNav({ place, modes, published, unread = 0, needsYou = 0, wal
   );
 }
 
+/** Help at the foot of the sidebar: the public Help centre, in a new tab so the app stays open. */
+export function HelpLink() {
+  return (
+    <a className={`${row} ${off}`} href="/help" rel="noreferrer" target="_blank">
+      <span><NavIcon className="size-[19px]" name="help" /></span>
+      <span className="min-w-0 flex-1 truncate">Help</span>
+      <span aria-hidden="true" className="text-xs opacity-50">↗</span>
+    </a>
+  );
+}
+
 /** The Settings row at the foot of the sidebar. */
 export function SettingsLink({ current }: { current: boolean }) {
   return (

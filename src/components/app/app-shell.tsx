@@ -13,7 +13,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { FeedbackSheet } from "./feedback-sheet";
 import { HomeScreenRuntime, HomeScreenSheet, useStandalone } from "./home-screen";
 import { MOBILE_BAR_SPACE, MobileTabBar } from "./mobile-nav";
-import { SettingsLink, SideNav, type GlobalPage } from "./side-nav";
+import { HelpLink, SettingsLink, SideNav, type GlobalPage } from "./side-nav";
 import { StatusBadge } from "./status-badge";
 
 export type ShellMode = { slug: ModeSlug; enabled: boolean };
@@ -106,7 +106,7 @@ export function AppShell({ children, displayName, username, avatarUrl, avatarFoc
 
       {/* Desktop: the one Setuvara sidebar, shared with every Mode page. */}
       <SideNav
-        footer={<><SettingsLink current={globalPage(pathname) === "settings"} /><AccountMenu {...account} placement="panel" /></>}
+        footer={<><HelpLink /><SettingsLink current={globalPage(pathname) === "settings"} /><AccountMenu {...account} placement="panel" /></>}
         modes={modes}
         place={{ global: globalPage(pathname) }}
         published={isPublished}
@@ -218,6 +218,7 @@ export function AccountMenu({ displayName, username, avatarUrl, avatarFocus, pla
           <Link className={item} href="/app/identity?mode=personal&section=settings" role="menuitem">{messages.common.modeSettings}</Link>
           <Link className={item} href="/app/settings/notifications" role="menuitem">{messages.common.emailPreferences}</Link>
           <Link className={item} href="/app/settings/privacy" role="menuitem">Privacy &amp; data</Link>
+          <a className={item} href="/help" rel="noreferrer" role="menuitem" target="_blank">Help<span aria-hidden="true" className="text-black/50">↗</span></a>
           <button className={item} onClick={() => { setOpen(false); setHomeScreenOpen(true); }} role="menuitem" type="button">{standalone ? "Home Screen app" : "Add to Home Screen"}</button>
           <button className={item} onClick={() => { setOpen(false); setFeedbackOpen(true); }} role="menuitem" type="button">Send feedback</button>
           <div className="mx-2.5 my-1.5 h-px bg-black/[0.08]" />

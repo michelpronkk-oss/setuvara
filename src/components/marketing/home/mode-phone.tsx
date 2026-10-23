@@ -68,7 +68,7 @@ export const CAST: Record<DemoMode["slug"], { who: Person; look: Look; live?: Pu
   personal: { who: DEMO_PEOPLE.aanya, look: { theme: "stack", pictures: ["/pricing/aanya-wide.webp"] } },
   event: { who: DEMO_PEOPLE.theo, look: { theme: "immersive", nameFont: "impact", scrollCue: "swipe", namePosition: "bottom" }, live: SLUSH },
   business: { who: DEMO_PEOPLE.lucasClose, look: { theme: "glow" } },
-  creator: { who: DEMO_PEOPLE.sena, look: { theme: "film" } },
+  creator: { who: DEMO_PEOPLE.sena, look: { theme: "social" } },
 };
 
 /** Real provider hosts, so the hero shows each Mode's social icons the way a member's page does. */
@@ -127,7 +127,7 @@ export function ModePhone({ slug, label, who, look: override, live, mediaPriorit
     <div aria-label={label ?? `${who.name}, ${slug} Mode`} className="relative h-[580px] w-[280px] rounded-[46px] bg-[#1b1b1b] p-[9px] text-left shadow-[0_40px_70px_-30px_rgba(13,13,13,.55),inset_0_0_0_1.5px_rgba(255,255,255,.08)]" role="img">
       <span aria-hidden="true" className="absolute -left-[3px] top-[118px] h-12 w-[3px] rounded-l bg-[#1b1b1b]" />
       <span aria-hidden="true" className="absolute -right-[3px] top-[150px] h-16 w-[3px] rounded-r bg-[#1b1b1b]" />
-      <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px] [&_[data-floating-connect]]:hidden" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>
+      <div aria-hidden="true" className="pointer-events-none relative h-full w-full overflow-hidden rounded-[38px] [clip-path:inset(0_round_38px)] [&_[data-floating-connect]]:hidden" inert style={{ background: appearanceTheme(look.id, look.accent).base }}>
         <div style={{ width: CANVAS.width, zoom, "--profile-vh": `${CANVAS.height}px` } as CSSProperties}>
           <MarketingProfilePreview liveContext={live} marketingMediaPriority={mediaPriority} nameAs="p" memberTier="plus" mode={mode} plan="pro" previewLook={look} profile={profile} sound="off" viewerState="visitor_unconnected" visitorAction={<DemoConnect />} />
         </div>
